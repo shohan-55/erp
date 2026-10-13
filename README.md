@@ -1,58 +1,92 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# RA&C ERP SaaS — Complete UI/UX Design Prototype (Phases 01–10)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A Laravel + Livewire enterprise SaaS **interface prototype** for Chartered Accountants firms.
 
-## About Laravel
+**Status:** All ten *design phases* are implemented and cloud-tested. This is **not a production-ready ERP**. All example users, salaries, attendance and approvals are fictional. Real authentication, role authorization, persistent tenancy, attendance processing, approval voting, payroll accounting and notifications remain future backend work.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Technology
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Laravel 13 · PHP 8.4 (cloud CI) · Livewire 4 · Blade · Tailwind CSS 4 · Vite 8 · Lucide icons.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## What is implemented
 
-## Learning Laravel
+| Phase | Deliverable |
+|---|---|
+| 01 | RA&C brand-inspired visual system, responsive application shell, reusable components |
+| 02 | Firm and Platform login, password recovery and invitation screens (UI only) |
+| 03 | Platform Super Admin dashboard, organization directory, privacy-first support access design |
+| 04 | Home Partner / Principal Dashboard |
+| 05 | Manager Dashboard showing only assigned fictional team |
+| 06 | Mobile-friendly personal Student Dashboard |
+| 07 | Office / Client Attendance, history, check-in/out simulation and correction design |
+| 08 | Student Leave Application and Manager/Partner review design |
+| 09 | Conveyance Claims, evidence and approval-preview workflow |
+| 10 | Monthly Allowance & Payroll, Notifications, Policy / Governance and Settings UI |
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Design routes (local server)
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+| Experience | Path |
+|---|---|
+| Phase 01 component library | / |
+| Platform login | /platform/login |
+| Platform Super Admin preview | /platform/dashboard-preview |
+| RA&C firm login | /c/rac/login |
+| Partner dashboard | /c/rac/preview/partner |
+| Manager dashboard | /c/rac/preview/manager |
+| Student dashboard | /c/rac/preview/student |
+| Student attendance | /c/rac/preview/student/attendance |
+| Student leave application | /c/rac/preview/student/leave |
+| Student conveyance claims | /c/rac/preview/student/conveyance |
+| Partner payroll | /c/rac/preview/partner/payroll |
+| Partner notifications | /c/rac/preview/partner/notifications |
+| Partner policy governance | /c/rac/preview/partner/policies |
+| Partner workspace settings | /c/rac/preview/partner/settings |
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+All design routes are intentionally **public examples containing fictional records only**. The role switcher is a visual preview, **not real authentication or authorization**. Do not attach real student, firm, attendance, financial or personal information to them.
 
-## Agentic Development
+## Development setup
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+~~~sh
+composer install
+cp .env.example .env
+php artisan key:generate
+npm ci
+npm run build
+php artisan serve
+~~~
 
-```bash
-composer require laravel/boost --dev
+Use npm run dev in a second terminal when working on frontend changes.
 
-php artisan boost:install
-```
+## Automated verification
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+- GitHub Actions workflow: [.github/workflows/laravel-ui.yml](.github/workflows/laravel-ui.yml).
+- PHP regression: php artisan test.
+- Production asset validation: npm run build.
+- Chromium browser workflows: tests/browser/phase03-preview.mjs and tests/browser/practice-phases.mjs.
+- Desktop and mobile screenshots: open **GitHub Actions → Successful workflow → Artifacts**.
+- Design and security boundary report: [docs/PHASES_04_10_REVIEW.md](docs/PHASES_04_10_REVIEW.md).
 
-## Contributing
+## Approved UI policy baseline
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- Asia/Dhaka; office start 10:00, end 18:00; 10-minute grace; Friday/Saturday holiday.
+- On time through 10:10:59, late from 10:11.
+- No automatic lateness or absence financial penalty until explicit approved policy.
+- Home Partner owns student records, even when the student works at another Partner's client.
+- RA&C company-wide defaults require unanimous approval from all three Partners. Individual permitted workspace overrides require their authorized Partner.
+- Monthly payroll eventually follows Draft → Review → Approve → Paid → Lock, with effective policy snapshots.
 
-## Code of Conduct
+## Must be implemented before any production or live-data use
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+1. Tenant-aware users, memberships, strict company/Partner row isolation and corporate governance variants.
+2. Authentication, secure sessions/2FA, invitations, authorization and password reset delivery.
+3. Server-timestamp attendance, sessions, consolidated daily status, corrections and audit history.
+4. Versioned policy overrides, unanimous voting, approvals and effective date rules.
+5. Leave entitlement and approvals, conveyance receipts, duplicate reimbursement controls.
+6. Real allowance/payroll calculations, immutable approvals and paid/locked snapshots.
+7. Notifications, consented expiring support access, immutable logs, billing, backup recovery, security testing and production hardening.
 
-## Security Vulnerabilities
+**Privacy:** A platform role should not grant ambient access to a tenant's private payroll or attendance. Infrastructure administrators may technically still access infrastructure; do not promise cryptographic isolation from a role-based UI.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+**Repository safety:** Never push .env secrets, passwords, real salary details, bank accounts, client documents or real student records. No actual tenant changes or live payments exist in this design.
 
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+The application project is separate from the MIT-licensed Laravel framework. Its own reuse and redistribution rights are not established merely by the underlying framework license.
