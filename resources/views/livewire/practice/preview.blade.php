@@ -110,7 +110,7 @@
             </main>
         </div>
 
-        @if($showPolicyModal || $showCorrectionModal || $showClaimReviewModal)
+        @if($showPolicyModal || $showCorrectionModal || $showClaimReviewModal || $showLeaveReviewModal)
             <div class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
                  wire:click.self="closeDialogs" wire:keydown.escape.window="closeDialogs"
                  role="dialog" aria-modal="true" aria-labelledby="practice-dialog-title">
@@ -118,7 +118,7 @@
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-800">Design Simulation · Not a Transaction</p>
-                            <h2 id="practice-dialog-title" class="mt-1 text-lg font-extrabold">{{ $showPolicyModal ? 'Company Policy Proposal' : ($showCorrectionModal ? 'Attendance Correction Review' : 'Conveyance Claim Review') }}</h2>
+                            <h2 id="practice-dialog-title" class="mt-1 text-lg font-extrabold">{{ $showPolicyModal ? 'Company Policy Proposal' : ($showCorrectionModal ? 'Attendance Correction Review' : ($showLeaveReviewModal ? 'Leave Application Review' : 'Conveyance Claim Review')) }}</h2>
                         </div>
                         <button type="button" wire:click="closeDialogs" aria-label="Close dialog" class="rounded-lg p-2 hover:bg-slate-100"><i data-lucide="x" class="h-4 w-4"></i></button>
                     </div>
@@ -127,6 +127,8 @@
                             A change to RA&C company-wide defaults requires individual agreement from all three Partners. The proposal, distinct voting identities, effective date and immutable finalized payroll must be validated in the future backend.
                         @elseif($showCorrectionModal)
                             A correction would require a reason, authorized reviewer and audit trail. This screen does not change timestamps, daily totals, attendance or payroll.
+                        @elseif($showLeaveReviewModal)
+                            An assigned Manager may review their own students' requests. Final approval follows the Home Partner's policy. This preview neither changes leave balances nor sends notifications.
                         @else
                             A claim review would require assigned-scope access, proof documents and duplicate-payment checks. This screen cannot approve, reimburse or pay any claim.
                         @endif
@@ -134,7 +136,7 @@
                     <div class="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">No database records, policy votes, permissions or transactions will be created.</div>
                     <div class="mt-5 flex justify-end gap-2">
                         <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold hover:bg-slate-50">Cancel</button>
-                        <button type="button" wire:click="acknowledgeDialog('{{ $showPolicyModal ? 'policy' : ($showCorrectionModal ? 'correction' : 'claim') }}')" class="rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold hover:bg-[#F3D604]">Acknowledge Preview</button>
+                        <button type="button" wire:click="acknowledgeDialog('{{ $showPolicyModal ? 'policy' : ($showCorrectionModal ? 'correction' : ($showLeaveReviewModal ? 'leave' : 'claim')) }}')" class="rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold hover:bg-[#F3D604]">Acknowledge Preview</button>
                     </div>
                 </div>
             </div>
