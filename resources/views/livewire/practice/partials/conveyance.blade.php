@@ -97,6 +97,6 @@
                 @endforeach
             </div>
         </section>
-        <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm"><div class="flex gap-3"><div class="rounded-xl bg-amber-50 p-3 text-amber-800"><i data-lucide="info" class="h-5 w-5"></i></div><div><h3 class="text-sm font-extrabold">Proof before payment</h3><p class="mt-2 text-xs leading-relaxed text-slate-500">No automatic conveyance reimbursement is permitted until approved evidence and duplicate checks are implemented and tested in the real backend.</p></div></div></section>
+        <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm"><div class="flex gap-3"><div class="flex h-11 w-11 shrink-0 self-start items-center justify-center rounded-xl bg-amber-50 text-amber-800"><i data-lucide="info" class="h-5 w-5"></i></div><div><h3 class="text-sm font-extrabold">Proof before payment</h3><p class="mt-2 text-xs leading-relaxed text-slate-500">No automatic conveyance reimbursement is permitted until approved evidence and duplicate checks are implemented and tested in the real backend.</p></div></div></section>
     </aside>
 </div>
