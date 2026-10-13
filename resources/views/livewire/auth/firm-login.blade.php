@@ -155,7 +155,7 @@
                                 <p class="text-xs text-emerald-800 mt-1 leading-relaxed">{{ $simulatedSuccessMessage }}</p>
                                 <div class="mt-3">
                                     <a href="{{ $simulatedRedirectUrl }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white transition-colors">
-                                        <span>Proceed to Practice Dashboard</span>
+                                        <span>Open Practice Design Preview (No Login)</span>
                                         <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
                                     </a>
                                 </div>
