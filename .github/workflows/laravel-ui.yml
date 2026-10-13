@@ -4,7 +4,9 @@ on:
   pull_request:
   push:
     branches:
+      - main
       - feature/phase-03-platform-dashboard
+      - feature/phases-04-10-practice-suite-ui
 
 permissions:
   contents: read
@@ -69,6 +71,18 @@ jobs:
 
       - name: Browser test and capture responsive screenshots
         run: node tests/browser/phase03-preview.mjs
+
+      - name: Browser test all practice design phases and capture screenshots
+        run: node tests/browser/practice-phases.mjs
+
+      - name: Upload Phase 04-10 screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-04-10-practice-ui-screenshots
+          path: screenshots/practice-phases/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload Phase 03 screenshots
         if: always()
