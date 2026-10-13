@@ -47,7 +47,7 @@
                     ['key'=>'policies','title'=>'Policy & Governance','icon'=>'shield-check'],
                     ['key'=>'settings','title'=>'Workspace Settings','icon'=>'settings-2']
                 ] as $item)
-                    <button type="button" wire:key="nav-{{ $item['key'] }}" wire:click="setSection('{{ $item['key'] }}')" @click="menuOpen = false"
+                    <button type="button" wire:key="nav-{{ $item['key'] }}" wire:click="setSection('{{ $item['key'] }}')" @click="menuOpen = false" aria-label="{{ $item['title'] }}"
                             @if($section === $item['key']) aria-current="page" @endif
                             class="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[13px] font-semibold transition {{ $section === $item['key'] ? 'bg-[#FCDF02] text-[#17191F] shadow-sm' : 'text-slate-400 hover:bg-white/10 hover:text-white' }}">
                         <i data-lucide="{{ $item['icon'] }}" class="h-[18px] w-[18px] shrink-0"></i>
