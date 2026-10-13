@@ -7,6 +7,7 @@ use App\Livewire\Auth\PlatformLogin;
 use App\Livewire\Auth\ForgotPassword;
 use App\Livewire\Auth\ResetPassword;
 use App\Livewire\Auth\AccountActivation;
+use App\Livewire\Platform\DashboardPreview;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,6 +20,11 @@ use App\Livewire\Auth\AccountActivation;
 // Phase 01: Practice Workspace Shell & Demonstration Dashboard
 Route::get('/', AppShell::class)->name('home');
 Route::get('/dashboard', AppShell::class)->name('dashboard');
+
+// Phase 03: Public, read-only platform dashboard DESIGN PREVIEW only.
+// Do not promote this route to a real admin endpoint without authentication & authorization.
+Route::get('/platform/dashboard-preview', DashboardPreview::class)
+    ->name('platform.dashboard.preview');
 
 // Phase 02: Platform Super Admin Authentication Experience
 Route::prefix('platform')->group(function () {

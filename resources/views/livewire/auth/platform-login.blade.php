@@ -28,6 +28,16 @@
         </div>
     </header>
 
+    <!-- Explicit, non-authenticated Phase 03 design preview link. Remove on production enablement. -->
+    <div class="flex justify-center px-4 pt-4">
+        <a href="{{ route('platform.dashboard.preview') }}"
+           class="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-300/10 px-4 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-300/20">
+            <i data-lucide="layout-dashboard" class="h-4 w-4"></i>
+            Open Phase 03 Dashboard Design Preview
+            <span class="font-normal text-slate-400">(no sign-in required)</span>
+        </a>
+    </div>
+
     <!-- Main Platform Console Card -->
     <main class="flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
         <div class="w-full max-w-lg bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur relative overflow-hidden">

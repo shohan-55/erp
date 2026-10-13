@@ -1,0 +1,81 @@
+name: Laravel UI Verification
+
+on:
+  pull_request:
+  push:
+    branches:
+      - feature/phase-03-platform-dashboard
+
+permissions:
+  contents: read
+
+jobs:
+  ui-verification:
+    name: PHPUnit and Vite build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, fileinfo
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Initialize local test environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Compile Vite production assets
+        run: npm run build
+
+      - name: Run full Laravel feature and unit tests
+        run: php artisan test
+
+      - name: Install Playwright browser for visual verification
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Start the local Laravel preview server
+        run: |
+          sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env
+          sed -i 's/^CACHE_STORE=.*/CACHE_STORE=file/' .env
+          nohup php artisan serve --host=127.0.0.1 --port=8000 > /tmp/laravel-preview.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl --silent --fail http://127.0.0.1:8000/platform/dashboard-preview > /tmp/platform-preview.html; then
+              break
+            fi
+            sleep 1
+          done
+          grep -q 'One platform. Clear boundaries.' /tmp/platform-preview.html
+
+      - name: Browser test and capture responsive screenshots
+        run: node tests/browser/phase03-preview.mjs
+
+      - name: Upload Phase 03 screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-03-platform-dashboard-screenshots
+          path: screenshots/phase-03/
+          if-no-files-found: ignore
+          retention-days: 14
+
