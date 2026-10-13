@@ -59,6 +59,8 @@ class PracticePreview extends Component
 
         $this->section = $section;
         $this->sidebarOpen = false;
+        $this->search = '';
+        $this->filter = 'all';
         $this->closeDialogs();
         $this->error = null;
         $this->notice = null;
@@ -74,6 +76,8 @@ class PracticePreview extends Component
         $this->previewRole = $role;
         $this->section = 'dashboard';
         $this->sidebarOpen = false;
+        $this->search = '';
+        $this->filter = 'all';
         $this->notice = 'Design preview role changed. No authenticated user, permission, or tenant data was changed.';
         $this->error = null;
         $this->closeDialogs();
@@ -86,7 +90,7 @@ class PracticePreview extends Component
 
         match ($kind) {
             'policy' => $this->showPolicyModal = $this->previewRole === 'partner',
-            'correction' => $this->showCorrectionModal = true,
+            'correction' => $this->showCorrectionModal = $this->previewRole !== 'student',
             'claim' => $this->showClaimReviewModal = $this->previewRole !== 'student',
             'leave' => $this->showLeaveReviewModal = $this->previewRole !== 'student',
             default => null,
@@ -103,6 +107,18 @@ class PracticePreview extends Component
 
     public function acknowledgeDialog(string $kind): void
     {
+        $allowed = match ($kind) {
+            'policy' => $this->showPolicyModal,
+            'correction' => $this->showCorrectionModal,
+            'claim' => $this->showClaimReviewModal,
+            'leave' => $this->showLeaveReviewModal,
+            default => false,
+        };
+
+        if (! $allowed) {
+            return;
+        }
+
         $this->closeDialogs();
         $this->notice = match ($kind) {
             'policy' => 'Policy proposal illustrated only. No partner votes, approvals or policy revisions were saved.',
