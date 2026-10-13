@@ -1,0 +1,722 @@
+@import 'tailwindcss';
+
+@source '../../resources/views/**/*.blade.php';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+/* ==========================================================================
+   RA&C ERP SaaS - Official Design Tokens & System
+   Firm: Rahman Anis & Co., Chartered Accountants
+   ========================================================================== */
+:root {
+  /* Official Brand Palette from Letterhead Reference */
+  --color-brand-yellow: #FCDF02;
+  --color-brand-yellow-hover: #F0D400;
+  --color-brand-yellow-active: #E2C700;
+  --color-brand-yellow-light: #FFFDE6;
+  --color-brand-amber: #F5AD16;
+  --color-brand-amber-dark: #D98A00;
+  --color-brand-amber-light: #FFF8EB;
+
+  /* Charcoal / Deep Corporate Slate */
+  --color-charcoal-950: #0E0F12;
+  --color-charcoal-900: #16181D;
+  --color-charcoal-850: #1C1E25;
+  --color-charcoal-800: #22252E;
+  --color-charcoal-700: #2D313D;
+  --color-charcoal-600: #3E4352;
+  --color-charcoal-500: #555C6E;
+
+  /* Enterprise Neutrals */
+  --color-neutral-50: #F8FAFC;
+  --color-neutral-100: #F1F5F9;
+  --color-neutral-200: #E2E8F0;
+  --color-neutral-300: #CBD5E1;
+  --color-neutral-400: #94A3B8;
+  --color-neutral-500: #64748B;
+  --color-neutral-600: #475569;
+  --color-neutral-700: #334155;
+  --color-neutral-800: #1E293B;
+  --color-neutral-900: #0F172A;
+
+  /* Semantic Status Colors */
+  --color-success-50: #ECFDF5;
+  --color-success-100: #D1FAE5;
+  --color-success-500: #10B981;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+
+  --color-warning-50: #FFFBEB;
+  --color-warning-100: #FEF3C7;
+  --color-warning-500: #F59E0B;
+  --color-warning-600: #D97706;
+  --color-warning-700: #B45309;
+
+  --color-danger-50: #FEF2F2;
+  --color-danger-100: #FEE2E2;
+  --color-danger-500: #EF4444;
+  --color-danger-600: #DC2626;
+  --color-danger-700: #B91C1C;
+
+  --color-info-50: #EFF6FF;
+  --color-info-100: #DBEAFE;
+  --color-info-500: #3B82F6;
+  --color-info-600: #2563EB;
+  --color-info-700: #1D4ED8;
+
+  /* Shell Layout Dimensions */
+  --sidebar-w-expanded: 280px;
+  --sidebar-w-collapsed: 80px;
+  --header-h: 70px;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Focus Indicator Ring */
+  --focus-ring: 0 0 0 3px rgba(252, 223, 2, 0.65);
+}
+
+@theme {
+  --color-brand-yellow: #FCDF02;
+  --color-brand-yellow-hover: #F0D400;
+  --color-brand-amber: #F5AD16;
+  --color-charcoal-900: #16181D;
+  --color-charcoal-800: #22252E;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* Global Reset & Base */
+html {
+  font-family: var(--font-sans);
+  background-color: var(--color-neutral-50);
+  color: var(--color-neutral-900);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-color: var(--color-neutral-50);
+}
+
+/* Clean Professional Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* ==========================================================================
+   REUSABLE UI COMPONENTS
+   ========================================================================== */
+
+/* 1. Buttons */
+.rac-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 0.5625rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.rac-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.rac-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Primary Button: Brand Yellow with Dark Charcoal Text (Strict High Contrast) */
+.rac-btn-primary {
+  background-color: var(--color-brand-yellow);
+  color: #16181D;
+  font-weight: 600;
+  border-color: #E2C700;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+.rac-btn-primary:hover {
+  background-color: var(--color-brand-yellow-hover);
+  border-color: #D98A00;
+}
+.rac-btn-primary:active {
+  background-color: var(--color-brand-yellow-active);
+  transform: translateY(1px);
+}
+
+/* Secondary Button: Clean Crisp White with Neutral Border */
+.rac-btn-secondary {
+  background-color: #FFFFFF;
+  color: #1E293B;
+  border-color: #E2E8F0;
+  box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+}
+.rac-btn-secondary:hover {
+  background-color: #F8FAFC;
+  border-color: #CBD5E1;
+  color: #0F172A;
+}
+
+/* Destructive Button: Crimson Red */
+.rac-btn-destructive {
+  background-color: #EF4444;
+  color: #FFFFFF;
+  border-color: #DC2626;
+}
+.rac-btn-destructive:hover {
+  background-color: #DC2626;
+}
+
+/* Icon Button */
+.rac-btn-icon {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  color: #64748B;
+  background-color: transparent;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.rac-btn-icon:hover {
+  background-color: #F1F5F9;
+  color: #0F172A;
+}
+
+.rac-btn-sm {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+}
+.rac-btn-lg {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+}
+
+/* 2. Form Inputs */
+.rac-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.rac-form-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #334155;
+}
+.rac-input, .rac-select, .rac-date {
+  width: 100%;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  padding: 0.5625rem 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid #CBD5E1;
+  background-color: #FFFFFF;
+  color: #0F172A;
+  transition: all 150ms ease-in-out;
+}
+.rac-input:focus, .rac-select:focus, .rac-date:focus {
+  outline: none;
+  border-color: #F5AD16;
+  box-shadow: 0 0 0 3px rgba(245, 173, 22, 0.25);
+}
+.rac-input::placeholder {
+  color: #94A3B8;
+}
+.rac-form-hint {
+  font-size: 0.75rem;
+  color: #64748B;
+}
+.rac-form-error {
+  font-size: 0.75rem;
+  color: #DC2626;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* 3. Status Badges */
+.rac-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  line-height: 1rem;
+  white-space: nowrap;
+}
+.rac-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+}
+.rac-badge-success {
+  background-color: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+}
+.rac-badge-success .rac-badge-dot { background-color: #10B981; }
+
+.rac-badge-warning {
+  background-color: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+.rac-badge-warning .rac-badge-dot { background-color: #F59E0B; }
+
+.rac-badge-danger {
+  background-color: #FEF2F2;
+  color: #B91C1C;
+  border: 1px solid #FECACA;
+}
+.rac-badge-danger .rac-badge-dot { background-color: #EF4444; }
+
+.rac-badge-info {
+  background-color: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+.rac-badge-info .rac-badge-dot { background-color: #3B82F6; }
+
+.rac-badge-neutral {
+  background-color: #F1F5F9;
+  color: #475569;
+  border: 1px solid #E2E8F0;
+}
+.rac-badge-neutral .rac-badge-dot { background-color: #94A3B8; }
+
+.rac-badge-brand {
+  background-color: #FFFDE6;
+  color: #854D0E;
+  border: 1px solid #FEF08A;
+}
+.rac-badge-brand .rac-badge-dot { background-color: #EAB308; }
+
+/* 4. Cards */
+.rac-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05);
+  overflow: hidden;
+}
+.rac-card-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #F1F5F9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rac-card-body {
+  padding: 1.25rem;
+}
+.rac-card-footer {
+  padding: 0.875rem 1.25rem;
+  background-color: #F8FAFC;
+  border-top: 1px solid #F1F5F9;
+}
+
+/* Summary KPI Card */
+.rac-summary-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  position: relative;
+  transition: all 200ms ease;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05);
+}
+.rac-summary-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.07);
+}
+.rac-summary-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 1.25rem;
+  right: 1.25rem;
+  height: 3px;
+  background: transparent;
+  border-radius: 0 0 4px 4px;
+}
+.rac-summary-card-accent::before {
+  background: var(--color-brand-yellow);
+}
+
+/* 5. Data Table */
+.rac-table-container {
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05);
+}
+.rac-table-scroll {
+  overflow-x: auto;
+}
+.rac-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+.rac-table th {
+  background-color: #F8FAFC;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #E2E8F0;
+  white-space: nowrap;
+}
+.rac-table td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid #F1F5F9;
+  color: #1E293B;
+  vertical-align: middle;
+}
+.rac-table tr:hover td {
+  background-color: #F8FAFC;
+}
+
+/* 6. Tabs */
+.rac-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-bottom: 1px solid #E2E8F0;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+.rac-tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748B;
+  border-bottom: 2px solid transparent;
+  transition: all 150ms ease;
+  cursor: pointer;
+  white-space: nowrap;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+.rac-tab-item:hover {
+  color: #0F172A;
+  border-bottom-color: #CBD5E1;
+}
+.rac-tab-item.active {
+  color: #0F172A;
+  font-weight: 600;
+  border-bottom-color: var(--color-brand-yellow);
+}
+
+/* 7. Toast Notifications */
+#toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+.rac-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 320px;
+  max-width: 420px;
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
+  box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.1), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
+  animation: racSlideIn 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 200ms ease;
+}
+.rac-toast-leave {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.rac-toast-success { border-left: 4px solid #10B981; }
+.rac-toast-success .rac-toast-icon { color: #10B981; }
+.rac-toast-warning { border-left: 4px solid #F59E0B; }
+.rac-toast-warning .rac-toast-icon { color: #F59E0B; }
+.rac-toast-danger { border-left: 4px solid #EF4444; }
+.rac-toast-danger .rac-toast-icon { color: #EF4444; }
+.rac-toast-info { border-left: 4px solid #3B82F6; }
+.rac-toast-info .rac-toast-icon { color: #3B82F6; }
+
+.rac-toast-content { flex: 1; }
+.rac-toast-title { font-size: 0.875rem; font-weight: 600; color: #0F172A; }
+.rac-toast-desc { font-size: 0.8125rem; color: #64748B; margin-top: 0.125rem; }
+.rac-toast-close {
+  color: #94A3B8;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0.25rem;
+}
+.rac-toast-close:hover { color: #0F172A; }
+
+@keyframes racSlideIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 8. Skeleton Loader */
+.rac-skeleton {
+  background: linear-gradient(90deg, #F1F5F9 25%, #E2E8F0 50%, #F1F5F9 75%);
+  background-size: 200% 100%;
+  animation: racSkeletonPulse 1.5s ease-in-out infinite;
+  border-radius: 0.375rem;
+}
+@keyframes racSkeletonPulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 9. Empty State */
+.rac-empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background-color: #FFFFFF;
+  border: 1px dashed #CBD5E1;
+  border-radius: 0.75rem;
+}
+.rac-empty-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: #F8FAFC;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #94A3B8;
+  margin-bottom: 1rem;
+}
+
+/* 10. Avatars */
+.rac-avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: 0.75rem;
+  background-color: #F1F5F9;
+  color: #334155;
+  border: 2px solid #FFFFFF;
+}
+.rac-avatar-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #FFFFFF;
+}
+.rac-avatar-online { background-color: #10B981; }
+.rac-avatar-away { background-color: #F59E0B; }
+
+/* 11. Pagination */
+.rac-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1.25rem;
+  border-top: 1px solid #E2E8F0;
+  font-size: 0.8125rem;
+  color: #64748B;
+}
+.rac-page-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid #E2E8F0;
+  background-color: #FFFFFF;
+  color: #334155;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.rac-page-btn:hover {
+  background-color: #F8FAFC;
+  border-color: #CBD5E1;
+}
+.rac-page-btn.active {
+  background-color: var(--color-brand-yellow);
+  color: #16181D;
+  border-color: #E2C700;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   APPLICATION SHELL LAYOUT STYLES
+   ========================================================================== */
+.rac-shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-neutral-50);
+}
+
+/* Sidebar */
+.rac-sidebar {
+  width: var(--sidebar-w-expanded);
+  background-color: var(--color-charcoal-900);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rac-sidebar.collapsed {
+  width: var(--sidebar-w-collapsed);
+}
+
+.rac-sidebar-brand {
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.rac-sidebar-brand-text {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.rac-sidebar.collapsed .rac-sidebar-brand-text {
+  display: none;
+}
+.rac-sidebar.collapsed .rac-nav-text,
+.rac-sidebar.collapsed .rac-nav-badge,
+.rac-sidebar.collapsed .rac-profile-details {
+  display: none;
+}
+
+/* Navigation items in sidebar */
+.rac-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6875rem 1rem;
+  border-radius: 0.5rem;
+  color: #94A3B8;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 150ms ease;
+  cursor: pointer;
+  text-decoration: none;
+  margin: 0.125rem 0.75rem;
+}
+.rac-nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #FFFFFF;
+}
+/* Active Nav Item: Brand Yellow Background with Dark Charcoal Text */
+.rac-nav-item.active {
+  background-color: var(--color-brand-yellow);
+  color: #16181D;
+  font-weight: 600;
+}
+.rac-nav-item.active svg {
+  color: #16181D;
+}
+
+/* Header */
+.rac-header {
+  height: var(--header-h);
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+/* Main Content Area */
+.rac-main-container {
+  flex: 1;
+  margin-left: var(--sidebar-w-expanded);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  transition: margin-left 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rac-main-container.sidebar-collapsed {
+  margin-left: var(--sidebar-w-collapsed);
+}
+
+.rac-content {
+  flex: 1;
+  padding: 1.75rem 2rem;
+  max-width: 1600px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Mobile responsive drawer */
+@media (max-width: 1023px) {
+  .rac-sidebar {
+    transform: translateX(-100%);
+    width: var(--sidebar-w-expanded) !important;
+  }
+  .rac-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .rac-main-container {
+    margin-left: 0 !important;
+  }
+  .rac-sidebar.collapsed .rac-sidebar-brand-text,
+  .rac-sidebar.collapsed .rac-nav-text,
+  .rac-sidebar.collapsed .rac-profile-details {
+    display: flex !important;
+  }
+}

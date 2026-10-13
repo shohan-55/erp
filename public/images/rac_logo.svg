@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 280" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Brand Yellow Left Facet Gradient -->
+    <linearGradient id="racYellowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF24A"/>
+      <stop offset="45%" stop-color="#FCDF02"/>
+      <stop offset="100%" stop-color="#F5B800"/>
+    </linearGradient>
+
+    <!-- Golden Amber Right Facet Gradient -->
+    <linearGradient id="racAmberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCDF02"/>
+      <stop offset="35%" stop-color="#F5AD16"/>
+      <stop offset="100%" stop-color="#D98A00"/>
+    </linearGradient>
+
+    <!-- Sleek Charcoal Black Swoop Gradient -->
+    <linearGradient id="racCharcoalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2C2E33"/>
+      <stop offset="50%" stop-color="#1E2024"/>
+      <stop offset="100%" stop-color="#111215"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Left Facet: Bright Brand Yellow Sail -->
+  <path d="M 148,12 
+           C 147,14 74,136 6,268 
+           C 42,204 92,154 148,124 
+           Z" 
+        fill="url(#racYellowGrad)"/>
+
+  <!-- Right Facet: Golden Amber Fold -->
+  <path d="M 148,12 
+           L 148,124 
+           C 188,128 232,138 274,174 
+           C 230,116 190,62 148,12 
+           Z" 
+        fill="url(#racAmberGrad)"/>
+
+  <!-- Sleek Dark Curved Swoop / Base Arch -->
+  <path d="M 6,268 
+           C 78,198 140,142 216,134 
+           C 238,132 258,138 274,174 
+           C 240,154 198,146 156,150 
+           C 104,156 52,192 6,268 
+           Z" 
+        fill="url(#racCharcoalGrad)"/>
+</svg>
