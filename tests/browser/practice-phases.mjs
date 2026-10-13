@@ -23,7 +23,7 @@ try {
     await page.getByRole('heading', { name: 'Your practice, in focus.' }).waitFor();
     await page.screenshot({ path: outputDir + '/01-partner-desktop.png', fullPage: true });
 
-    await page.getByRole('button', { name: 'Attendance' }).click();
+    await page.getByRole('button', { name: 'Attendance', exact: true }).click();
     await page.getByRole('heading', { name: 'Office & Client Attendance' }).waitFor();
     await page.getByRole('button', { name: /Correction Review/ }).click();
     await page.getByRole('dialog', { name: 'Attendance Correction Review' }).waitFor();
@@ -62,7 +62,7 @@ try {
     await page.getByRole('heading', { name: 'Your day, organized.' }).waitFor();
     await page.screenshot({ path: outputDir + '/06-student-desktop.png', fullPage: true });
 
-    await page.getByRole('button', { name: 'Attendance' }).click();
+    await page.getByRole('button', { name: 'Attendance', exact: true }).click();
     await page.getByRole('heading', { name: "Today's Check-in Preview" }).waitFor();
     await page.getByRole('button', { name: 'Simulate Check-in' }).click();
     await page.getByText('No timestamp, geolocation or attendance record was saved.').waitFor();
@@ -78,7 +78,7 @@ try {
     await page.getByRole('button', { name: 'Validate Demo Claim' }).click();
     await page.getByText('Enter a valid date, amount').waitFor();
 
-    await page.getByRole('button', { name: 'Notifications' }).click();
+    await page.getByRole('button', { name: 'Notifications', exact: true }).click();
     await page.getByRole('heading', { name: 'Notification Inbox' }).waitFor();
     await page.getByRole('button', { name: 'Mark Read' }).first().click();
     await page.getByText('Read status updated in this temporary browser preview only.').waitFor();
@@ -95,7 +95,7 @@ try {
     }, null, {timeout: 5000});
     await page.waitForTimeout(250);
     await page.screenshot({ path: outputDir + '/08-student-mobile-menu.png', fullPage: false });
-    await page.getByRole('button', { name: 'Attendance' }).click();
+    await page.getByRole('button', { name: 'Attendance', exact: true }).click();
     await page.getByRole('heading', { name: 'Office & Client Attendance' }).waitFor();
     await page.screenshot({ path: outputDir + '/09-attendance-mobile.png', fullPage: true });
 
