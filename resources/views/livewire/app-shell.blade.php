@@ -89,6 +89,33 @@
                 <span class="rac-nav-text">Architecture Spec</span>
             </button>
 
+            <!-- Phase 02: Authentication & Recovery Experience -->
+            <div class="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 {{ $sidebarCollapsed ? 'hidden' : '' }}">
+                Phase 02 Auth Portal
+            </div>
+
+            <a href="{{ url('/c/rac/login') }}" class="rac-nav-item w-full text-slate-300 hover:text-white" title="RA&C Firm Login">
+                <i data-lucide="log-in" class="w-4 h-4 shrink-0 text-[#FCDF02]"></i>
+                <span class="rac-nav-text">Firm Login (RA&C)</span>
+                <span class="rac-nav-badge ml-auto text-[10px] px-1.5 py-0.5 rounded font-semibold bg-[#FCDF02]/20 text-[#FCDF02]">P02</span>
+            </a>
+
+            <a href="{{ url('/platform/login') }}" class="rac-nav-item w-full text-slate-300 hover:text-white" title="Platform Super Admin">
+                <i data-lucide="shield" class="w-4 h-4 shrink-0 text-amber-400"></i>
+                <span class="rac-nav-text">Platform Admin</span>
+                <span class="rac-nav-badge ml-auto text-[10px] px-1.5 py-0.5 rounded font-semibold bg-amber-400/20 text-amber-300">P02</span>
+            </a>
+
+            <a href="{{ url('/c/rac/forgot-password') }}" class="rac-nav-item w-full text-slate-300 hover:text-white" title="Account Recovery">
+                <i data-lucide="key" class="w-4 h-4 shrink-0 text-slate-400"></i>
+                <span class="rac-nav-text">Account Recovery</span>
+            </a>
+
+            <a href="{{ url('/c/rac/activate') }}" class="rac-nav-item w-full text-slate-300 hover:text-white" title="Invited Member Activation">
+                <i data-lucide="user-plus" class="w-4 h-4 shrink-0 text-emerald-400"></i>
+                <span class="rac-nav-text">Member Activation</span>
+            </a>
+
             <!-- Planned ERP Modules (Taxonomy placeholders with Phase Badges) -->
             <div class="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500 {{ $sidebarCollapsed ? 'hidden' : '' }}">
                 Future ERP Modules
@@ -264,6 +291,9 @@
                         <div class="text-xs font-semibold text-slate-900 leading-tight truncate max-w-[120px]">{{ $user['name'] }}</div>
                         <div class="text-[10px] text-slate-500 truncate max-w-[120px]">{{ $user['badge'] }}</div>
                     </div>
+                    <a href="{{ url('/c/rac/login') }}" class="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0 ml-1" title="Sign Out to Practice Login">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                    </a>
                 </div>
             </div>
         </header>
