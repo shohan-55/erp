@@ -228,6 +228,18 @@ class PracticePreview extends Component
 
     public function render()
     {
+        // Public preview state is client-controlled: never use arbitrary values to
+        // select Blade view files or widen the example presentation scope.
+        if (! in_array($this->previewRole, self::ROLES, true)) {
+            $this->previewRole = 'student';
+        }
+        if (! in_array($this->section, self::SECTIONS, true)) {
+            $this->section = 'dashboard';
+        }
+        if (! in_array($this->filter, ['all', 'on-time', 'late', 'incomplete'], true)) {
+            $this->filter = 'all';
+        }
+
         $studentRows = [
             ['id' => 'S-101', 'name' => 'Sample Student 01', 'manager' => 'Sample Manager A', 'partner' => 'Partner Unit 01', 'status' => 'On time', 'mode' => 'Office', 'day' => 'Mon', 'checkin' => '10:05', 'checkout' => '18:00'],
             ['id' => 'S-102', 'name' => 'Sample Student 02', 'manager' => 'Sample Manager A', 'partner' => 'Partner Unit 01', 'status' => 'Late', 'mode' => 'Client', 'day' => 'Tue', 'checkin' => '10:14', 'checkout' => '18:15'],
