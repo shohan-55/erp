@@ -61,7 +61,7 @@ try {
         return drawer && drawer.getBoundingClientRect().left >= -1;
     }, null, { timeout: 5000 });
     await page.waitForTimeout(250);
-    await page.screenshot({ path: outputDir + '/06-mobile-navigation.png', fullPage: true });
+    await page.screenshot({ path: outputDir + '/06-mobile-navigation.png', fullPage: false });
 
     await page.getByRole('button', { name: 'Organizations' }).click();
     await page.getByPlaceholder('Search firm name or slug...').waitFor();
