@@ -18,6 +18,7 @@ class PracticePreview extends Component
     public bool $showPolicyModal = false;
     public bool $showCorrectionModal = false;
     public bool $showClaimReviewModal = false;
+    public bool $showLeaveReviewModal = false;
     public ?string $notice = null;
     public ?string $error = null;
 
@@ -87,6 +88,7 @@ class PracticePreview extends Component
             'policy' => $this->showPolicyModal = $this->previewRole === 'partner',
             'correction' => $this->showCorrectionModal = true,
             'claim' => $this->showClaimReviewModal = $this->previewRole !== 'student',
+            'leave' => $this->showLeaveReviewModal = $this->previewRole !== 'student',
             default => null,
         };
     }
@@ -96,6 +98,7 @@ class PracticePreview extends Component
         $this->showPolicyModal = false;
         $this->showCorrectionModal = false;
         $this->showClaimReviewModal = false;
+        $this->showLeaveReviewModal = false;
     }
 
     public function acknowledgeDialog(string $kind): void
@@ -105,6 +108,7 @@ class PracticePreview extends Component
             'policy' => 'Policy proposal illustrated only. No partner votes, approvals or policy revisions were saved.',
             'correction' => 'Attendance correction workflow illustrated only. No attendance record was changed.',
             'claim' => 'Claim review illustrated only. No payment or expense approval was recorded.',
+            'leave' => 'Leave review illustrated only. No leave request, entitlement or approval was changed.',
             default => 'This is a design-only demonstration.',
         };
     }
