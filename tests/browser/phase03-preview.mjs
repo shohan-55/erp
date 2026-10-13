@@ -59,7 +59,7 @@ try {
     await page.waitForFunction(() => {
         const drawer = document.querySelector('aside[aria-label="Platform preview navigation"]');
         return drawer && drawer.getBoundingClientRect().left >= -1;
-    }, { timeout: 5000 });
+    }, null, { timeout: 5000 });
     await page.waitForTimeout(250);
     await page.screenshot({ path: outputDir + '/06-mobile-navigation.png', fullPage: true });
 
