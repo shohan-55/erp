@@ -75,7 +75,7 @@
             </div>
         </section>
         <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
-            <div class="flex gap-3"><div class="rounded-xl bg-amber-50 p-2.5 text-amber-800"><i data-lucide="lock-keyhole" class="h-5 w-5"></i></div>
+            <div class="flex gap-3"><div class="flex h-11 w-11 shrink-0 self-start items-center justify-center rounded-xl bg-amber-50 text-amber-800"><i data-lucide="lock-keyhole" class="h-5 w-5"></i></div>
                 <div><h3 class="text-sm font-extrabold">Financial Integrity</h3><p class="mt-2 text-xs leading-relaxed text-slate-500">Partner ownership, rule effective dates, approved claim reconciliation, race safety, no duplicate payment, and locked payroll snapshots must be implemented and audited in the backend.</p></div>
             </div>
             <button type="button" wire:click="setSection('policies')" class="mt-4 text-xs font-bold text-amber-800 hover:underline">Review policy framework →</button>
