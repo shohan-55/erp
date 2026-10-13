@@ -6,7 +6,7 @@ use Livewire\Component;
 
 class AppShell extends Component
 {
-    // Active Role Preview (Super Admin, Partner, Manager, Student)
+    // Active Role Preview (Super Admin, Partner, Manager, Student) - Design Preview Only
     public string $currentRole = 'partner';
 
     // Active View Tab for Phase 01 Prototype
@@ -28,7 +28,7 @@ class AppShell extends Component
     // Current Organization Branch Context
     public string $currentBranch = 'EDB Trade Center Branch, Karwan Bazar';
 
-    // Role definitions
+    // Role definitions (Fictional sample profiles for Phase 01 design demonstration)
     public array $roles = [
         'partner' => [
             'name' => 'A.K.M. Mohitul Haq, FCA',
@@ -37,7 +37,7 @@ class AppShell extends Component
             'badge' => 'Partner / Principal',
             'initials' => 'MH',
             'email' => 'mohitul.haq@rahmananis.com',
-            'access_level' => 'Tier 2 Firm Principal'
+            'access_level' => 'Tier 2 Firm Principal (Design Preview)'
         ],
         'manager' => [
             'name' => 'Khandaker Tanvir Ahmed, ACA',
@@ -46,7 +46,7 @@ class AppShell extends Component
             'badge' => 'Manager',
             'initials' => 'TA',
             'email' => 'tanvir.ahmed@rahmananis.com',
-            'access_level' => 'Tier 3 Team Manager'
+            'access_level' => 'Tier 3 Team Manager (Design Preview)'
         ],
         'student' => [
             'name' => 'Zubair Hossain Siddique',
@@ -55,7 +55,7 @@ class AppShell extends Component
             'badge' => 'Student',
             'initials' => 'ZS',
             'email' => 'zubair.student@rahmananis.com',
-            'access_level' => 'Tier 4 Articled Student'
+            'access_level' => 'Tier 4 Articled Student (Design Preview)'
         ],
         'admin' => [
             'name' => 'DhakaWeb Systems Administrator',
@@ -64,7 +64,7 @@ class AppShell extends Component
             'badge' => 'Super Admin',
             'initials' => 'SA',
             'email' => 'sysadmin@dhakawala.com',
-            'access_level' => 'Tier 1 Central Platform'
+            'access_level' => 'Tier 1 Central Platform (Design Preview)'
         ]
     ];
 
@@ -88,8 +88,8 @@ class AppShell extends Component
         if (array_key_exists($role, $this->roles)) {
             $this->currentRole = $role;
             $this->dispatch('toast', [
-                'title' => 'Role Context Switched',
-                'message' => 'Now previewing application shell as ' . $this->roles[$role]['badge'] . ' (' . $this->roles[$role]['name'] . ')',
+                'title' => '[Preview] Role Context Switched',
+                'message' => 'Now previewing application shell as ' . $this->roles[$role]['badge'] . ' (' . $this->roles[$role]['name'] . '). UI simulation only.',
                 'type' => 'info'
             ]);
         }
@@ -128,10 +128,22 @@ class AppShell extends Component
     public function triggerToast(string $type = 'success'): void
     {
         $messages = [
-            'success' => ['Approval Logged', 'Partner sign-off successfully recorded in audit trail.'],
-            'warning' => ['Policy Review Required', 'Weekly articled student log threshold reached for Partner Unit 01.'],
-            'danger' => ['Verification Alert', 'Invalid conveyance voucher code entered.'],
-            'info' => ['Fiscal Calendar Update', 'Q3 Statutory Audit cycle has officially commenced.']
+            'success' => [
+                '[Preview] Sign-off Simulated',
+                'Partner approval simulated for design demonstration. No live financial ledger or database was altered.'
+            ],
+            'warning' => [
+                '[Preview] Policy Review Simulated',
+                'Sample threshold notification demo for Partner Unit 01. UI simulation only.'
+            ],
+            'danger' => [
+                '[Preview] Validation Alert Simulated',
+                'Sample verification warning rendered to demonstrate danger status state.'
+            ],
+            'info' => [
+                '[Preview] Fiscal Period Note',
+                'Statutory audit calendar milestone demo. System is currently in Phase 01 UI prototype mode.'
+            ]
         ];
 
         $payload = $messages[$type] ?? $messages['success'];

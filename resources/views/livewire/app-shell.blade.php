@@ -171,35 +171,39 @@
         <header class="rac-header">
             
             <!-- Left Side: Mobile Toggle, Desktop Toggle, Breadcrumb & Title -->
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 sm:gap-3 shrink-0">
                 <!-- Mobile Drawer Trigger -->
-                <button wire:click="toggleMobileMenu" type="button" class="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors" aria-label="Toggle Navigation Drawer">
+                <button wire:click="toggleMobileMenu" type="button" class="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shrink-0" aria-label="Toggle Navigation Drawer">
                     <i data-lucide="menu" class="w-5 h-5"></i>
                 </button>
 
                 <!-- Page Breadcrumbs & Title -->
                 <div>
-                    <nav class="flex items-center gap-1.5 text-xs text-slate-500 font-medium" aria-label="Breadcrumb">
+                    <nav class="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 font-medium" aria-label="Breadcrumb">
                         <span class="hover:text-slate-800 transition-colors">RA&C Central ERP</span>
-                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400"></i>
+                        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
                         <span class="text-slate-700 capitalize">{{ $activeTab }}</span>
                     </nav>
-                    <h1 class="text-base lg:text-lg font-bold text-slate-900 tracking-tight leading-tight mt-0.5">
+                    <h1 class="text-xs sm:text-base lg:text-lg font-bold text-slate-900 tracking-tight leading-tight mt-0.5 truncate max-w-[130px] sm:max-w-none">
                         @if($activeTab === 'dashboard')
-                            Partner Executive Overview
+                            <span class="sm:hidden">Overview</span>
+                            <span class="hidden sm:inline">Partner Executive Overview</span>
                         @elseif($activeTab === 'components')
-                            Design System Component Library
+                            <span class="sm:hidden">UI Library</span>
+                            <span class="hidden sm:inline">Design System Component Library</span>
                         @elseif($activeTab === 'tokens')
-                            RA&C Official Brand Tokens & Guidelines
+                            <span class="sm:hidden">Tokens</span>
+                            <span class="hidden sm:inline">RA&C Official Brand Tokens & Guidelines</span>
                         @else
-                            Architecture & Multi-Tenant Blueprint
+                            <span class="sm:hidden">Blueprint</span>
+                            <span class="hidden sm:inline">Architecture & Multi-Tenant Blueprint</span>
                         @endif
                     </h1>
                 </div>
             </div>
 
             <!-- Center: Global Quick Search Input -->
-            <div class="hidden md:flex items-center max-w-xs lg:max-w-sm w-full mx-4">
+            <div class="hidden lg:flex items-center max-w-xs xl:max-w-sm w-full mx-4">
                 <div class="relative w-full">
                     <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
                     <input id="global-search-input" type="text" placeholder="Search clients, articled students, vouchers..." 
@@ -209,20 +213,21 @@
             </div>
 
             <!-- Right Side: Workspace Context, Notifications, Role Badge & User Avatar -->
-            <div class="flex items-center gap-2.5">
+            <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
                 
                 <!-- Firm Office Selector -->
                 <div class="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100/90 border border-slate-200 text-xs">
                     <i data-lucide="map-pin" class="w-3.5 h-3.5 text-[#D98A00]"></i>
-                    <span class="font-medium text-slate-700">EDB Trade Center (Karwan Bazar)</span>
+                    <span class="font-medium text-slate-700">EDB Trade Center</span>
                 </div>
 
                 <!-- Live Role Switcher Dropdown in Header -->
-                <div class="relative" x-data="{ open: false }">
-                    <button @click="open = !open" type="button" class="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors">
-                        <span class="w-2 h-2 rounded-full bg-[#10B981]"></span>
-                        <span>Role: {{ $user['badge'] }}</span>
-                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+                <div class="hidden sm:block relative" x-data="{ open: false }">
+                    <button @click="open = !open" type="button" class="flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2 sm:px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors" title="Switch Design Preview Role">
+                        <span class="w-2 h-2 rounded-full bg-[#10B981] shrink-0"></span>
+                        <span class="hidden sm:inline">Preview:</span>
+                        <span class="truncate max-w-[80px] sm:max-w-none">{{ $user['badge'] }}</span>
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
                     </button>
                     
                     <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-slate-200 py-1 z-50 text-xs" style="display: none;">
@@ -245,19 +250,19 @@
                 </div>
 
                 <!-- Notifications Button with Pulse Badge -->
-                <button wire:click="triggerToast('warning')" type="button" class="relative p-2 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors" title="3 unread notifications">
+                <button wire:click="triggerToast('warning')" type="button" class="relative p-2 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors shrink-0" title="3 unread notifications">
                     <i data-lucide="bell" class="w-4 h-4"></i>
                     <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#EF4444] ring-2 ring-white"></span>
                 </button>
 
                 <!-- User Avatar Pill -->
-                <div class="flex items-center gap-2 pl-2 border-l border-slate-200">
+                <div class="flex items-center gap-2 pl-1.5 sm:pl-2 border-l border-slate-200 shrink-0">
                     <div class="rac-avatar w-8 h-8 bg-[#16181D] text-[#FCDF02] font-bold text-xs ring-1 ring-slate-200">
                         {{ $user['initials'] }}
                     </div>
-                    <div class="hidden sm:block text-left">
+                    <div class="hidden xl:block text-left">
                         <div class="text-xs font-semibold text-slate-900 leading-tight truncate max-w-[120px]">{{ $user['name'] }}</div>
-                        <div class="text-[10px] text-slate-500">{{ $user['badge'] }}</div>
+                        <div class="text-[10px] text-slate-500 truncate max-w-[120px]">{{ $user['badge'] }}</div>
                     </div>
                 </div>
             </div>
@@ -268,6 +273,23 @@
              ========================================================================= -->
         <main class="rac-content">
             
+            <!-- Prototype Demo Safety Notice Banner -->
+            <div class="mb-5 p-3 sm:p-3.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-50/70 to-yellow-500/10 border border-amber-300/40 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shadow-2xs">
+                <div class="flex items-center gap-2.5">
+                    <span class="px-2 py-0.5 rounded font-bold text-[10px] tracking-wider uppercase bg-[#FCDF02] text-[#16181D] border border-amber-400 shrink-0">
+                        Design Prototype
+                    </span>
+                    <p class="text-xs text-slate-700 leading-tight">
+                        <strong class="font-semibold text-slate-900">Phase 01 UI Foundation Review:</strong>
+                        All role switches, sign-offs, and stats are non-destructive UI simulations. Live databases, attendance, and payroll are intentionally deferred to future phases.
+                    </p>
+                </div>
+                <div class="flex items-center gap-2 self-end sm:self-center shrink-0 text-[11px] text-amber-800 font-mono">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Sandbox Safe</span>
+                </div>
+            </div>
+
             <!-- Phase 01 Interactive Tab Bar -->
             <div class="rac-tabs">
                 <button wire:click="setActiveTab('dashboard')" type="button" class="rac-tab-item {{ $activeTab === 'dashboard' ? 'active' : '' }}">
@@ -1072,18 +1094,27 @@
          4. MODAL DIALOGS (Accessible native HTML5 dialogs with blur backdrop)
          ========================================================================= -->
     @if($isModalOpen)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs">
-            <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div wire:keydown.escape.window="closeModal" 
+             wire:click.self="closeModal"
+             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
+             role="dialog" 
+             aria-modal="true" 
+             aria-labelledby="filter-modal-title">
+            <div wire:click.stop class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                 <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                     <div>
-                        <h3 class="text-sm font-bold text-slate-900">Filter Workspace Engagement</h3>
-                        <p class="text-xs text-slate-500">Contextual query for Partner Unit 01</p>
+                        <h3 id="filter-modal-title" class="text-sm font-bold text-slate-900">[Design Preview] Filter Workspace Engagement</h3>
+                        <p class="text-xs text-slate-500">Contextual query simulation for Partner Unit 01</p>
                     </div>
-                    <button wire:click="closeModal" type="button" class="text-slate-400 hover:text-slate-700 p-1">
+                    <button wire:click="closeModal" type="button" class="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100 transition-colors" aria-label="Close dialog">
                         <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
                 </div>
                 <div class="p-5 space-y-4">
+                    <div class="p-3 rounded-lg bg-amber-50/70 border border-amber-200/70 text-xs text-amber-900 flex items-start gap-2">
+                        <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
+                        <span>Prototype Notice: Filter criteria selections in Phase 01 demonstrate UI layout and responsiveness only. No database queries are executed.</span>
+                    </div>
                     <div class="rac-form-group">
                         <label class="rac-form-label">Client Industry Sector</label>
                         <select class="rac-select">
@@ -1099,7 +1130,7 @@
                 </div>
                 <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
                     <button wire:click="closeModal" type="button" class="rac-btn rac-btn-secondary rac-btn-sm">Cancel</button>
-                    <button wire:click="closeModal" type="button" class="rac-btn rac-btn-primary rac-btn-sm">Apply Filters</button>
+                    <button wire:click="closeModal" type="button" class="rac-btn rac-btn-primary rac-btn-sm">Apply Filters (Preview)</button>
                 </div>
             </div>
         </div>
@@ -1107,24 +1138,29 @@
 
     <!-- Confirmation Modal Dialog -->
     @if($isConfirmModalOpen)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs">
-            <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div wire:keydown.escape.window="closeConfirmModal" 
+             wire:click.self="closeConfirmModal"
+             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs"
+             role="dialog" 
+             aria-modal="true" 
+             aria-labelledby="confirm-modal-title">
+            <div wire:click.stop class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                 <div class="p-5">
                     <div class="flex items-start gap-3.5">
                         <div class="w-10 h-10 rounded-full bg-amber-50 text-[#D98A00] flex items-center justify-center shrink-0">
                             <i data-lucide="alert-triangle" class="w-5 h-5"></i>
                         </div>
                         <div>
-                            <h3 class="text-sm font-bold text-slate-900">Confirm Partner Sign-off Approval?</h3>
+                            <h3 id="confirm-modal-title" class="text-sm font-bold text-slate-900">[Design Preview] Confirm Sign-off Simulation</h3>
                             <p class="text-xs text-slate-500 mt-1 leading-relaxed">
-                                You are about to sign off on 7 pending vouchers & leave applications for Partner Unit 01. This will update the ledger and dispatch approval confirmations.
+                                You are previewing the sign-off dialog for Partner Unit 01. In this design prototype, no live financial records, attendance logs, or database transactions are modified.
                             </p>
                         </div>
                     </div>
                 </div>
                 <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
                     <button wire:click="closeConfirmModal" type="button" class="rac-btn rac-btn-secondary rac-btn-sm">Cancel</button>
-                    <button wire:click="closeConfirmModal" type="button" class="rac-btn rac-btn-primary rac-btn-sm">Confirm Sign-off</button>
+                    <button wire:click="closeConfirmModal" type="button" class="rac-btn rac-btn-primary rac-btn-sm">Simulate Sign-off</button>
                 </div>
             </div>
         </div>
