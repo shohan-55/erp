@@ -1,0 +1,50 @@
+name: Laravel UI Verification
+
+on:
+  pull_request:
+  push:
+    branches:
+      - feature/phase-03-platform-dashboard
+
+permissions:
+  contents: read
+
+jobs:
+  ui-verification:
+    name: PHPUnit and Vite build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, fileinfo
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Initialize local test environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Compile Vite production assets
+        run: npm run build
+
+      - name: Run full Laravel feature and unit tests
+        run: php artisan test
