@@ -62,6 +62,7 @@ class DashboardPreview extends Component
 
         $this->section = $section;
         $this->selectedFirmId = null;
+        $this->previewNotice = null;
         $this->closePreviews();
     }
 
