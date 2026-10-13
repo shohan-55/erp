@@ -103,7 +103,7 @@ class FirmLogin extends Component
         if ($matchedRole !== null) {
             $account = $this->demoAccounts[$matchedRole];
             $this->simulatedSuccessMessage = "Design Preview Only: Simulated role-based routing for {$account['label']} ({$account['role_title']}). In production (Phase 03+), database credentials will be authenticated and redirected to your authorized workspace.";
-            $this->simulatedRedirectUrl = url('/');
+            $this->simulatedRedirectUrl = route('firm.practice.preview', ['firmSlug' => $this->firmSlug, 'previewRole' => $matchedRole]);
 
             $this->dispatch('toast', [
                 'title' => '[Preview] Role Routing Simulated',
