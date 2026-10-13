@@ -4,7 +4,9 @@ on:
   pull_request:
   push:
     branches:
+      - main
       - feature/phase-03-platform-dashboard
+      - feature/phases-04-10-practice-suite-ui
 
 permissions:
   contents: read
