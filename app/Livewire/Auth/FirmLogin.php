@@ -64,13 +64,13 @@ class FirmLogin extends Component
         if (isset($this->demoAccounts[$role])) {
             $account = $this->demoAccounts[$role];
             $this->email = $account['email'];
-            $this->password = 'RahmanAnis@2026';
+            $this->password = '';
             $this->validationError = null;
             $this->simulatedSuccessMessage = null;
 
             $this->dispatch('toast', [
-                'title' => '[Demo] Credentials Populated',
-                'message' => "Filled demo identity for {$account['label']} ({$account['email']}). Password is simulated.",
+                'title' => '[Preview] Identity Selected',
+                'message' => "Selected preview identity for {$account['label']} ({$account['email']}). Enter any password to test design preview submission.",
                 'type' => 'info'
             ]);
         }
@@ -91,8 +91,8 @@ class FirmLogin extends Component
             return;
         }
 
-        // Detect simulated role from demo credentials or default to student
-        $matchedRole = 'student';
+        // Match against explicit preview identities
+        $matchedRole = null;
         foreach ($this->demoAccounts as $key => $demo) {
             if (strtolower(trim($this->email)) === strtolower($demo['email'])) {
                 $matchedRole = $key;
@@ -100,15 +100,26 @@ class FirmLogin extends Component
             }
         }
 
-        $account = $this->demoAccounts[$matchedRole];
-        $this->simulatedSuccessMessage = "Authentication simulated successfully as {$account['label']} ({$account['role_title']}). In production, tenant authorization will redirect to your assigned workspace.";
-        $this->simulatedRedirectUrl = url('/');
+        if ($matchedRole !== null) {
+            $account = $this->demoAccounts[$matchedRole];
+            $this->simulatedSuccessMessage = "Design Preview Only: Simulated role-based routing for {$account['label']} ({$account['role_title']}). In production (Phase 03+), database credentials will be authenticated and redirected to your authorized workspace.";
+            $this->simulatedRedirectUrl = url('/');
 
-        $this->dispatch('toast', [
-            'title' => '[Preview] Login Simulated',
-            'message' => "Authenticated as {$account['label']}. Redirecting to Phase 01 Practice Workspace...",
-            'type' => 'success'
-        ]);
+            $this->dispatch('toast', [
+                'title' => '[Preview] Role Routing Simulated',
+                'message' => "Previewing destination for {$account['label']}. Real authentication will be added in Phase 03+.",
+                'type' => 'info'
+            ]);
+        } else {
+            // Do not show 'Authenticated' or successful login for arbitrary credentials
+            $this->validationError = 'Design Preview Notice: Real backend authentication is not implemented in Phase 02. Arbitrary credentials cannot be verified or authenticated. To test role routing simulation, please choose one of the designated preview identities below, or click "Simulate Credential Error".';
+
+            $this->dispatch('toast', [
+                'title' => '[Preview] Real Auth Not Implemented',
+                'message' => 'Arbitrary credentials cannot be authenticated in Phase 02 design preview.',
+                'type' => 'warning'
+            ]);
+        }
     }
 
     public function triggerErrorSimulation(): void

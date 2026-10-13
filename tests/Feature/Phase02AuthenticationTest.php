@@ -110,18 +110,19 @@ class Phase02AuthenticationTest extends TestCase
             ->assertSet('showPassword', false)
             ->call('togglePassword')
             ->assertSet('showPassword', true)
-            // Test demo quick-fill
+            // Test demo quick-fill (verifying no hardcoded password is populated)
             ->call('fillDemoCredentials', 'partner')
             ->assertSet('email', 'mohitul.haq@rahmananis.com')
+            ->assertSet('password', '')
             ->assertDispatched('toast')
             // Test empty validation
             ->set('email', '')
             ->set('password', '')
             ->call('submitLogin')
             ->assertSet('validationError', 'Please enter your registered practice email or User ID.')
-            // Test valid submission simulation
+            // Test valid submission simulation for designated persona
             ->set('email', 'mohitul.haq@rahmananis.com')
-            ->set('password', 'RahmanAnis@2026')
+            ->set('password', 'AnyDesignPreviewPass123!')
             ->call('submitLogin')
             ->assertSet('validationError', null)
             ->assertDispatched('toast');
@@ -144,11 +145,67 @@ class Phase02AuthenticationTest extends TestCase
             ->assertSet('showPassword', true)
             ->call('fillPlatformCredentials')
             ->assertSet('email', 'admin@dhakawala.com')
+            ->assertSet('password', '')
             ->assertDispatched('toast')
+            ->set('password', 'AnyPreviewPass123!')
             ->call('submitLogin')
             ->assertDispatched('toast');
 
         $this->assertNotNull($component->get('simulatedSuccessMessage'));
+    }
+
+    /**
+     * Test arbitrary credentials do not authenticate or claim success on firm login.
+     */
+    public function test_arbitrary_credentials_do_not_authenticate_on_firm_login(): void
+    {
+        $component = Livewire::test(FirmLogin::class, ['firmSlug' => 'rac'])
+            ->set('email', 'unauthorized.user@example.com')
+            ->set('password', 'ArbitraryPass123!')
+            ->call('submitLogin');
+
+        $this->assertNull($component->get('simulatedSuccessMessage'));
+        $this->assertStringContainsString('Arbitrary credentials cannot be verified or authenticated', $component->get('validationError'));
+    }
+
+    /**
+     * Test arbitrary credentials do not authenticate on platform login.
+     */
+    public function test_arbitrary_credentials_do_not_authenticate_on_platform_login(): void
+    {
+        $component = Livewire::test(PlatformLogin::class)
+            ->set('email', 'unknown.operator@external.org')
+            ->set('password', 'SomePass123!')
+            ->call('submitLogin');
+
+        $this->assertNull($component->get('simulatedSuccessMessage'));
+        $this->assertStringContainsString('Arbitrary credentials cannot be verified or authenticated', $component->get('validationError'));
+    }
+
+    /**
+     * Test unknown firm slug consistently shows unavailable state across all 4 firm routes.
+     */
+    public function test_unknown_firm_slug_shows_unavailable_state_across_all_routes(): void
+    {
+        $this->get('/c/unknown-slug/login')
+            ->assertStatus(200)
+            ->assertSee('Firm Node Not Found')
+            ->assertSee('Tenant Workspace Unavailable');
+
+        $this->get('/c/unknown-slug/forgot-password')
+            ->assertStatus(200)
+            ->assertSee('Firm Node Not Found')
+            ->assertSee('Tenant Workspace Unavailable');
+
+        $this->get('/c/unknown-slug/reset-password')
+            ->assertStatus(200)
+            ->assertSee('Firm Node Not Found')
+            ->assertSee('Tenant Workspace Unavailable');
+
+        $this->get('/c/unknown-slug/activate')
+            ->assertStatus(200)
+            ->assertSee('Firm Node Not Found')
+            ->assertSee('Tenant Workspace Unavailable');
     }
 
     /**

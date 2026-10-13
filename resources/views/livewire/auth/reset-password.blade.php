@@ -1,3 +1,6 @@
+@if(!$isPlatform && !$firm)
+    <x-auth-unknown-firm :firm-slug="$firmSlug" />
+@else
 <div class="min-h-screen w-full flex flex-col justify-between bg-slate-50 font-sans selection:bg-[#FCDF02] selection:text-slate-950 py-8 px-4 sm:px-6">
     <!-- Top Header & State Switcher Bar -->
     <header class="w-full max-w-xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
@@ -169,121 +172,142 @@
                 </div>
             @endif
 
-            <!-- Form -->
-            <form wire:submit.prevent="submitReset" class="space-y-5" novalidate>
-                <!-- New Password Input -->
-                <div>
-                    <label for="reset-password" class="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-                        New Password <span class="text-rose-500">*</span>
-                    </label>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <i data-lucide="lock" class="w-4 h-4"></i>
-                        </div>
-                        <input
-                            type="{{ $showPassword ? 'text' : 'password' }}"
-                            id="reset-password"
-                            wire:model.live.debounce.150ms="password"
-                            autocomplete="new-password"
-                            placeholder="••••••••••••"
-                            class="w-full pl-10 pr-11 py-2.5 text-sm rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#FCDF02] focus:ring-2 focus:ring-[#FCDF02]/40 transition-all font-sans"
-                            required
-                        >
-                        <button
-                            type="button"
-                            wire:click="togglePassword"
-                            class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 focus:outline-none"
-                            aria-label="{{ $showPassword ? 'Hide password' : 'Show password' }}"
-                        >
-                            <i data-lucide="{{ $showPassword ? 'eye-off' : 'eye' }}" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Live Password Strength & Requirements Checklist -->
-                <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="font-bold text-slate-800 uppercase tracking-wider text-[10px]">Security Policy Requirements</span>
-                        <span class="text-[11px] text-slate-500 font-mono">
-                            {{ ($this->hasMinLength ? 1 : 0) + ($this->hasUppercase ? 1 : 0) + ($this->hasNumber ? 1 : 0) + ($this->hasSpecialChar ? 1 : 0) }}/4 Verified
-                        </span>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        <div class="flex items-center gap-2 {{ $this->hasMinLength ? 'text-emerald-700 font-medium' : 'text-slate-500' }}">
-                            <i data-lucide="{{ $this->hasMinLength ? 'check-circle' : 'circle' }}" class="w-3.5 h-3.5 {{ $this->hasMinLength ? 'text-emerald-600' : 'text-slate-400' }}"></i>
-                            <span>At least 8 characters</span>
-                        </div>
-
-                        <div class="flex items-center gap-2 {{ $this->hasUppercase ? 'text-emerald-700 font-medium' : 'text-slate-500' }}">
-                            <i data-lucide="{{ $this->hasUppercase ? 'check-circle' : 'circle' }}" class="w-3.5 h-3.5 {{ $this->hasUppercase ? 'text-emerald-600' : 'text-slate-400' }}"></i>
-                            <span>One uppercase letter (A-Z)</span>
-                        </div>
-
-                        <div class="flex items-center gap-2 {{ $this->hasNumber ? 'text-emerald-700 font-medium' : 'text-slate-500' }}">
-                            <i data-lucide="{{ $this->hasNumber ? 'check-circle' : 'circle' }}" class="w-3.5 h-3.5 {{ $this->hasNumber ? 'text-emerald-600' : 'text-slate-400' }}"></i>
-                            <span>One numeric digit (0-9)</span>
-                        </div>
-
-                        <div class="flex items-center gap-2 {{ $this->hasSpecialChar ? 'text-emerald-700 font-medium' : 'text-slate-500' }}">
-                            <i data-lucide="{{ $this->hasSpecialChar ? 'check-circle' : 'circle' }}" class="w-3.5 h-3.5 {{ $this->hasSpecialChar ? 'text-emerald-600' : 'text-slate-400' }}"></i>
-                            <span>One special symbol (!@#$%)</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Confirm Password Input -->
-                <div>
-                    <div class="flex items-center justify-between mb-1.5">
-                        <label for="reset-password-confirm" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
-                            Confirm New Password <span class="text-rose-500">*</span>
+            <!-- Form with Client-Side Password Evaluation (No Keystroke Network Transmissions) -->
+            <div x-data="{
+                password: '',
+                passwordConfirmation: '',
+                showPassword: false,
+                showConfirmation: false,
+                get hasMinLength() { return this.password.length >= 8; },
+                get hasUppercase() { return /[A-Z]/.test(this.password); },
+                get hasNumber() { return /[0-9]/.test(this.password); },
+                get hasSpecialChar() { return /[^A-Za-z0-9]/.test(this.password); },
+                get isMatch() { return this.password.length > 0 && this.password === this.passwordConfirmation; },
+                get verifiedCount() {
+                    return (this.hasMinLength ? 1 : 0) + (this.hasUppercase ? 1 : 0) + (this.hasNumber ? 1 : 0) + (this.hasSpecialChar ? 1 : 0);
+                }
+            }">
+                <form wire:submit.prevent="submitReset" class="space-y-5" novalidate>
+                    <!-- New Password Input -->
+                    <div>
+                        <label for="reset-password" class="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
+                            New Password <span class="text-rose-500">*</span>
                         </label>
-                        @if(!empty($passwordConfirmation))
-                            <span class="text-xs font-semibold {{ $this->isMatch ? 'text-emerald-600' : 'text-rose-500' }}">
-                                {{ $this->isMatch ? '✓ Passwords match' : '✗ Does not match' }}
-                            </span>
-                        @endif
-                    </div>
-                    <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                            <i data-lucide="check-check" class="w-4 h-4"></i>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                <i data-lucide="lock" class="w-4 h-4"></i>
+                            </div>
+                            <input
+                                :type="showPassword ? 'text' : 'password'"
+                                id="reset-password"
+                                x-model="password"
+                                wire:model="password"
+                                autocomplete="new-password"
+                                placeholder="••••••••••••"
+                                class="w-full pl-10 pr-11 py-2.5 text-sm rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#FCDF02] focus:ring-2 focus:ring-[#FCDF02]/40 transition-all font-sans"
+                                required
+                            >
+                            <button
+                                type="button"
+                                @click="showPassword = !showPassword"
+                                class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 focus:outline-none"
+                                :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                            >
+                                <i data-lucide="eye" x-show="!showPassword" class="w-4 h-4"></i>
+                                <i data-lucide="eye-off" x-show="showPassword" class="w-4 h-4" style="display: none;"></i>
+                            </button>
                         </div>
-                        <input
-                            type="{{ $showConfirmation ? 'text' : 'password' }}"
-                            id="reset-password-confirm"
-                            wire:model.live.debounce.150ms="passwordConfirmation"
-                            autocomplete="new-password"
-                            placeholder="••••••••••••"
-                            class="w-full pl-10 pr-11 py-2.5 text-sm rounded-xl border {{ !empty($passwordConfirmation) && !$this->isMatch ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-200' : 'border-slate-300 focus:border-[#FCDF02] focus:ring-[#FCDF02]/40' }} bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all font-sans"
-                            required
-                        >
+                    </div>
+
+                    <!-- Client-Side Real-Time Password Strength & Policy Requirements -->
+                    <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-bold text-slate-800 uppercase tracking-wider text-[10px]">Security Policy Requirements</span>
+                            <span class="text-[11px] text-slate-500 font-mono" x-text="`${verifiedCount}/4 Verified (Local Validation)`">
+                                0/4 Verified (Local Validation)
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            <div class="flex items-center gap-2" :class="hasMinLength ? 'text-emerald-700 font-medium' : 'text-slate-500'">
+                                <i data-lucide="check-circle" x-show="hasMinLength" class="w-3.5 h-3.5 text-emerald-600" style="display: none;"></i>
+                                <i data-lucide="circle" x-show="!hasMinLength" class="w-3.5 h-3.5 text-slate-400"></i>
+                                <span>At least 8 characters</span>
+                            </div>
+
+                            <div class="flex items-center gap-2" :class="hasUppercase ? 'text-emerald-700 font-medium' : 'text-slate-500'">
+                                <i data-lucide="check-circle" x-show="hasUppercase" class="w-3.5 h-3.5 text-emerald-600" style="display: none;"></i>
+                                <i data-lucide="circle" x-show="!hasUppercase" class="w-3.5 h-3.5 text-slate-400"></i>
+                                <span>One uppercase letter (A-Z)</span>
+                            </div>
+
+                            <div class="flex items-center gap-2" :class="hasNumber ? 'text-emerald-700 font-medium' : 'text-slate-500'">
+                                <i data-lucide="check-circle" x-show="hasNumber" class="w-3.5 h-3.5 text-emerald-600" style="display: none;"></i>
+                                <i data-lucide="circle" x-show="!hasNumber" class="w-3.5 h-3.5 text-slate-400"></i>
+                                <span>One numeric digit (0-9)</span>
+                            </div>
+
+                            <div class="flex items-center gap-2" :class="hasSpecialChar ? 'text-emerald-700 font-medium' : 'text-slate-500'">
+                                <i data-lucide="check-circle" x-show="hasSpecialChar" class="w-3.5 h-3.5 text-emerald-600" style="display: none;"></i>
+                                <i data-lucide="circle" x-show="!hasSpecialChar" class="w-3.5 h-3.5 text-slate-400"></i>
+                                <span>One special symbol (!@#$%)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Confirm Password Input -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label for="reset-password-confirm" class="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                                Confirm New Password <span class="text-rose-500">*</span>
+                            </label>
+                            <template x-if="passwordConfirmation.length > 0">
+                                <span class="text-xs font-semibold" :class="isMatch ? 'text-emerald-600' : 'text-rose-500'" x-text="isMatch ? '✓ Passwords match' : '✗ Does not match'"></span>
+                            </template>
+                        </div>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                <i data-lucide="check-check" class="w-4 h-4"></i>
+                            </div>
+                            <input
+                                :type="showConfirmation ? 'text' : 'password'"
+                                id="reset-password-confirm"
+                                x-model="passwordConfirmation"
+                                wire:model="passwordConfirmation"
+                                autocomplete="new-password"
+                                placeholder="••••••••••••"
+                                class="w-full pl-10 pr-11 py-2.5 text-sm rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#FCDF02] focus:ring-2 focus:ring-[#FCDF02]/40 transition-all font-sans"
+                                required
+                            >
+                            <button
+                                type="button"
+                                @click="showConfirmation = !showConfirmation"
+                                class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 focus:outline-none"
+                                :aria-label="showConfirmation ? 'Hide password confirmation' : 'Show password confirmation'"
+                            >
+                                <i data-lucide="eye" x-show="!showConfirmation" class="w-4 h-4"></i>
+                                <i data-lucide="eye-off" x-show="showConfirmation" class="w-4 h-4" style="display: none;"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="pt-2">
                         <button
-                            type="button"
-                            wire:click="toggleConfirmation"
-                            class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 focus:outline-none"
-                            aria-label="{{ $showConfirmation ? 'Hide password confirmation' : 'Show password confirmation' }}"
+                            type="submit"
+                            wire:loading.attr="disabled"
+                            class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-[#FCDF02] hover:bg-[#F0D400] text-[#16181D] shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[#FCDF02]/80 disabled:opacity-60 cursor-pointer"
                         >
-                            <i data-lucide="{{ $showConfirmation ? 'eye-off' : 'eye' }}" class="w-4 h-4"></i>
+                            <span wire:loading.remove>Save New Password & Continue</span>
+                            <span wire:loading class="inline-flex items-center gap-2">
+                                <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+                                <span>Simulating Password Update...</span>
+                            </span>
+                            <i wire:loading.remove data-lucide="arrow-right" class="w-4 h-4"></i>
                         </button>
                     </div>
-                </div>
-
-                <!-- Submit Button -->
-                <div class="pt-2">
-                    <button
-                        type="submit"
-                        wire:loading.attr="disabled"
-                        class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-[#FCDF02] hover:bg-[#F0D400] text-[#16181D] shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[#FCDF02]/80 disabled:opacity-60 cursor-pointer"
-                    >
-                        <span wire:loading.remove>Save New Password & Continue</span>
-                        <span wire:loading class="inline-flex items-center gap-2">
-                            <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
-                            <span>Simulating Password Update...</span>
-                        </span>
-                        <i wire:loading.remove data-lucide="arrow-right" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            </form>
+                </form>
+            </div>
         @endif
 
         <!-- Footer Link -->
@@ -300,3 +324,4 @@
         <div>RA&C ERP SaaS • Enterprise Password Management Preview</div>
     </footer>
 </div>
+@endif

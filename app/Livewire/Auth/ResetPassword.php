@@ -39,9 +39,9 @@ class ResetPassword extends Component
         $this->validationError = null;
 
         if ($state === 'mismatch') {
-            $this->password = 'RahmanAnis@2026';
-            $this->passwordConfirmation = 'DifferentPass#2026';
-            $this->validationError = 'Password confirmation does not match the chosen password.';
+            $this->password = '';
+            $this->passwordConfirmation = '';
+            $this->validationError = 'Design Preview: Password confirmation does not match the chosen password.';
         } elseif ($state === 'form') {
             $this->password = '';
             $this->passwordConfirmation = '';

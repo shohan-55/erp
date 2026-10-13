@@ -17,7 +17,7 @@ class AccountActivation extends Component
         'email' => 'farhan.tanvir@rac.com.bd',
         'role' => 'Articled Student',
         'role_badge' => 'Audit & Assurance Unit II',
-        'student_reg' => 'ICAB Reg: 4892',
+        'student_reg' => 'Sample Reg: 4892 (Placeholder)',
         'inviter_name' => 'Mohitul Haq, FCA (Senior Partner)',
         'invited_at' => 'October 12, 2026',
         'expires_in' => '48 hours'

@@ -24,13 +24,13 @@ class PlatformLogin extends Component
     public function fillPlatformCredentials(): void
     {
         $this->email = 'admin@dhakawala.com';
-        $this->password = 'PlatformRoot#2026';
+        $this->password = '';
         $this->validationError = null;
         $this->simulatedSuccessMessage = null;
 
         $this->dispatch('toast', [
-            'title' => '[Demo] Platform Credentials Populated',
-            'message' => 'Filled demo Super Admin identity for DhakaWala Platform Management.',
+            'title' => '[Preview] Platform Identity Selected',
+            'message' => 'Selected preview operator identity (admin@dhakawala.com). Enter any password to test preview submission.',
             'type' => 'info'
         ]);
     }
@@ -58,17 +58,28 @@ class PlatformLogin extends Component
         }
 
         if (empty(trim($this->password))) {
-            $this->validationError = 'Please enter your platform root password.';
+            $this->validationError = 'Please enter your platform password.';
             return;
         }
 
-        $this->simulatedSuccessMessage = 'Platform operator authentication simulated. Note: Platform Super Admins do not possess ambient access to CA Firm tenant private records under the Privacy-First SaaS policy.';
+        if (strtolower(trim($this->email)) === 'admin@dhakawala.com') {
+            $this->simulatedSuccessMessage = 'Design Preview Only: Platform operator console routing simulated. Note: Platform Super Admins do not possess ambient access to CA Firm tenant private records under the Privacy-First SaaS policy. Real authentication is deferred to Phase 03+.';
 
-        $this->dispatch('toast', [
-            'title' => '[Preview] Platform Authentication Simulated',
-            'message' => 'Authenticated as Platform Operator. Multi-tenant privacy safeguards are active.',
-            'type' => 'success'
-        ]);
+            $this->dispatch('toast', [
+                'title' => '[Preview] Platform Navigation Simulated',
+                'message' => 'Simulating platform console routing for authorized operator preview.',
+                'type' => 'info'
+            ]);
+        } else {
+            // Do not show 'Authenticated' or successful login for arbitrary credentials
+            $this->validationError = 'Design Preview Notice: Real backend authentication is not implemented in Phase 02. Arbitrary credentials cannot be verified or authenticated. To test the platform operator layout, please use the designated preview identity (admin@dhakawala.com).';
+
+            $this->dispatch('toast', [
+                'title' => '[Preview] Real Auth Not Implemented',
+                'message' => 'Arbitrary credentials cannot be authenticated in Phase 02 design preview.',
+                'type' => 'warning'
+            ]);
+        }
     }
 
     public function render()
