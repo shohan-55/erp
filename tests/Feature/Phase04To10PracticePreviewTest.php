@@ -206,6 +206,26 @@ class Phase04To10PracticePreviewTest extends TestCase
             ->assertDontSee('Sample Student 01');
     }
 
+    public function test_client_mutated_role_section_and_filter_are_whitelisted(): void
+    {
+        Livewire::test(PracticePreview::class, ['firmSlug'=>'rac', 'previewRole'=>'student'])
+            ->set('previewRole', 'platform-admin')
+            ->assertSet('previewRole', 'student')
+            ->set('section', '../auth/firm-login')
+            ->assertSet('section', 'dashboard')
+            ->set('filter', 'untrusted-status')
+            ->assertSet('filter', 'all');
+    }
+
+    public function test_preview_acknowledgement_requires_visible_permitted_dialog(): void
+    {
+        Livewire::test(PracticePreview::class, ['firmSlug'=>'rac', 'previewRole'=>'student'])
+            ->call('acknowledgeDialog', 'policy')
+            ->assertSet('notice', null)
+            ->call('openDialog','correction')
+            ->assertSet('showCorrectionModal',false);
+    }
+
     public function test_prior_phase_routes_remain_available(): void
     {
         $this->get('/')->assertOk();
