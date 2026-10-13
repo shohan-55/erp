@@ -59,7 +59,7 @@
     @endforeach
 </section>
 
-<div class="grid gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(270px,1fr)]">
+<div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(270px,1fr)]">
     <section class="min-w-0 overflow-hidden rounded-2xl border border-[#E8EAF0] bg-white shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-5">
             <div><h3 class="text-sm font-extrabold text-slate-900">{{ $previewRole === 'student' ? 'My Attendance Snapshot' : 'Team Attendance Snapshot' }}</h3><p class="mt-1 text-xs text-slate-500">Fictional office and client engagement activity</p></div>
