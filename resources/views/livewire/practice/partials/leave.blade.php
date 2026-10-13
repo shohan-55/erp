@@ -84,7 +84,7 @@
             <p class="mt-5 text-[11px] leading-relaxed text-amber-200">No statutory leave entitlement, balance or financial deduction is implied by this preview.</p>
         </section>
         <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
-            <div class="flex items-start gap-3"><div class="rounded-xl bg-amber-50 p-2.5 text-amber-800"><i data-lucide="shield-check" class="h-5 w-5"></i></div><div><h3 class="text-sm font-extrabold">Partner-wise Privacy</h3><p class="mt-2 text-xs leading-relaxed text-slate-500">A Manager may review only assigned students. A Student can access only personal records. Real enforcement requires future tenant-aware authorization and database policies.</p></div></div>
+            <div class="flex items-start gap-3"><div class="flex h-11 w-11 shrink-0 self-start items-center justify-center rounded-xl bg-amber-50 text-amber-800"><i data-lucide="shield-check" class="h-5 w-5"></i></div><div><h3 class="text-sm font-extrabold">Partner-wise Privacy</h3><p class="mt-2 text-xs leading-relaxed text-slate-500">A Manager may review only assigned students. A Student can access only personal records. Real enforcement requires future tenant-aware authorization and database policies.</p></div></div>
         </section>
     </aside>
 </div>
