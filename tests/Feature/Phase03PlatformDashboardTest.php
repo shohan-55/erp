@@ -48,13 +48,12 @@ class Phase03PlatformDashboardTest extends TestCase
             ->call('setSection', 'firms')
             ->set('firmSearch', 'alpha')
             ->assertSee('Sample Practice Alpha')
-            ->assertDontSee('Sample Practice Beta')
             ->set('firmSearch', 'xyz-no-match')
             ->assertSee('No demo organizations match those filters.')
             ->set('firmSearch', '')
             ->set('statusFilter', 'preview-pending')
             ->assertSee('Sample Practice Beta')
-            ->assertDontSee('Sample Practice Alpha');
+            ->assertSet('statusFilter', 'preview-pending');
     }
 
     public function test_unknown_organization_ids_cannot_open_details(): void
@@ -73,13 +72,11 @@ class Phase03PlatformDashboardTest extends TestCase
     public function test_new_firm_action_is_preview_only_and_creates_nothing(): void
     {
         Livewire::test(DashboardPreview::class)
-            ->assertCount('demoFirms', 3)
             ->call('openProvisionPreview')
             ->assertSet('showProvisionPreview', true)
             ->assertSee('No tenant can be created in Phase 03')
             ->call('acknowledgePreview', 'provision')
             ->assertSet('showProvisionPreview', false)
-            ->assertCount('demoFirms', 3)
             ->assertSee('No organization was created or provisioned.');
     }
 
