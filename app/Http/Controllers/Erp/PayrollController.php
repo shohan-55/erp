@@ -15,8 +15,17 @@ class PayrollController extends Controller
     public function index(Request $request, string $firmSlug)
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
+
+        // Payroll amounts are private financial records. Managers have no
+        // implicit salary permission; students may only view their own
+        // FINALIZED, LOCKED statement. Partners may review all run stages
+        // within their own Home Partner workspace.
+        TenantOps::requireRole($actor, ['partner', 'student']);
+
         $runs = DB::table('payroll_runs')->where('company_id', $company->id)
-            ->where('workspace_id', $workspace->id)->orderByDesc('period_month')->limit(24)->get();
+            ->where('workspace_id', $workspace->id)
+            ->when($actor->role === 'student', fn ($q) => $q->where('status', 'locked'))
+            ->orderByDesc('period_month')->limit(24)->get();
 
         $selectedId = $request->integer('run');
         $run = $runs->firstWhere('id', $selectedId) ?? $runs->first();
@@ -27,7 +36,8 @@ class PayrollController extends Controller
                 ->join('memberships as m', 'm.id', '=', 'p.membership_id')
                 ->join('users as u', 'u.id', '=', 'm.user_id')
                 ->where('p.payroll_run_id', $run->id)
-                ->when($actor->role === 'manager', fn ($q) => $q->where('m.manager_membership_id', $actor->id))
+                ->where('m.company_id', $company->id)
+                ->where('m.workspace_id', $workspace->id)
                 ->when($actor->role === 'student', fn ($q) => $q->where('m.id', $actor->id))
                 ->select('p.*', 'u.name as member_name')->orderBy('u.name')->get();
         }
