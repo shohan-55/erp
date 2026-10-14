@@ -12,6 +12,43 @@
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs font-semibold text-slate-500">{{ $item['title'] }}</p><p class="mt-3 text-xl font-extrabold">{{ $item['value'] }}</p></div>
 @endforeach
 </section>
+<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+  <div>
+    <p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">SCHEDULE EXCEPTIONS</p>
+    <h3 class="mt-1 text-lg font-extrabold">Special Working Days & Holidays</h3>
+    <p class="mt-2 text-sm text-slate-600">A future holiday can be marked as a working day, or a working day can become a special holiday. Applies only to this Partner workspace. Changes are versioned and audit logged, and do not automatically deduct pay.</p>
+  </div>
+  @if($actor->role === 'partner')
+  <form method="POST" action="{{ route('erp.policies.day_override', ['firmSlug'=>$firmSlug]) }}" class="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr]">
+    @csrf
+    <label class="text-xs font-bold text-slate-700">Future Date
+      <input name="work_date" type="date" min="{{ now($company->timezone)->addDay()->toDateString() }}" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm">
+    </label>
+    <label class="text-xs font-bold text-slate-700">Day Type
+      <select name="day_type" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm">
+        <option value="working">Special Working Day</option>
+        <option value="holiday">Special Holiday</option>
+      </select>
+    </label>
+    <label class="text-xs font-bold text-slate-700 sm:col-span-2">Reason / Authorization Notes
+      <textarea name="reason" rows="2" minlength="15" maxlength="1000" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm" placeholder="Why is this office day being changed?"></textarea>
+    </label>
+    <button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-extrabold sm:col-span-2">Save Future Day Override</button>
+  </form>
+  @endif
+  <div class="mt-5 space-y-2">
+    <p class="text-xs font-bold text-slate-600">Authorized Day Decisions (most recent 30 records)</p>
+    @forelse($dayOverrides as $decision)
+    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs">
+      <span class="font-bold">{{ $decision->work_date }}</span>
+      <span>{{ $decision->day_type === 'working' ? 'Working Day' : 'Holiday' }}</span>
+      <span class="text-slate-500">{{ $decision->reason }}</span>
+    </div>
+    @empty
+    <p class="text-xs text-slate-500">No special working days or holidays have been authorized yet.</p>
+    @endforelse
+  </div>
+</section>
 @if($actor->role === 'partner')
 @php $futureDate=\Carbon\Carbon::now($company->timezone)->addMonth()->startOfMonth()->toDateString(); @endphp
 <section class="mb-5 rounded-2xl border border-amber-200 bg-white p-5 shadow-sm sm:p-6">
