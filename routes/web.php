@@ -18,6 +18,14 @@ use App\Livewire\Practice\PracticePreview;
 | Phase 02: Enterprise Authentication & Account Recovery Experience
 */
 
+// Prevent public design previews from being mistaken for secure production features.
+if (app()->environment('production')) {
+    Route::get('/', fn () => redirect()->route('operational.login', ['companySlug' => 'rac']))->name('home');
+    Route::get('/c/{firmSlug}/login', fn (string $firmSlug) =>
+        redirect()->route('operational.login', ['companySlug' => $firmSlug])
+    )->name('firm.login');
+} else {
+
 // Phase 01: Practice Workspace Shell & Demonstration Dashboard
 Route::get('/', AppShell::class)->name('home');
 Route::get('/dashboard', AppShell::class)->name('dashboard');
@@ -48,6 +56,9 @@ Route::prefix('c/{firmSlug}')->group(function () {
     Route::get('/reset-password', ResetPassword::class)->name('firm.reset-password');
     Route::get('/activate', AccountActivation::class)->name('firm.activate');
 });
+
+}
+// All /platform and /preview routes above are intentionally absent in production.
 
 // Protected operational routes: separate from public fictional design previews.
 require __DIR__.'/operational.php';
