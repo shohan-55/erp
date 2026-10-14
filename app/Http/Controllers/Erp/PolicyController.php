@@ -33,7 +33,12 @@ class PolicyController extends Controller
             ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
             ->orderByDesc('effective_date')->limit(20)->get();
 
-        return view('erp.policies', compact('company', 'workspace', 'actor', 'firmSlug', 'effectivePolicy', 'proposals', 'votes', 'overrides'));
+        $dayOverrides = DB::table('workspace_day_overrides')
+            ->where('company_id', $company->id)
+            ->where('workspace_id', $workspace->id)
+            ->orderByDesc('work_date')->orderByDesc('id')->limit(30)->get();
+
+        return view('erp.policies', compact('company', 'workspace', 'actor', 'firmSlug', 'effectivePolicy', 'proposals', 'votes', 'overrides', 'dayOverrides'));
     }
 
     public function propose(Request $request, string $firmSlug)
@@ -175,6 +180,71 @@ class PolicyController extends Controller
         }, 3);
 
         return back()->with('success', 'Partner policy override scheduled. Other Partners are unaffected.');
+    }
+
+    /**
+     * Authorize a prospective special working day or holiday for exactly one
+     * Partner workspace. Revisions are append-only; no old decision disappears.
+     * This never calculates wage deductions or rewrites finalized payroll.
+     */
+    public function dayOverride(Request $request, string $firmSlug)
+    {
+        [$company, $workspace, $actor] = TenantOps::context($request);
+        TenantOps::requireRole($actor, ['partner']);
+
+        $input = $request->validate([
+            'work_date' => ['required', 'date_format:Y-m-d'],
+            'day_type' => ['required', 'in:working,holiday'],
+            'reason' => ['required', 'string', 'min:15', 'max:1000'],
+        ]);
+
+        $dt = CarbonImmutable::createFromFormat('!Y-m-d', $input['work_date'], $company->timezone);
+        if (! $dt || $dt->toDateString() !== $input['work_date']
+            || ! $dt->greaterThan(CarbonImmutable::now($company->timezone)->startOfDay())) {
+            throw ValidationException::withMessages(['work_date' => 'Special working days and holidays must be scheduled for a future calendar date.']);
+        }
+
+        DB::transaction(function () use ($company, $workspace, $actor, $input) {
+            DB::table('workspaces')->where('id', $workspace->id)
+                ->where('company_id', $company->id)->lockForUpdate()->first();
+
+            if ($input['work_date'] <= CarbonImmutable::now($company->timezone)->toDateString()) {
+                throw ValidationException::withMessages(['work_date' => 'This date is no longer in the future.']);
+            }
+
+            $month = substr($input['work_date'], 0, 7).'-01';
+            if (DB::table('payroll_runs')->where('company_id', $company->id)
+                ->where('workspace_id', $workspace->id)->where('period_month', $month)
+                ->whereIn('status', ['reviewed', 'approved', 'paid', 'locked'])->exists()) {
+                throw ValidationException::withMessages(['work_date' => 'Payroll is frozen for this period.']);
+            }
+
+            $last = DB::table('workspace_day_overrides')
+                ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
+                ->where('work_date', $input['work_date'])->latest('id')->first();
+            if ($last && $last->day_type === $input['day_type']) {
+                throw ValidationException::withMessages(['day_type' => 'The latest decision already has this type for that date.']);
+            }
+
+            $id = DB::table('workspace_day_overrides')->insertGetId([
+                'company_id' => $company->id,
+                'workspace_id' => $workspace->id,
+                'work_date' => $input['work_date'],
+                'day_type' => $input['day_type'],
+                'reason' => trim($input['reason']),
+                'authorized_by' => $actor->id,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+
+            TenantOps::audit($actor, 'calendar.day_override', 'workspace_day_override', $id, [
+                'work_date' => $input['work_date'],
+                'prior_decision_id' => $last?->id,
+                'day_type' => $input['day_type'],
+                'reason' => trim($input['reason']),
+            ]);
+        }, 3);
+
+        return back()->with('success', 'The future calendar exception was saved for your Partner workspace.');
     }
 
     private function validatePolicy(Request $request, bool $companyWide): array
