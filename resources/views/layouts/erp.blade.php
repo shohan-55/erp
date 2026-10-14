@@ -17,6 +17,7 @@
 ['label'=>'Leave Requests','name'=>'erp.leaves','icon'=>'calendar-days'],
 ['label'=>'Conveyance','name'=>'erp.claims','icon'=>'receipt'],
 ['label'=>'Payroll','name'=>'erp.payroll','icon'=>'wallet-cards'],
+['label'=>'Policy & Governance','name'=>'erp.policies','icon'=>'shield-check'],
 ['label'=>'Notifications','name'=>'erp.notifications','icon'=>'bell'],
 ] as $item)
 <a href="{{ route($item['name'], ['firmSlug'=>$firmSlug]) }}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition {{ request()->routeIs($item['name']) ? 'bg-[#FCDF02] text-[#17191F]' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
