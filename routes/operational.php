@@ -23,6 +23,8 @@ Route::prefix('app/c/{companySlug}')->group(function () {
         Route::get('/payroll', [OperationalPayrollController::class, 'index'])->name('operational.payroll');
         Route::post('/payroll/generate', [OperationalPayrollController::class, 'generate'])->name('operational.payroll.generate');
         Route::post('/payroll/{runId}/advance', [OperationalPayrollController::class, 'advance'])->name('operational.payroll.advance');
+        Route::get('/attendance/corrections', [OperationalCorrectionController::class, 'index'])->name('operational.attendance.corrections');
+        Route::post('/attendance/corrections/{sessionId}', [OperationalCorrectionController::class, 'correct'])->name('operational.attendance.correct');
         Route::post('/logout', [OperationalAuthController::class, 'logout'])->name('operational.logout');
     });
 });
