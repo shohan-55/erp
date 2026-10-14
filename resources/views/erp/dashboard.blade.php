@@ -14,12 +14,15 @@
   </div>
   @if($activeAttendance)
     <p class="mt-4 text-sm text-slate-700">Started at {{ \Carbon\Carbon::parse($activeAttendance->started_at, 'UTC')->timezone($company->timezone)->format('h:i A') }} · {{ ucfirst($activeAttendance->work_mode) }}{{ $activeAttendance->client_site ? ' · '.$activeAttendance->client_site : '' }}</p>
-    <form action="{{ route('erp.attendance.check_out', ['firmSlug'=>$firmSlug]) }}" method="POST" class="mt-4">
+    <form action="{{ route('erp.attendance.check_out', ['firmSlug'=>$firmSlug]) }}" method="POST" @if($workspace->attendance_location_enabled) data-erp-attendance-form @endif class="mt-4">
       @csrf
-      <button type="submit" class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-extrabold text-white hover:bg-slate-800 sm:w-auto">Check Out</button>
+      <div class="mb-3">@if($workspace->attendance_location_enabled)
+<label class="flex items-start gap-2 text-xs text-slate-600"><input type="checkbox" data-erp-location-consent class="mt-0.5"> I agree to share my approximate browser GPS for this single attendance event. If unavailable, attendance can still be submitted and may need manual verification.</label>
+<p data-erp-location-status role="status" class="text-xs text-slate-500" aria-live="polite"></p>
+@endif</div><button type="submit" class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-extrabold text-white hover:bg-slate-800 sm:w-auto">Check Out</button>
     </form>
   @else
-    <form action="{{ route('erp.attendance.check_in', ['firmSlug'=>$firmSlug]) }}" method="POST" class="mt-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
+    <form action="{{ route('erp.attendance.check_in', ['firmSlug'=>$firmSlug]) }}" method="POST" @if($workspace->attendance_location_enabled) data-erp-attendance-form @endif class="mt-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
       @csrf
       <label class="min-w-0 flex-1 text-xs font-bold text-slate-700">Work Location
         <select name="work_mode" class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm">
@@ -30,7 +33,10 @@
       <label class="min-w-0 flex-[1.5] text-xs font-bold text-slate-700">Client Name (required for Client Site)
         <input name="client_site" maxlength="180" placeholder="Client / engagement location" class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
       </label>
-      <button type="submit" class="min-h-12 rounded-xl bg-[#FCDF02] px-7 py-3 text-sm font-extrabold text-slate-950 hover:bg-[#F5AD16]">Check In</button>
+      <div class="self-center">@if($workspace->attendance_location_enabled)
+<label class="flex items-start gap-2 text-xs text-slate-600"><input type="checkbox" data-erp-location-consent class="mt-0.5"> I agree to share my approximate browser GPS for this single attendance event. If unavailable, attendance can still be submitted and may need manual verification.</label>
+<p data-erp-location-status role="status" class="text-xs text-slate-500" aria-live="polite"></p>
+@endif</div><button type="submit" class="min-h-12 rounded-xl bg-[#FCDF02] px-7 py-3 text-sm font-extrabold text-slate-950 hover:bg-[#F5AD16]">Check In</button>
     </form>
   @endif
   <p class="mt-3 text-xs text-slate-500">Your attendance uses server time and is recorded in your own workspace. GPS check-in will be introduced after location consent and policy review in Phase 3.</p>
@@ -57,4 +63,7 @@
 <aside class="space-y-4"><div class="rounded-2xl bg-[#17191F] p-6 text-white"><h3 class="text-base font-extrabold">Office Policy</h3><p class="mt-3 text-sm text-slate-300">Office start: {{ substr($effectivePolicy['office_start'],0,5) }} · End: {{ substr($effectivePolicy['office_end'],0,5) }}</p><p class="mt-2 text-sm text-slate-300">Grace: {{ $effectivePolicy['grace_minutes'] }} minutes</p><p class="mt-2 text-xs text-amber-200">Time zone: {{ $company->timezone }} · No automatic payroll late penalty</p></div>
 <a href="{{ route('erp.notifications',['firmSlug'=>$firmSlug]) }}" class="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 text-sm font-bold shadow-sm"><span>Unread Notifications</span><span class="rounded-full bg-[#FCDF02] px-3 py-1">{{ $stats['unread_notifications'] }}</span></a></aside>
 </section>
+@if($workspace->attendance_location_enabled && $actor->role === 'student')
+<script src="{{ asset('js/erp-attendance-location.js') }}" defer></script>
+@endif
 @endsection

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
 use App\Support\PolicyResolver;
+use App\Support\AttendanceLocation;
+use Illuminate\Support\Facades\Crypt;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +33,15 @@ class AttendanceController extends Controller
             ? DB::table('attendance_sessions')->where('membership_id', $actor->id)
                 ->whereNull('ended_at')->first() : null;
 
-        return view('erp.attendance', compact('company', 'workspace', 'actor', 'firmSlug', 'records', 'openSession'));
+        $locationSessionIds = $actor->role === 'student'
+            ? collect()
+            : DB::table('attendance_locations')
+                ->where('company_id', $company->id)
+                ->where('workspace_id', $workspace->id)
+                ->whereIn('attendance_session_id', $records->pluck('id'))
+                ->distinct()->pluck('attendance_session_id');
+
+        return view('erp.attendance', compact('company', 'workspace', 'actor', 'firmSlug', 'records', 'openSession', 'locationSessionIds'));
     }
 
     public function checkIn(Request $request, string $firmSlug)
@@ -44,7 +54,9 @@ class AttendanceController extends Controller
             'client_site' => ['nullable', 'string', 'max:180', 'required_if:work_mode,client'],
         ]);
 
-        DB::transaction(function () use ($company, $workspace, $actor, $data) {
+        $location = AttendanceLocation::fromRequest($request, $workspace);
+
+        DB::transaction(function () use ($company, $workspace, $actor, $data, $location) {
             // Every check-in/out for a member acquires the same row lock so concurrent
             // requests cannot create overlapping active sessions.
             DB::table('memberships')->where('id', $actor->id)->lockForUpdate()->first();
@@ -78,8 +90,10 @@ class AttendanceController extends Controller
                 'created_at' => now(), 'updated_at' => now(),
             ]);
 
+            $captured = AttendanceLocation::record($actor, $id, 'check_in', $location);
             TenantOps::audit($actor, 'attendance.check_in', 'attendance_session', $id, [
                 'work_mode' => $data['work_mode'], 'local_date' => $day,
+                'browser_location_captured' => $captured,
             ]);
         }, 3);
 
@@ -88,10 +102,11 @@ class AttendanceController extends Controller
 
     public function checkOut(Request $request, string $firmSlug)
     {
-        [, , $actor] = TenantOps::context($request);
+        [, $workspace, $actor] = TenantOps::context($request);
         TenantOps::requireRole($actor, ['student']);
+        $location = AttendanceLocation::fromRequest($request, $workspace);
 
-        DB::transaction(function () use ($actor) {
+        DB::transaction(function () use ($actor, $location) {
             DB::table('memberships')->where('id', $actor->id)->lockForUpdate()->first();
 
             $session = DB::table('attendance_sessions')
@@ -108,10 +123,80 @@ class AttendanceController extends Controller
                 ->whereNull('ended_at')
                 ->update(['ended_at' => $ended, 'updated_at' => now()]);
 
-            TenantOps::audit($actor, 'attendance.check_out', 'attendance_session', $session->id);
+            $captured = AttendanceLocation::record($actor, $session->id, 'check_out', $location);
+            TenantOps::audit($actor, 'attendance.check_out', 'attendance_session', $session->id, [
+                'browser_location_captured' => $captured,
+            ]);
         }, 3);
 
         return back()->with('success', 'Check-out recorded.');
+    }
+
+    /**
+     * Show browser-reported GPS to the owning Partner or the assigned Manager.
+     * Do not expose a public map/link: query-string coordinates leak to third parties.
+     */
+    public function location(Request $request, string $firmSlug, int $sessionId)
+    {
+        [$company, $workspace, $actor] = TenantOps::context($request);
+        TenantOps::requireRole($actor, ['partner', 'manager']);
+
+        $session = DB::table('attendance_sessions')
+            ->where('id', $sessionId)
+            ->where('company_id', $company->id)
+            ->where('workspace_id', $workspace->id)->first();
+        abort_unless($session, 404);
+        TenantOps::subject($actor, $session->membership_id);
+
+        $locations = DB::table('attendance_locations')
+            ->where('attendance_session_id', $session->id)
+            ->where('company_id', $company->id)
+            ->where('workspace_id', $workspace->id)
+            ->where('membership_id', $session->membership_id)
+            ->orderBy('captured_at')->get();
+
+        abort_if($locations->isEmpty(), 404);
+
+        $readings = $locations->map(fn ($location) => [
+            'event' => $location->event,
+            'latitude' => Crypt::decryptString($location->latitude_encrypted),
+            'longitude' => Crypt::decryptString($location->longitude_encrypted),
+            'accuracy_meters' => $location->accuracy_meters,
+            'captured_at' => $location->captured_at,
+        ]);
+
+        return response()->view('erp.attendance-location', compact(
+            'company', 'workspace', 'actor', 'firmSlug', 'session', 'readings'
+        ))->header('Cache-Control', 'private, no-store, max-age=0');
+    }
+
+    public function updateLocationPolicy(Request $request, string $firmSlug)
+    {
+        [, $workspace, $actor] = TenantOps::context($request);
+        TenantOps::requireRole($actor, ['partner']);
+
+        $input = $request->validate([
+            'attendance_location_enabled' => ['required', 'boolean'],
+            'attendance_location_retention_days' => ['required', 'integer', 'between:7,90'],
+            'notice_acknowledged' => ['required_if:attendance_location_enabled,1', 'accepted'],
+        ]);
+
+        DB::transaction(function () use ($actor, $workspace, $input) {
+            DB::table('workspaces')->where('id', $workspace->id)
+                ->where('company_id', $actor->company_id)->lockForUpdate()->first();
+            DB::table('workspaces')->where('id', $workspace->id)
+                ->where('company_id', $actor->company_id)->update([
+                    'attendance_location_enabled' => (bool) $input['attendance_location_enabled'],
+                    'attendance_location_retention_days' => (int) $input['attendance_location_retention_days'],
+                    'updated_at' => now(),
+                ]);
+            TenantOps::audit($actor, 'attendance.location_policy.updated', 'workspace', $workspace->id, [
+                'enabled' => (bool) $input['attendance_location_enabled'],
+                'retention_days' => (int) $input['attendance_location_retention_days'],
+            ]);
+        }, 3);
+
+        return back()->with('success', 'Attendance location settings updated for your Partner workspace.');
     }
 
     public function correction(Request $request, string $firmSlug, int $sessionId)

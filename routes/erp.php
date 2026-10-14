@@ -46,6 +46,9 @@ Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
         Route::post('/settings/security/mfa/disable', [SecurityController::class, 'disableMfa'])
             ->middleware('throttle:5,1')->name('security.mfa.disable');
         Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance');
+        Route::get('/attendance/{sessionId}/location', [AttendanceController::class, 'location'])->name('attendance.location');
+        Route::post('/attendance/location-policy', [AttendanceController::class, 'updateLocationPolicy'])
+            ->middleware('throttle:5,1')->name('attendance.location_policy');
         Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn'])->name('attendance.check_in');
         Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut'])->name('attendance.check_out');
         Route::post('/attendance/{sessionId}/correct', [AttendanceController::class, 'correction'])->name('attendance.correct');
