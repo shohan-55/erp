@@ -105,6 +105,7 @@ class PrivilegedMfaTest extends TestCase
             'mfa_confirmed_at'=>now(),
             'mfa_recovery_codes'=>'[]',
         ]);
+        $partner->refresh();
         $this->actingAs($partner)->withSession([
             'erp_mfa_context'=>'firm', 'erp_mfa_firm_slug'=>'rac',
         ]);
@@ -134,6 +135,7 @@ class PrivilegedMfaTest extends TestCase
             'mfa_confirmed_at'=>now(),
             'mfa_recovery_codes'=>json_encode([hash('sha256', $recovery)]),
         ]);
+        $partner->refresh();
 
         $this->actingAs($partner)->withSession([
             'erp_mfa_context'=>'firm','erp_mfa_firm_slug'=>'rac',
