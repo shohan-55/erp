@@ -30,6 +30,7 @@ class ProductionPreflight extends Command
             'erp.attendance.check_in',
             'erp.payroll',
             'erp.payroll.advance',
+            'erp.payroll.evidence',
             'erp.claims.receipt',
             'erp.policies.vote',
         ] as $routeName) {
