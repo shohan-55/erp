@@ -23,6 +23,9 @@
 <i data-lucide="{{ $item['icon'] }}" class="h-4 w-4"></i>{{ $item['label'] }}</a>
 @endforeach
 </nav>
+@if($actor->role === 'partner')
+<a href="{{ route('erp.team', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"><i data-lucide="users-round" class="h-4 w-4"></i>Team & Accounts</a>
+@endif
 <div class="border-t border-white/10 p-4"><form action="{{ route('erp.logout',['firmSlug'=>$firmSlug]) }}" method="POST">@csrf<button class="flex w-full items-center gap-2 rounded-xl border border-white/15 px-4 py-3 text-left text-xs font-bold text-slate-200 hover:bg-white/10"><i data-lucide="log-out" class="h-4 w-4"></i>Sign Out</button></form></div>
 </aside>
 <div class="min-w-0 lg:pl-[262px]">
