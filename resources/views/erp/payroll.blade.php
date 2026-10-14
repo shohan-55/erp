@@ -15,9 +15,27 @@
 @if($actor->role==='partner' && $run)
 <div class="border-t border-slate-100 p-5">
 <p class="mb-3 text-xs text-slate-500">Current state: <strong>{{ strtoupper($run->status) }}</strong>. Transitions are audited and cannot be repeated.</p>
+@if(in_array($run->status,['paid','locked']) && $run->payment_evidence_path)
+<a class="mb-4 inline-flex rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100" href="{{ route('erp.payroll.evidence',['firmSlug'=>$firmSlug,'runId'=>$run->id]) }}">Download Private Payment Evidence</a>
+<p class="mb-4 text-xs text-slate-500">Recorded {{ $run->payment_channel }} · {{ $run->payment_date }} · Reconciled {{ number_format((float) $run->reconciled_total, 2) }} BDT</p>
+@endif
 @if(in_array($run->status,['draft','reviewed','approved','paid']))
-<form action="{{ route('erp.payroll.advance',['firmSlug'=>$firmSlug,'runId'=>$run->id]) }}" method="POST" class="flex flex-wrap items-end gap-3">@csrf
-@if($run->status==='approved')<label class="text-xs font-bold">External Payment Reference<input type="text" name="payment_reference" required minlength="5" maxlength="120" class="mt-2 block rounded-xl border border-slate-300 p-3 text-sm" placeholder="Transfer / batch reference"></label>@endif
+<form action="{{ route('erp.payroll.advance',['firmSlug'=>$firmSlug,'runId'=>$run->id]) }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">@csrf
+@if($run->status==='approved')
+<div class="w-full rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">
+    Mark Paid only after disbursement occurred externally. Upload supporting evidence and reconcile the exact total of every payroll line. Uploading evidence is not verification by a bank or payment provider.
+</div>
+<label class="text-xs font-bold">External Payment Reference<input type="text" name="payment_reference" required minlength="5" maxlength="120" class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-sm" placeholder="Transfer / batch reference"></label>
+<label class="text-xs font-bold">Payment Method
+<select name="payment_channel" required class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-sm">
+<option value="">Select method</option><option value="bank_transfer">Bank Transfer</option>
+<option value="mobile_financial_service">Mobile Financial Service</option>
+<option value="cash">Cash with signed receipts</option><option value="cheque">Cheque</option>
+</select></label>
+<label class="text-xs font-bold">Actual Payment Date<input type="date" name="payment_date" required class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
+<label class="text-xs font-bold">Reconciled Total (BDT)<input type="number" name="reconciled_total" required min="0" step=".01" value="{{ number_format((float) $lines->sum('total_amount'), 2, '.', '') }}" class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
+<label class="w-full text-xs font-bold">Private Evidence (PDF/JPG/PNG up to 5 MB)<input type="file" name="payment_evidence" accept="application/pdf,image/jpeg,image/png" required class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
+@endif
 @php $action=['draft'=>'review','reviewed'=>'approve','approved'=>'record_paid','paid'=>'lock'][$run->status]; @endphp
 <button type="submit" name="action" value="{{ $action }}" class="rounded-xl bg-[#17191F] px-5 py-3 text-sm font-extrabold text-white">{{ ['review'=>'Review & Freeze Snapshot','approve'=>'Approve Payroll','record_paid'=>'Record Externally Paid','lock'=>'Lock Finalized Period'][$action] }}</button>
 </form>
