@@ -3,7 +3,7 @@
 <meta name="robots" content="noindex,nofollow">
 <title>@yield('title', 'ERP Workspace') · {{ $company->name }}</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
-<style>[x-cloak]{display:none!important}</style></head>
+<style>[x-cloak]{display:none!important}</style>@livewireStyles</head>
 <body class="min-h-screen bg-[#F6F7F9] font-sans text-[#17191F]">
 <div x-data="{ open:false }" class="min-h-screen">
 <div x-show="open" x-cloak @click="open=false" class="fixed inset-0 z-40 bg-slate-950/60 lg:hidden"></div>
@@ -41,4 +41,5 @@
 @yield('content')
 <footer class="border-t border-slate-200 pt-4 text-[11px] text-slate-500">{{ $company->name }} · {{ $workspace->name }} · Access is restricted to your authorized workspace.</footer>
 </main></div></div>
+@livewireScripts
 </body></html>
