@@ -8,6 +8,7 @@ use App\Support\PolicyResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class PayrollController extends Controller
@@ -88,9 +89,34 @@ class PayrollController extends Controller
         $input = $request->validate([
             'action' => ['required', 'in:review,approve,record_paid,lock'],
             'payment_reference' => ['nullable', 'string', 'min:5', 'max:120', 'required_if:action,record_paid'],
+            'payment_channel' => ['required_if:action,record_paid', 'nullable', 'in:bank_transfer,mobile_financial_service,cash,cheque'],
+            'payment_date' => ['required_if:action,record_paid', 'nullable', 'date_format:Y-m-d'],
+            'reconciled_total' => ['required_if:action,record_paid', 'nullable', 'numeric', 'min:0', 'max:9999999999', 'decimal:0,2'],
+            'payment_evidence' => ['required_if:action,record_paid', 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
         ]);
 
-        DB::transaction(function () use ($workspace, $actor, $runId, $input) {
+        if ($input['action'] === 'record_paid'
+            && $input['payment_date'] > CarbonImmutable::now('Asia/Dhaka')->toDateString()) {
+            throw ValidationException::withMessages([
+                'payment_date' => 'The external settlement date cannot be in the future.',
+            ]);
+        }
+
+        // File persistence is outside the DB transaction: remove orphan files
+        // whenever a concurrently rejected or invalid transition rolls back.
+        $evidencePath = null;
+        if ($input['action'] === 'record_paid') {
+            $evidencePath = $request->file('payment_evidence')->store(
+                'private-payroll-evidence/'.$actor->company_id.'/'.$workspace->id,
+                'local'
+            );
+            if (! is_string($evidencePath) || $evidencePath === '') {
+                throw ValidationException::withMessages(['payment_evidence' => 'Unable to store payment evidence.']);
+            }
+        }
+
+        try {
+            DB::transaction(function () use ($workspace, $actor, $runId, $input, $evidencePath) {
             DB::table('workspaces')->where('id', $workspace->id)->lockForUpdate()->first();
             $run = DB::table('payroll_runs')
                 ->where('id', $runId)
@@ -127,6 +153,19 @@ class PayrollController extends Controller
             }
 
             if ($action === 'record_paid') {
+                $lineTotals = DB::table('payroll_lines')
+                    ->where('payroll_run_id', $run->id)
+                    ->get(['total_amount']);
+                if ($lineTotals->isEmpty()) {
+                    throw ValidationException::withMessages(['action' => 'The payroll has no payable lines.']);
+                }
+                $expectedCents = $lineTotals->sum(fn ($line) => $this->cents($line->total_amount));
+                if ($expectedCents !== $this->cents($input['reconciled_total'])) {
+                    throw ValidationException::withMessages([
+                        'reconciled_total' => 'The external settlement total must match all payroll lines exactly.',
+                    ]);
+                }
+
                 $ref = trim($input['payment_reference']);
                 if (DB::table('payroll_runs')->where('company_id', $actor->company_id)
                     ->where('payment_reference', $ref)->exists()) {
@@ -150,6 +189,10 @@ class PayrollController extends Controller
             if ($action === 'record_paid') {
                 $change['paid_at'] = now();
                 $change['payment_reference'] = trim($input['payment_reference']);
+                $change['payment_channel'] = $input['payment_channel'];
+                $change['payment_date'] = $input['payment_date'];
+                $change['reconciled_total'] = $this->money($expectedCents);
+                $change['payment_evidence_path'] = $evidencePath;
             }
             if ($action === 'lock') {
                 $change['locked_at'] = now();
@@ -159,9 +202,33 @@ class PayrollController extends Controller
             TenantOps::audit($actor, 'payroll.'.$status, 'payroll_run', $runId, [
                 'payment_reference' => $action === 'record_paid' ? $change['payment_reference'] : null,
             ]);
-        }, 3);
+            }, 3);
+        } catch (\Throwable $exception) {
+            if ($evidencePath !== null) {
+                Storage::disk('local')->delete($evidencePath);
+            }
+            throw $exception;
+        }
 
         return back()->with('success', 'Payroll state updated. The audit trail has been recorded.');
+    }
+
+    public function paymentEvidence(Request $request, string $firmSlug, int $runId)
+    {
+        [, $workspace, $actor] = TenantOps::context($request);
+        TenantOps::requireRole($actor, ['partner']);
+
+        $run = DB::table('payroll_runs')
+            ->where('id', $runId)
+            ->where('company_id', $actor->company_id)
+            ->where('workspace_id', $workspace->id)
+            ->whereIn('status', ['paid', 'locked'])
+            ->first();
+
+        abort_unless($run && $run->payment_evidence_path
+            && Storage::disk('local')->exists($run->payment_evidence_path), 404);
+
+        return Storage::disk('local')->download($run->payment_evidence_path, 'payroll-evidence-'.$runId.'.'.pathinfo($run->payment_evidence_path, PATHINFO_EXTENSION));
     }
 
     private function snapshotLines(int $runId, string $period, object $actor): void
