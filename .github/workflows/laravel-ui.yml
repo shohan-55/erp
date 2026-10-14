@@ -54,7 +54,7 @@ jobs:
       - name: Check production routes expose no public UI prototypes
         run: |
           APP_ENV=production php artisan route:list --json > /tmp/erp-production-routes.json
-          node -e "const r=require('/tmp/erp-production-routes.json');const paths=r.map(x=>x.uri);if(paths.some(x=>x.includes('/preview')||x==='platform/dashboard-preview')||!paths.includes('platform/app/login')||!paths.includes('c/{firmSlug}/app/login'))process.exit(1);console.log('Production routing protects demo screens.');"
+          node -e "const r=require('/tmp/erp-production-routes.json');const paths=r.map(x=>x.uri);const demos=paths.filter(x=>x.includes('/preview')||x==='platform/dashboard-preview');const logins=paths.filter(x=>x.endsWith('/app/login'));console.log(JSON.stringify({demo_routes:demos,real_login_routes:logins}));if(demos.length||!paths.includes('platform/app/login')||!paths.includes('c/{firmSlug}/app/login'))process.exit(1);console.log('Production routing protects demo screens.');"
 
       - name: Install Playwright browser for visual verification
         run: |
