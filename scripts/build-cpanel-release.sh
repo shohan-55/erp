@@ -67,6 +67,6 @@ test -f "$WEB/index.php"
     zip -q -r -9 erp-cpanel-split-webroot.zip erp-webroot
 )
 
-sha256sum "$DIST"/erp-cpanel-*.zip > "$DIST/SHA256SUMS.txt"
+( cd "$DIST" && sha256sum erp-cpanel-*.zip > SHA256SUMS.txt )
 echo "Release package created: no environment file, personal data, QA seeders or database."
 echo "Do not deploy without target-account verification and signed release approval."
