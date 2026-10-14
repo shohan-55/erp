@@ -1,0 +1,35 @@
+<?php
+
+use App\Http\Controllers\Erp\AuthController;
+use App\Http\Controllers\Erp\PortalController;
+use App\Http\Controllers\Erp\AttendanceController;
+use App\Http\Controllers\Erp\WorkflowController;
+use App\Http\Controllers\Erp\PayrollController;
+use Illuminate\Support\Facades\Route;
+
+Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
+    Route::get('/login', [AuthController::class, 'show'])->name('login');
+    Route::post('/login', [AuthController::class, 'attempt'])
+        ->middleware('throttle:5,1')->name('login.attempt');
+
+    Route::middleware(['auth', 'tenant.member'])->group(function () {
+        Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
+        Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+        Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance');
+        Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn'])->name('attendance.check_in');
+        Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut'])->name('attendance.check_out');
+        Route::post('/attendance/{sessionId}/correct', [AttendanceController::class, 'correction'])->name('attendance.correct');
+        Route::get('/leave', [WorkflowController::class, 'leaves'])->name('leaves');
+        Route::post('/leave', [WorkflowController::class, 'submitLeave'])->name('leaves.submit');
+        Route::post('/leave/{id}/decision', [WorkflowController::class, 'decideLeave'])->name('leaves.decide');
+        Route::get('/claims', [WorkflowController::class, 'claims'])->name('claims');
+        Route::post('/claims', [WorkflowController::class, 'submitClaim'])->name('claims.submit');
+        Route::get('/claims/{id}/receipt', [WorkflowController::class, 'receipt'])->name('claims.receipt');
+        Route::post('/claims/{id}/decision', [WorkflowController::class, 'decideClaim'])->name('claims.decide');
+        Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll');
+        Route::post('/payroll', [PayrollController::class, 'generate'])->name('payroll.generate');
+        Route::post('/payroll/{runId}/transition', [PayrollController::class, 'advance'])->name('payroll.advance');
+        Route::get('/notifications', [WorkflowController::class, 'notifications'])->name('notifications');
+        Route::post('/notifications/{id}/read', [WorkflowController::class, 'readNotification'])->name('notifications.read');
+    });
+});
