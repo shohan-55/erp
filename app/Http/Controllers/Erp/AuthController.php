@@ -56,6 +56,8 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+        $request->session()->forget(['erp_mfa_verified_user_id', 'erp_mfa_pending_secret', 'erp_mfa_setup_user_id']);
+        $request->session()->put(['erp_mfa_context' => 'firm', 'erp_mfa_firm_slug' => $firmSlug]);
 
         return redirect()->intended(route('erp.dashboard', ['firmSlug' => $firmSlug]));
     }
