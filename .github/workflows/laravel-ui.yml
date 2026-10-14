@@ -1,4 +1,4 @@
-name: Laravel UI Verification
+name: ERP Laravel Operations & UI Verification
 
 on:
   pull_request:
@@ -56,6 +56,14 @@ jobs:
           npm install --no-save playwright@1.56.1
           npx playwright install --with-deps chromium
 
+      - name: Initialize isolated ERP browser QA database
+        run: |
+          export ERP_E2E_PASSWORD="$(openssl rand -hex 24)"
+          echo "ERP_E2E_PASSWORD=$ERP_E2E_PASSWORD" >> "$GITHUB_ENV"
+          touch database/database.sqlite
+          php artisan migrate --force
+          php artisan db:seed --class=ErpBrowserQaSeeder --force
+
       - name: Start the local Laravel preview server
         run: |
           sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env
@@ -74,6 +82,18 @@ jobs:
 
       - name: Browser test all practice design phases and capture screenshots
         run: node tests/browser/practice-phases.mjs
+
+      - name: Browser test actual authenticated ERP operations
+        run: node tests/browser/erp-live-pilot.mjs
+
+      - name: Upload authenticated ERP pilot screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-erp-pilot-screenshots
+          path: screenshots/erp-live-pilot/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload Phase 04-10 screenshots
         if: always()
