@@ -6,6 +6,8 @@ use App\Http\Controllers\Erp\AttendanceController;
 use App\Http\Controllers\Erp\WorkflowController;
 use App\Http\Controllers\Erp\PayrollController;
 use App\Http\Controllers\Erp\PasswordController;
+use App\Http\Controllers\Erp\ActivationController;
+use App\Http\Controllers\Erp\TeamController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
@@ -17,6 +19,10 @@ Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
     Route::post('/forgot-password', [PasswordController::class, 'send'])->middleware('throttle:3,1')->name('password.email');
     Route::get('/reset-password/{token}', [PasswordController::class, 'resetForm'])->name('password.reset.form');
     Route::post('/reset-password', [PasswordController::class, 'update'])->middleware('throttle:5,1')->name('password.reset');
+
+    Route::get('/activate/{token}', [ActivationController::class, 'form'])->name('activate.form');
+    Route::post('/activate', [ActivationController::class, 'accept'])
+        ->middleware('throttle:5,1')->name('activate.accept');
 
     Route::middleware(['auth', 'tenant.member'])->group(function () {
         Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
@@ -35,6 +41,10 @@ Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
         Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll');
         Route::post('/payroll', [PayrollController::class, 'generate'])->name('payroll.generate');
         Route::post('/payroll/{runId}/transition', [PayrollController::class, 'advance'])->name('payroll.advance');
+        Route::get('/team', [TeamController::class, 'index'])->name('team');
+        Route::post('/team/invite', [TeamController::class, 'invite'])->middleware('throttle:10,1')->name('team.invite');
+        Route::post('/team/{id}/resend', [TeamController::class, 'resend'])->middleware('throttle:5,1')->name('team.resend');
+        Route::post('/team/{id}/settings', [TeamController::class, 'updateStudent'])->name('team.update_student');
         Route::get('/notifications', [WorkflowController::class, 'notifications'])->name('notifications');
         Route::post('/notifications/{id}/read', [WorkflowController::class, 'readNotification'])->name('notifications.read');
     });
