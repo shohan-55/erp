@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\CompanyMembership;
 use App\Models\ConveyanceClaim;
 use App\Models\PayrollClaimAllocation;
+use App\Models\PayrollEvent;
 use App\Models\PayrollItem;
 use App\Models\PayrollRun;
 use App\Models\User;
@@ -88,6 +89,8 @@ class OperationalPayrollTest extends TestCase
         $this->assertSame(0,$item->snapshot['financial_lateness_deduction']);
         $this->assertSame($claim->id,PayrollClaimAllocation::firstOrFail()->conveyance_claim_id);
         $this->assertDatabaseCount('payroll_claim_allocations',1);
+        $this->assertDatabaseCount('payroll_events',1);
+        $this->assertSame('generate',PayrollEvent::firstOrFail()->action);
         $this->assertNull($claim->fresh()->paid_at);
 
         $this->actingAs($partner)->post('/app/c/rac/payroll/generate',['month'=>'2026-10'])->assertSessionHasErrors('month');
@@ -124,6 +127,8 @@ class OperationalPayrollTest extends TestCase
         $this->assertSame('locked',$run->fresh()->status);
         $this->actingAs($partner)->post($url,['action'=>'mark_paid','payment_reference'=>'BANK-222'])->assertSessionHasErrors('action');
         $this->assertDatabaseCount('payroll_claim_allocations',1);
+        $this->assertDatabaseCount('payroll_events',5);
+        $this->assertSame(['generate','review','approve','mark_paid','lock'],PayrollEvent::orderBy('id')->pluck('action')->all());
     }
 
     public function test_student_sees_only_personal_locked_items_not_drafts_or_other_students(): void
