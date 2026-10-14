@@ -40,7 +40,7 @@ class AttendanceCorrectionIntegrityTest extends TestCase
         return [$companyId, $workspaceId, $partner, $partnerId, $studentId];
     }
 
-    private function session(int $companyId, int $workspaceId, int $studentId, string $start, ?string $end): int
+    private function insertAttendanceSession(int $companyId, int $workspaceId, int $studentId, string $start, ?string $end): int
     {
         return DB::table('attendance_sessions')->insertGetId([
             'company_id' => $companyId, 'workspace_id' => $workspaceId,
@@ -56,8 +56,8 @@ class AttendanceCorrectionIntegrityTest extends TestCase
         CarbonImmutable::setTestNow('2026-10-14 16:00:00 Asia/Dhaka');
         try {
             [$company, $workspace, $partner, , $studentId] = $this->seedWorkspace();
-            $first = $this->session($company, $workspace, $studentId, '2026-10-14 04:00:00', '2026-10-14 04:30:00');
-            $this->session($company, $workspace, $studentId, '2026-10-14 05:00:00', '2026-10-14 07:00:00');
+            $first = $this->insertAttendanceSession($company, $workspace, $studentId, '2026-10-14 04:00:00', '2026-10-14 04:30:00');
+            $this->insertAttendanceSession($company, $workspace, $studentId, '2026-10-14 05:00:00', '2026-10-14 07:00:00');
 
             $this->actingAs($partner)->post("/c/rac/app/attendance/{$first}/correct", [
                 'ended_at' => '2026-10-14T11:15',
@@ -91,7 +91,7 @@ class AttendanceCorrectionIntegrityTest extends TestCase
         CarbonImmutable::setTestNow('2026-10-14 16:00:00 Asia/Dhaka');
         try {
             [$company, $workspace, $partner, , $studentId] = $this->seedWorkspace();
-            $first = $this->session($company, $workspace, $studentId, '2026-10-14 04:00:00', null);
+            $first = $this->insertAttendanceSession($company, $workspace, $studentId, '2026-10-14 04:00:00', null);
             DB::table('payroll_runs')->insert([
                 'company_id' => $company, 'workspace_id' => $workspace,
                 'period_month' => '2026-10-01', 'status' => 'reviewed',
