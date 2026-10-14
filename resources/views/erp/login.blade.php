@@ -18,5 +18,5 @@
 <label class="block text-xs font-bold text-slate-700">Email Address<input name="email" type="email" value="{{ old('email') }}" autocomplete="username" required maxlength="254" class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"></label>
 <label class="block text-xs font-bold text-slate-700">Password<input name="password" type="password" autocomplete="current-password" required class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"></label>
 <button type="submit" class="w-full rounded-xl bg-[#FCDF02] px-5 py-3.5 text-sm font-extrabold transition hover:bg-[#F3D604]">Sign In</button>
-</form><p class="mt-6 text-xs leading-relaxed text-slate-500">No public registration. If you need access, contact your firm's authorized Partner or administrator.</p>
+</form><a href="{{ route('erp.password.forgot', ['firmSlug'=>$firmSlug]) }}" class="mt-4 inline-block text-xs font-bold text-amber-800 hover:underline">Forgot password?</a><p class="mt-6 text-xs leading-relaxed text-slate-500">No public registration. If you need access, contact your firm's authorized Partner or administrator.</p>
 </div></section></main></body></html>
