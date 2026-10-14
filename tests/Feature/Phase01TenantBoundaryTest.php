@@ -107,6 +107,14 @@ class Phase01TenantBoundaryTest extends TestCase
         ]);
     }
 
+    public function test_guest_redirect_preserves_tenant_and_does_not_assume_rac(): void
+    {
+        $this->get('/c/qa-pilot/app')->assertRedirect('/c/qa-pilot/app/login');
+        $this->get('/c/qa-pilot/app/settings/security')->assertRedirect('/c/qa-pilot/app/login');
+        $this->get('/platform/app')->assertRedirect('/platform/app/login');
+        $this->get('/security/mfa/setup')->assertRedirect('/');
+    }
+
     public function test_company_and_partner_boundaries_hide_private_leaves_and_claims(): void
     {
         [$alpha, $first] = $this->company('tenant-alpha');
