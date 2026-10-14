@@ -1,0 +1,29 @@
+@extends('layouts.erp')
+@section('title','Attendance')
+@section('content')
+<section><h2 class="text-2xl font-extrabold">Office & Client Sessions</h2><p class="mt-2 text-sm text-slate-500">Server timestamps, one active session per student; history is scoped to your authorized team.</p></section>
+@if($actor->role === 'student')
+<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+<h3 class="text-base font-extrabold">{{ $openSession ? 'Current active session' : 'Start a new work session' }}</h3>
+@if($openSession)
+<p class="mt-2 text-sm text-slate-600">Started {{ \Carbon\Carbon::parse($openSession->started_at,'UTC')->timezone($company->timezone)->format('d M Y h:i A') }} · {{ ucfirst($openSession->work_mode) }}</p>
+<form action="{{ route('erp.attendance.check_out',['firmSlug'=>$firmSlug]) }}" method="POST" class="mt-5">@csrf<button class="rounded-xl bg-[#17191F] px-6 py-3 text-sm font-extrabold text-white">Check Out</button></form>
+@else
+<form action="{{ route('erp.attendance.check_in',['firmSlug'=>$firmSlug]) }}" method="POST" class="mt-5 grid items-end gap-3 md:grid-cols-[1fr_1.5fr_auto]">@csrf
+<label class="text-xs font-bold text-slate-700">Work Mode<select name="work_mode" class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"><option value="office">Office</option><option value="client">Client Site</option></select></label>
+<label class="text-xs font-bold text-slate-700">Client Site (required for Client Mode)<input type="text" name="client_site" maxlength="180" placeholder="Audit client/site name" class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"></label>
+<button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-extrabold">Check In</button>
+</form>
+@endif
+<p class="mt-4 text-xs leading-relaxed text-slate-500">Your local clock is not used to record attendance. Missing checkout stays incomplete. Company policies determine lateness.</p></section>
+@endif
+<section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b border-slate-100 p-5"><h3 class="text-sm font-extrabold">Attendance History (last 100 sessions)</h3></div>
+<div class="overflow-x-auto"><table class="w-full min-w-[720px] text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="p-4">Student</th><th class="p-4">Date/Mode</th><th class="p-4">Check-in</th><th class="p-4">Check-out</th><th class="p-4">Status</th>@if($actor->role==='partner')<th class="p-4">Correction</th>@endif</tr></thead>
+<tbody class="divide-y divide-slate-100">
+@forelse($records as $item)
+<tr><td class="p-4 font-semibold">{{ $item->member_name }}</td><td class="p-4">{{ $item->work_date }}<p class="text-xs text-slate-500">{{ ucfirst($item->work_mode) }} {{ $item->client_site ? '· '.$item->client_site : '' }}</p></td><td class="p-4">{{ \Carbon\Carbon::parse($item->started_at,'UTC')->timezone($company->timezone)->format('h:i A') }}</td><td class="p-4">{{ $item->ended_at ? \Carbon\Carbon::parse($item->ended_at,'UTC')->timezone($company->timezone)->format('h:i A') : 'Incomplete' }}</td>
+<td class="p-4"><span class="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">{{ $item->holiday ? 'Holiday' : ($item->late ? 'Late' : 'On time') }}</span></td>
+@if($actor->role==='partner')<td class="p-4"><form action="{{ route('erp.attendance.correct',['firmSlug'=>$firmSlug,'sessionId'=>$item->id]) }}" method="POST" class="flex min-w-[275px] flex-col gap-2">@csrf<input type="datetime-local" name="ended_at" required class="rounded-lg border border-slate-300 p-2 text-xs"><input type="text" name="reason" minlength="10" maxlength="500" required placeholder="Correction reason (10+ characters)" class="rounded-lg border border-slate-300 p-2 text-xs"><button class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">Save correction</button></form></td>@endif</tr>
+@empty<tr><td colspan="6" class="p-8 text-center text-sm text-slate-500">No attendance sessions found.</td></tr>@endforelse
+</tbody></table></div></section>
+@endsection

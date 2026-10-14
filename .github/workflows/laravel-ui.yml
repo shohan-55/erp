@@ -1,4 +1,4 @@
-name: Laravel UI Verification
+name: ERP Laravel Operations & UI Verification
 
 on:
   pull_request:
@@ -51,10 +51,24 @@ jobs:
       - name: Run full Laravel feature and unit tests
         run: php artisan test
 
+      - name: Check production routes expose no public UI prototypes
+        run: |
+          APP_ENV=production php artisan route:list --json > /tmp/erp-production-routes.json
+          node -e "const r=require('/tmp/erp-production-routes.json');const paths=r.map(x=>x.uri);const demos=paths.filter(x=>x==='platform/dashboard-preview'||(x.startsWith('c/')&&x.includes('/preview')));const logins=paths.filter(x=>x.endsWith('/app/login'));console.log(JSON.stringify({demo_routes:demos,real_login_routes:logins}));if(demos.length||!paths.includes('platform/app/login')||!paths.includes('c/{firmSlug}/app/login'))process.exit(1);console.log('Production routing protects demo screens.');"
+
       - name: Install Playwright browser for visual verification
         run: |
           npm install --no-save playwright@1.56.1
           npx playwright install --with-deps chromium
+
+      - name: Initialize isolated ERP browser QA database
+        run: |
+          export ERP_E2E_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$ERP_E2E_PASSWORD"
+          echo "ERP_E2E_PASSWORD=$ERP_E2E_PASSWORD" >> "$GITHUB_ENV"
+          touch database/database.sqlite
+          php artisan migrate --force
+          php artisan db:seed --class=ErpBrowserQaSeeder --force
 
       - name: Start the local Laravel preview server
         run: |
@@ -74,6 +88,18 @@ jobs:
 
       - name: Browser test all practice design phases and capture screenshots
         run: node tests/browser/practice-phases.mjs
+
+      - name: Browser test actual authenticated ERP operations
+        run: node tests/browser/erp-live-pilot.mjs
+
+      - name: Upload authenticated ERP pilot screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-erp-pilot-screenshots
+          path: screenshots/erp-live-pilot/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload Phase 04-10 screenshots
         if: always()
