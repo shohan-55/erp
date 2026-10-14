@@ -249,7 +249,7 @@ class PayrollController extends Controller
         foreach ($members as $member) {
             $base = $this->cents($member->monthly_allowance);
             $claimTotal = $claims->get($member->id, collect())
-                ->sum(fn ($c) => $this->cents($c->amount));
+                ->sum(fn ($c) => $this->cents($c->approved_amount ?? $c->amount));
 
             DB::table('payroll_lines')->updateOrInsert([
                 'payroll_run_id' => $runId, 'membership_id' => $member->id,
