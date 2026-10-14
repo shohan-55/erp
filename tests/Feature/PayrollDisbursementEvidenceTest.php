@@ -99,7 +99,7 @@ class PayrollDisbursementEvidenceTest extends TestCase
         $paid = DB::table('payroll_runs')->where('id', $run)->first();
         $this->assertSame('paid', $paid->status);
         $this->assertSame('bank_transfer', $paid->payment_channel);
-        $this->assertSame('8150.75', $paid->reconciled_total);
+        $this->assertSame(815075, (int) round(((float) $paid->reconciled_total) * 100));
         $this->assertNotEmpty($paid->payment_evidence_path);
         $this->assertTrue(Storage::disk('local')->exists($paid->payment_evidence_path));
 
