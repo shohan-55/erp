@@ -69,7 +69,7 @@ class PrivilegedMfaTest extends TestCase
         $response = $this->actingAs($operator)->get('/security/mfa/setup');
 
         $response->assertOk()
-            ->assertHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->assertHeader('Cache-Control', 'max-age=0, no-store, private')
             ->assertSee('vendor/qrcode-generator.js')
             ->assertSee('data-otp-uri=', false)
             ->assertSee('otpauth://totp/', false)
