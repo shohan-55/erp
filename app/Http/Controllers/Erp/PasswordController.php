@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\OutboundMailGuard;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,7 @@ class PasswordController extends Controller
         $user = User::query()->where('email', $input['email'])->first();
         if ($user && DB::table('memberships')->where('company_id', $company->id)
             ->where('user_id', $user->id)->where('active', true)->exists()) {
+            OutboundMailGuard::ensureConfigured();
             $token = Password::broker()->createToken($user);
             $url = route('erp.password.reset.form', [
                 'firmSlug' => $firmSlug,
