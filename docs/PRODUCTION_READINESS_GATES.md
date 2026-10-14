@@ -21,8 +21,8 @@ The main branch contains the ten-phase **design prototype**; production ERP impl
 
 ## Functional gates
 
-- [x] TOTP Authenticator MFA required for Platform Admin and Partners, with encrypted secret, replay protection and single-use recovery codes; verified by unit/feature/browser CI
-- [ ] Validate MFA enrollment and recovery with real devices in staging, including documented lost-device recovery
+- [x] TOTP Authenticator MFA mandatory for Platform Admin; optional/recommended for tenant members including Partners, and enforced after individual enrollment, with encrypted secrets, replay protection and single-use recovery codes; verified by unit/feature/browser CI
+- [ ] Validate opt-in MFA enrollment, protected opt-out and recovery with real devices in staging, including documented lost-device recovery and a decision on whether payroll/Partner roles need company-mandated MFA before handling real financial data
 - [ ] Actual SMTP password recovery/invitation delivery and offboarding tests
 - [ ] Company/Workspace role permission matrix accepted by all three RA&C Partners
 - [ ] Attendance, holidays, late, leave, conveyance and payroll policies approved (no invented salary deductions)
