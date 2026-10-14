@@ -117,6 +117,14 @@ class WorkflowController extends Controller
             'receipt' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:2048'],
         ]);
 
+        $period = substr($input['journey_date'], 0, 7).'-01';
+        if (DB::table('payroll_runs')->where('company_id', $actor->company_id)
+            ->where('workspace_id', $actor->workspace_id)
+            ->where('period_month', $period)
+            ->whereIn('status', ['reviewed', 'approved', 'paid', 'locked'])->exists()) {
+            throw ValidationException::withMessages(['journey_date' => 'The payroll for this journey month is frozen; contact your Partner.']);
+        }
+
         $filePath = $request->file('receipt')->store('claim-evidence/'.$actor->company_id.'/'.$actor->id, 'local');
 
         try {
@@ -174,11 +182,23 @@ class WorkflowController extends Controller
             $subject = TenantOps::subject($actor, $claim->membership_id);
             abort_unless(TenantOps::actorCanReview($actor, $subject), 403);
 
-            if ($claim->status !== 'pending' || $claim->reserved_payroll_run_id || $claim->paid_payroll_run_id) {
+            if (! in_array($claim->status, ['pending', 'manager_reviewed'], true)
+                || ($actor->role === 'manager' && $claim->status !== 'pending')
+                || $claim->reserved_payroll_run_id || $claim->paid_payroll_run_id) {
                 throw ValidationException::withMessages(['decision' => 'This claim cannot be reviewed again.']);
             }
 
-            $status = $input['decision'] === 'approve' ? 'approved' : 'rejected';
+            $period = substr($claim->journey_date, 0, 7).'-01';
+            if (DB::table('payroll_runs')->where('company_id', $actor->company_id)
+                ->where('workspace_id', $actor->workspace_id)
+                ->where('period_month', $period)
+                ->whereIn('status', ['reviewed', 'approved', 'paid', 'locked'])->exists()) {
+                throw ValidationException::withMessages(['decision' => 'The payroll for this claim month is already frozen.']);
+            }
+
+            // Managers perform a preliminary review, never final financial approval.
+            $status = $input['decision'] === 'reject' ? 'rejected'
+                : ($actor->role === 'partner' ? 'approved' : 'manager_reviewed');
             DB::table('conveyance_claims')->where('id', $id)->update([
                 'status' => $status, 'reviewed_by' => $actor->id,
                 'reviewed_at' => now(), 'decision_note' => $input['decision_note'] ?? null,
@@ -186,6 +206,11 @@ class WorkflowController extends Controller
             ]);
             TenantOps::audit($actor, 'claim.'.$status, 'conveyance_claim', $id);
             TenantOps::notify($actor, $subject->id, 'Conveyance claim update', 'Your conveyance claim status is '.$status.'.');
+            if ($status === 'manager_reviewed') {
+                foreach (TenantOps::teamRecipients($actor, $subject) as $recipientId) {
+                    TenantOps::notify($actor, $recipientId, 'Conveyance awaiting Partner approval', 'A reviewed claim requires Partner approval.');
+                }
+            }
         }, 3);
 
         return back()->with('success', 'Claim decision saved.');
