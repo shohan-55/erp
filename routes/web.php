@@ -48,3 +48,6 @@ Route::prefix('c/{firmSlug}')->group(function () {
     Route::get('/reset-password', ResetPassword::class)->name('firm.reset-password');
     Route::get('/activate', AccountActivation::class)->name('firm.activate');
 });
+
+// Protected operational routes: separate from public fictional design previews.
+require __DIR__.'/operational.php';
