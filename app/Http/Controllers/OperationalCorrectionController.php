@@ -57,10 +57,6 @@ class OperationalCorrectionController extends Controller
         $newIn=CarbonImmutable::createFromFormat('!Y-m-d\TH:i',$data['checked_in_local'],$company->timezone)->utc();
         $newOut=CarbonImmutable::createFromFormat('!Y-m-d\TH:i',$data['checked_out_local'],$company->timezone)->utc();
 
-        if ($newOut->lessThanOrEqualTo($newIn) || $newIn->diffInMinutes($newOut)>1440 || $newOut->greaterThan(CarbonImmutable::now('UTC')->addMinute())) {
-            throw ValidationException::withMessages(['checked_out_local'=>'End time must follow start time, be no more than 24 hours later, and not be in the future.']);
-        }
-
         DB::transaction(function () use ($company,$actor,$sessionId,$data,$newIn,$newOut) {
             // Acquire the same student-membership lock as check-in and check-out operations.
             $session=AttendanceSession::query()->where('company_id',$company->id)
@@ -72,6 +68,10 @@ class OperationalCorrectionController extends Controller
             $day=AttendanceDay::query()->whereKey($session->attendance_day_id)
                 ->where('company_id',$company->id)->where('workspace_id',$actor->workspace_id)
                 ->where('membership_id',$session->membership_id)->firstOrFail();
+
+            if ($newOut->lessThanOrEqualTo($newIn) || $newIn->diffInMinutes($newOut)>1440 || $newOut->greaterThan(CarbonImmutable::now('UTC')->addMinute())) {
+                throw ValidationException::withMessages(['checked_out_local'=>'End time must follow start time, be no more than 24 hours later, and not be in the future.']);
+            }
 
             if ($newIn->setTimezone($company->timezone)->toDateString() !== $day->work_date) {
                 throw ValidationException::withMessages(['checked_in_local'=>'The corrected check-in must remain on the original attendance date.']);
