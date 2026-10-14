@@ -228,6 +228,9 @@ jobs:
       - name: Assemble private Laravel and cPanel public webroot release
         run: bash scripts/build-cpanel-release.sh
 
+      - name: Verify extracted cPanel release paths and no private file exposure
+        run: bash scripts/verify-cpanel-release.sh
+
       - name: Upload app and optional split webroot (review artifacts only)
         uses: actions/upload-artifact@v4
         with:
