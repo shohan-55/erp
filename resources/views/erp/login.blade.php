@@ -5,7 +5,7 @@
 <body class="min-h-screen bg-[#F6F7F9] font-sans text-[#17191F]">
 <main class="grid min-h-screen lg:grid-cols-2">
 <section class="hidden bg-[#17191F] px-12 py-14 text-white lg:flex lg:flex-col lg:justify-between">
-<div class="flex items-center gap-3"><div class="flex h-12 w-12 items-center justify-center rounded-xl bg-[#FCDF02] p-2"><img src="{{ asset('images/rac_logo.svg') }}" alt="" class="h-full w-full object-contain"></div><span class="text-xl font-extrabold">ERP <span class="text-[#FCDF02]">SaaS</span></span></div>
+<div class="flex items-center gap-3"><div class="flex h-12 w-12 items-center justify-center rounded-xl bg-[#FCDF02] p-2">@if($company->slug === 'rac')@if($company->slug === 'rac')<img src="{{ asset('images/rac_logo.svg') }}" alt="" class="h-full w-full object-contain">@else<span class="text-xs font-extrabold text-[#FCDF02]">ERP</span>@endif@else<span class="text-xs font-extrabold text-[#17191F]">ERP</span>@endif</div><span class="text-xl font-extrabold">ERP <span class="text-[#FCDF02]">SaaS</span></span></div>
 <div><p class="text-xs font-bold uppercase tracking-[.2em] text-[#FCDF02]">PRACTICE MANAGEMENT</p><h1 class="mt-4 max-w-xl text-4xl font-extrabold leading-tight">Your practice.<br>One secure workspace.</h1><p class="mt-5 max-w-lg text-sm leading-relaxed text-slate-300">Attendance, leave, conveyance and monthly allowance operations with company and Partner separation.</p></div>
 <p class="text-xs text-slate-400">Powered by DhakaWala · Authenticated Access</p></section>
 <section class="flex items-center justify-center px-5 py-12 sm:p-12">
