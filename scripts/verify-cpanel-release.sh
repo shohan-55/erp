@@ -10,6 +10,13 @@ test -s "$DIST/erp-cpanel-application.zip"
 test -s "$DIST/erp-cpanel-split-webroot.zip"
 test -s "$DIST/SHA256SUMS.txt"
 
+# Portable manifests must contain relative archive names only; no CI runner paths.
+if grep -Eq '(/home/runner/|/mnt/|/tmp/)' "$DIST/SHA256SUMS.txt"; then
+  echo "SECURITY FAILURE: checksum manifest contains build-machine paths" >&2
+  exit 1
+fi
+test "$(wc -l < "$DIST/SHA256SUMS.txt")" -eq 2
+
 (
   cd "$DIST"
   sha256sum -c SHA256SUMS.txt
