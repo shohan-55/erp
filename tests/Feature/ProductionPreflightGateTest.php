@@ -22,7 +22,7 @@ class ProductionPreflightGateTest extends TestCase
         foreach ([
             'erp.platform.dashboard', 'erp.platform.companies.create',
             'erp.dashboard', 'erp.attendance.check_in',
-            'erp.payroll', 'erp.payroll.advance',
+            'erp.payroll', 'erp.payroll.advance', 'erp.payroll.evidence',
             'erp.claims.receipt', 'erp.policies.vote',
         ] as $name) {
             $route = Route::getRoutes()->getByName($name);
