@@ -18,7 +18,8 @@ class PolicyController extends Controller
         $effectivePolicy = PolicyResolver::forDate($company, $workspace, now($company->timezone)->toDateString());
 
         $proposals = DB::table('company_policy_proposals as p')
-            ->join('users as u', 'u.id', '=', DB::raw('(SELECT user_id FROM memberships WHERE id = p.proposed_by)'))
+            ->join('memberships as author', 'author.id', '=', 'p.proposed_by')
+            ->join('users as u', 'u.id', '=', 'author.user_id')
             ->where('p.company_id', $company->id)
             ->select('p.*', 'u.name as author_name')
             ->orderByDesc('p.created_at')->limit(30)->get();
