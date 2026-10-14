@@ -4,6 +4,7 @@ use App\Http\Controllers\OperationalAuthController;
 use App\Http\Controllers\OperationalAttendanceController;
 use App\Http\Controllers\OperationalWorkflowController;
 use App\Http\Controllers\OperationalPayrollController;
+use App\Http\Controllers\OperationalCorrectionController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('app/c/{companySlug}')->group(function () {
