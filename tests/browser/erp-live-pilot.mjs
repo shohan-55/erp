@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import { createHmac } from 'node:crypto';
 import { chromium } from 'playwright';
 
 const baseUrl = process.env.PREVIEW_URL || 'http://127.0.0.1:8000';
@@ -12,6 +13,24 @@ const page = await browser.newPage({viewport:{width:1440,height:900}});
 const errors=[];
 page.on('pageerror', err=>errors.push(err.message));
 
+function authenticatorCode(base32Secret) {
+    const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    let bits='';
+    for(const symbol of base32Secret.replace(/\\s/g,'').toUpperCase()) {
+        const index=chars.indexOf(symbol);
+        assert.ok(index>=0,'Invalid test authenticator key');
+        bits+=index.toString(2).padStart(5,'0');
+    }
+    const bytes=[];
+    for(let i=0;i+8<=bits.length;i+=8) bytes.push(parseInt(bits.slice(i,i+8),2));
+    const counter=Buffer.alloc(8);
+    counter.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30000)));
+    const hmac=createHmac('sha1',Buffer.from(bytes)).update(counter).digest();
+    const offset=hmac[19]&15;
+    const value=(hmac.readUInt32BE(offset)&0x7fffffff)%1000000;
+    return String(value).padStart(6,'0');
+}
+
 async function login(email, platform=false) {
     const path=platform?'/platform/app/login':'/c/rac/app/login';
     const response=await page.goto(baseUrl+path,{waitUntil:'networkidle'});
@@ -19,6 +38,18 @@ async function login(email, platform=false) {
     await page.locator('input[name=email]').fill(email);
     await page.locator('input[name=password]').fill(password);
     await page.locator('button[type=submit]').click();
+    await page.waitForLoadState('networkidle');
+
+    if (new URL(page.url()).pathname === '/security/mfa/setup') {
+        // The real partner/platform login now requires authenticator MFA.
+        // Only fictional CI QA users are enrolled, in an isolated database.
+        const secret=(await page.locator('p.select-all').textContent()).trim();
+        await page.locator('input[name=password]').fill(password);
+        await page.locator('input[name=code]').fill(authenticatorCode(secret));
+        await page.getByRole('button',{name:'Enable two-step verification'}).click();
+        await page.waitForURL('**/security/mfa/recovery');
+        await page.getByRole('button',{name:'I saved my recovery codes'}).click();
+    }
     await page.waitForURL(platform?'**/platform/app':'**/c/rac/app');
 }
 
