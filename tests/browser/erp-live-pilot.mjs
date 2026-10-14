@@ -83,6 +83,10 @@ try {
     await page.getByRole('button',{name:'Sign Out'}).click();
     await page.setViewportSize({width:390,height:844});
     await login('e2e.student@example.test');
+    await page.waitForFunction(() => {
+        const drawer = document.querySelector('aside');
+        return drawer && drawer.getBoundingClientRect().right <= 1;
+    }, null, {timeout:5000});
     await page.screenshot({path:output+'/09-student-mobile.png',fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2),false,'390px should not overflow');
 
