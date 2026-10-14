@@ -125,6 +125,11 @@ class AttendanceController extends Controller
         ]);
 
         DB::transaction(function () use ($company, $workspace, $actor, $sessionId, $data) {
+            // Serialize with payroll review so a late correction cannot slip
+            // into a period while its snapshot is being finalized.
+            DB::table('workspaces')->where('id', $workspace->id)
+                ->where('company_id', $company->id)->lockForUpdate()->first();
+
             $session = DB::table('attendance_sessions')
                 ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
                 ->where('id', $sessionId)->lockForUpdate()->first();
@@ -143,8 +148,27 @@ class AttendanceController extends Controller
                 throw ValidationException::withMessages(['ended_at' => 'This attendance period is frozen by payroll review.']);
             }
 
+            $newCheckout = $localTime->utc()->toDateTimeString();
+            $overlapExists = DB::table('attendance_sessions')
+                ->where('company_id', $company->id)
+                ->where('workspace_id', $workspace->id)
+                ->where('membership_id', $session->membership_id)
+                ->where('id', '!=', $session->id)
+                ->where('started_at', '<', $newCheckout)
+                ->where(function ($query) use ($session) {
+                    $query->whereNull('ended_at')
+                        ->orWhere('ended_at', '>', $session->started_at);
+                })
+                ->exists();
+
+            if ($overlapExists) {
+                throw ValidationException::withMessages([
+                    'ended_at' => 'The corrected checkout would overlap another attendance session.',
+                ]);
+            }
+
             DB::table('attendance_sessions')->where('id', $session->id)->update([
-                'ended_at' => $localTime->utc()->toDateTimeString(),
+                'ended_at' => $newCheckout,
                 'correction_reason' => trim($data['reason']),
                 'corrected_by' => $actor->id, 'updated_at' => now(),
             ]);
