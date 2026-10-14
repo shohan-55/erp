@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\OutboundMailGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -71,6 +72,7 @@ class PlatformController extends Controller
             'partner_name' => ['required', 'string', 'min:3', 'max:255'],
             'partner_email' => ['required', 'email', 'max:254'],
         ]);
+        OutboundMailGuard::ensureConfigured();
         $email = strtolower(trim($data['partner_email']));
 
         if (DB::table('companies')->where('slug', $data['company_slug'])->exists()) {
@@ -116,6 +118,7 @@ class PlatformController extends Controller
             throw ValidationException::withMessages(['workspace_slug' => 'That workspace slug already exists.']);
         }
 
+        OutboundMailGuard::ensureConfigured();
         $email = strtolower(trim($data['partner_email']));
 
         $user = DB::transaction(function () use ($data, $email, $companyId) {
