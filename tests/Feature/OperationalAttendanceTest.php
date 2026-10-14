@@ -120,6 +120,26 @@ class OperationalAttendanceTest extends TestCase
         $this->assertDatabaseCount('attendance_sessions', 0);
     }
 
+    public function test_attendance_day_stays_incomplete_until_checkout_then_uses_first_arrival(): void
+    {
+        [$company, $workspace] = $this->structure();
+        [$student] = $this->member($company, $workspace);
+
+        \Illuminate\Support\Carbon::setTestNow('2026-10-14 04:11:00'); // 10:11 Asia/Dhaka, Wednesday.
+        try {
+            $this->actingAs($student)->post('/app/c/rac/attendance/check-in', ['mode'=>'office'])
+                ->assertRedirect('/app/c/rac/attendance');
+            $this->assertSame('incomplete', AttendanceDay::firstOrFail()->status);
+
+            \Illuminate\Support\Carbon::setTestNow('2026-10-14 12:00:00');
+            $this->actingAs($student)->post('/app/c/rac/attendance/check-out')
+                ->assertRedirect('/app/c/rac/attendance');
+            $this->assertSame('late', AttendanceDay::firstOrFail()->status);
+        } finally {
+            \Illuminate\Support\Carbon::setTestNow();
+        }
+    }
+
     public function test_manager_and_partner_can_only_read_their_allowed_workspace_rows(): void
     {
         [$company, $workspace] = $this->structure();
