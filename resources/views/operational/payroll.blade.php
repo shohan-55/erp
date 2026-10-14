@@ -43,4 +43,14 @@
 @empty<tr><td colspan="5" class="p-8 text-center text-sm text-slate-500">No visible payroll items yet.</td></tr>@endforelse
 </tbody></table></div>
 </section>
+@if($actor->role === 'partner')
+<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+<h3 class="text-base font-extrabold">Payroll Audit Trail</h3>
+<p class="mt-1 text-xs text-slate-500">Append-only transition history for this Partner workspace. No bank transfer is performed by the application.</p>
+<div class="mt-4 divide-y divide-slate-100">
+@forelse($auditEvents as $event)
+<div class="flex flex-wrap items-center justify-between gap-3 py-3 text-xs"><div><p class="font-bold">{{ ucfirst(str_replace('_',' ',$event->action)) }} · Run #{{ $event->payroll_run_id }}</p><p class="mt-1 text-slate-500">{{ $event->previous_status ?: 'New' }} → {{ $event->new_status }} · Actor membership #{{ $event->actor_membership_id }}</p></div><time class="text-slate-400">{{ $event->created_at?->setTimezone($company->timezone)->format('d M Y h:i A') }}</time></div>
+@empty<p class="py-3 text-xs text-slate-500">No payroll transitions recorded.</p>@endforelse
+</div></section>
+@endif
 </main></body></html>
