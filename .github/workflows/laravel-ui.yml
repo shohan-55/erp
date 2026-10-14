@@ -59,6 +59,7 @@ jobs:
       - name: Initialize isolated ERP browser QA database
         run: |
           export ERP_E2E_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$ERP_E2E_PASSWORD"
           echo "ERP_E2E_PASSWORD=$ERP_E2E_PASSWORD" >> "$GITHUB_ENV"
           touch database/database.sqlite
           php artisan migrate --force
