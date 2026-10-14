@@ -5,12 +5,18 @@ use App\Http\Controllers\Erp\PortalController;
 use App\Http\Controllers\Erp\AttendanceController;
 use App\Http\Controllers\Erp\WorkflowController;
 use App\Http\Controllers\Erp\PayrollController;
+use App\Http\Controllers\Erp\PasswordController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
     Route::get('/login', [AuthController::class, 'show'])->name('login');
     Route::post('/login', [AuthController::class, 'attempt'])
         ->middleware('throttle:5,1')->name('login.attempt');
+
+    Route::get('/forgot-password', [PasswordController::class, 'forgot'])->name('password.forgot');
+    Route::post('/forgot-password', [PasswordController::class, 'send'])->middleware('throttle:3,1')->name('password.email');
+    Route::get('/reset-password/{token}', [PasswordController::class, 'resetForm'])->name('password.reset.form');
+    Route::post('/reset-password', [PasswordController::class, 'update'])->middleware('throttle:5,1')->name('password.reset');
 
     Route::middleware(['auth', 'tenant.member'])->group(function () {
         Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
