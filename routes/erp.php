@@ -10,7 +10,17 @@ use App\Http\Controllers\Erp\ActivationController;
 use App\Http\Controllers\Erp\TeamController;
 use App\Http\Controllers\Erp\PolicyController;
 use App\Http\Controllers\Erp\PlatformController;
+use App\Http\Controllers\Erp\MfaController;
 use Illuminate\Support\Facades\Route;
+
+// Authenticated first-factor accounts can enroll or complete a second factor.
+Route::prefix('security/mfa')->middleware('auth')->name('erp.mfa.')->group(function () {
+    Route::get('/setup', [MfaController::class, 'setup'])->name('setup');
+    Route::post('/setup', [MfaController::class, 'confirmSetup'])->middleware('throttle:5,1')->name('confirm');
+    Route::get('/challenge', [MfaController::class, 'challenge'])->name('challenge');
+    Route::post('/challenge', [MfaController::class, 'verify'])->middleware('throttle:5,1')->name('verify');
+    Route::get('/recovery', [MfaController::class, 'recovery'])->name('recovery');
+});
 
 Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
     Route::get('/login', [AuthController::class, 'show'])->name('login');
@@ -27,8 +37,10 @@ Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
         ->middleware('throttle:5,1')->name('activate.accept');
 
     Route::middleware(['auth', 'tenant.member'])->group(function () {
-        Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    });
+    Route::middleware(['auth', 'tenant.member', 'mfa.verified'])->group(function () {
+        Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
         Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance');
         Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn'])->name('attendance.check_in');
         Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut'])->name('attendance.check_out');
@@ -61,8 +73,10 @@ Route::prefix('platform/app')->name('erp.platform.')->group(function () {
         ->middleware('throttle:5,1')->name('login.attempt');
 
     Route::middleware(['auth', 'platform.admin'])->group(function () {
-        Route::get('/', [PlatformController::class, 'dashboard'])->name('dashboard');
         Route::post('/logout', [PlatformController::class, 'logout'])->name('logout');
+    });
+    Route::middleware(['auth', 'platform.admin', 'mfa.verified'])->group(function () {
+        Route::get('/', [PlatformController::class, 'dashboard'])->name('dashboard');
         Route::post('/companies', [PlatformController::class, 'createFirm'])->name('companies.create');
         Route::post('/companies/{companyId}/partners', [PlatformController::class, 'addPartner'])->name('partners.create');
     });
