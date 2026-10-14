@@ -61,13 +61,13 @@ class AddFirmMember extends Command
             }
         }
 
-        if (CompanyMembership::query()->where('company_id', $company->id)
-            ->whereHas('user', fn($q)=>$q->where('email', $email))->exists()) {
+        $user = User::query()->where('email', $email)->first();
+        if ($user && CompanyMembership::query()->where('company_id', $company->id)
+            ->where('user_id', $user->id)->exists()) {
             $this->error('This user already has membership in the company.');
             return self::FAILURE;
         }
 
-        $user = User::query()->where('email', $email)->first();
         $password = null;
         $displayName = null;
         if (! $user) {
