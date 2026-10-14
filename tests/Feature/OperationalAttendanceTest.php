@@ -35,8 +35,8 @@ class OperationalAttendanceTest extends TestCase
 
     public function test_guest_cannot_view_real_attendance_or_write_records(): void
     {
-        $this->get('/app/c/rac/attendance')->assertRedirect('/login');
-        $this->post('/app/c/rac/attendance/check-in', ['mode' => 'office'])->assertRedirect('/login');
+        $this->get('/app/c/rac/attendance')->assertRedirect('/app/c/rac/login');
+        $this->post('/app/c/rac/attendance/check-in', ['mode' => 'office'])->assertRedirect('/app/c/rac/login');
         $this->assertDatabaseCount('attendance_days', 0);
     }
 
