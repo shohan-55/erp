@@ -36,6 +36,8 @@ class PlatformController extends Controller
         }
 
         $request->session()->regenerate();
+        $request->session()->forget(['erp_mfa_verified_user_id', 'erp_mfa_pending_secret', 'erp_mfa_setup_user_id', 'erp_mfa_firm_slug']);
+        $request->session()->put('erp_mfa_context', 'platform');
         return redirect()->route('erp.platform.dashboard');
     }
 
