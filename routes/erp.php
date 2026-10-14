@@ -9,6 +9,7 @@ use App\Http\Controllers\Erp\PasswordController;
 use App\Http\Controllers\Erp\ActivationController;
 use App\Http\Controllers\Erp\TeamController;
 use App\Http\Controllers\Erp\PolicyController;
+use App\Http\Controllers\Erp\PlatformController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
@@ -54,3 +55,16 @@ Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
         Route::post('/notifications/{id}/read', [WorkflowController::class, 'readNotification'])->name('notifications.read');
     });
 });
+Route::prefix('platform/app')->name('erp.platform.')->group(function () {
+    Route::get('/login', [PlatformController::class, 'login'])->name('login');
+    Route::post('/login', [PlatformController::class, 'signIn'])
+        ->middleware('throttle:5,1')->name('login.attempt');
+
+    Route::middleware(['auth', 'platform.admin'])->group(function () {
+        Route::get('/', [PlatformController::class, 'dashboard'])->name('dashboard');
+        Route::post('/logout', [PlatformController::class, 'logout'])->name('logout');
+        Route::post('/companies', [PlatformController::class, 'createFirm'])->name('companies.create');
+        Route::post('/companies/{companyId}/partners', [PlatformController::class, 'addPartner'])->name('partners.create');
+    });
+});
+
