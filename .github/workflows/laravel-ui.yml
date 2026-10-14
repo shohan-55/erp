@@ -7,6 +7,7 @@ on:
       - main
       - feature/phase-03-platform-dashboard
       - feature/phases-04-10-practice-suite-ui
+      - feature/backend-01-auth-tenancy-attendance
 
 permissions:
   contents: read
