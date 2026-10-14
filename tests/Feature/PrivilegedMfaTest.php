@@ -55,12 +55,121 @@ class PrivilegedMfaTest extends TestCase
         $this->assertNull(Totp::matchingStep($secret, 'incorrect', null, 59));
     }
 
-    public function test_partner_cannot_access_payroll_or_attendance_before_setup(): void
+    public function test_partner_without_mfa_can_use_dashboard_payroll_and_recommended_security_settings(): void
     {
         $partner = $this->tenantPartner();
+        $this->actingAs($partner)->withSession([
+            'erp_mfa_context' => 'firm', 'erp_mfa_firm_slug' => 'rac',
+        ]);
+
+        $this->get('/c/rac/app')->assertOk();
+        $this->get('/c/rac/app/payroll')->assertOk();
+        $this->get('/c/rac/app/settings/security')->assertOk()
+            ->assertSee('Recommended')
+            ->assertSee('Enable Two-Step Verification')
+            ->assertSee('Settings / Security');
+        $this->get('/security/mfa/setup')->assertOk()->assertSee('Not now');
+    }
+
+    public function test_security_settings_require_active_tenant_membership(): void
+    {
+        $partner = $this->tenantPartner();
+        $this->get('/c/rac/app/settings/security')->assertRedirect();
+        $this->actingAs(User::factory()->create());
+        $this->get('/c/rac/app/settings/security')->assertForbidden();
+        $this->post('/c/rac/app/settings/security/mfa/disable', [
+            'password' => 'NoAccess1234', 'code' => '123456',
+        ])->assertForbidden();
+    }
+
+    public function test_enrolled_partner_cannot_bypass_mfa_for_security_settings(): void
+    {
+        $partner = $this->tenantPartner();
+        DB::table('users')->where('id', $partner->id)->update([
+            'mfa_secret' => Crypt::encryptString(Totp::generateSecret()),
+            'mfa_confirmed_at' => now(),
+        ]);
         $this->actingAs($partner);
-        $this->get('/c/rac/app/payroll')->assertRedirect('/security/mfa/setup');
-        $this->post('/c/rac/app/attendance/check-out')->assertRedirect('/security/mfa/setup');
+        $this->get('/c/rac/app/settings/security')->assertRedirect('/security/mfa/challenge');
+        $this->post('/c/rac/app/settings/security/mfa/disable', [
+            'password' => 'ComplexPassword2026', 'code' => '123456',
+        ])->assertRedirect('/security/mfa/challenge');
+    }
+
+    public function test_partner_can_disable_existing_mfa_only_with_password_and_fresh_code(): void
+    {
+        $partner = $this->tenantPartner();
+        $secret = Totp::generateSecret();
+        DB::table('users')->where('id', $partner->id)->update([
+            'mfa_secret' => Crypt::encryptString($secret),
+            'mfa_confirmed_at' => now(),
+            'mfa_recovery_codes' => json_encode([hash('sha256', 'SAFE2345CODE6789')]),
+        ]);
+
+        $this->actingAs($partner)->withSession([
+            'erp_mfa_context' => 'firm', 'erp_mfa_firm_slug' => 'rac',
+            'erp_mfa_verified_user_id' => $partner->id,
+        ]);
+        $this->get('/c/rac/app/settings/security')->assertOk()
+            ->assertSee('Turn off two-step verification');
+
+        $valid = Totp::code($secret, intdiv(time(), 30));
+        $this->post('/c/rac/app/settings/security/mfa/disable', [
+            'password' => 'incorrect-password', 'code' => $valid,
+        ])->assertSessionHasErrors('code');
+        $this->post('/c/rac/app/settings/security/mfa/disable', [
+            'password' => 'ComplexPassword2026', 'code' => 'incorrect',
+        ])->assertSessionHasErrors('code');
+        $this->assertNotNull(DB::table('users')->where('id', $partner->id)->first()->mfa_confirmed_at);
+
+        $this->post('/c/rac/app/settings/security/mfa/disable', [
+            'password' => 'ComplexPassword2026', 'code' => $valid,
+        ])->assertRedirect('/c/rac/app/settings/security');
+        $record = DB::table('users')->where('id', $partner->id)->first();
+        $this->assertNull($record->mfa_confirmed_at);
+        $this->assertNull($record->mfa_secret);
+        $this->assertNull($record->mfa_recovery_codes);
+        $this->get('/c/rac/app')->assertOk();
+        $this->assertDatabaseHas('tenant_audit_events', [
+            'company_id' => DB::table('companies')->where('slug', 'rac')->value('id'),
+            'action' => 'account.mfa.disabled',
+        ]);
+    }
+
+    public function test_partner_can_disable_mfa_with_unused_recovery_code(): void
+    {
+        $partner = $this->tenantPartner();
+        $secret = Totp::generateSecret();
+        $code = 'BACKUP2345EXAMPLE';
+        DB::table('users')->where('id', $partner->id)->update([
+            'mfa_secret' => Crypt::encryptString($secret),
+            'mfa_confirmed_at' => now(),
+            'mfa_last_step' => intdiv(time(), 30),
+            'mfa_recovery_codes' => json_encode([hash('sha256', $code)]),
+        ]);
+        $this->actingAs($partner)->withSession(['erp_mfa_verified_user_id' => $partner->id]);
+
+        $this->post('/c/rac/app/settings/security/mfa/disable', [
+            'password' => 'ComplexPassword2026', 'code' => $code,
+        ])->assertRedirect('/c/rac/app/settings/security');
+        $this->assertNull(DB::table('users')->where('id', $partner->id)->first()->mfa_secret);
+    }
+
+    public function test_platform_operator_with_tenant_membership_cannot_disable_mfa(): void
+    {
+        $operator = $this->tenantPartner();
+        $secret = Totp::generateSecret();
+        DB::table('users')->where('id', $operator->id)->update([
+            'is_platform_admin' => true,
+            'mfa_secret' => Crypt::encryptString($secret),
+            'mfa_confirmed_at' => now(),
+        ]);
+        $this->actingAs($operator)->withSession(['erp_mfa_verified_user_id' => $operator->id]);
+        $this->post('/c/rac/app/settings/security/mfa/disable', [
+            'password' => 'ComplexPassword2026',
+            'code' => Totp::code($secret, intdiv(time(), 30)),
+        ])->assertForbidden();
+        $this->assertNotNull(DB::table('users')->where('id', $operator->id)->first()->mfa_confirmed_at);
     }
 
     public function test_mfa_setup_qr_is_self_hosted_and_private(): void

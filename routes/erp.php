@@ -11,6 +11,7 @@ use App\Http\Controllers\Erp\TeamController;
 use App\Http\Controllers\Erp\PolicyController;
 use App\Http\Controllers\Erp\PlatformController;
 use App\Http\Controllers\Erp\MfaController;
+use App\Http\Controllers\Erp\SecurityController;
 use Illuminate\Support\Facades\Route;
 
 // Authenticated first-factor accounts can enroll or complete a second factor.
@@ -41,6 +42,9 @@ Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
     });
     Route::middleware(['auth', 'tenant.member', 'mfa.verified'])->group(function () {
         Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
+        Route::get('/settings/security', [SecurityController::class, 'index'])->name('security');
+        Route::post('/settings/security/mfa/disable', [SecurityController::class, 'disableMfa'])
+            ->middleware('throttle:5,1')->name('security.mfa.disable');
         Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance');
         Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn'])->name('attendance.check_in');
         Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut'])->name('attendance.check_out');

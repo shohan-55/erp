@@ -21,7 +21,7 @@
 
     @if($mode === 'setup')
       <h1 class="text-2xl font-extrabold">Set up your authenticator</h1>
-      <p class="mt-2 text-sm leading-relaxed text-slate-600">Scan the QR code with Google Authenticator, Microsoft Authenticator, or another time-based authenticator. Then enter your password and the six-digit code. Privileged accounts must enable this protection.</p>
+      <p class="mt-2 text-sm leading-relaxed text-slate-600">Scan the QR code with Google Authenticator, Microsoft Authenticator, or another time-based authenticator. Then enter your password and the six-digit code. This protection is required for platform operators and optional but recommended for workspace members.</p>
       <div class="mt-6 flex flex-col items-center rounded-xl border border-slate-200 bg-white p-4">
         <p class="mb-3 text-sm font-bold text-slate-700">Scan with your authenticator app</p>
         <div id="mfa-setup-qr" data-otp-uri="{{ $provisioningUri }}" class="flex min-h-56 min-w-56 items-center justify-center" aria-label="Authenticator enrollment QR code">
@@ -40,6 +40,9 @@
         <label class="block text-sm font-bold">Six-digit Authenticator Code<input required type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" class="mt-2 block w-full rounded-xl border border-slate-300 px-4 py-3 font-mono text-lg tracking-widest focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-100"></label>
         <button class="w-full rounded-xl bg-[#FCDF02] px-4 py-3.5 text-sm font-extrabold hover:bg-[#F5AD16]">Enable two-step verification</button>
       </form>
+      @if(!auth()->user()->is_platform_admin && is_string(session('erp_mfa_firm_slug')))
+        <a href="{{ route('erp.security', ['firmSlug' => session('erp_mfa_firm_slug')]) }}" class="mt-4 block text-center text-sm font-semibold text-slate-600 underline hover:text-slate-900">Not now · Back to Security Settings</a>
+      @endif
     @elseif($mode === 'challenge')
       <h1 class="text-2xl font-extrabold">Verify it’s you</h1>
       <p class="mt-2 text-sm text-slate-600">Enter the current six-digit code from your authenticator app, or one of your unused recovery codes.</p>
@@ -62,7 +65,7 @@
         <button class="w-full rounded-xl bg-[#FCDF02] px-4 py-3.5 text-sm font-extrabold hover:bg-[#F5AD16]">I saved my recovery codes</button>
       </form>
     @endif
-    <div class="mt-7 border-t border-slate-100 pt-5 text-xs text-slate-500">Account verification is required before accessing private firm and payroll data.</div>
+    <div class="mt-7 border-t border-slate-100 pt-5 text-xs text-slate-500">Two-step verification is mandatory for platform administrators and for any user who has enabled it.</div>
   </section>
 </main>
 @if($mode === 'setup')

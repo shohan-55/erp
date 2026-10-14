@@ -24,7 +24,7 @@
 6. Run `php artisan migrate:status`, inspect schema changes, then `php artisan migrate --force` on staging first. Rehearse an approved rollback and re-restore strategy.
 7. Start a persistent queue worker and the every-minute Laravel scheduler. In managed hosting, confirm actual cron/queue operation, not just command availability.
 8. Run `php artisan erp:release:check`; abort on a nonzero exit. A green result is a configuration **precheck**, not overall production certification.
-9. UAT in staging: individual Partner login and mandatory MFA setup; lost device/recovery codes; restricted Student and Manager roles; tenant isolation; mail activation/reset; attendance; leave; receipts; payroll draft/review/approve/paid/lock, including rejected unauthorized cross-partner actions.
+9. UAT in staging: individual Partner password-only login with optional MFA enrollment under Settings / Security; opt-in then forced challenge, secure disable and lost-device/recovery codes; Platform Admin compulsory MFA; restricted Student and Manager roles; tenant isolation; mail activation/reset; attendance; leave; receipts; payroll draft/review/approve/paid/lock, including rejected unauthorized cross-partner actions.
 10. Verify payment evidence download is only available to the owning Partner, approved amount exactly matches external settlement, and bank/cash proof has been independently verified by an authorized person.
 11. Only after human release approval, deploy the exact reviewed artifact/SHA to the live server during an approved maintenance window. Verify HTTPS, login throttling, backups, mail, queue, storage, audit logs and monitoring.
 12. Record deployed SHA, approver, deployment time, smoke test output, backup restore evidence and rollback instructions.
@@ -39,5 +39,5 @@
 ## Explicit exclusions
 
 - GitHub CI alone does not prove payment settlement, SMTP reachability, backup recoverability or server security.
-- Authenticator-based MFA and amount/proof requirements reduce risk, but do not replace independent financial reconciliation or security testing.
+- Platform Admin MFA is compulsory, while tenant Partner MFA is opt-in and recommended. Evaluate company-level MFA enforcement for privileged payroll roles before any commercial rollout. Authenticator-based MFA and amount/proof requirements reduce risk, but do not replace independent financial reconciliation or security testing.
 - No production access credentials are required in GitHub, chat or source code.
