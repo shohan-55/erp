@@ -70,13 +70,13 @@ class PrivilegedMfaTest extends TestCase
 
         $response->assertOk()
             ->assertHeader('Cache-Control', 'max-age=0, no-store, private')
-            ->assertSee('vendor/qrcode-generator.js')
+            ->assertSee('js/qrcode-generator.js')
             ->assertSee('data-otp-uri=', false)
             ->assertSee('otpauth://totp/', false)
             ->assertDontSee('api.qrserver.com')
             ->assertDontSee('chart.googleapis.com');
 
-        $this->assertFileExists(public_path('vendor/qrcode-generator.js'));
+        $this->assertFileExists(public_path('js/qrcode-generator.js'));
         $this->assertSame(
             Totp::provisioningUri(session('erp_mfa_pending_secret'), $operator->email),
             $response->viewData('provisioningUri')
