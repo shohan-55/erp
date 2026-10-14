@@ -21,6 +21,15 @@ jobs:
       - run: php artisan boost:install --help
       - run: php artisan boost:install --no-interaction
       - run: cat AGENTS.md
+      - name: Package isolated development runtime
+        run: |
+          mkdir -p /tmp/php-runtime/lib /tmp/php-runtime/extensions
+          cp /usr/bin/php8.4 /tmp/php-runtime/php
+          cp /usr/bin/composer /tmp/php-runtime/composer
+          cp /usr/lib/php/20240924/*.so /tmp/php-runtime/extensions/
+          for library in $(ldd /usr/bin/php8.4 /usr/lib/php/20240924/*.so | awk '/=> \// {print $3}' | sort -u); do cp "$library" /tmp/php-runtime/lib/; done
+          tar -czf runtime.tar.gz -C /tmp php-runtime
+          tar -czf development.tar.gz vendor .claude .ai 2>/dev/null || test -f development.tar.gz
       - uses: actions/upload-artifact@v4
         with:
           name: production-bootstrap
@@ -30,4 +39,12 @@ jobs:
             composer.json
             composer.lock
             boost.json
+          include-hidden-files: true
           retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: development-runtime
+          path: |
+            runtime.tar.gz
+            development.tar.gz
+          retention-days: 1
