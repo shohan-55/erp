@@ -36,6 +36,7 @@ if (in_array(app()->environment(), ['local', 'testing'], true)) {
     });
 } else {
     Route::view('/', 'erp.welcome')->name('home');
+    Route::get('/platform/login', fn () => redirect()->route('erp.platform.login'))->name('platform.login');
     Route::get('/c/{firmSlug}/login', fn (string $firmSlug) =>
         redirect()->route('erp.login', ['firmSlug' => $firmSlug])
     )->name('firm.login');
