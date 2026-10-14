@@ -51,6 +51,11 @@ jobs:
       - name: Run full Laravel feature and unit tests
         run: php artisan test
 
+      - name: Check production routes expose no public UI prototypes
+        run: |
+          APP_ENV=production php artisan route:list --json > /tmp/erp-production-routes.json
+          node -e "const r=require('/tmp/erp-production-routes.json');const paths=r.map(x=>x.uri);if(paths.some(x=>x.includes('/preview')||x==='platform/dashboard-preview')||!paths.includes('platform/app/login')||!paths.includes('c/{firmSlug}/app/login'))process.exit(1);console.log('Production routing protects demo screens.');"
+
       - name: Install Playwright browser for visual verification
         run: |
           npm install --no-save playwright@1.56.1
