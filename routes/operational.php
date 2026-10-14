@@ -3,6 +3,7 @@
 use App\Http\Controllers\OperationalAuthController;
 use App\Http\Controllers\OperationalAttendanceController;
 use App\Http\Controllers\OperationalWorkflowController;
+use App\Http\Controllers\OperationalPayrollController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('app/c/{companySlug}')->group(function () {
@@ -18,6 +19,9 @@ Route::prefix('app/c/{companySlug}')->group(function () {
         Route::post('/leave/{requestId}/review', [OperationalWorkflowController::class, 'reviewLeave'])->name('operational.leave.review');
         Route::post('/claims/{requestId}/review', [OperationalWorkflowController::class, 'reviewClaim'])->name('operational.claim.review');
         Route::post('/notifications/{notificationId}/read', [OperationalWorkflowController::class, 'markRead'])->name('operational.notification.read');
+        Route::get('/payroll', [OperationalPayrollController::class, 'index'])->name('operational.payroll');
+        Route::post('/payroll/generate', [OperationalPayrollController::class, 'generate'])->name('operational.payroll.generate');
+        Route::post('/payroll/{runId}/advance', [OperationalPayrollController::class, 'advance'])->name('operational.payroll.advance');
         Route::post('/logout', [OperationalAuthController::class, 'logout'])->name('operational.logout');
     });
 });
