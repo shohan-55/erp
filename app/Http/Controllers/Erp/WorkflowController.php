@@ -36,6 +36,28 @@ class WorkflowController extends Controller
         }
 
         DB::transaction(function () use ($actor, $input) {
+            // Lock the student membership to serialize concurrent leave
+            // submissions: overlapping leave ranges cannot be double-booked.
+            DB::table('memberships')->where('id', $actor->id)
+                ->where('company_id', $actor->company_id)
+                ->where('workspace_id', $actor->workspace_id)
+                ->lockForUpdate()->first();
+
+            $overlap = DB::table('leave_requests')
+                ->where('company_id', $actor->company_id)
+                ->where('workspace_id', $actor->workspace_id)
+                ->where('membership_id', $actor->id)
+                ->whereIn('status', ['pending', 'manager_reviewed', 'approved'])
+                ->where('date_from', '<=', $input['date_to'])
+                ->where('date_to', '>=', $input['date_from'])
+                ->exists();
+
+            if ($overlap) {
+                throw ValidationException::withMessages([
+                    'date_from' => 'An existing open or approved leave request overlaps these dates.',
+                ]);
+            }
+
             $id = DB::table('leave_requests')->insertGetId([
                 'company_id' => $actor->company_id, 'workspace_id' => $actor->workspace_id,
                 'membership_id' => $actor->id,
