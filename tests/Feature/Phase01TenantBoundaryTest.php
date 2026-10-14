@@ -126,7 +126,7 @@ class Phase01TenantBoundaryTest extends TestCase
         $outsideClaim = $this->claim($beta, $third, $betaStudent, 'OTHER_COMPANY_CLAIM_SECRET');
 
         $this->actingAs($owner)
-            ->get('/c/tenant-alpha/app/leaves')
+            ->get('/c/tenant-alpha/app/leave')
             ->assertOk()
             ->assertSee('ALPHA_OWN_LEAVE')
             ->assertDontSee('OTHER_PARTNER_LEAVE_SECRET')
@@ -138,7 +138,7 @@ class Phase01TenantBoundaryTest extends TestCase
             ->assertDontSee('OTHER_COMPANY_CLAIM_SECRET');
 
         foreach ([$foreignLeave, $outsideLeave] as $id) {
-            $this->post("/c/tenant-alpha/app/leaves/{$id}/decision", [
+            $this->post("/c/tenant-alpha/app/leave/{$id}/decision", [
                 'decision' => 'approve',
             ])->assertNotFound();
         }
@@ -169,14 +169,14 @@ class Phase01TenantBoundaryTest extends TestCase
         $otherClaim = $this->claim($company, $workspace, $other, 'NOT_MY_TEAM_CLAIM_SECRET');
 
         $this->actingAs($manager)
-            ->get('/c/tenant-alpha/app/leaves')
+            ->get('/c/tenant-alpha/app/leave')
             ->assertOk()
             ->assertSee('MY_ASSIGNED_STUDENT_LEAVE')
             ->assertDontSee('NOT_MY_TEAM_LEAVE_SECRET');
         $this->get('/c/tenant-alpha/app/claims')
             ->assertOk()
             ->assertDontSee('NOT_MY_TEAM_CLAIM_SECRET');
-        $this->post("/c/tenant-alpha/app/leaves/{$otherLeave}/decision", [
+        $this->post("/c/tenant-alpha/app/leave/{$otherLeave}/decision", [
             'decision' => 'approve',
         ])->assertNotFound();
         $this->post("/c/tenant-alpha/app/claims/{$otherClaim}/decision", [
