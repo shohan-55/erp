@@ -63,6 +63,26 @@ class PrivilegedMfaTest extends TestCase
         $this->post('/c/rac/app/attendance/check-out')->assertRedirect('/security/mfa/setup');
     }
 
+    public function test_mfa_setup_qr_is_self_hosted_and_private(): void
+    {
+        $operator = User::factory()->create(['is_platform_admin' => true]);
+        $response = $this->actingAs($operator)->get('/security/mfa/setup');
+
+        $response->assertOk()
+            ->assertHeader('Cache-Control', 'max-age=0, no-store, private')
+            ->assertSee('js/qrcode-generator.js')
+            ->assertSee('data-otp-uri=', false)
+            ->assertSee('otpauth://totp/', false)
+            ->assertDontSee('api.qrserver.com')
+            ->assertDontSee('chart.googleapis.com');
+
+        $this->assertFileExists(public_path('js/qrcode-generator.js'));
+        $this->assertSame(
+            Totp::provisioningUri(session('erp_mfa_pending_secret'), $operator->email),
+            $response->viewData('provisioningUri')
+        );
+    }
+
     public function test_enrollment_requires_correct_password_and_code_and_stores_encrypted_secret(): void
     {
         $partner = $this->tenantPartner();

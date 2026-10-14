@@ -29,10 +29,11 @@ class MfaController extends Controller
 
         $secret = $request->session()->get('erp_mfa_pending_secret');
 
-        return view('erp.mfa', [
+        return response()->view('erp.mfa', [
             'mode' => 'setup', 'secret' => $secret,
             'provisioningUri' => Totp::provisioningUri($secret, $user->email),
-        ]);
+        ])->header('Cache-Control', 'private, no-store, max-age=0')
+          ->header('Pragma', 'no-cache');
     }
 
     public function confirmSetup(Request $request)

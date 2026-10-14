@@ -21,7 +21,14 @@
 
     @if($mode === 'setup')
       <h1 class="text-2xl font-extrabold">Set up your authenticator</h1>
-      <p class="mt-2 text-sm leading-relaxed text-slate-600">Use an authenticator app to add a time-based account. Enter this secret manually, then confirm with your account password and a six-digit code. This is mandatory for privileged accounts.</p>
+      <p class="mt-2 text-sm leading-relaxed text-slate-600">Scan the QR code with Google Authenticator, Microsoft Authenticator, or another time-based authenticator. Then enter your password and the six-digit code. Privileged accounts must enable this protection.</p>
+      <div class="mt-6 flex flex-col items-center rounded-xl border border-slate-200 bg-white p-4">
+        <p class="mb-3 text-sm font-bold text-slate-700">Scan with your authenticator app</p>
+        <div id="mfa-setup-qr" data-otp-uri="{{ $provisioningUri }}" class="flex min-h-56 min-w-56 items-center justify-center" aria-label="Authenticator enrollment QR code">
+          <p class="text-center text-xs text-slate-600">If the QR code does not appear, use the manual setup secret below.</p>
+        </div>
+        <p class="mt-3 text-center text-xs text-slate-600">The QR code contains your private setup key. Never share a screenshot of it.</p>
+      </div>
       <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
         <p class="text-xs font-bold uppercase tracking-wide text-amber-900">Your one-time setup secret — keep private</p>
         <p class="mt-2 select-all break-all font-mono text-base font-bold tracking-widest text-slate-900">{{ $secret }}</p>
@@ -58,4 +65,30 @@
     <div class="mt-7 border-t border-slate-100 pt-5 text-xs text-slate-500">Account verification is required before accessing private firm and payroll data.</div>
   </section>
 </main>
+@if($mode === 'setup')
+<script src="{{ asset('js/qrcode-generator.js') }}"></script>
+<script>
+(() => {
+  const target = document.getElementById('mfa-setup-qr');
+  if (!target || typeof qrcode !== 'function') return;
+  try {
+    // Generate locally: never transmit the otpauth URI or secret to a QR service.
+    const qr = qrcode(0, 'M');
+    qr.addData(target.dataset.otpUri, 'Byte');
+    qr.make();
+    target.innerHTML = qr.createSvgTag({ scalable: true, margin: 16, cellSize: 5 });
+    const svg = target.querySelector('svg');
+    if (svg) {
+      svg.setAttribute('role', 'img');
+      svg.setAttribute('aria-label', 'Scan this QR code to add DhakaWala ERP to your authenticator');
+      svg.style.width = '220px';
+      svg.style.height = '220px';
+      svg.style.maxWidth = '100%';
+    }
+  } catch (_) {
+    target.textContent = 'QR code unavailable. Please enter the manual setup secret below.';
+  }
+})();
+</script>
+@endif
 </body></html>

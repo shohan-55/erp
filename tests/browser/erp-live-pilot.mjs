@@ -43,6 +43,9 @@ async function login(email, platform=false) {
     if (new URL(page.url()).pathname === '/security/mfa/setup') {
         // The real partner/platform login now requires authenticator MFA.
         // Only fictional CI QA users are enrolled, in an isolated database.
+        await page.locator('#mfa-setup-qr svg').waitFor({state:'visible',timeout:8000});
+        const qrData=await page.locator('#mfa-setup-qr').getAttribute('data-otp-uri');
+        assert.ok(qrData?.startsWith('otpauth://totp/') && qrData.includes('secret='), 'Authenticator QR must encode a TOTP provisioning URI.');
         const secret=(await page.locator('p.select-all').textContent()).trim();
         await page.locator('input[name=password]').fill(password);
         await page.locator('input[name=code]').fill(authenticatorCode(secret));
