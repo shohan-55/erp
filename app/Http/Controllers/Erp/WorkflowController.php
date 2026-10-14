@@ -128,7 +128,16 @@ class WorkflowController extends Controller
         $filePath = $request->file('receipt')->store('claim-evidence/'.$actor->company_id.'/'.$actor->id, 'local');
 
         try {
-            DB::transaction(function () use ($actor, $input, $filePath) {
+            DB::transaction(function () use ($actor, $input, $filePath, $period) {
+                // Use the same workspace lock as payroll review: a claim cannot
+                // slip into a month while its payroll snapshot is being frozen.
+                DB::table('workspaces')->where('id', $actor->workspace_id)->lockForUpdate()->first();
+                if (DB::table('payroll_runs')->where('company_id', $actor->company_id)
+                    ->where('workspace_id', $actor->workspace_id)
+                    ->where('period_month', $period)
+                    ->whereIn('status', ['reviewed', 'approved', 'paid', 'locked'])->exists()) {
+                    throw ValidationException::withMessages(['journey_date' => 'This payroll month is already frozen.']);
+                }
                 $id = DB::table('conveyance_claims')->insertGetId([
                     'company_id' => $actor->company_id, 'workspace_id' => $actor->workspace_id,
                     'membership_id' => $actor->id,
@@ -175,6 +184,8 @@ class WorkflowController extends Controller
         ]);
 
         DB::transaction(function () use ($actor, $id, $input) {
+            // Serialize claim review with payroll snapshot/reservation.
+            DB::table('workspaces')->where('id', $actor->workspace_id)->lockForUpdate()->first();
             $claim = DB::table('conveyance_claims')
                 ->where('id', $id)->where('company_id', $actor->company_id)
                 ->where('workspace_id', $actor->workspace_id)->lockForUpdate()->first();
