@@ -87,6 +87,17 @@ try {
     await page.getByRole('heading',{name:'Workspace Dashboard'}).waitFor();
     await page.screenshot({path:output+'/04-partner-dashboard.png',fullPage:true});
 
+    // Workspace MFA is opt-in; Security Settings must offer a private, local QR
+    // enrollment without blocking a password-only Partner from normal work.
+    await nav('Settings / Security');
+    await page.getByRole('heading',{name:'Security Settings'}).waitFor();
+    await page.getByText('Recommended · Off').waitFor();
+    await page.getByRole('link',{name:'Enable Two-Step Verification'}).click();
+    await page.locator('#mfa-setup-qr svg').waitFor({state:'visible'});
+    await page.getByRole('link',{name:/Not now/}).click();
+    await page.getByRole('heading',{name:'Security Settings'}).waitFor();
+    await nav('Dashboard');
+
     await nav('Leave Requests');
     await page.locator('button[name=decision][value=approve]').first().click();
     await page.getByText('Leave review recorded.').waitFor();
