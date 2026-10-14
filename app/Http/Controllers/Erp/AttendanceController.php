@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\PolicyResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +44,7 @@ class AttendanceController extends Controller
             'client_site' => ['nullable', 'string', 'max:180', 'required_if:work_mode,client'],
         ]);
 
-        DB::transaction(function () use ($company, $actor, $data) {
+        DB::transaction(function () use ($company, $workspace, $actor, $data) {
             // Every check-in/out for a member acquires the same row lock so concurrent
             // requests cannot create overlapping active sessions.
             DB::table('memberships')->where('id', $actor->id)->lockForUpdate()->first();
@@ -58,9 +59,10 @@ class AttendanceController extends Controller
             $firstSession = ! DB::table('attendance_sessions')->where('membership_id', $actor->id)
                 ->where('work_date', $day)->exists();
 
-            $cutoff = CarbonImmutable::parse($day.' '.$company->office_start, $company->timezone)
-                ->addMinutes($company->grace_minutes)->endOfMinute();
-            $holidays = json_decode($company->weekly_holidays ?? '[5,6]', true);
+            $policy = PolicyResolver::forDate($company, $workspace, $day);
+            $cutoff = CarbonImmutable::parse($day.' '.$policy['office_start'], $company->timezone)
+                ->addMinutes($policy['grace_minutes'])->endOfMinute();
+            $holidays = $policy['weekly_holidays'];
             $isHoliday = in_array($localNow->isoWeekday(), is_array($holidays) ? $holidays : [5, 6], true);
 
             $id = DB::table('attendance_sessions')->insertGetId([
