@@ -18,7 +18,7 @@ From the cPanel account that will host the ERP, confirm:
 | File permissions | cPanel user may write \`storage/\` and \`bootstrap/cache/\`. App and .env files are outside public document root. |
 | Cron | The account supports cPanel Cron Jobs. A once-per-minute cron is ideal; if limited to every five minutes, confirm schedule timing and UAT latency explicitly. |
 | Terminal/SSH | Preferred for Artisan and diagnostics. If disabled, request SSH/Terminal for this particular cPanel account, or plan a provider-assisted deployment. |
-| Mail | A real, deliverable SMTP/API mail provider for password resets and invitations; no mail log/test transport in production. |
+| Mail | A real, deliverable SMTP/API mail provider for password resets and invitations; no mail log/test transport in production. Port 587 typically uses STARTTLS; verify with the provider. The current Laravel mail config reads `MAIL_SCHEME`, not `MAIL_ENCRYPTION`. |
 | SSL | AutoSSL or equivalent certificate installed; forced HTTPS on the entire ERP host. |
 | Resources | Confirm allowed PHP execution/memory limits, disk inode quota, database size, concurrent request/CPU limits, and host backup policy with the reseller provider. |
 | Restore | Separate encrypted offsite backup of both MySQL database and private receipt/payment evidence files, with actual restoration demonstrated. |
@@ -91,7 +91,7 @@ MAIL_HOST=<CONFIGURE_PRIVATELY>
 MAIL_PORT=587
 MAIL_USERNAME=<CONFIGURE_PRIVATELY>
 MAIL_PASSWORD=<CONFIGURE_PRIVATELY>
-MAIL_ENCRYPTION=tls
+MAIL_SCHEME=smtp
 MAIL_FROM_ADDRESS=<VERIFIED_SENDER>
 MAIL_FROM_NAME="RA&C ERP"
 \`\`\`
