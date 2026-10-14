@@ -16,6 +16,7 @@ jobs:
           php-version: '8.4'
           extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, fileinfo
           tools: composer:v2
+      - run: cp .env.example .env
       - run: composer require laravel/boost --dev --no-interaction --no-progress
       - run: php artisan boost:install --help
       - run: php artisan boost:install --no-interaction
