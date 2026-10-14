@@ -19,6 +19,9 @@ class RequireVerifiedMfa
 
         $user = $request->user();
         abort_unless($user, 401);
+        // Respect newly enrolled or revoked MFA state immediately rather than
+        // trusting an ORM instance cached earlier in the same session.
+        $user->refresh();
 
         $actor = $request->attributes->get('tenant.membership');
         $privileged = (bool) $user->is_platform_admin || $actor?->role === 'partner';
