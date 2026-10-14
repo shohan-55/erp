@@ -13,7 +13,7 @@ The server must pass `php artisan erp:release:check` before deployment. This che
 2. Configure HTTPS, a trusted APP_URL, APP_ENV=production, APP_DEBUG=false, new secure APP_KEY, and SESSION_SECURE_COOKIE=true.
 3. Set least privilege MySQL credentials, encrypted backups, tested restoration, malware scanning and private attachment storage.
 4. Configure a real SMTP/API mailer and verify invitation and password-reset email delivery. The application blocks log/array/null mailers in production for token emails.
-5. TOTP Authenticator MFA is implemented and required for Platform Admin and Partner routes, with single-use recovery codes. Verify actual enrollment, recovery, device-loss operations and account lifecycle on isolated staging before commercial launch.
+5. TOTP Authenticator MFA is mandatory for Platform Admin and optional/recommended for tenant members (including Partners) through Settings / Security. Once enabled it is enforced on subsequent logins; disabling requires current password plus authenticator or recovery code. Verify enrollment, opt-out, recovery, device-loss operations and account lifecycle on isolated staging before commercial launch; determine whether privileged payroll roles require company-wide MFA enforcement.
 6. Configure company offboarding, consent-based temporary support access and immutable support auditing; these are not yet implemented.
 7. Confirm actual leave entitlements, allowed Partner policy overrides, stipend amounts, payout instructions, rounding and audit standards.
 8. Verify no sample data or public prototype routes are exposed in production (production environment disables public demo routes).
