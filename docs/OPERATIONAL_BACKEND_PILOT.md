@@ -10,9 +10,9 @@ This branch implements a **real, database-backed pilot** of firm login, partner 
 
 - Company > Partner Workspace > Partner / Manager / Student memberships, with Home Partner ownership.
 - Real Laravel email/password sign-in with tenant membership verification, session regeneration, failed-login rate limit and POST logout.
-- Server-sourced UTC attendance events with Asia/Dhaka work-date conversion. Office or Client sessions, one active session per student, multiple sessions in a day, date uniqueness and late/incomplete/holiday statuses.
+- Server-sourced UTC attendance events with Asia/Dhaka work-date conversion. Office or Client sessions, one active session per student, multiple sessions in a day, date uniqueness and late/incomplete/holiday statuses. Scoped Manager/Partner timestamp correction with mandatory reason and immutable old/new time history.
 - Student leave and conveyance submissions; scoped manager/partner decisions, state-transition validation and personal database notifications.
-- Explicit payroll allowance rates with effective months (no guesswork); partner-scoped draft snapshots and claim allocation unique per conveyance claim; reviewed/approved/externally-paid/locked states.
+- Explicit payroll allowance rates with effective months (no guesswork); partner-scoped draft snapshots and claim allocation unique per conveyance claim; reviewed/approved/externally-paid/locked states with append-only actor/timestamp audit events.
 - Students can view only their own **locked** payroll items; managers cannot browse payroll. No automatic wage penalties and **no actual bank transfer**.
 
 ### What is NOT yet delivered
@@ -54,7 +54,7 @@ Use a private, secured PHP 8.4 / Laravel 13 compatible host, MySQL database, pro
 
    Effective-month rates cannot silently overwrite a previously recorded value.
 
-7. Live sign-in link: /app/c/rac/login (the production /c/rac/login URL redirects here). Attendance: /app/c/rac/attendance; Leave/Claims: /app/c/rac/requests; Payroll: /app/c/rac/payroll.
+7. Live sign-in link: /app/c/rac/login (the production /c/rac/login URL redirects here). Attendance: /app/c/rac/attendance; Corrections (Partner/Manager): /app/c/rac/attendance/corrections; Leave/Claims: /app/c/rac/requests; Payroll: /app/c/rac/payroll.
 
 **Never seed real user details or passwords into publicly accessible GitHub.**
 
@@ -72,6 +72,6 @@ Use a private, secured PHP 8.4 / Laravel 13 compatible host, MySQL database, pro
 
 Github Actions uses PHP 8.4 and SQLite in-memory to run automated tests, Vite build and browser smoke tests. Consult each branch CI for actual pass/fail, rather than claiming success based on static code.
 
-Tests cover tenant isolation, multiple attendance sessions, late cutoff, student-only check-in, leave/claim approvals, notifications, payroll allocation, locked statements and prior UI regression.
+Tests cover tenant isolation, multiple attendance sessions, late cutoff, student-only check-in, authorized attendance corrections, leave/claim approvals, notifications, payroll allocation, audited payment transitions, locked statements and prior UI regression.
 
 **Production authorization should be completed only after a dedicated security audit and live staging acceptance test.**
