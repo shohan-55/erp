@@ -78,7 +78,7 @@ class OperationalCorrectionController extends Controller
             }
 
             $overlap=AttendanceSession::query()->where('company_id',$company->id)
-                ->where('membership_id',$session->membership_id)->whereKeyNot($session->id)
+                ->where('membership_id',$session->membership_id)->where('id','!=',$session->id)
                 ->where('checked_in_at','<',$newOut)
                 ->where(fn($q)=>$q->whereNull('checked_out_at')->orWhere('checked_out_at','>',$newIn))
                 ->exists();
