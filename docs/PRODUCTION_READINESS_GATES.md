@@ -26,7 +26,8 @@ The main branch contains the ten-phase **design prototype**; production ERP impl
 - [ ] Actual SMTP password recovery/invitation delivery and offboarding tests
 - [ ] Company/Workspace role permission matrix accepted by all three RA&C Partners
 - [ ] Attendance, holidays, late, leave, conveyance and payroll policies approved (no invented salary deductions)
-- [ ] External payment evidence, payroll approval segregation, reconciliation and double reimbursement controls
+- [x] Record Paid now requires private external payment evidence, payment method/date/reference, exact line-total reconciliation, and role-scoped downloads; tested on SQLite and MySQL 8
+- [ ] Independent external settlement verification and payroll approval segregation of duties with signed RA&C policy
 - [ ] Company policy approvals by all 3 distinct Partners with immutable effective-date versions
 - [ ] Tenant-approved support-access scope, expiry and durable audit evidence
 - [ ] Account onboarding and deactivation, export/deletion, retention and legal review
