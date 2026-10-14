@@ -23,6 +23,16 @@ class PortalController extends Controller
         $ids = $members->pluck('id');
         $today = now($company->timezone)->toDateString();
         $effectivePolicy = PolicyResolver::forDate($company, $workspace, $today);
+        // Show the actual student's open session only, never another team
+        // member's session or client-provided attendance state.
+        $activeAttendance = $actor->role === 'student'
+            ? DB::table('attendance_sessions')
+                ->where('company_id', $company->id)
+                ->where('workspace_id', $workspace->id)
+                ->where('membership_id', $actor->id)
+                ->whereNull('ended_at')
+                ->first()
+            : null;
 
         $stats = [
             'members' => $ids->count(),
@@ -50,6 +60,6 @@ class PortalController extends Controller
             ->select('a.*', 'u.name as member_name')
             ->orderByDesc('a.started_at')->limit(8)->get();
 
-        return view('erp.dashboard', compact('company', 'workspace', 'actor', 'firmSlug', 'stats', 'recent', 'effectivePolicy'));
+        return view('erp.dashboard', compact('company', 'workspace', 'actor', 'firmSlug', 'stats', 'recent', 'effectivePolicy', 'activeAttendance'));
     }
 }
