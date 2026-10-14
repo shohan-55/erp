@@ -1,0 +1,32 @@
+name: Prepare Laravel production development
+on:
+  push:
+    branches: [feature/production-core]
+    paths: [.github/workflows/production-bootstrap.yml]
+permissions:
+  contents: read
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, fileinfo
+          tools: composer:v2
+      - run: composer require laravel/boost --dev --no-interaction --no-progress
+      - run: php artisan boost:install --help
+      - run: php artisan boost:install --no-interaction
+      - run: cat AGENTS.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-bootstrap
+          path: |
+            AGENTS.md
+            CLAUDE.md
+            composer.json
+            composer.lock
+            boost.json
+          retention-days: 7
