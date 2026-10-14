@@ -21,7 +21,8 @@ The main branch contains the ten-phase **design prototype**; production ERP impl
 
 ## Functional gates
 
-- [ ] MFA/2FA required for Platform Admin and Partners (not implemented)
+- [x] TOTP Authenticator MFA required for Platform Admin and Partners, with encrypted secret, replay protection and single-use recovery codes; verified by unit/feature/browser CI
+- [ ] Validate MFA enrollment and recovery with real devices in staging, including documented lost-device recovery
 - [ ] Actual SMTP password recovery/invitation delivery and offboarding tests
 - [ ] Company/Workspace role permission matrix accepted by all three RA&C Partners
 - [ ] Attendance, holidays, late, leave, conveyance and payroll policies approved (no invented salary deductions)
@@ -31,6 +32,9 @@ The main branch contains the ten-phase **design prototype**; production ERP impl
 - [ ] Account onboarding and deactivation, export/deletion, retention and legal review
 
 ## Infrastructure gates
+
+Run `php artisan erp:release:check` on each staging/production release. A passing configuration check is necessary, but not sufficient for final sign-off.
+
 
 - [ ] HTTPS/TLS with trusted ingress, APP_URL HTTPS and secure session cookies
 - [ ] APP_ENV=production, APP_DEBUG=false and a rotated secret APP_KEY outside GitHub
