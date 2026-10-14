@@ -28,8 +28,8 @@ final class PolicyResolver
             ->orderByDesc('effective_date')->orderByDesc('id')->first();
 
         if ($companyVersion) {
-            $policy['office_start'] = $companyVersion->office_start;
-            $policy['office_end'] = $companyVersion->office_end;
+            $policy['office_start'] = self::normalizeTime($companyVersion->office_start);
+            $policy['office_end'] = self::normalizeTime($companyVersion->office_end);
             $policy['grace_minutes'] = (int) $companyVersion->grace_minutes;
             $policy['weekly_holidays'] = json_decode($companyVersion->weekly_holidays, true);
             $policy['company_policy_proposal_id'] = $companyVersion->id;
@@ -42,13 +42,18 @@ final class PolicyResolver
             ->orderByDesc('effective_date')->orderByDesc('id')->first();
 
         if ($workspaceVersion) {
-            $policy['office_start'] = $workspaceVersion->office_start;
-            $policy['office_end'] = $workspaceVersion->office_end;
+            $policy['office_start'] = self::normalizeTime($workspaceVersion->office_start);
+            $policy['office_end'] = self::normalizeTime($workspaceVersion->office_end);
             $policy['grace_minutes'] = (int) $workspaceVersion->grace_minutes;
             $policy['weekly_holidays'] = json_decode($workspaceVersion->weekly_holidays, true);
             $policy['workspace_override_id'] = $workspaceVersion->id;
         }
 
         return $policy;
+    }
+
+    private static function normalizeTime(string $time): string
+    {
+        return strlen($time) === 5 ? $time.':00' : $time;
     }
 }
