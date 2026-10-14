@@ -40,6 +40,8 @@ return new class extends Migration {
             $t->string('role', 24); // partner, manager, student
             $t->decimal('monthly_allowance', 12, 2)->default(0);
             $t->boolean('active')->default(true);
+            $t->timestamp('invited_at')->nullable();
+            $t->timestamp('activated_at')->nullable();
             $t->timestamps();
             $t->unique(['company_id', 'user_id']);
             $t->unique(['id', 'company_id', 'workspace_id']);
@@ -95,6 +97,7 @@ return new class extends Migration {
             $t->timestamp('locked_at')->nullable();
             $t->timestamps();
             $t->unique(['company_id', 'workspace_id', 'period_month']);
+            $t->unique(['company_id', 'payment_reference']);
         });
 
         Schema::create('conveyance_claims', function (Blueprint $t) {
