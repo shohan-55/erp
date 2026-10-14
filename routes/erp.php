@@ -55,6 +55,7 @@ Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
         Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll');
         Route::post('/payroll', [PayrollController::class, 'generate'])->name('payroll.generate');
         Route::post('/payroll/{runId}/transition', [PayrollController::class, 'advance'])->name('payroll.advance');
+        Route::get('/payroll/{runId}/payment-evidence', [PayrollController::class, 'paymentEvidence'])->name('payroll.evidence');
         Route::get('/policies', [PolicyController::class, 'index'])->name('policies');
         Route::post('/policies/company/propose', [PolicyController::class, 'propose'])->name('policies.propose');
         Route::post('/policies/company/{id}/vote', [PolicyController::class, 'vote'])->name('policies.vote');
