@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 class DatabaseReadinessCheckTest extends TestCase
@@ -28,8 +29,9 @@ class DatabaseReadinessCheckTest extends TestCase
     {
         config()->set('database.connections.sqlite.password', 'SECRET-NOT-FOR-OUTPUT');
 
-        $this->artisan('erp:db:check --json')
-            ->expectsOutputToContain('"decision": "SCHEMA_READY"')
-            ->assertExitCode(0);
+        $this->assertSame(0, Artisan::call('erp:db:check', ['--json' => true]));
+        $output = Artisan::output();
+        $this->assertStringContainsString('"decision": "SCHEMA_READY"', $output);
+        $this->assertStringNotContainsString('SECRET-NOT-FOR-OUTPUT', $output);
     }
 }
