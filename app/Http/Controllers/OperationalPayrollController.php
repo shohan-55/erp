@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\CompanyMembership;
 use App\Models\ConveyanceClaim;
 use App\Models\PayrollClaimAllocation;
+use App\Models\PayrollEvent;
 use App\Models\PayrollItem;
 use App\Models\PayrollRun;
 use Carbon\CarbonImmutable;
@@ -48,7 +49,12 @@ class OperationalPayrollController extends Controller
             $runs = $runs->where('status','locked')->values();
         }
 
-        return view('operational.payroll', compact('company', 'actor', 'runs', 'items'));
+        $auditEvents = $actor->role === 'partner'
+            ? PayrollEvent::query()->where('company_id', $company->id)
+                ->where('workspace_id', $actor->workspace_id)->orderByDesc('id')->limit(40)->get()
+            : collect();
+
+        return view('operational.payroll', compact('company', 'actor', 'runs', 'items', 'auditEvents'));
     }
 
     public function generate(Request $request, string $companySlug)
@@ -138,6 +144,13 @@ class OperationalPayrollController extends Controller
                     ]);
                 }
             }
+
+            PayrollEvent::create([
+                'payroll_run_id'=>$run->id, 'company_id'=>$company->id,
+                'workspace_id'=>$actor->workspace_id, 'actor_membership_id'=>$actor->id,
+                'action'=>'generate', 'previous_status'=>null, 'new_status'=>'draft',
+                'metadata'=>['payroll_month'=>$month, 'students'=>$students->count()],
+            ]);
         },3);
 
         return back()->with('status','Draft payroll snapshot generated. No funds transferred.');
@@ -190,6 +203,12 @@ class OperationalPayrollController extends Controller
             }
 
             $run->update($update);
+            PayrollEvent::create([
+                'payroll_run_id'=>$run->id, 'company_id'=>$company->id,
+                'workspace_id'=>$actor->workspace_id, 'actor_membership_id'=>$actor->id,
+                'action'=>$data['action'], 'previous_status'=>$from, 'new_status'=>$to,
+                'metadata'=>['external_reference_recorded'=>$data['action']==='mark_paid'],
+            ]);
 
             if ($data['action']==='mark_paid') {
                 $claimIds = PayrollClaimAllocation::query()
