@@ -22,7 +22,7 @@
 </div>
 <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white"><div class="border-b border-slate-100 p-5"><h2 class="text-lg font-extrabold">Recent Attendance Days</h2><p class="mt-1 text-xs text-slate-500">Last 30 accessible day records, newest first. Incomplete sessions are not treated as full working days.</p></div>
 <div class="overflow-x-auto"><table class="w-full min-w-[520px] text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Date</th><th class="px-4 py-3">Membership ID</th><th class="px-4 py-3">Status</th><th class="px-5 py-3">Workspace</th></tr></thead><tbody class="divide-y divide-slate-100">
-@forelse($days as $day)<tr><td class="px-5 py-4">{{ $day->work_date->format('d M Y') }}</td><td class="px-4 py-4">{{ $day->membership_id }}</td><td class="px-4 py-4">{{ ucfirst($day->status) }}</td><td class="px-5 py-4">{{ $day->workspace_id }}</td></tr>
+@forelse($days as $day)<tr><td class="px-5 py-4">{{ \Carbon\CarbonImmutable::parse($day->work_date)->format('d M Y') }}</td><td class="px-4 py-4">{{ $day->membership_id }}</td><td class="px-4 py-4">{{ ucfirst($day->status) }}</td><td class="px-5 py-4">{{ $day->workspace_id }}</td></tr>
 @empty<tr><td colspan="4" class="p-8 text-center text-slate-500">No recorded attendance days yet.</td></tr>@endforelse
 </tbody></table></div></section>
 </main></body></html>
