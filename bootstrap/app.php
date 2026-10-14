@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant.member' => \App\Http\Middleware\EnsureTenantMember::class,
             'platform.admin' => \App\Http\Middleware\EnsurePlatformAdmin::class,
+            'mfa.verified' => \App\Http\Middleware\RequireVerifiedMfa::class,
         ]);
         $middleware->redirectGuestsTo(fn (Request $request) => $request->is('platform/app*')
             ? route('erp.platform.login')
