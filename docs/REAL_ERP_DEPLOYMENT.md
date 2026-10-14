@@ -6,11 +6,14 @@ This is a functional Laravel ERP backend intended for an isolated staging pilot,
 No hosting deployment was performed during GitHub development. Never enter real employee financial data on a staging server without a security review.
 
 ## Before production use
+
+The server must pass `php artisan erp:release:check` before deployment. This checks configuration and MFA route guards, **not** off-site backups, restore testing or human security sign-off.
+
 1. Verify all test suites and run multi-user concurrent operations against MySQL 8, not SQLite alone.
 2. Configure HTTPS, a trusted APP_URL, APP_ENV=production, APP_DEBUG=false, new secure APP_KEY, and SESSION_SECURE_COOKIE=true.
 3. Set least privilege MySQL credentials, encrypted backups, tested restoration, malware scanning and private attachment storage.
 4. Configure a real SMTP/API mailer and verify invitation and password-reset email delivery. The application blocks log/array/null mailers in production for token emails.
-5. Implement and require MFA for Platform Admin and Partner logins before commercial launch. MFA is **not implemented** here.
+5. TOTP Authenticator MFA is implemented and required for Platform Admin and Partner routes, with single-use recovery codes. Verify actual enrollment, recovery, device-loss operations and account lifecycle on isolated staging before commercial launch.
 6. Configure company offboarding, consent-based temporary support access and immutable support auditing; these are not yet implemented.
 7. Confirm actual leave entitlements, allowed Partner policy overrides, stipend amounts, payout instructions, rounding and audit standards.
 8. Verify no sample data or public prototype routes are exposed in production (production environment disables public demo routes).
@@ -76,4 +79,4 @@ Real backend tests: tests/Feature/RealErpOperationsTest.php, RealErpTeamInvitati
 Browser journey: tests/browser/erp-live-pilot.mjs
 
 ## Not included
-MFA, corporate centralized governance, automated legal leave entitlement balance, payroll tax calculations, payment gateway/bank integration, audited support access, cryptographic tenant isolation, disaster recovery documentation, automated backups, security penetration signoff, and production deployment.
+Production MFA device/recovery operational sign-off, corporate centralized governance, automated legal leave entitlement balance, payroll tax calculations, payment gateway/bank integration, audited support access, cryptographic tenant isolation, disaster recovery documentation, automated backups, security penetration signoff, and production deployment.
