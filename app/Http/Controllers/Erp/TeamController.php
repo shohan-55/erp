@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\TenantOps;
+use App\Support\OutboundMailGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -46,6 +47,7 @@ class TeamController extends Controller
             'monthly_allowance' => ['nullable', 'required_if:role,student', 'numeric', 'min:0', 'max:500000', 'decimal:0,2'],
         ]);
 
+        OutboundMailGuard::ensureConfigured();
         $managerId = $this->validateManager($actor, $input['manager_membership_id'] ?? null);
 
         $email = strtolower(trim($input['email']));
@@ -90,6 +92,7 @@ class TeamController extends Controller
             ->where('workspace_id', $actor->workspace_id)->where('active', false)->first();
         abort_unless($member, 404);
 
+        OutboundMailGuard::ensureConfigured();
         $user = User::findOrFail($member->user_id);
         $this->sendActivation($user, $company->name, $firmSlug);
         TenantOps::audit($actor, 'team.resend_invitation', 'membership', $id);
