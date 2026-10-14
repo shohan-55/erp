@@ -58,7 +58,7 @@ try {
     await page.getByText('Leave review recorded.').waitFor();
 
     await nav('Team & Accounts');
-    await page.getByText('QA Manager').waitFor();
+    await page.getByText('QA Manager', {exact:true}).first().waitFor();
     await page.screenshot({path:output+'/05-team-management.png',fullPage:true});
 
     await nav('Policy & Governance');
