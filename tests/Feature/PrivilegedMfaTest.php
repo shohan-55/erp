@@ -131,7 +131,8 @@ class PrivilegedMfaTest extends TestCase
         $this->assertNull($record->mfa_recovery_codes);
         $this->get('/c/rac/app')->assertOk();
         $this->assertDatabaseHas('tenant_audit_events', [
-            'company_id' => 1, 'action' => 'account.mfa.disabled',
+            'company_id' => DB::table('companies')->where('slug', 'rac')->value('id'),
+            'action' => 'account.mfa.disabled',
         ]);
     }
 
