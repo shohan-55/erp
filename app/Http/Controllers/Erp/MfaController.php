@@ -14,7 +14,7 @@ class MfaController extends Controller
 {
     public function setup(Request $request)
     {
-        $user = $request->user();
+        $user = $request->user()->refresh();
         if ($user->mfa_confirmed_at) {
             return redirect()->route('erp.mfa.challenge');
         }
@@ -37,7 +37,7 @@ class MfaController extends Controller
 
     public function confirmSetup(Request $request)
     {
-        $user = $request->user();
+        $user = $request->user()->refresh();
         $input = $request->validate([
             'password' => ['required', 'string'],
             'code' => ['required', 'regex:/^[0-9]{6}$/'],
@@ -81,7 +81,7 @@ class MfaController extends Controller
 
     public function challenge(Request $request)
     {
-        if (! $request->user()->mfa_confirmed_at) {
+        if (! $request->user()->refresh()->mfa_confirmed_at) {
             return redirect()->route('erp.mfa.setup');
         }
 
@@ -97,7 +97,7 @@ class MfaController extends Controller
         $input = $request->validate([
             'code' => ['required', 'string', 'max:48'],
         ]);
-        $user = $request->user();
+        $user = $request->user()->refresh();
         if (! $user->mfa_confirmed_at || ! $user->mfa_secret) {
             return redirect()->route('erp.mfa.setup');
         }
