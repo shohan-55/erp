@@ -37,6 +37,12 @@ jobs:
       - name: Install PHP dependencies
         run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
+      - name: Audit PHP dependency advisories
+        run: composer audit --locked --no-interaction
+
+      - name: Audit production JavaScript dependency advisories
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Initialize local test environment
         run: |
           cp .env.example .env
