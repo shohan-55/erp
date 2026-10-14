@@ -14,6 +14,24 @@
 </section>
 @if($actor->role === 'partner')
 @php $futureDate=\Carbon\Carbon::now($company->timezone)->addMonth()->startOfMonth()->toDateString(); @endphp
+<section class="mb-5 rounded-2xl border border-amber-200 bg-white p-5 shadow-sm sm:p-6">
+  <h3 class="font-extrabold">Attendance GPS Privacy · My Partner Workspace</h3>
+  <p class="mt-2 text-sm text-slate-600">Location collection is OFF by default. When enabled, the employee must give browser permission separately for each check-in/out. Coordinates are encrypted and visible only to this Partner or the student's assigned Manager. Coordinates are browser-reported, not verified proof of physical presence. Declining location will not block attendance.</p>
+  <form method="POST" action="{{ route('erp.attendance.location_policy', ['firmSlug'=>$firmSlug]) }}" class="mt-4 space-y-3">
+    @csrf
+    <label class="block text-sm font-bold">Location Collection
+      <select name="attendance_location_enabled" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-3">
+        <option value="0" @selected(!$workspace->attendance_location_enabled)>Disabled (default)</option>
+        <option value="1" @selected($workspace->attendance_location_enabled)>Enable optional GPS requests</option>
+      </select>
+    </label>
+    <label class="block text-sm font-bold">Retention (days, 7–90)
+      <input type="number" name="attendance_location_retention_days" min="7" max="90" value="{{ $workspace->attendance_location_retention_days }}" required class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-3">
+    </label>
+    <label class="flex items-start gap-2 text-xs text-slate-600"><input type="checkbox" name="notice_acknowledged" value="1" class="mt-0.5"> I acknowledge that employees must receive a location/privacy notice and their GPS participation remains voluntary. I understand backups may keep copies beyond the in-app retention period.</label>
+    <button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-extrabold">Save Workspace GPS Settings</button>
+  </form>
+</section>
 <div class="grid items-start gap-5 xl:grid-cols-2">
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
 <h3 class="text-base font-extrabold">Propose Company-wide Policy</h3><p class="mt-2 text-xs text-slate-500">RA&C requires all three Partners to vote separately. One rejection stops the proposal. Proposed changes are never applied retroactively.</p>
