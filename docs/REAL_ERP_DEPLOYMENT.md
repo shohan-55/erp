@@ -51,6 +51,16 @@ Alternative interactive CLI (passwords never passed in arguments):
 
 Important: QA seeder ErpBrowserQaSeeder is restricted to local/testing environments and must never be used with production data.
 
+## Automated monthly payroll drafts
+
+Laravel Scheduler is configured to run erp:payroll:auto-draft at 03:30 Asia/Dhaka on the 1st of each month, preparing a draft for the **previous** month. It does not pay or approve salary. Idempotency is guarded by a workspace row lock and a unique company/workspace/month database constraint.
+
+For automatic operation, the server must execute the Laravel Scheduler every minute using the standard cron entry:
+
+    * * * * * cd /absolute/path/to/erp && php artisan schedule:run >> /dev/null 2>&1
+
+Make sure the cron user has access to the application and the relevant database; the scheduler does not run merely because the web page is open. A Partner must review and approve the draft and record verified external settlement before locking.
+
 ## Business behavior
 - Asia/Dhaka local policy; 10:00–18:00, 10-minute grace and Fri/Sat holidays by default.
 - Home Partner owns attendance, leave, conveyance and payroll records. Manager sees assigned student scope. Student accesses self only.
