@@ -67,6 +67,8 @@ Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
         Route::post('/policies/company/propose', [PolicyController::class, 'propose'])->name('policies.propose');
         Route::post('/policies/company/{id}/vote', [PolicyController::class, 'vote'])->name('policies.vote');
         Route::post('/policies/workspace/override', [PolicyController::class, 'override'])->name('policies.override');
+        Route::post('/policies/calendar/day', [PolicyController::class, 'dayOverride'])
+            ->middleware('throttle:5,1')->name('policies.day_override');
         Route::get('/team', [TeamController::class, 'index'])->name('team');
         Route::post('/team/invite', [TeamController::class, 'invite'])->middleware('throttle:10,1')->name('team.invite');
         Route::post('/team/{id}/resend', [TeamController::class, 'resend'])->middleware('throttle:5,1')->name('team.resend');
