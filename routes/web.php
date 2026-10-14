@@ -43,3 +43,14 @@ if (in_array(app()->environment(), ['local', 'testing'], true)) {
 }
 
 require __DIR__.'/erp.php';
+
+// Friendly tenant entry point. Static paths above retain priority; this route
+// never authorizes access, it only resolves an active company and delegates
+// login/membership checks to the real tenant login controller.
+Route::get('/{firmSlug}', function (string $firmSlug) {
+    $exists = \Illuminate\Support\Facades\DB::table('companies')
+        ->where('slug', $firmSlug)->where('active', true)->exists();
+    abort_unless($exists, 404);
+
+    return redirect()->route('erp.login', ['firmSlug' => $firmSlug]);
+})->where('firmSlug', '[a-z][a-z0-9-]{1,69}')->name('erp.short-login');
