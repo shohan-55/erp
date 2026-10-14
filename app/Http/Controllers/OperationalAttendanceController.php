@@ -71,8 +71,10 @@ class OperationalAttendanceController extends Controller
             $local = $now->setTimezone($company->timezone);
             $day = AttendanceDay::query()->firstOrCreate(
                 ['company_id' => $company->id, 'membership_id' => $membership->id, 'work_date' => $local->toDateString()],
-                ['workspace_id' => $membership->workspace_id, 'status' => 'present']
+                ['workspace_id' => $membership->workspace_id, 'status' => 'incomplete']
             );
+
+            $day->update(['status' => 'incomplete']);
 
             AttendanceSession::query()->create([
                 'attendance_day_id' => $day->id, 'company_id' => $company->id,
@@ -101,6 +103,19 @@ class OperationalAttendanceController extends Controller
             }
 
             $session->update(['checked_out_at' => CarbonImmutable::now('UTC'), 'is_open' => false]);
+
+            $first = AttendanceSession::query()
+                ->where('attendance_day_id', $session->attendance_day_id)
+                ->orderBy('checked_in_at')->firstOrFail();
+            $arrival = CarbonImmutable::instance($first->checked_in_at)->setTimezone($company->timezone);
+            $day = AttendanceDay::query()->whereKey($session->attendance_day_id)
+                ->where('company_id', $company->id)->where('membership_id', $membership->id)->firstOrFail();
+
+            $status = in_array($arrival->dayOfWeekIso, [5, 6], true)
+                ? 'holiday_work'
+                : ($arrival->greaterThan($arrival->setTime(10, 10, 59)) ? 'late' : 'on_time');
+
+            $day->update(['status' => $status]);
         }, 3);
 
         return redirect()->route('operational.dashboard', ['companySlug' => $companySlug])->with('status', 'Check-out recorded.');
