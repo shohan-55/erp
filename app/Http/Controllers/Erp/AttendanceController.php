@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
 use App\Support\PolicyResolver;
+use App\Support\WorkCalendar;
 use App\Support\AttendanceLocation;
 use Illuminate\Support\Facades\Crypt;
 use Carbon\CarbonImmutable;
@@ -74,8 +75,9 @@ class AttendanceController extends Controller
             $policy = PolicyResolver::forDate($company, $workspace, $day);
             $cutoff = CarbonImmutable::parse($day.' '.$policy['office_start'], $company->timezone)
                 ->addMinutes($policy['grace_minutes'])->endOfMinute();
-            $holidays = $policy['weekly_holidays'];
-            $isHoliday = in_array($localNow->isoWeekday(), is_array($holidays) ? $holidays : [5, 6], true);
+            $holidays = is_array($policy['weekly_holidays']) ? $policy['weekly_holidays'] : [5, 6];
+            $calendar = WorkCalendar::forDate($company, $workspace, $day, $holidays);
+            $isHoliday = $calendar['holiday'];
 
             $id = DB::table('attendance_sessions')->insertGetId([
                 'company_id' => $actor->company_id,
@@ -93,6 +95,7 @@ class AttendanceController extends Controller
             $captured = AttendanceLocation::record($actor, $id, 'check_in', $location);
             TenantOps::audit($actor, 'attendance.check_in', 'attendance_session', $id, [
                 'work_mode' => $data['work_mode'], 'local_date' => $day,
+                'calendar_source' => $calendar['source'], 'calendar_exception_id' => $calendar['exception_id'],
                 'browser_location_captured' => $captured,
             ]);
         }, 3);
