@@ -24,7 +24,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, fileinfo
+          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, pdo_mysql, curl, fileinfo, zip
           coverage: none
           tools: composer:v2
 
@@ -53,6 +53,9 @@ jobs:
 
       - name: Compile Vite production assets
         run: npm run build
+
+      - name: Verify shared hosting PHP CLI prerequisites
+        run: php artisan erp:hosting:check
 
       - name: Run full Laravel feature and unit tests
         run: php artisan test
@@ -165,7 +168,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, dom, xml, pdo_mysql, mysqlnd, fileinfo
+          extensions: mbstring, dom, xml, pdo_mysql, mysqlnd, curl, fileinfo, zip
           coverage: none
           tools: composer:v2
 
@@ -182,6 +185,9 @@ jobs:
           php artisan key:generate
           npm ci
           npm run build
+
+      - name: Verify hosting PHP CLI prerequisites with MySQL extensions
+        run: php artisan erp:hosting:check
 
       - name: Run real MySQL schema migrations
         run: php artisan migrate --force
