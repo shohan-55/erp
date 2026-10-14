@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\PolicyResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -55,11 +56,8 @@ class PayrollController extends Controller
                 'period_month' => $period,
                 'status' => 'draft',
                 'policy_snapshot' => json_encode([
+                    ...PolicyResolver::forDate($company, $workspace, $period),
                     'timezone' => $company->timezone,
-                    'office_start' => $company->office_start,
-                    'office_end' => $company->office_end,
-                    'grace_minutes' => $company->grace_minutes,
-                    'weekly_holidays' => json_decode($company->weekly_holidays ?? '[5,6]', true),
                     'no_auto_late_penalty' => true,
                 ], JSON_THROW_ON_ERROR),
                 'last_action_by' => $actor->id,
