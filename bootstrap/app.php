@@ -12,7 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias(['tenant.member' => \App\Http\Middleware\EnsureTenantMember::class]);
+        $middleware->redirectGuestsTo(fn (Request $request) => route('erp.login', [
+            'firmSlug' => $request->route('firmSlug') ?? 'rac',
+        ]));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
