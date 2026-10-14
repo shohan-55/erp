@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\PolicyResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +22,7 @@ class PortalController extends Controller
 
         $ids = $members->pluck('id');
         $today = now($company->timezone)->toDateString();
+        $effectivePolicy = PolicyResolver::forDate($company, $workspace, $today);
 
         $stats = [
             'members' => $ids->count(),
@@ -48,6 +50,6 @@ class PortalController extends Controller
             ->select('a.*', 'u.name as member_name')
             ->orderByDesc('a.started_at')->limit(8)->get();
 
-        return view('erp.dashboard', compact('company', 'workspace', 'actor', 'firmSlug', 'stats', 'recent'));
+        return view('erp.dashboard', compact('company', 'workspace', 'actor', 'firmSlug', 'stats', 'recent', 'effectivePolicy'));
     }
 }
