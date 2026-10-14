@@ -220,12 +220,21 @@ class RealErpOperationsTest extends TestCase
         $this->post("/c/rac/app/payroll/{$run->id}/transition", ['action'=>'approve'])->assertRedirect();
         $this->post("/c/rac/app/payroll/{$run->id}/transition", [
             'action'=>'record_paid', 'payment_reference'=>'TRANSFER-987654',
+            'payment_channel'=>'bank_transfer',
+            'payment_date'=>\Carbon\CarbonImmutable::now('Asia/Dhaka')->toDateString(),
+            'reconciled_total'=>'8625.50',
+            'payment_evidence'=>\Illuminate\Http\UploadedFile::fake()->create('bank-evidence.pdf', 32, 'application/pdf'),
         ])->assertRedirect();
         $this->assertDatabaseHas('conveyance_claims', ['id'=>$claimId,'status'=>'paid','paid_payroll_run_id'=>$run->id]);
         $this->post("/c/rac/app/payroll/{$run->id}/transition", ['action'=>'lock'])->assertRedirect();
         $this->assertDatabaseHas('payroll_runs', ['id'=>$run->id,'status'=>'locked']);
-        $this->post("/c/rac/app/payroll/{$run->id}/transition", ['action'=>'record_paid','payment_reference'=>'TRANSFER-987654'])
-            ->assertSessionHasErrors('action');
+        $this->post("/c/rac/app/payroll/{$run->id}/transition", [
+            'action'=>'record_paid','payment_reference'=>'TRANSFER-987654',
+            'payment_channel'=>'bank_transfer',
+            'payment_date'=>\Carbon\CarbonImmutable::now('Asia/Dhaka')->toDateString(),
+            'reconciled_total'=>'8625.50',
+            'payment_evidence'=>\Illuminate\Http\UploadedFile::fake()->create('bank-evidence.pdf', 32, 'application/pdf'),
+        ])->assertSessionHasErrors('action');
     }
 
     public function test_manager_cannot_generate_or_advance_payroll(): void
