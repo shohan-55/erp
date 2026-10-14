@@ -52,6 +52,11 @@ jobs:
       - name: Run full Laravel feature and unit tests
         run: php artisan test
 
+      - name: Verify production route set contains no public design previews
+        run: |
+          APP_ENV=production php artisan route:list --json > /tmp/erp-production-routes.json
+          php -r '$routes=json_decode(file_get_contents("/tmp/erp-production-routes.json"),true); foreach ($routes as $route) { $uri=$route["uri"] ?? ""; if (str_contains($uri,"preview") || str_starts_with($uri,"platform/")) { fwrite(STDERR,"Public preview route leaked to production: ".$uri.PHP_EOL); exit(1); } } echo "PASS production preview route guard".PHP_EOL;'
+
       - name: Install Playwright browser for visual verification
         run: |
           npm install --no-save playwright@1.56.1
