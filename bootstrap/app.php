@@ -17,9 +17,20 @@ return Application::configure(basePath: dirname(__DIR__))
             'platform.admin' => \App\Http\Middleware\EnsurePlatformAdmin::class,
             'mfa.verified' => \App\Http\Middleware\RequireVerifiedMfa::class,
         ]);
-        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('platform/app*')
-            ? route('erp.platform.login')
-            : route('erp.login', ['firmSlug' => $request->route('firmSlug') ?? 'rac']));
+        $middleware->redirectGuestsTo(function (Request $request): string {
+            if ($request->is('platform/app*')) {
+                return route('erp.platform.login');
+            }
+
+            $firmSlug = $request->route('firmSlug');
+            if (is_string($firmSlug) && $firmSlug !== '') {
+                return route('erp.login', ['firmSlug' => $firmSlug]);
+            }
+
+            // An MFA route has no tenant in its URL. Never silently assume
+            // that a logged-out user belongs to a particular company.
+            return route('home');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
