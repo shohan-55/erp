@@ -17,6 +17,46 @@ class ProductionPreflightGateTest extends TestCase
             ->assertExitCode(1);
     }
 
+    public function test_release_preflight_rejects_malformed_and_wrong_size_encryption_keys(): void
+    {
+        config()->set('app.cipher', 'AES-256-CBC');
+
+        foreach ([
+            'REPLACE_WITH_YOUR_EXISTING_APP_KEY',
+            'base64:%%%not-base64%%%',
+            'base64:'.base64_encode(random_bytes(31)),
+            'base64:'.base64_encode(random_bytes(33)),
+        ] as $invalid) {
+            config()->set('app.key', $invalid);
+
+            $this->artisan('erp:release:check')
+                ->expectsOutputToContain('[FAIL] application_key_configured')
+                ->assertExitCode(1);
+        }
+    }
+
+    public function test_release_preflight_recognizes_correct_key_length_without_disclosing_key(): void
+    {
+        config()->set('app.cipher', 'AES-256-CBC');
+        $key = 'base64:'.base64_encode(random_bytes(32));
+        config()->set('app.key', $key);
+
+        $this->artisan('erp:release:check')
+            ->expectsOutputToContain('[PASS] application_key_configured')
+            ->assertExitCode(1); // CI deliberately uses non-production environment.
+
+        config()->set('app.key', random_bytes(32));
+        $this->artisan('erp:release:check')
+            ->expectsOutputToContain('[PASS] application_key_configured')
+            ->assertExitCode(1);
+
+        config()->set('app.cipher', 'AES-128-CBC');
+        config()->set('app.key', 'base64:'.base64_encode(random_bytes(16)));
+        $this->artisan('erp:release:check')
+            ->expectsOutputToContain('[PASS] application_key_configured')
+            ->assertExitCode(1);
+    }
+
     public function test_privileged_financial_routes_cannot_omit_mfa_middleware(): void
     {
         foreach ([
