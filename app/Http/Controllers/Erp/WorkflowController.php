@@ -99,6 +99,16 @@ class WorkflowController extends Controller
                 throw ValidationException::withMessages(['decision' => 'Already reviewed by a manager.']);
             }
 
+            // An assigned active Manager must make the first review before a
+            // Partner can give final approval. Students without an assigned
+            // active Manager remain eligible for direct Partner review.
+            if ($actor->role === 'partner' && $input['decision'] === 'approve'
+                && $row->status === 'pending' && $this->activeManagerAssigned($subject)) {
+                throw ValidationException::withMessages([
+                    'decision' => 'The assigned Manager must review this leave before final Partner approval.',
+                ]);
+            }
+
             $status = $input['decision'] === 'reject' ? 'rejected'
                 : ($actor->role === 'partner' ? 'approved' : 'manager_reviewed');
 
@@ -203,6 +213,7 @@ class WorkflowController extends Controller
         $input = $request->validate([
             'decision' => ['required', 'in:approve,reject'],
             'decision_note' => ['nullable', 'string', 'max:1000'],
+            'approved_amount' => ['nullable', 'numeric', 'min:0.01', 'max:50000', 'decimal:0,2'],
         ]);
 
         DB::transaction(function () use ($actor, $id, $input) {
@@ -229,15 +240,52 @@ class WorkflowController extends Controller
                 throw ValidationException::withMessages(['decision' => 'The payroll for this claim month is already frozen.']);
             }
 
-            // Managers perform a preliminary review, never final financial approval.
+            if ($actor->role === 'partner' && $input['decision'] === 'approve'
+                && $claim->status === 'pending' && $this->activeManagerAssigned($subject)) {
+                throw ValidationException::withMessages([
+                    'decision' => 'The assigned Manager must review this claim before final Partner approval.',
+                ]);
+            }
+
+            // Do all monetary comparison in integer cents. Claim originals
+            // are immutable; only accepted/recommended amounts are separate.
+            $requestedCents = (int) round(((float) $claim->amount) * 100);
+            $chosenAmount = $input['approved_amount']
+                ?? ($actor->role === 'partner' ? $claim->manager_recommended_amount : null)
+                ?? $claim->amount;
+            $chosenCents = (int) round(((float) $chosenAmount) * 100);
+            if ($input['decision'] === 'approve' && ($chosenCents <= 0 || $chosenCents > $requestedCents)) {
+                throw ValidationException::withMessages([
+                    'approved_amount' => 'The reviewed amount must be greater than zero and cannot exceed the original claim.',
+                ]);
+            }
+            if ($input['decision'] === 'approve' && $chosenCents < $requestedCents
+                && mb_strlen(trim((string) ($input['decision_note'] ?? ''))) < 10) {
+                throw ValidationException::withMessages([
+                    'decision_note' => 'Explain reduced reimbursements in at least 10 characters.',
+                ]);
+            }
+
+            // Managers perform preliminary review only; final amount is
+            // committed only by the owning Partner and locked into payroll.
             $status = $input['decision'] === 'reject' ? 'rejected'
                 : ($actor->role === 'partner' ? 'approved' : 'manager_reviewed');
-            DB::table('conveyance_claims')->where('id', $id)->update([
+            $changes = [
                 'status' => $status, 'reviewed_by' => $actor->id,
                 'reviewed_at' => now(), 'decision_note' => $input['decision_note'] ?? null,
                 'updated_at' => now(),
+            ];
+            if ($input['decision'] === 'approve' && $actor->role === 'manager') {
+                $changes['manager_recommended_amount'] = sprintf('%.2f', $chosenCents / 100);
+            } elseif ($input['decision'] === 'approve' && $actor->role === 'partner') {
+                $changes['approved_amount'] = sprintf('%.2f', $chosenCents / 100);
+            }
+            DB::table('conveyance_claims')->where('id', $id)->update($changes);
+            TenantOps::audit($actor, 'claim.'.$status, 'conveyance_claim', $id, [
+                'original_amount' => $claim->amount,
+                'reviewed_amount' => $input['decision'] === 'approve' ? $changes[$actor->role === 'partner'
+                    ? 'approved_amount' : 'manager_recommended_amount'] : null,
             ]);
-            TenantOps::audit($actor, 'claim.'.$status, 'conveyance_claim', $id);
             TenantOps::notify($actor, $subject->id, 'Conveyance claim update', 'Your conveyance claim status is '.$status.'.');
             if ($status === 'manager_reviewed') {
                 foreach (TenantOps::teamRecipients($actor, $subject) as $recipientId) {
@@ -267,6 +315,20 @@ class WorkflowController extends Controller
             ->where('recipient_membership_id', $actor->id)
             ->whereNull('read_at')->update(['read_at' => now(), 'updated_at' => now()]);
         return back();
+    }
+
+    private function activeManagerAssigned(object $subject): bool
+    {
+        if (! $subject->manager_membership_id) {
+            return false;
+        }
+
+        return DB::table('memberships')
+            ->where('id', $subject->manager_membership_id)
+            ->where('company_id', $subject->company_id)
+            ->where('workspace_id', $subject->workspace_id)
+            ->where('role', 'manager')
+            ->where('active', true)->exists();
     }
 
     private function ownedRows(object $actor, string $table)
