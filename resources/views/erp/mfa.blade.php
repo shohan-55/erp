@@ -66,7 +66,7 @@
   </section>
 </main>
 @if($mode === 'setup')
-<script src="{{ asset('vendor/qrcode-generator.js') }}"></script>
+<script src="{{ asset('js/qrcode-generator.js') }}"></script>
 <script>
 (() => {
   const target = document.getElementById('mfa-setup-qr');
