@@ -49,6 +49,19 @@ Example using **placeholders**, not a verified server path:
 
 The cPanel domain's actual configured **document root must be \`/home/<ERP_CPANEL_USER>/erp-app/public\`** or an equivalent private app path. Do not copy the entire repository into \`public_html\`. The domain's document root path depends on provider controls; verify before uploads. Avoid \`777\` permissions.
 
+## 2A. The two cPanel webroot modes — choose exactly one
+
+A successful GitHub Actions run (after SQLite, MySQL 8 and browser tests all pass) uploads a **review-only** artifact containing:
+- \`erp-cpanel-application.zip\`: complete private project with vetted production \`vendor/\` and compiled \`public/build/\` assets, but no \`.env\`, database contents, test fixtures or development tools.
+- \`erp-cpanel-split-webroot.zip\`: **public assets only**, with \`index.php\` adjusted to load \`../erp-app/vendor/autoload.php\` and \`../erp-app/bootstrap/app.php\`.
+- \`SHA256SUMS.txt\`: verify the files you download were not altered.
+
+**Mode A — adjustable subdomain Document Root:** extract the private archive into \`/home/<USER>/erp-app\` and set the subdomain document root to \`/home/<USER>/erp-app/public\`. Do not deploy the split-webroot archive.
+
+**Mode B — fixed \`public_html\` in a DEDICATED ERP cPanel account:** extract the private application to \`/home/<USER>/erp-app\`, then copy **only the contents of** the split webroot's \`erp-webroot/\` directory into \`/home/<USER>/public_html/\`. Its patched index file loads the private app from a sibling \`erp-app\` folder. This mode is correct only if \`public_html\` belongs exclusively to \`erp.dhakawala.com\` and both paths are siblings. Never overwrite the existing DhakaWala hosting-business site or any other live cPanel account's \`public_html\`.
+
+**Do not mix modes or copy Laravel source/config/vendor into any web-accessible document root.** These packages are deployment artifacts for approval, not a live deployment or production certification.
+
 ## 3. Build/deploy strategy on constrained shared hosting
 
 Preferred: GitHub CI builds and tests the exact reviewed commit, with Composer production vendor dependencies and the Vite manifest/assets prepared for PHP 8.4 **before** deployment. No Node server, Vite dev process, Docker, Supervisor or persistent queue daemon is required for the first small RA&C deployment. Ensure no CI \`.env\`, fake QA DB/users, or secret materials are included in any release artifact.
