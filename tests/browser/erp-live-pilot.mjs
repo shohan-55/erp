@@ -83,6 +83,14 @@ try {
     await page.screenshot({path:output+'/03-student-leave.png',fullPage:true});
 
     await page.getByRole('button',{name:'Sign Out'}).click();
+
+    // Assigned students now require Manager review before final Partner approval.
+    await login('e2e.manager@example.test');
+    await nav('Leave Requests');
+    await page.getByRole('button',{name:'Review',exact:true}).first().click();
+    await page.getByText('Leave review recorded.').waitFor();
+    await page.getByRole('button',{name:'Sign Out'}).click();
+
     await login('e2e.partner@example.test');
     await page.getByRole('heading',{name:'Workspace Dashboard'}).waitFor();
     await page.screenshot({path:output+'/04-partner-dashboard.png',fullPage:true});
