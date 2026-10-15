@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Mail\PlatformStaffInvitation;
 use App\Support\OutboundMailGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -179,12 +180,7 @@ class PlatformManagementController extends Controller
         $url = route('erp.activate.form', [
             'firmSlug' => $company->slug, 'token' => $token, 'email' => $user->email,
         ]);
-        Mail::raw(
-            "You have been invited to ".$company->name." on DhakaWala ERP.\n\n".
-            "Use this one-time link to activate your account and set a password:\n".
-            $url."\n\nIgnore this message if you did not request access.",
-            fn ($message) => $message->to($user->email)->subject($company->name.' ERP account invitation')
-        );
+        Mail::to($user->email)->send(new PlatformStaffInvitation($company->name, $url));
 
         return back()->with('success', 'Account invitation saved; email delivery requested.');
     }
