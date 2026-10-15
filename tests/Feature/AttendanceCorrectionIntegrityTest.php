@@ -109,4 +109,58 @@ class AttendanceCorrectionIntegrityTest extends TestCase
             CarbonImmutable::setTestNow();
         }
     }
+    public function test_attendance_correction_rejects_cross_partner_and_deactivated_membership_links(): void
+    {
+        CarbonImmutable::setTestNow('2026-10-14 16:00:00 Asia/Dhaka');
+        try {
+            [$company, $workspace, $partner, , $studentId] = $this->seedWorkspace();
+            $otherWorkspace = DB::table('workspaces')->insertGetId([
+                'company_id' => $company, 'slug' => 'partner-02',
+                'name' => 'Other Partner Unit', 'active' => true,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+            $foreignUser = User::factory()->create();
+            $foreignMember = DB::table('memberships')->insertGetId([
+                'company_id' => $company, 'workspace_id' => $otherWorkspace,
+                'user_id' => $foreignUser->id, 'role' => 'student',
+                'monthly_allowance' => '0.00', 'active' => true,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+
+            // Malformed imported session claims Partner A but belongs to
+            // a student assigned to Partner B.
+            $malformed = $this->insertAttendanceSession(
+                $company, $workspace, $foreignMember,
+                '2026-10-14 04:00:00', null
+            );
+
+            $this->actingAs($partner)->post("/c/rac/app/attendance/{$malformed}/correct", [
+                'ended_at' => '2026-10-14T11:00',
+                'reason' => 'Only for synthetic regression verification.',
+            ])->assertNotFound();
+
+            $this->assertDatabaseHas('attendance_sessions', [
+                'id' => $malformed, 'ended_at' => null, 'corrected_by' => null,
+            ]);
+
+            $inactive = $this->insertAttendanceSession(
+                $company, $workspace, $studentId,
+                '2026-10-14 05:00:00', null
+            );
+            DB::table('memberships')->where('id', $studentId)->update(['active' => false]);
+
+            $this->post("/c/rac/app/attendance/{$inactive}/correct", [
+                'ended_at' => '2026-10-14T12:00',
+                'reason' => 'Inactive member must require access review.',
+            ])->assertNotFound();
+
+            $this->assertDatabaseHas('attendance_sessions', [
+                'id' => $inactive, 'ended_at' => null, 'corrected_by' => null,
+            ]);
+            $this->assertDatabaseCount('tenant_audit_events', 0);
+        } finally {
+            CarbonImmutable::setTestNow();
+        }
+    }
+
 }
