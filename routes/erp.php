@@ -11,6 +11,7 @@ use App\Http\Controllers\Erp\ActivationController;
 use App\Http\Controllers\Erp\TeamController;
 use App\Http\Controllers\Erp\PolicyController;
 use App\Http\Controllers\Erp\PlatformController;
+use App\Http\Controllers\Erp\PlatformManagementController;
 use App\Http\Controllers\Erp\MfaController;
 use App\Http\Controllers\Erp\SecurityController;
 use Illuminate\Support\Facades\Route;
@@ -91,6 +92,12 @@ Route::prefix('platform/app')->name('erp.platform.')->group(function () {
         Route::get('/', [PlatformController::class, 'dashboard'])->name('dashboard');
         Route::post('/companies', [PlatformController::class, 'createFirm'])->name('companies.create');
         Route::post('/companies/{companyId}/partners', [PlatformController::class, 'addPartner'])->name('partners.create');
+        Route::get('/companies/{companyId}', [PlatformManagementController::class, 'showCompany'])->name('companies.show');
+        Route::patch('/companies/{companyId}', [PlatformManagementController::class, 'updateCompany'])->name('companies.update');
+        Route::post('/companies/{companyId}/lifecycle', [PlatformManagementController::class, 'transitionCompany'])->name('companies.lifecycle');
+        Route::post('/companies/{companyId}/members', [PlatformManagementController::class, 'inviteMember'])->middleware('throttle:10,1')->name('members.invite');
+        Route::patch('/companies/{companyId}/members/{memberId}', [PlatformManagementController::class, 'updateMember'])->name('members.update');
+        Route::post('/companies/{companyId}/members/{memberId}/lifecycle', [PlatformManagementController::class, 'transitionMember'])->name('members.lifecycle');
     });
 });
 
