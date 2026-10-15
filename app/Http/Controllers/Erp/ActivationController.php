@@ -36,14 +36,16 @@ class ActivationController extends Controller
 
         $user = User::where('email', $input['email'])->first();
         if (! $user || ! DB::table('memberships')->where('company_id', $company->id)
-            ->where('user_id', $user->id)->where('active', false)->exists()) {
+            ->where('user_id', $user->id)->where('active', false)
+            ->whereNull('platform_suspended_at')->exists()) {
             throw ValidationException::withMessages(['email' => 'This invitation is invalid, expired or already accepted.']);
         }
 
         $status = Password::broker()->reset($input, function (User $account, string $password) use ($company) {
             DB::transaction(function () use ($account, $password, $company) {
                 $member = DB::table('memberships')->where('company_id', $company->id)
-                    ->where('user_id', $account->id)->where('active', false)->lockForUpdate()->first();
+                    ->where('user_id', $account->id)->where('active', false)
+                    ->whereNull('platform_suspended_at')->lockForUpdate()->first();
                 abort_unless($member, 422);
 
                 $account->forceFill([

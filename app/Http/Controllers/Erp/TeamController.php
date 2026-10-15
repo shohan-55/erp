@@ -89,7 +89,8 @@ class TeamController extends Controller
         TenantOps::requireRole($actor, ['partner']);
         $member = DB::table('memberships')->where('id', $id)
             ->where('company_id', $actor->company_id)
-            ->where('workspace_id', $actor->workspace_id)->where('active', false)->first();
+            ->where('workspace_id', $actor->workspace_id)->where('active', false)
+            ->whereNull('platform_suspended_at')->first();
         abort_unless($member, 404);
 
         OutboundMailGuard::ensureConfigured();
