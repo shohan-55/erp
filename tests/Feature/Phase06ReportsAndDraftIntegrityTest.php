@@ -81,7 +81,7 @@ class Phase06ReportsAndDraftIntegrityTest extends TestCase
 
         $url = '/c/qa-pilot/app/attendance/report?month=2026-10';
         $this->actingAs($partner->user)->get($url)
-            ->assertOk()->assertHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->assertOk()->assertHeader('Cache-Control', 'max-age=0, no-store, private')
             ->assertViewHas('rows', function ($rows) use ($student, $peer) {
                 $this->assertCount(2, $rows);
                 $row = $rows->firstWhere('membership_id', $student->id);
