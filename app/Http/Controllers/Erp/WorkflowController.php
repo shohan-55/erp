@@ -338,6 +338,8 @@ class WorkflowController extends Controller
             ->join('users as u', 'u.id', '=', 'm.user_id')
             ->where('r.company_id', $actor->company_id)
             ->where('r.workspace_id', $actor->workspace_id)
+            ->where('m.company_id', $actor->company_id)
+            ->where('m.workspace_id', $actor->workspace_id)
             ->when($actor->role === 'manager', fn ($q) => $q->where('m.manager_membership_id', $actor->id))
             ->when($actor->role === 'student', fn ($q) => $q->where('m.id', $actor->id))
             ->select('r.*', 'u.name as member_name')
