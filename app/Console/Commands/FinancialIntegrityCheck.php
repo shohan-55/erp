@@ -75,12 +75,13 @@ class FinancialIntegrityCheck extends Command
                 // payment total must reconcile exactly to the snapshotted
                 // payroll lines. Missing totals are counted separately above.
                 $anomalies['settled_runs_with_reconciliation_mismatch'] = DB::table('payroll_runs as r')
-                    ->join('payroll_lines as l', 'l.payroll_run_id', '=', 'r.id')
                     ->whereIn('r.status', ['paid', 'locked'])
                     ->whereNotNull('r.reconciled_total')
-                    ->groupBy('r.id', 'r.reconciled_total')
-                    ->havingRaw('ABS(SUM(l.total_amount) - r.reconciled_total) > 0.005')
-                    ->get()->count();
+                    ->whereRaw(
+                        'ABS((SELECT COALESCE(SUM(l.total_amount), 0) FROM payroll_lines AS l '.
+                        'WHERE l.payroll_run_id = r.id) - r.reconciled_total) > 0.005'
+                    )
+                    ->count();
 
                 $anomalies['payroll_runs_without_lines'] = DB::table('payroll_runs as r')
                     ->whereNotExists(function ($query) {
