@@ -24,6 +24,8 @@ class AttendanceController extends Controller
             ->join('users as u', 'u.id', '=', 'm.user_id')
             ->where('s.company_id', $company->id)
             ->where('s.workspace_id', $workspace->id)
+            ->where('m.company_id', $company->id)
+            ->where('m.workspace_id', $workspace->id)
             ->when($actor->role === 'manager', fn ($q) => $q->where('m.manager_membership_id', $actor->id))
             ->when($actor->role === 'student', fn ($q) => $q->where('m.id', $actor->id))
             ->select('s.*', 'u.name as member_name')
