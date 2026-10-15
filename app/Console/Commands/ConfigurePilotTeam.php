@@ -176,8 +176,10 @@ class ConfigurePilotTeam extends Command
 
                     $managerId = $role === 'student' ? $accounts['manager']['member_id'] : null;
                     $oldRole = $member?->role;
+                    $oldManagerId = $member && $member->manager_membership_id !== null
+                        ? (int) $member->manager_membership_id : null;
                     $hasChanged = ! $member || $oldRole !== $role
-                        || ($member->manager_membership_id ?? null) !== $managerId;
+                        || $oldManagerId !== $managerId;
 
                     if ($member && $hasChanged) {
                         DB::table('memberships')->where('id', $member->id)->update([
