@@ -253,6 +253,9 @@ class PlatformCompanyAccountManagementTest extends TestCase
         $this->assertDatabaseHas('memberships', ['id' => $studentId, 'active' => 0]);
         $this->assertNotNull(DB::table('memberships')->where('id', $studentId)->value('platform_suspended_at'));
         $this->actingAs($student)->get('/c/rac/app')->assertForbidden();
+        $this->actingAs($partner)->get('/c/rac/app/team')
+            ->assertOk()->assertSee('Suspended by Platform')
+            ->assertDontSee('Resend Invitation Email');
 
         $this->actingAs($this->owner())->post(
             "/platform/app/companies/$company/members/$studentId/lifecycle",
