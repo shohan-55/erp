@@ -18,6 +18,7 @@ Both formats expose *aggregate anomaly counts only*. They do not print employee 
 - Payroll lines whose allowance + approved claim + adjustment total differs from the recorded amount beyond half a paisa/cent equivalent (BDT decimal values).
 - Paid claims lacking a paid payroll run link.
 - Paid/locked payroll runs missing expected reference/date/method/reconciled amount/private-evidence path metadata.
+- Paid/locked payroll runs where the stated reconciled external payment total differs from the sum of their snapshotted payroll lines.
 - Payroll runs containing no payroll lines.
 - Members with multiple open attendance sessions.
 
