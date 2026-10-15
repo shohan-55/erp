@@ -6,8 +6,8 @@
 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b border-slate-100 p-5"><h3 class="text-sm font-extrabold">Workspace Members</h3><p class="mt-1 text-xs text-slate-500">Staff belonging to your Home Partner only</p></div>
 <div class="divide-y divide-slate-100">
 @forelse($members as $member)
-<article class="p-5"><div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-sm font-bold">{{ $member->member_name }}</p><p class="mt-1 text-xs text-slate-500">{{ $member->email }}</p><p class="mt-1 text-[11px] text-slate-400">Role: {{ ucfirst($member->role) }} · Member #{{ $member->id }}</p></div><span class="rounded-full px-3 py-1 text-xs font-bold {{ $member->active ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800' }}">{{ $member->active ? 'Active' : 'Invitation Pending' }}</span></div>
-@if(!$member->active)
+<article class="p-5"><div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-sm font-bold">{{ $member->member_name }}</p><p class="mt-1 text-xs text-slate-500">{{ $member->email }}</p><p class="mt-1 text-[11px] text-slate-400">Role: {{ ucfirst($member->role) }} · Member #{{ $member->id }}</p></div><span class="rounded-full px-3 py-1 text-xs font-bold {{ $member->platform_suspended_at ? 'bg-rose-50 text-rose-800' : ($member->active ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800') }}">{{ $member->platform_suspended_at ? 'Suspended by Platform' : ($member->active ? 'Active' : 'Invitation Pending') }}</span></div>
+@if(!$member->active && !$member->platform_suspended_at)
 <form class="mt-3" action="{{ route('erp.team.resend',['firmSlug'=>$firmSlug,'id'=>$member->id]) }}" method="POST">@csrf<button class="rounded-lg border border-slate-200 px-4 py-2 text-xs font-bold hover:bg-slate-50">Resend Invitation Email</button></form>
 @endif
 @if($member->role==='student')
