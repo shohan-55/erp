@@ -42,7 +42,18 @@ class ProductionPreflight extends Command
             'https_application_url' => str_starts_with((string) config('app.url'), 'https://'),
             'application_key_configured' => self::applicationKeyValid(),
             'secure_session_cookie' => config('session.secure') === true,
-            'session_store_not_ephemeral' => ! in_array(config('session.driver'), ['array', 'null'], true),
+            // Account recovery and MFA deactivation revoke sessions through
+            // the database-backed sessions table. File/Redis sessions would
+            // otherwise remain active after these sensitive operations.
+            'database_session_store_required' => config('session.driver') === 'database',
+            // MFA enrollment holds a pending TOTP secret in the session.
+            // Encrypt all persisted session payloads at rest.
+            'encrypted_session_payloads' => config('session.encrypt') === true,
+            'http_only_session_cookie' => config('session.http_only') === true,
+            'safe_same_site_cookie' => in_array(config('session.same_site'), ['lax', 'strict'], true),
+            // Host-only cookies avoid sharing ERP login state with other
+            // unrelated sites hosted under the DhakaWala parent domain.
+            'host_only_session_cookie' => in_array(config('session.domain'), [null, ''], true),
             'mysql_production_database' => in_array(config('database.default'), ['mysql', 'mariadb'], true),
             'verified_outbound_mailer' => in_array(config('mail.default'), ['smtp', 'ses', 'postmark', 'resend', 'mailgun'], true),
         ];
