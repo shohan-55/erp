@@ -76,7 +76,7 @@ class GenerateMonthlyPayrollDrafts extends Command
                         ->whereBetween('journey_date', [$period, CarbonImmutable::parse($period)->endOfMonth()->toDateString()])
                         ->whereNull('reserved_payroll_run_id')
                         ->whereNull('paid_payroll_run_id')
-                        ->get()->sum(fn ($c) => (int) round(((float) $c->amount) * 100));
+                        ->get()->sum(fn ($c) => (int) round(((float) ($c->approved_amount ?? $c->amount)) * 100));
 
                     $base = (int) round(((float) $member->monthly_allowance) * 100);
                     $toMoney = fn (int $cents) => sprintf('%d.%02d', intdiv($cents, 100), abs($cents % 100));
