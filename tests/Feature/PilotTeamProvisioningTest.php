@@ -29,7 +29,7 @@ class PilotTeamProvisioningTest extends TestCase
         return [$company, $workspace];
     }
 
-    private function options(): array
+    private function pilotOptions(): array
     {
         return [
             'firmSlug' => 'rac',
@@ -69,7 +69,7 @@ class PilotTeamProvisioningTest extends TestCase
 
         $oldManagerMember = $this->membership($company, $workspace, $manager, 'partner');
 
-        $this->artisan('erp:pilot:roles', $this->options())
+        $this->artisan('erp:pilot:roles', $this->pilotOptions())
             ->expectsConfirmation('Apply these pilot role/membership changes to the current ERP database?', 'yes')
             ->expectsOutputToContain('PILOT TEAM READY:')
             ->assertExitCode(0);
@@ -91,7 +91,7 @@ class PilotTeamProvisioningTest extends TestCase
 
         // An identical rerun must neither change existing membership IDs
         // nor add duplicate permissions/audit rows.
-        $this->artisan('erp:pilot:roles', $this->options())
+        $this->artisan('erp:pilot:roles', $this->pilotOptions())
             ->expectsConfirmation('Apply these pilot role/membership changes to the current ERP database?', 'yes')
             ->assertExitCode(0);
         $this->assertDatabaseCount('memberships', 3);
@@ -104,7 +104,7 @@ class PilotTeamProvisioningTest extends TestCase
         $manager = User::factory()->create(['email' => 'manager@example.test', 'password' => 'OriginalManager2026']);
         $this->membership($company, $workspace, $manager, 'partner');
 
-        $this->artisan('erp:pilot:roles', $this->options())
+        $this->artisan('erp:pilot:roles', $this->pilotOptions())
             ->expectsQuestion('New Partner password (12+ chars, upper/lower, number)', 'StrongPartner2026')
             ->expectsQuestion('Repeat Partner password', 'StrongPartner2026')
             ->expectsQuestion('New Student password (12+ chars, upper/lower, number)', 'StrongStudent2026')
@@ -124,7 +124,7 @@ class PilotTeamProvisioningTest extends TestCase
 
     public function test_unknown_firm_rejected_before_any_account_creation(): void
     {
-        $this->artisan('erp:pilot:roles', $this->options())
+        $this->artisan('erp:pilot:roles', $this->pilotOptions())
             ->expectsOutputToContain('firm and Partner workspace must already exist')
             ->assertExitCode(1);
         $this->assertDatabaseCount('users', 0);
@@ -136,7 +136,7 @@ class PilotTeamProvisioningTest extends TestCase
         $other = User::factory()->create();
         $this->membership($company, $workspace, $other, 'partner');
 
-        $this->artisan('erp:pilot:roles', $this->options())
+        $this->artisan('erp:pilot:roles', $this->pilotOptions())
             ->expectsOutputToContain('Another active Partner owns this workspace')
             ->assertExitCode(1);
         $this->assertDatabaseCount('memberships', 1);
@@ -154,14 +154,14 @@ class PilotTeamProvisioningTest extends TestCase
         $manager = User::factory()->create(['email' => 'manager@example.test']);
         $member = $this->membership($company, $otherWorkspace, $manager, 'manager');
 
-        $this->artisan('erp:pilot:roles', $this->options())
+        $this->artisan('erp:pilot:roles', $this->pilotOptions())
             ->expectsOutputToContain('inactive or other-workspace membership')
             ->assertExitCode(1);
         $this->assertDatabaseHas('memberships', ['id' => $member, 'workspace_id' => $otherWorkspace]);
         $this->assertDatabaseCount('tenant_audit_events', 0);
 
         DB::table('memberships')->where('id', $member)->update(['workspace_id' => $workspace, 'active' => false]);
-        $this->artisan('erp:pilot:roles', $this->options())
+        $this->artisan('erp:pilot:roles', $this->pilotOptions())
             ->expectsOutputToContain('inactive or other-workspace membership')
             ->assertExitCode(1);
         $this->assertDatabaseHas('memberships', ['id' => $member, 'active' => false]);
@@ -172,7 +172,7 @@ class PilotTeamProvisioningTest extends TestCase
         $this->firm();
 
         $this->artisan('erp:pilot:roles', [
-            ...$this->options(), '--dry-run' => true,
+            ...$this->pilotOptions(), '--dry-run' => true,
         ])->expectsOutputToContain('DRY RUN COMPLETE')->assertExitCode(0);
 
         $this->assertDatabaseCount('users', 0);
