@@ -57,7 +57,8 @@ class PlatformController extends Controller
             'companies' => $companies->count(),
             'workspaces' => DB::table('workspaces')->count(),
             'active_memberships' => DB::table('memberships')->where('active', true)->count(),
-            'pending_invitations' => DB::table('memberships')->where('active', false)->count(),
+            'pending_invitations' => DB::table('memberships')->where('active', false)
+                ->whereNull('platform_suspended_at')->count(),
         ];
 
         $workspaces = DB::table('workspaces')->select('company_id', DB::raw('COUNT(*) as total'))
