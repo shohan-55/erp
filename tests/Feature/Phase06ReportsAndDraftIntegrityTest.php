@@ -44,7 +44,7 @@ class Phase06ReportsAndDraftIntegrityTest extends TestCase
         return (object) ['id' => $id, 'user' => $user];
     }
 
-    private function session(int $company, int $workspace, int $member, string $date, bool $late = false, bool $holiday = false, bool $open = false): void
+    private function attendanceSession(int $company, int $workspace, int $member, string $date, bool $late = false, bool $holiday = false, bool $open = false): void
     {
         DB::table('attendance_sessions')->insert([
             'company_id' => $company, 'workspace_id' => $workspace,
@@ -71,13 +71,13 @@ class Phase06ReportsAndDraftIntegrityTest extends TestCase
         $otherPartnerStudent = $this->member($company, $two, 'student');
         $otherFirmStudent = $this->member($otherCompany, $outside, 'student');
 
-        $this->session($company, $one, $student->id, '2026-10-12', true);
-        $this->session($company, $one, $student->id, '2026-10-12', false, false, true);
-        $this->session($company, $one, $student->id, '2026-10-16', false, true);
-        $this->session($company, $one, $student->id, '2026-09-29');
-        $this->session($company, $one, $peer->id, '2026-10-13');
-        $this->session($company, $two, $otherPartnerStudent->id, '2026-10-13');
-        $this->session($otherCompany, $outside, $otherFirmStudent->id, '2026-10-13');
+        $this->attendanceSession($company, $one, $student->id, '2026-10-12', true);
+        $this->attendanceSession($company, $one, $student->id, '2026-10-12', false, false, true);
+        $this->attendanceSession($company, $one, $student->id, '2026-10-16', false, true);
+        $this->attendanceSession($company, $one, $student->id, '2026-09-29');
+        $this->attendanceSession($company, $one, $peer->id, '2026-10-13');
+        $this->attendanceSession($company, $two, $otherPartnerStudent->id, '2026-10-13');
+        $this->attendanceSession($otherCompany, $outside, $otherFirmStudent->id, '2026-10-13');
 
         $url = '/c/qa-pilot/app/attendance/report?month=2026-10';
         $this->actingAs($partner->user)->get($url)
