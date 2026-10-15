@@ -83,7 +83,7 @@ class Phase08FinancialIntegrityCheckTest extends TestCase
         $paidRun = DB::table('payroll_runs')->insertGetId([
             'company_id' => $company, 'workspace_id' => $workspace,
             'period_month' => '2026-10-01', 'status' => 'paid',
-            'policy_snapshot' => '{}', 'created_at' => now(), 'updated_at' => now(),
+            'reconciled_total' => '8100.00', 'policy_snapshot' => '{}', 'created_at' => now(), 'updated_at' => now(),
         ]);
         DB::table('payroll_lines')->insert([
             'payroll_run_id' => $paidRun, 'membership_id' => $membership,
@@ -117,6 +117,7 @@ class Phase08FinancialIntegrityCheckTest extends TestCase
             'payroll_line_totals_mismatch',
             'paid_claims_without_paid_run_link',
             'settled_runs_missing_evidence',
+            'settled_runs_with_reconciliation_mismatch',
             'payroll_runs_without_lines',
             'members_with_duplicate_open_sessions',
         ] as $finding) {
