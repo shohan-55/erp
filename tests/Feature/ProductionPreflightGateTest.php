@@ -57,12 +57,13 @@ class ProductionPreflightGateTest extends TestCase
             ->assertExitCode(1);
     }
 
-    public function test_privileged_financial_routes_cannot_omit_mfa_middleware(): void
+    public function test_sensitive_attendance_and_financial_routes_cannot_omit_mfa_middleware(): void
     {
         foreach ([
             'erp.platform.dashboard', 'erp.platform.companies.create',
             'erp.dashboard', 'erp.attendance.check_in',
-            'erp.payroll', 'erp.payroll.advance', 'erp.payroll.evidence',
+            'erp.attendance.report', 'erp.attendance.location', 'erp.attendance.correct',
+            'erp.payroll', 'erp.payroll.generate', 'erp.payroll.advance', 'erp.payroll.evidence',
             'erp.claims.receipt', 'erp.policies.vote',
         ] as $name) {
             $route = Route::getRoutes()->getByName($name);
