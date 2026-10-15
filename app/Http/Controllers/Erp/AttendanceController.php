@@ -224,6 +224,9 @@ class AttendanceController extends Controller
                 ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
                 ->where('id', $sessionId)->lockForUpdate()->first();
             abort_unless($session, 404);
+            // Verify the linked student is active and belongs to the same
+            // company/Partner. Cross-tenant imported rows must fail closed.
+            TenantOps::subject($actor, $session->membership_id);
 
             $localTime = CarbonImmutable::createFromFormat('Y-m-d\TH:i', $data['ended_at'], $company->timezone);
             if (! $localTime || $localTime->utc()->lessThan(CarbonImmutable::parse($session->started_at, 'UTC'))
