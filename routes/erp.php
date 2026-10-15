@@ -3,6 +3,7 @@
 use App\Http\Controllers\Erp\AuthController;
 use App\Http\Controllers\Erp\PortalController;
 use App\Http\Controllers\Erp\AttendanceController;
+use App\Http\Controllers\Erp\AttendanceReportController;
 use App\Http\Controllers\Erp\WorkflowController;
 use App\Http\Controllers\Erp\PayrollController;
 use App\Http\Controllers\Erp\PasswordController;
@@ -46,6 +47,7 @@ Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
         Route::post('/settings/security/mfa/disable', [SecurityController::class, 'disableMfa'])
             ->middleware('throttle:5,1')->name('security.mfa.disable');
         Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance');
+        Route::get('/attendance/report', [AttendanceReportController::class, 'index'])->name('attendance.report');
         Route::get('/attendance/{sessionId}/location', [AttendanceController::class, 'location'])->name('attendance.location');
         Route::post('/attendance/location-policy', [AttendanceController::class, 'updateLocationPolicy'])
             ->middleware('throttle:5,1')->name('attendance.location_policy');
