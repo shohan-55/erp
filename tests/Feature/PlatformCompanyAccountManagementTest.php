@@ -90,10 +90,10 @@ class PlatformCompanyAccountManagementTest extends TestCase
         $this->actingAs($this->owner());
 
         $this->get('/platform/app')->assertOk()
-            ->assertSee("Manage Company &amp; Accounts", false)
+            ->assertSee("Manage Company & Accounts", false)
             ->assertSee("/platform/app/companies/$company");
         $this->get("/platform/app/companies/$company")->assertOk()
-            ->assertSee('Company &amp; Account Management', false)
+            ->assertSee('Company & Account Management', false)
             ->assertSee($student->email)
             ->assertDontSee('Monthly Gross Payroll')
             ->assertDontSee('Student Salary Register')
