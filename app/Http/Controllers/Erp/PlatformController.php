@@ -98,10 +98,29 @@ class PlatformController extends Controller
             'company_slug' => ['required', 'regex:/^[a-z0-9][a-z0-9-]{1,68}[a-z0-9]$/'],
             'partner_name' => ['required', 'string', 'min:3', 'max:255'],
             'partner_email' => ['required', 'email', 'max:254'],
+            'timezone' => ['nullable', 'timezone'],
+            'brand_name' => ['nullable', 'string', 'max:100'],
+            'brand_accent_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'min_active_partners_for_company_policy' => ['nullable', 'integer', 'between:1,200'],
         ]);
+        // The product is owned by DhakaWala, never by an individual tenant.
+        // Initial commercial market is CA firms; future firm types are added
+        // through an explicit migration and product-level review.
+        if (in_array($data['company_slug'], [
+            'platform', 'login', 'logout', 'admin', 'api', 'c', 'dashboard',
+            'security', 'storage', 'support', 'register', 'forgot-password',
+        ], true)) {
+            throw ValidationException::withMessages([
+                'company_slug' => 'This address is reserved for the ERP platform.',
+            ]);
+        }
         OutboundMailGuard::ensureConfigured();
         $email = strtolower(trim($data['partner_email']));
 
+        if (User::where('email', $email)->exists()) {
+            throw ValidationException::withMessages(['partner_email' =>
+                'An ERP account already uses this address; use a separately reviewed account-linking workflow.']);
+        }
         if (DB::table('companies')->where('slug', $data['company_slug'])->exists()) {
             throw ValidationException::withMessages(['company_slug' => 'Company slug already exists.']);
         }
@@ -109,8 +128,12 @@ class PlatformController extends Controller
         [$user, $companyName, $slug] = DB::transaction(function () use ($data, $email) {
             $user = $this->invitedUser($email, $data['partner_name']);
             $companyId = DB::table('companies')->insertGetId([
-                'slug' => $data['company_slug'], 'name' => $data['company_name'],
-                'timezone' => 'Asia/Dhaka', 'office_start' => '10:00:00',
+                'slug' => $data['company_slug'], 'name' => trim($data['company_name']),
+                'organization_type' => 'ca_firm',
+                'brand_name' => trim($data['brand_name'] ?? '') ?: null,
+                'brand_accent_color' => $data['brand_accent_color'] ?? '#FCDF02',
+                'min_active_partners_for_company_policy' => (int) ($data['min_active_partners_for_company_policy'] ?? 1),
+                'timezone' => $data['timezone'] ?? 'Asia/Dhaka', 'office_start' => '10:00:00',
                 'office_end' => '18:00:00', 'grace_minutes' => 10,
                 'weekly_holidays' => '[5,6]', 'active' => true,
                 'created_at' => now(), 'updated_at' => now(),
@@ -121,6 +144,18 @@ class PlatformController extends Controller
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             $this->insertPartnerInvitation($companyId, $workspaceId, $user->id);
+            DB::table('platform_control_events')->insert([
+                'company_id' => $companyId,
+                'actor_user_id' => Auth::id(),
+                'action' => 'company.onboarded',
+                'subject_type' => 'company',
+                'subject_id' => $companyId,
+                'details' => json_encode([
+                    'organization_type' => 'ca_firm',
+                    'initial_workspace_id' => $workspaceId,
+                ], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+            ]);
             return [$user, $data['company_name'], $data['company_slug']];
         }, 3);
 
@@ -147,6 +182,10 @@ class PlatformController extends Controller
 
         OutboundMailGuard::ensureConfigured();
         $email = strtolower(trim($data['partner_email']));
+        if (User::where('email', $email)->exists()) {
+            throw ValidationException::withMessages(['partner_email' =>
+                'An existing ERP identity cannot be re-invited across workspaces without an account-linking review.']);
+        }
 
         $user = DB::transaction(function () use ($data, $email, $companyId) {
             $user = $this->invitedUser($email, $data['partner_name']);
@@ -162,6 +201,15 @@ class PlatformController extends Controller
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             $this->insertPartnerInvitation($companyId, $workspaceId, $user->id);
+            DB::table('platform_control_events')->insert([
+                'company_id' => $companyId,
+                'actor_user_id' => Auth::id(),
+                'action' => 'partner.workspace.created',
+                'subject_type' => 'workspace',
+                'subject_id' => $workspaceId,
+                'details' => json_encode(['workspace_slug' => $data['workspace_slug']], JSON_THROW_ON_ERROR),
+                'created_at' => now(),
+            ]);
             return $user;
         }, 3);
 
