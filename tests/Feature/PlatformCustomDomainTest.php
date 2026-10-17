@@ -15,8 +15,9 @@ class PlatformCustomDomainTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config()->set('app.url', 'https://erp.dhakawala.com');
-        $this->withServerVariables(['HTTP_HOST' => 'erp.dhakawala.com', 'HTTPS' => 'on']);
+        // Laravel's test request factory uses localhost for relative URLs.
+        // The production canonical hostname is set by APP_URL on cPanel.
+        config()->set('app.url', 'http://localhost');
     }
 
     private function owner(): User
@@ -181,7 +182,7 @@ class PlatformCustomDomainTest extends TestCase
         ])->assertRedirect();
 
         $this->get('https://erp.clientcompany.com/login')->assertNotFound();
-        $this->get('https://erp.dhakawala.com/c/rac/app/login')->assertOk();
+        $this->get('http://localhost/c/rac/app/login')->assertOk();
 
         $this->post("/platform/app/companies/$company/custom-domain", [
             'hostname' => 'portal.clientcompany.com',
