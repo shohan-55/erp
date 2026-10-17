@@ -245,8 +245,12 @@ class WorkspaceOperationsController extends Controller
             ]);
             TenantOps::audit($actor, 'workspace.rules.'.$data['decision'],
                 'workspace_operational_policy_request', $id);
-            TenantOps::notify($actor, $row->proposed_by, 'Workspace policy decision',
-                'Your workspace policy request was '.$data['decision'].'d.');
+            if (DB::table('memberships')->where('id', $row->proposed_by)
+                ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
+                ->where('active', true)->exists()) {
+                TenantOps::notify($actor, $row->proposed_by, 'Workspace policy decision',
+                    'Your workspace policy request was '.$data['decision'].'d.');
+            }
         }, 3);
 
         return back()->with('success', 'Workspace rule decision saved.');
@@ -341,8 +345,12 @@ class WorkspaceOperationsController extends Controller
                 'decided_by' => $actor->id, 'decided_at' => now(), 'updated_at' => now(),
             ]);
             TenantOps::audit($actor, 'workspace.holiday.'.$data['decision'], 'workspace_holiday_request', $id);
-            TenantOps::notify($actor, $row->proposed_by, 'Holiday request decision',
-                'Your requested holiday adjustment was '.$data['decision'].'d.');
+            if (DB::table('memberships')->where('id', $row->proposed_by)
+                ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
+                ->where('active', true)->exists()) {
+                TenantOps::notify($actor, $row->proposed_by, 'Holiday request decision',
+                    'Your requested holiday adjustment was '.$data['decision'].'d.');
+            }
         }, 3);
 
         return back()->with('success', 'Holiday request decision saved.');
