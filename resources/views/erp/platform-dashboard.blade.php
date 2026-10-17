@@ -12,7 +12,7 @@
 <input type="search" name="q" value="{{ $filter['q'] }}" maxlength="80" placeholder="Search organization directory" class="mt-2 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm"></label>
 <label class="text-xs font-bold text-slate-700">Company Status
 <select name="status" class="mt-2 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm">
-@foreach(['all'=>'All', 'active'=>'Active', 'suspended'=>'Suspended', 'archived'=>'Archived'] as $value => $label)
+@foreach(['all'=>'All', 'active'=>'Active', 'suspended'=>'Suspended', 'archived'=>'Archived','deleted'=>'Removed'] as $value => $label)
 <option value="{{ $value }}" @selected($filter['status'] === $value)>{{ $label }}</option>
 @endforeach
 </select></label>
@@ -23,6 +23,7 @@
 <section class="grid grid-cols-2 gap-3 lg:grid-cols-3">
 @foreach([
 ['label'=>'Companies','value'=>$stats['companies'],'icon'=>'building-2'],
+['label'=>'Removed Companies','value'=>$stats['removed_companies'],'icon'=>'archive'],
 ['label'=>'Partner Workspaces','value'=>$stats['workspaces'],'icon'=>'network'],
 ['label'=>'Active Memberships','value'=>$stats['active_memberships'],'icon'=>'users'],
 ['label'=>'Pending Invitations','value'=>$stats['pending_invitations'],'icon'=>'mail'],
@@ -36,7 +37,7 @@
 <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b border-slate-100 p-5"><h2 class="text-sm font-extrabold">Company Directory</h2><p class="mt-1 text-xs text-slate-500">Company metadata only · no private records</p></div>
 <div class="divide-y divide-slate-100">
 @forelse($companies as $company)
-<article class="space-y-4 p-5"><div class="flex flex-wrap items-center justify-between gap-3"><div><p class="text-sm font-extrabold">{{ $company->name }}</p><p class="mt-1 text-xs text-slate-500">Slug: {{ $company->slug }} · {{ $workspaces[$company->id] ?? 0 }} Partner workspaces · Custom domain: {{ isset($domains[$company->id]) ? $domains[$company->id]->hostname . ($domains[$company->id]->active ? ' (Active)' : ' (Setup)') : 'Not configured' }}</p></div><div class="flex items-center gap-2"><span class="rounded-full px-3 py-1 text-[11px] font-bold {{ $company->archived_at ? 'bg-slate-200 text-slate-700' : ($company->active ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800') }}">{{ $company->archived_at ? 'Archived' : ($company->active ? 'Active' : 'Suspended') }}</span><a href="{{ route('erp.platform.companies.show',['companyId'=>$company->id]) }}" class="rounded-lg bg-[#17191F] px-4 py-2 text-xs font-extrabold text-white">Manage Company & Accounts →</a></div></div>
+<article class="space-y-4 p-5"><div class="flex flex-wrap items-center justify-between gap-3"><div><p class="text-sm font-extrabold">{{ $company->name }}</p><p class="mt-1 text-xs text-slate-500">Slug: {{ $company->slug }} · {{ $workspaces[$company->id] ?? 0 }} Partner workspaces · Custom domain: {{ isset($domains[$company->id]) ? $domains[$company->id]->hostname . ($domains[$company->id]->active ? ' (Active)' : ' (Setup)') : 'Not configured' }}</p></div><div class="flex items-center gap-2"><span class="rounded-full px-3 py-1 text-[11px] font-bold {{ $company->archived_at ? 'bg-slate-200 text-slate-700' : ($company->active ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-800') }}">{{ $company->deleted_at ? 'Removed' : ($company->archived_at ? 'Archived' : ($company->active ? 'Active' : 'Suspended')) }}</span><a href="{{ route('erp.platform.companies.show',['companyId'=>$company->id]) }}" class="rounded-lg bg-[#17191F] px-4 py-2 text-xs font-extrabold text-white">Manage Company & Accounts →</a></div></div>
 @if($company->active && !$company->archived_at)
 <details class="rounded-xl border border-slate-200 bg-slate-50 p-4"><summary class="cursor-pointer text-xs font-bold text-slate-700">Invite Another Partner Workspace</summary>
 <form action="{{ route('erp.platform.partners.create',['companyId'=>$company->id]) }}" method="POST" class="mt-4 grid gap-3 sm:grid-cols-2">@csrf
