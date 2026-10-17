@@ -31,6 +31,48 @@
 </section>
 <p class="text-xs text-slate-500">Current effective rules: {{ $rules['effective_date'] ?? 'Existing default policy' }}. Changes start on the first day of a future month and do not alter already-submitted leave, claims or locked payroll.</p>
 
+<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+<div class="flex flex-wrap items-center justify-between gap-4">
+<div><p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">ATTENDANCE POLICY MANAGEMENT</p>
+<h3 class="mt-1 text-xl font-extrabold">Office Hours, Grace Period & Weekly Holidays</h3>
+<p class="mt-2 text-sm text-slate-600">Currently {{ substr($attendanceRules['office_start'],0,5) }}–{{ substr($attendanceRules['office_end'],0,5) }} with {{ $attendanceRules['grace_minutes'] }} minutes grace. {{ $actor->role === 'partner' ? 'Save your Partner workspace override directly.' : 'Submit a proposed change for your Partner to approve.' }}</p></div>
+<a class="rounded-xl border border-slate-300 px-4 py-2.5 text-xs font-bold" href="{{ route('erp.policies',['firmSlug'=>$firmSlug]) }}">Company Policy & Votes →</a>
+</div>
+<form method="POST" action="{{ route('erp.manage.attendance.propose',['firmSlug'=>$firmSlug]) }}" class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">@csrf
+<label class="text-xs font-bold text-slate-700 xl:col-span-4">Effective first of month
+<input type="date" name="effective_date" min="{{ $firstFutureMonth=now($company->timezone)->addMonth()->startOfMonth()->toDateString() }}" value="{{ $firstFutureMonth }}" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
+<label class="text-xs font-bold text-slate-700">Office start
+<input type="time" name="office_start" value="{{ substr($attendanceRules['office_start'],0,5) }}" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
+<label class="text-xs font-bold text-slate-700">Office end
+<input type="time" name="office_end" value="{{ substr($attendanceRules['office_end'],0,5) }}" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
+<label class="text-xs font-bold text-slate-700 xl:col-span-2">Grace minutes (0–30)
+<input type="number" name="grace_minutes" min="0" max="30" value="{{ $attendanceRules['grace_minutes'] }}" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
+<fieldset class="sm:col-span-2 xl:col-span-4"><legend class="text-xs font-bold text-slate-700">Weekly Holidays (1 to 3 days)</legend>
+<div class="mt-2 flex flex-wrap gap-4">
+@foreach([1=>'Mon',2=>'Tue',3=>'Wed',4=>'Thu',5=>'Fri',6=>'Sat',7=>'Sun'] as $weekday=>$weekdayLabel)
+<label class="flex items-center gap-2 text-xs"><input type="checkbox" name="weekly_holidays[]" value="{{ $weekday }}" @checked(in_array($weekday,$attendanceRules['weekly_holidays'],true))>{{ $weekdayLabel }}</label>
+@endforeach</div></fieldset>
+<label class="text-xs font-bold text-slate-700 sm:col-span-2 xl:col-span-4">Reason for the schedule adjustment
+<textarea name="reason" minlength="15" maxlength="1000" required rows="2" class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></textarea></label>
+<button class="rounded-xl bg-[#17191F] px-5 py-3 text-sm font-extrabold text-white sm:col-span-2 xl:col-span-4">{{ $actor->role === 'partner' ? 'Authorize Future Attendance Schedule' : 'Send Attendance Rules to Partner' }}</button>
+</form>
+<div class="mt-6 border-t border-slate-200 pt-4">
+<h4 class="text-sm font-extrabold">Attendance Change Requests</h4>
+<div class="mt-3 grid gap-3 md:grid-cols-2">
+@forelse($attendanceRequests as $change)
+<div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+<div class="flex flex-wrap justify-between gap-2"><strong class="text-xs">{{ $change->proposer_name }} · {{ $change->effective_date }}</strong><span class="text-xs font-bold">{{ strtoupper($change->status) }}</span></div>
+<p class="mt-2 text-xs text-slate-600">{{ substr($change->office_start,0,5) }}–{{ substr($change->office_end,0,5) }} · Grace {{ $change->grace_minutes }} minutes · Holidays {{ implode(', ',json_decode($change->weekly_holidays,true) ?: []) }}</p>
+<p class="mt-1 text-xs text-slate-500">{{ $change->reason }}</p>
+@if($actor->role === 'partner' && $change->status === 'pending')
+<form method="POST" action="{{ route('erp.manage.attendance.decide',['firmSlug'=>$firmSlug,'id'=>$change->id]) }}" class="mt-3 flex gap-2">@csrf
+<button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-bold text-white">Approve</button>
+<button name="decision" value="reject" class="rounded-lg bg-rose-700 px-4 py-2 text-xs font-bold text-white">Reject</button>
+</form>@endif
+</div>
+@empty<p class="py-3 text-xs text-slate-500">No attendance rule proposals.</p>@endforelse
+</div></div>
+</section>
 <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,0.95fr)]">
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
 <p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">LEAVE & CONVEYANCE POLICY</p>
