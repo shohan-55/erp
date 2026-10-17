@@ -248,4 +248,46 @@ class PracticeManagementAndCompanyRemovalTest extends TestCase
         ]);
         $this->actingAs($student)->get('/c/rac/app')->assertForbidden();
     }
+    public function test_manager_attendance_policy_requires_own_partner_approval_and_updates_effective_schedule(): void
+    {
+        $company = $this->company();
+        $a = $this->workspace($company, 'partner-a');
+        $b = $this->workspace($company, 'partner-b');
+        [$partner] = $this->member($company, $a, 'partner');
+        [$foreignPartner] = $this->member($company, $b, 'partner');
+        [$manager] = $this->member($company, $a, 'manager');
+
+        $input = [
+            'effective_date' => '2026-11-01',
+            'office_start' => '09:30', 'office_end' => '17:30',
+            'grace_minutes' => 15, 'weekly_holidays' => [5,6],
+            'reason' => 'Extended seasonal staff work arrangement.',
+        ];
+        $this->actingAs($manager)->post('/c/rac/app/manage/attendance-policy', $input)->assertRedirect();
+        $requestId = DB::table('workspace_attendance_policy_requests')->value('id');
+        $this->assertDatabaseCount('workspace_policy_overrides', 0);
+        $this->post("/c/rac/app/manage/attendance-policy/$requestId/decision", [
+            'decision' => 'approve',
+        ])->assertForbidden();
+
+        $this->actingAs($foreignPartner)->post("/c/rac/app/manage/attendance-policy/$requestId/decision", [
+            'decision' => 'approve',
+        ])->assertNotFound();
+
+        $this->actingAs($partner)->post("/c/rac/app/manage/attendance-policy/$requestId/decision", [
+            'decision' => 'approve',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('workspace_policy_overrides', [
+            'company_id' => $company, 'workspace_id' => $a,
+            'effective_date' => '2026-11-01', 'grace_minutes' => 15,
+        ]);
+        $rules = \App\Support\PolicyResolver::forDate(
+            DB::table('companies')->find($company), DB::table('workspaces')->find($a), '2026-11-03'
+        );
+        $this->assertSame('09:30:00', $rules['office_start']);
+        $this->assertSame(15, $rules['grace_minutes']);
+        $this->assertSame([5,6], $rules['weekly_holidays']);
+    }
+
 }
