@@ -56,11 +56,13 @@ class PlatformController extends Controller
             'q' => mb_substr(trim((string) $request->query('q', '')), 0, 80),
             'status' => (string) $request->query('status', 'all'),
         ];
-        if (! in_array($filter['status'], ['all', 'active', 'suspended', 'archived'], true)) {
+        if (! in_array($filter['status'], ['all', 'active', 'suspended', 'archived', 'deleted'], true)) {
             $filter['status'] = 'all';
         }
 
         $companies = DB::table('companies')
+            ->when($filter['status'] === 'deleted', fn ($q) => $q->whereNotNull('deleted_at'))
+            ->when($filter['status'] !== 'deleted', fn ($q) => $q->whereNull('deleted_at'))
             ->when($filter['q'] !== '', fn ($q) => $q->where(function ($sub) use ($filter) {
                 $sub->where('name', 'like', '%'.$filter['q'].'%')
                     ->orWhere('slug', 'like', '%'.$filter['q'].'%');
@@ -70,9 +72,10 @@ class PlatformController extends Controller
             ->when($filter['status'] === 'archived', fn ($q) => $q->whereNotNull('archived_at'))
             ->orderByDesc('created_at')->get();
         $stats = [
-            'companies' => DB::table('companies')->count(),
-            'workspaces' => DB::table('workspaces')->count(),
-            'active_memberships' => DB::table('memberships')->where('active', true)->count(),
+            'companies' => DB::table('companies')->whereNull('deleted_at')->count(),
+            'removed_companies' => DB::table('companies')->whereNotNull('deleted_at')->count(),
+            'workspaces' => DB::table('workspaces as w')->join('companies as c','c.id','=','w.company_id')->whereNull('c.deleted_at')->count(),
+            'active_memberships' => DB::table('memberships as m')->join('companies as c','c.id','=','m.company_id')->where('m.active', true)->whereNull('c.deleted_at')->count(),
             'pending_invitations' => DB::table('memberships')->where('active', false)
                 ->whereNull('platform_suspended_at')->count(),
             'active_domains' => DB::table('company_custom_domains')->where('active', true)->count(),
