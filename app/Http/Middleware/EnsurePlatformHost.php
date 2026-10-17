@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsurePlatformHost
@@ -21,6 +22,7 @@ class EnsurePlatformHost
             return $next($request);
         }
         abort_unless($host === $canonical, 404);
+        URL::forceRootUrl(rtrim((string) config('app.url'), '/'));
         return $next($request);
     }
 }
