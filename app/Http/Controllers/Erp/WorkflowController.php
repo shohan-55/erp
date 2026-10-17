@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\WorkspaceRules;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -20,7 +22,7 @@ class WorkflowController extends Controller
 
     public function submitLeave(Request $request, string $firmSlug)
     {
-        [$company, , $actor] = TenantOps::context($request);
+        [$company, $workspace, $actor] = TenantOps::context($request);
         TenantOps::requireRole($actor, ['student']);
 
         $input = $request->validate([
@@ -30,9 +32,21 @@ class WorkflowController extends Controller
             'reason' => ['required', 'string', 'min:10', 'max:2000'],
         ]);
 
-        if (\Carbon\CarbonImmutable::parse($input['date_from'])
-            ->diffInDays(\Carbon\CarbonImmutable::parse($input['date_to'])) > 60) {
-            throw ValidationException::withMessages(['date_to' => 'Request a maximum of 61 calendar days at a time.']);
+        // The effective workspace rule is selected by the requested leave start date,
+        // not by the submitter's browser timestamp. Emergency/sick leave is exempt
+        // from annual leave advance notice but still subject to maximum duration.
+        $rules = WorkspaceRules::effective($company, $workspace, $input['date_from']);
+        $days = (int) (CarbonImmutable::parse($input['date_from'])
+            ->diffInDays(CarbonImmutable::parse($input['date_to'])) + 1);
+        if ($days > $rules['leave_max_days']) {
+            throw ValidationException::withMessages(['date_to' =>
+                'This workspace allows at most '.$rules['leave_max_days'].' calendar days per request.']);
+        }
+        if ($input['leave_type'] === 'annual'
+            && $input['date_from'] < now($company->timezone)
+                ->startOfDay()->addDays($rules['annual_leave_notice_days'])->toDateString()) {
+            throw ValidationException::withMessages(['date_from' =>
+                'Annual leave requires '.$rules['annual_leave_notice_days'].' days advance notice.']);
         }
 
         DB::transaction(function () use ($actor, $input) {
@@ -138,7 +152,7 @@ class WorkflowController extends Controller
 
     public function submitClaim(Request $request, string $firmSlug)
     {
-        [, , $actor] = TenantOps::context($request);
+        [$company, $workspace, $actor] = TenantOps::context($request);
         TenantOps::requireRole($actor, ['student']);
 
         $input = $request->validate([
@@ -148,6 +162,12 @@ class WorkflowController extends Controller
             'amount' => ['required', 'numeric', 'min:0.01', 'max:50000', 'decimal:0,2'],
             'receipt' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:2048'],
         ]);
+
+        $rules = WorkspaceRules::effective($company, $workspace, $input['journey_date']);
+        if ((float) $input['amount'] > $rules['conveyance_max_per_claim']) {
+            throw ValidationException::withMessages(['amount' =>
+                'Claim exceeds this workspace policy maximum of BDT '.$rules['conveyance_max_per_claim'].'.']);
+        }
 
         $period = substr($input['journey_date'], 0, 7).'-01';
         if (DB::table('payroll_runs')->where('company_id', $actor->company_id)

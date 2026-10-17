@@ -81,7 +81,8 @@ class PlatformManagementController extends Controller
     public function transitionCompany(Request $request, int $companyId)
     {
         $data = $request->validate([
-            'action' => ['required', Rule::in(['suspend', 'reactivate', 'archive', 'restore'])],
+            'action' => ['required', Rule::in(['suspend', 'reactivate', 'archive', 'restore', 'delete'])],
+            'delete_confirmation' => ['nullable', 'required_if:action,delete', 'in:DELETE'],
             'confirmation_slug' => ['required', 'string', 'max:70'],
         ]);
 
@@ -96,14 +97,16 @@ class PlatformManagementController extends Controller
             }
 
             $changes = match ($data['action']) {
-                'suspend' => $company->active && $company->archived_at === null
+                'suspend' => $company->active && $company->archived_at === null && $company->deleted_at === null
                     ? ['active' => false] : null,
-                'reactivate' => ! $company->active && $company->archived_at === null
+                'reactivate' => ! $company->active && $company->archived_at === null && $company->deleted_at === null
                     ? ['active' => true] : null,
-                'archive' => ! $company->active && $company->archived_at === null
+                'archive' => ! $company->active && $company->archived_at === null && $company->deleted_at === null
                     ? ['active' => false, 'archived_at' => now()] : null,
                 'restore' => ! $company->active && $company->archived_at !== null
-                    ? ['active' => false, 'archived_at' => null] : null,
+                    ? ['active' => false, 'archived_at' => null, 'deleted_at' => null] : null,
+                'delete' => $company->deleted_at === null
+                    ? ['active' => false, 'archived_at' => $company->archived_at ?? now(), 'deleted_at' => now()] : null,
             };
 
             if ($changes === null) {
@@ -118,7 +121,9 @@ class PlatformManagementController extends Controller
             $this->audit($companyId, 'company.'.$data['action'], 'company', $companyId);
         }, 3);
 
-        return back()->with('success', 'Company '.($data['action']).' operation completed.');
+        return $data['action'] === 'delete'
+            ? redirect()->route('erp.platform.dashboard')->with('success', 'Company removed from the directory and access disabled. Records are preserved for recovery.')
+            : back()->with('success', 'Company '.($data['action']).' operation completed.');
     }
 
     public function inviteMember(Request $request, int $companyId)
