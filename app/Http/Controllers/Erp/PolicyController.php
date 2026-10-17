@@ -49,11 +49,14 @@ class PolicyController extends Controller
         $date = $this->requireFutureMonth($data['effective_date'], $company);
 
         DB::transaction(function () use ($company, $actor, $data, $date) {
-            DB::table('companies')->where('id', $company->id)->lockForUpdate()->first();
+            $firm = DB::table('companies')->where('id', $company->id)->lockForUpdate()->first();
+            abort_unless($firm && $firm->active && $firm->archived_at === null, 404);
             $partners = $this->activePartnerIds($company->id);
 
-            if (($company->slug === 'rac' && count($partners) !== 3) || count($partners) < 1) {
-                throw ValidationException::withMessages(['effective_date' => 'The RA&C firm must first have exactly three active Partners to change a company-wide policy.']);
+            $minimum = (int) $firm->min_active_partners_for_company_policy;
+            if (count($partners) < $minimum || count($partners) < 1) {
+                throw ValidationException::withMessages(['effective_date' =>
+                    'This firm requires at least '.$minimum.' active Partners before a firm-wide policy vote.']);
             }
 
             if (DB::table('company_policy_proposals')->where('company_id', $company->id)

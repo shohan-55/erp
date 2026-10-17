@@ -18,7 +18,7 @@
 <section class="flex flex-wrap items-start justify-between gap-3">
 <div><p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">COMPANY & ACCOUNT MANAGEMENT</p>
 <h1 class="mt-2 text-3xl font-extrabold">{{ $company->name }}</h1>
-<p class="mt-2 text-sm text-slate-500">Company #{{ $company->id }} · Login: <a class="font-bold text-amber-800 underline" href="{{ url('/'.$company->slug) }}" target="_blank" rel="noopener noreferrer">/{{ $company->slug }}</a> · {{ $workspaces->count() }} Partner workspaces</p></div>
+<p class="mt-2 text-sm text-slate-500">Company #{{ $company->id }} · Login: <a class="font-bold text-amber-800 underline" href="{{ url('/'.$company->slug) }}" target="_blank" rel="noopener noreferrer">/{{ $company->slug }}</a> · CA Firm · {{ $workspaces->count() }} isolated Partner workspaces</p></div>
 <span class="rounded-full px-4 py-2 text-xs font-bold {{ $company->archived_at ? 'bg-slate-200 text-slate-700' : ($company->active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800') }}">
 {{ $company->archived_at ? 'Archived' : ($company->active ? 'Active' : 'Suspended') }}</span>
 </section>
@@ -93,8 +93,16 @@
 <h2 class="text-sm font-extrabold">Edit Company</h2><p class="mt-1 text-xs text-slate-500">Company name only. The login slug is intentionally permanent to protect links and integrations.</p>
 @if(!$company->archived_at)
 <form class="mt-4 space-y-3" action="{{ route('erp.platform.companies.update',['companyId'=>$company->id]) }}" method="POST">@csrf @method('PATCH')
-<label class="block text-xs font-bold text-slate-600">Company Name<input name="company_name" value="{{ $company->name }}" maxlength="255" minlength="3" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
-<button class="w-full rounded-xl bg-[#FCDF02] p-3 text-sm font-extrabold">Save Company</button></form>
+<label class="block text-xs font-bold text-slate-600">Registered Firm Name<input name="company_name" value="{{ $company->name }}" maxlength="255" minlength="3" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
+<label class="block text-xs font-bold text-slate-600">Client Branding Name (optional)<input name="brand_name" value="{{ $company->brand_name }}" maxlength="100" placeholder="{{ $company->name }}" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
+<label class="block text-xs font-bold text-slate-600">Brand Accent Color<input name="brand_accent_color" type="color" value="{{ $company->brand_accent_color }}" class="mt-2 h-11 w-full rounded-lg border border-slate-300 bg-white p-1"></label>
+<label class="block text-xs font-bold text-slate-600">Time Zone<select name="timezone" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm">
+@foreach(['Asia/Dhaka','UTC'] as $zone)
+<option value="{{ $zone }}" @selected($company->timezone===$zone)>{{ $zone }}</option>
+@endforeach</select></label>
+<label class="block text-xs font-bold text-slate-600">Minimum Active Partners for Firm-wide Proposal<input type="number" name="min_active_partners_for_company_policy" value="{{ $company->min_active_partners_for_company_policy }}" min="1" max="200" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
+<p class="text-xs text-slate-500">Only CA Firm type is available initially. Partner workspaces remain independent; this setting affects firm-wide proposals, never a Partner's own attendance or payroll policy.</p>
+<button class="w-full rounded-xl bg-[#FCDF02] p-3 text-sm font-extrabold">Save Firm Profile</button></form>
 @else<p class="mt-3 text-xs font-semibold text-rose-800">Restore the company before editing.</p>@endif
 </div>
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
