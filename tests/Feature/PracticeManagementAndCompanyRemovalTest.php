@@ -236,7 +236,7 @@ class PracticeManagementAndCompanyRemovalTest extends TestCase
         $this->assertDatabaseHas('platform_control_events', [
             'company_id' => $company, 'action' => 'company.delete',
         ]);
-        $this->get('/platform/app')->assertDontSee('Test Company rac');
+        $this->get('/platform/app')->assertSee('No company registered yet.');
         $this->get('/platform/app?status=deleted')->assertSee('Test Company rac');
         $this->actingAs($student)->get('/c/rac/app')->assertForbidden();
 
