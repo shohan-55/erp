@@ -27,6 +27,7 @@ class EnsureTenantHost
             $authorized = is_string($slug) && DB::table('company_custom_domains as d')
                 ->join('companies as c', 'c.id', '=', 'd.company_id')
                 ->where('d.hostname', $host)->where('d.active', true)
+                ->whereNotNull('d.verified_at')->whereNotNull('d.tls_approved_at')
                 ->where('c.active', true)->whereNull('c.archived_at')
                 ->where('c.slug', $slug)->exists();
 
