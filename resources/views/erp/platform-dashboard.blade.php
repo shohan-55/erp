@@ -7,6 +7,19 @@
 @if(session('success'))<div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status">{{ session('success') }}</div>@endif
 @if($errors->any())<div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900" role="alert">{{ $errors->first() }}</div>@endif
 <section><p class="text-xs font-bold uppercase tracking-widest text-amber-800">PLATFORM OPERATIONS</p><h1 class="mt-1 text-3xl font-extrabold">Organization Management</h1><p class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-500">Manage companies, staff access, Partner workspaces and verified client-owned domains. Use Manage Company & Accounts for actual protected actions. Only administrative metadata is shown. This console intentionally cannot read student attendance, salary, leave, supporting documents or private tenant records.</p></section>
+<form action="{{ route('erp.platform.dashboard') }}" method="GET" class="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" role="search">
+<label class="min-w-[200px] flex-1 text-xs font-bold text-slate-700">Find a company by name or slug
+<input type="search" name="q" value="{{ $filter['q'] }}" maxlength="80" placeholder="Search organization directory" class="mt-2 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm"></label>
+<label class="text-xs font-bold text-slate-700">Company Status
+<select name="status" class="mt-2 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm">
+@foreach(['all'=>'All', 'active'=>'Active', 'suspended'=>'Suspended', 'archived'=>'Archived'] as $value => $label)
+<option value="{{ $value }}" @selected($filter['status'] === $value)>{{ $label }}</option>
+@endforeach
+</select></label>
+<button class="rounded-lg bg-[#17191F] px-5 py-3 text-xs font-extrabold text-white">Apply Filters</button>
+<a class="rounded-lg border border-slate-300 px-5 py-3 text-xs font-bold" href="{{ route('erp.platform.dashboard') }}">Clear</a>
+<p class="w-full text-[11px] text-slate-500">{{ $companies->count() }} matching companies · administrative metadata only</p>
+</form>
 <section class="grid grid-cols-2 gap-3 lg:grid-cols-3">
 @foreach([
 ['label'=>'Companies','value'=>$stats['companies'],'icon'=>'building-2'],
@@ -45,5 +58,14 @@
 <label class="block text-xs font-bold text-slate-700">First Partner Full Name<input name="partner_name" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
 <label class="block text-xs font-bold text-slate-700">First Partner Email<input type="email" name="partner_email" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
 <button class="w-full rounded-xl bg-[#FCDF02] p-3 text-sm font-extrabold">Create Company & Invite Partner</button></form></section>
+<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+<h3 class="text-sm font-extrabold">Recent Administrative Activity</h3>
+<p class="mt-1 text-xs text-slate-500">Company and access-control actions, never private tenant events.</p>
+<div class="mt-4 divide-y divide-slate-100">
+@forelse($recentOperations as $event)
+<div class="py-3 text-xs"><p class="font-bold text-slate-800">{{ str_replace('.', ' · ', $event->action) }}</p>
+<p class="mt-1 text-slate-500">{{ $event->name }} ({{ $event->slug }}) · {{ $event->created_at }}</p></div>
+@empty<p class="py-3 text-xs text-slate-500">No platform operations recorded.</p>@endforelse
+</div></section>
 <section class="rounded-2xl bg-[#17191F] p-5 text-white"><div class="flex items-center gap-2"><i data-lucide="shield-check" class="h-5 w-5 text-[#FCDF02]"></i><h3 class="text-sm font-extrabold">Privacy-first Platform</h3></div><p class="mt-3 text-xs leading-relaxed text-slate-300">The platform administrator does not automatically join a company or gain access to private Partner records. Access requires explicit company membership and future approved support workflows.</p></section>
 </aside></div></main></body></html>
