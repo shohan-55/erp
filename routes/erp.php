@@ -74,6 +74,10 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::get('/payroll/{runId}/payment-evidence', [PayrollController::class, 'paymentEvidence'])->name('payroll.evidence');
         Route::get('/policies', [PolicyController::class, 'index'])->name('policies');
         Route::get('/manage', [WorkspaceOperationsController::class, 'index'])->name('manage');
+        Route::post('/manage/attendance-policy', [WorkspaceOperationsController::class, 'proposeAttendance'])
+            ->middleware('throttle:10,1')->name('manage.attendance.propose');
+        Route::post('/manage/attendance-policy/{id}/decision', [WorkspaceOperationsController::class, 'decideAttendance'])
+            ->name('manage.attendance.decide');
         Route::post('/manage/workflow-policy', [WorkspaceOperationsController::class, 'proposeRules'])
             ->middleware('throttle:10,1')->name('manage.rules.propose');
         Route::post('/manage/workflow-policy/{id}/decision', [WorkspaceOperationsController::class, 'decideRules'])
