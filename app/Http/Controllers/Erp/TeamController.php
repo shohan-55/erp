@@ -19,12 +19,14 @@ class TeamController extends Controller
     public function index(Request $request, string $firmSlug)
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['partner']);
+        TenantOps::requireRole($actor, ['partner', 'manager']);
 
         $members = DB::table('memberships as m')
             ->join('users as u', 'u.id', '=', 'm.user_id')
             ->where('m.company_id', $company->id)
             ->where('m.workspace_id', $workspace->id)
+            ->when($actor->role === 'manager', fn ($query) => $query->where('m.role', 'student')
+                ->where('m.manager_membership_id', $actor->id))
             ->select('m.*', 'u.name as member_name', 'u.email')
             ->orderByRaw("CASE m.role WHEN 'partner' THEN 0 WHEN 'manager' THEN 1 ELSE 2 END")
             ->orderBy('u.name')->get();
