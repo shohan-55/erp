@@ -18,7 +18,7 @@
 ['label'=>'Leave Requests','name'=>'erp.leaves','icon'=>'calendar-days'],
 ['label'=>'Conveyance','name'=>'erp.claims','icon'=>'receipt'],
 ['label'=>'Payroll','name'=>'erp.payroll','icon'=>'wallet-cards'],
-['label'=>'Attendance & Holidays','name'=>'erp.policies','icon'=>'shield-check'],
+['label'=>'Policy & Governance','name'=>'erp.policies','icon'=>'shield-check'],
 ['label'=>'Notifications','name'=>'erp.notifications','icon'=>'bell'],
 ['label'=>'Settings / Security','name'=>'erp.security','icon'=>'settings-2'],
 ] as $item)
