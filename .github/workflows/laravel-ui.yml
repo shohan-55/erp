@@ -1,4 +1,4 @@
-name: Laravel UI Verification
+name: ERP Laravel Operations & UI Verification
 
 on:
   pull_request:
@@ -24,7 +24,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, fileinfo
+          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, pdo_mysql, curl, fileinfo, zip
           coverage: none
           tools: composer:v2
 
@@ -37,6 +37,12 @@ jobs:
       - name: Install PHP dependencies
         run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
+      - name: Audit PHP dependency advisories
+        run: composer audit --locked --no-interaction
+
+      - name: Audit production JavaScript dependency advisories
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Initialize local test environment
         run: |
           cp .env.example .env
@@ -48,13 +54,30 @@ jobs:
       - name: Compile Vite production assets
         run: npm run build
 
+      - name: Verify shared hosting PHP CLI prerequisites
+        run: php artisan erp:hosting:check
+
       - name: Run full Laravel feature and unit tests
         run: php artisan test
+
+      - name: Check production routes expose no public UI prototypes
+        run: |
+          APP_ENV=production php artisan route:list --json > /tmp/erp-production-routes.json
+          node -e "const r=require('/tmp/erp-production-routes.json');const paths=r.map(x=>x.uri);const demos=paths.filter(x=>x==='platform/dashboard-preview'||(x.startsWith('c/')&&x.includes('/preview')));const logins=paths.filter(x=>x.endsWith('/app/login'));console.log(JSON.stringify({demo_routes:demos,real_login_routes:logins}));if(demos.length||!paths.includes('platform/app/login')||!paths.includes('c/{firmSlug}/app/login'))process.exit(1);console.log('Production routing protects demo screens.');"
 
       - name: Install Playwright browser for visual verification
         run: |
           npm install --no-save playwright@1.56.1
           npx playwright install --with-deps chromium
+
+      - name: Initialize isolated ERP browser QA database
+        run: |
+          export ERP_E2E_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$ERP_E2E_PASSWORD"
+          echo "ERP_E2E_PASSWORD=$ERP_E2E_PASSWORD" >> "$GITHUB_ENV"
+          touch database/database.sqlite
+          php artisan migrate --force
+          php artisan db:seed --class=ErpBrowserQaSeeder --force
 
       - name: Start the local Laravel preview server
         run: |
@@ -75,6 +98,18 @@ jobs:
       - name: Browser test all practice design phases and capture screenshots
         run: node tests/browser/practice-phases.mjs
 
+      - name: Browser test actual authenticated ERP operations
+        run: node tests/browser/erp-live-pilot.mjs
+
+      - name: Upload authenticated ERP pilot screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-erp-pilot-screenshots
+          path: screenshots/erp-live-pilot/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload Phase 04-10 screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -93,3 +128,116 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+
+
+  mysql-integration:
+    name: MySQL 8 integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root-ci-only
+          MYSQL_DATABASE: erp_ci
+          MYSQL_USER: erp_ci
+          MYSQL_PASSWORD: test-ci-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --user=erp_ci --password=test-ci-only"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: erp_ci
+      DB_USERNAME: erp_ci
+      DB_PASSWORD: test-ci-only
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP and MySQL extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_mysql, mysqlnd, curl, fileinfo, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies and assets
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist
+          cp .env.example .env
+          php artisan key:generate
+          npm ci
+          npm run build
+
+      - name: Verify hosting PHP CLI prerequisites with MySQL extensions
+        run: php artisan erp:hosting:check
+
+      - name: Run real MySQL schema migrations
+        run: php artisan migrate --force
+
+      - name: Execute complete test suite using MySQL 8
+        run: php artisan test
+
+
+  package-cpanel:
+    name: Package cPanel release (not deployment)
+    runs-on: ubuntu-latest
+    needs: [ui-verification, mysql-integration]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout reviewed commit
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.4 for production vendor
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, curl, fileinfo, pdo_mysql, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup Node for offline Vite build
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Build production application dependencies
+        run: |
+          composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader
+          npm ci
+          npm run build
+
+      - name: Assemble private Laravel and cPanel public webroot release
+        run: bash scripts/build-cpanel-release.sh
+
+      - name: Verify extracted cPanel release paths and no private file exposure
+        run: bash scripts/verify-cpanel-release.sh
+
+      - name: Upload app and optional split webroot (review artifacts only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: erp-cpanel-release-review
+          path: |
+            dist/erp-cpanel-application.zip
+            dist/erp-cpanel-split-webroot.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
