@@ -188,6 +188,13 @@ class PlatformController extends Controller
         }
 
         $user = DB::transaction(function () use ($data, $email, $companyId) {
+            $firm = DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
+            abort_unless($firm && $firm->active && $firm->archived_at === null, 404);
+            if (DB::table('workspaces')->where('company_id', $companyId)
+                ->where('slug', $data['workspace_slug'])->exists()) {
+                throw ValidationException::withMessages(['workspace_slug' => 'That workspace slug already exists.']);
+            }
+
             $user = $this->invitedUser($email, $data['partner_name']);
 
             if (DB::table('memberships')->where('company_id', $companyId)
@@ -219,8 +226,16 @@ class PlatformController extends Controller
 
     private function invitedUser(string $email, string $name): User
     {
-        return User::where('email', $email)->first()
-            ?? User::create(['name' => $name, 'email' => $email, 'password' => Hash::make(Str::random(64))]);
+        // Never silently attach a pre-existing global identity to a new firm
+        // or reset that person's password as part of onboarding.
+        if (User::where('email', $email)->exists()) {
+            throw ValidationException::withMessages(['partner_email' =>
+                'This email already belongs to an ERP identity.']);
+        }
+        return User::create([
+            'name' => trim($name), 'email' => $email,
+            'password' => Hash::make(Str::random(64)),
+        ]);
     }
 
     private function insertPartnerInvitation(int $companyId, int $workspaceId, int $userId): void
