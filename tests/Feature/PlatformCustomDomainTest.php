@@ -147,15 +147,20 @@ class PlatformCustomDomainTest extends TestCase
             'confirmation_hostname' => 'erp.clientcompany.com',
         ])->assertRedirect();
 
+        // Simulate the production provider forcing a safe canonical URL root;
+        // a verified tenant host must be able to override it for normal forms.
+        \Illuminate\Support\Facades\URL::forceRootUrl('https://erp.dhakawala.com');
         $this->get('https://erp.clientcompany.com/login')->assertOk()
             ->assertSee('Rahman Anis & Co.')
-            ->assertSee('Sign in to continue');
+            ->assertSee('Sign in to continue')
+            ->assertSee('https://erp.clientcompany.com/c/rac/app/login', false);
 
         $this->get('https://erp.clientcompany.com/c/rac/app/login')->assertOk();
         $this->get('https://erp.clientcompany.com/c/outsider/app/login')->assertNotFound();
         $this->get('https://unregistered.clientcompany.com/login')->assertNotFound();
         $this->get('https://unregistered.clientcompany.com/c/rac/app/login')->assertNotFound();
         $this->get('https://erp.clientcompany.com/platform/app/login')->assertNotFound();
+        $this->get('https://erp.clientcompany.com/security/mfa/setup')->assertNotFound();
     }
 
     public function test_disable_and_replace_rotate_challenge_without_erasing_tenant(): void
