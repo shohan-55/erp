@@ -21,6 +21,7 @@ return new class extends Migration {
         // No application behavior is conditional on a firm slug.
         DB::table('companies')->where('slug', 'rac')->update([
             'brand_logo_asset' => 'images/rac_logo.svg',
+            'min_active_partners_for_company_policy' => 3,
         ]);
     }
 
