@@ -11,7 +11,16 @@ class EnsurePlatformHost
     public function handle(Request $request, Closure $next): Response
     {
         $canonical = strtolower((string) parse_url(config('app.url'), PHP_URL_HOST));
-        abort_unless(strtolower(rtrim($request->getHost(), '.')) === $canonical, 404);
+        $host = strtolower(rtrim($request->getHost(), '.'));
+
+        // Local browser QA may use 127.0.0.1 while APP_URL points to localhost.
+        // Never relax the canonical host allowlist in production.
+        if (app()->environment(['local', 'testing'])
+            && in_array($host, ['localhost', '127.0.0.1', '::1'], true)
+            && in_array($canonical, ['localhost', '127.0.0.1', '::1'], true)) {
+            return $next($request);
+        }
+        abort_unless($host === $canonical, 404);
         return $next($request);
     }
 }
