@@ -59,12 +59,16 @@ class PlatformController extends Controller
             'active_memberships' => DB::table('memberships')->where('active', true)->count(),
             'pending_invitations' => DB::table('memberships')->where('active', false)
                 ->whereNull('platform_suspended_at')->count(),
+            'active_domains' => DB::table('company_custom_domains')->where('active', true)->count(),
+            'domains_awaiting_setup' => DB::table('company_custom_domains')->where('active', false)->count(),
         ];
 
         $workspaces = DB::table('workspaces')->select('company_id', DB::raw('COUNT(*) as total'))
             ->groupBy('company_id')->pluck('total', 'company_id');
 
-        return view('erp.platform-dashboard', compact('companies', 'stats', 'workspaces'));
+        $domains = DB::table('company_custom_domains')->get()->keyBy('company_id');
+
+        return view('erp.platform-dashboard', compact('companies', 'stats', 'workspaces', 'domains'));
     }
 
     public function createFirm(Request $request)
