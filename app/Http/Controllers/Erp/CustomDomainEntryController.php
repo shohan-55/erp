@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 
 class CustomDomainEntryController extends Controller
 {
@@ -33,6 +34,11 @@ class CustomDomainEntryController extends Controller
             ->whereNotNull('d.verified_at')->whereNotNull('d.tls_approved_at')
             ->select('c.*')->first();
         abort_unless($company, 404);
+
+        // AppServiceProvider forces the canonical root against hostile Host headers.
+        // Override only AFTER the exact verified custom host has been found.
+        URL::forceRootUrl('https://'.$host);
+        URL::forceScheme('https');
 
         $firmSlug = $company->slug;
         return app(AuthController::class)->show($request, $firmSlug);
