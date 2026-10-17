@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="{{ csrf_token() }}">
 <meta name="robots" content="noindex,nofollow">
-<title>@yield('title', 'ERP Workspace') · {{ $company->name }}</title>
+<title>@yield('title', 'ERP Workspace') · {{ $company->brand_name ?: $company->name }}</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
 <style>[x-cloak]{display:none!important}</style>@livewireStyles</head>
 <body class="min-h-screen bg-[#F6F7F9] font-sans text-[#17191F]">
 <div x-data="{ open:false }" class="min-h-screen">
 <div x-show="open" x-cloak @click="open=false" class="fixed inset-0 z-40 bg-slate-950/60 lg:hidden"></div>
 <aside :class="open ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 z-50 flex w-[262px] flex-col bg-[#17191F] text-white shadow-xl transition-transform lg:translate-x-0">
-<div class="flex items-center gap-3 border-b border-white/10 px-5 py-5"><div class="flex h-11 w-11 items-center justify-center rounded-xl bg-white p-1.5">@if($company->slug === 'rac')<img src="{{ asset('images/rac_logo.svg') }}" alt="" class="h-full object-contain">@else<span class="text-[11px] font-extrabold text-slate-900">ERP</span>@endif</div><div class="min-w-0"><p class="truncate text-sm font-extrabold">{{ $company->name }}</p><p class="text-[10px] text-slate-400">{{ $workspace->name }}</p></div><button type="button" @click="open=false" class="ml-auto lg:hidden" aria-label="Close navigation">×</button></div>
+<div class="flex items-center gap-3 border-b border-white/10 px-5 py-5"><div class="flex h-11 w-11 items-center justify-center rounded-xl p-1.5" style="background-color: {{ $company->brand_accent_color }}">@if($company->brand_logo_asset)<img src="{{ asset($company->brand_logo_asset) }}" alt="" class="h-full object-contain">@else<span class="text-[11px] font-extrabold text-slate-900">{{ mb_strtoupper(mb_substr($company->brand_name ?: $company->name, 0, 2)) }}</span>@endif</div><div class="min-w-0"><p class="truncate text-sm font-extrabold">{{ $company->brand_name ?: $company->name }}</p><p class="text-[10px] text-slate-400">{{ $workspace->name }}</p></div><button type="button" @click="open=false" class="ml-auto lg:hidden" aria-label="Close navigation">×</button></div>
 <div class="border-b border-white/10 p-4"><p class="text-[11px] font-bold uppercase tracking-widest text-[#FCDF02]">{{ ucfirst($actor->role) }} Workspace</p><p class="mt-1 truncate text-xs text-slate-300">{{ auth()->user()->name }}</p></div>
 <nav class="flex-1 space-y-1 overflow-y-auto p-3" aria-label="ERP Navigation">
 @foreach([
