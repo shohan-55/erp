@@ -88,6 +88,7 @@
 </section>
 
 <aside class="space-y-5">
+@include('erp.partials.platform-custom-domain')
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 <h2 class="text-sm font-extrabold">Edit Company</h2><p class="mt-1 text-xs text-slate-500">Company name only. The login slug is intentionally permanent to protect links and integrations.</p>
 @if(!$company->archived_at)
