@@ -12,6 +12,7 @@ use App\Http\Controllers\Erp\TeamController;
 use App\Http\Controllers\Erp\PolicyController;
 use App\Http\Controllers\Erp\PlatformController;
 use App\Http\Controllers\Erp\PlatformManagementController;
+use App\Http\Controllers\Erp\WorkspaceOperationsController;
 use App\Http\Controllers\Erp\PlatformCustomDomainController;
 use App\Http\Controllers\Erp\CustomDomainEntryController;
 use App\Http\Controllers\Erp\MfaController;
@@ -72,6 +73,15 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/payroll/{runId}/transition', [PayrollController::class, 'advance'])->name('payroll.advance');
         Route::get('/payroll/{runId}/payment-evidence', [PayrollController::class, 'paymentEvidence'])->name('payroll.evidence');
         Route::get('/policies', [PolicyController::class, 'index'])->name('policies');
+        Route::get('/manage', [WorkspaceOperationsController::class, 'index'])->name('manage');
+        Route::post('/manage/workflow-policy', [WorkspaceOperationsController::class, 'proposeRules'])
+            ->middleware('throttle:10,1')->name('manage.rules.propose');
+        Route::post('/manage/workflow-policy/{id}/decision', [WorkspaceOperationsController::class, 'decideRules'])
+            ->name('manage.rules.decide');
+        Route::post('/manage/holidays', [WorkspaceOperationsController::class, 'proposeHoliday'])
+            ->middleware('throttle:10,1')->name('manage.holidays.propose');
+        Route::post('/manage/holidays/{id}/decision', [WorkspaceOperationsController::class, 'decideHoliday'])
+            ->name('manage.holidays.decide');
         Route::post('/policies/company/propose', [PolicyController::class, 'propose'])->name('policies.propose');
         Route::post('/policies/company/{id}/vote', [PolicyController::class, 'vote'])->name('policies.vote');
         Route::post('/policies/workspace/override', [PolicyController::class, 'override'])->name('policies.override');
