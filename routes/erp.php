@@ -19,7 +19,7 @@ use App\Http\Controllers\Erp\SecurityController;
 use Illuminate\Support\Facades\Route;
 
 // Authenticated first-factor accounts can enroll or complete a second factor.
-Route::prefix('security/mfa')->middleware('auth')->name('erp.mfa.')->group(function () {
+Route::prefix('security/mfa')->middleware(['auth', 'mfa.host'])->name('erp.mfa.')->group(function () {
     Route::get('/setup', [MfaController::class, 'setup'])->name('setup');
     Route::post('/setup', [MfaController::class, 'confirmSetup'])->middleware('throttle:5,1')->name('confirm');
     Route::get('/challenge', [MfaController::class, 'challenge'])->name('challenge');
