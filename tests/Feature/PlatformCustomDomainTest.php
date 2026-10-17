@@ -93,7 +93,7 @@ class PlatformCustomDomainTest extends TestCase
             ->assertSee('Custom Domain Control')
             ->assertSee('_dhakawala-erp.erp.clientcompany.com')
             ->assertSee('dhakawala-erp-verification=')
-            ->assertSee('Check DNS Ownership & CNAME');
+            ->assertSeeText('Check DNS Ownership & CNAME');
 
         $this->post("/platform/app/companies/$company/custom-domain/tls", [
             'confirmation_hostname' => 'erp.clientcompany.com', 'tls_ready' => '1',
