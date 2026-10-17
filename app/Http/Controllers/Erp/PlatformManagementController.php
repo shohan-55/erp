@@ -46,7 +46,9 @@ class PlatformManagementController extends Controller
             ->orderByDesc('id')->limit(12)
             ->get(['action', 'subject_type', 'subject_id', 'created_at']);
 
-        return view('erp.platform-company', compact('company', 'workspaces', 'members', 'events'));
+        $customDomain = DB::table('company_custom_domains')->where('company_id', $companyId)->first();
+
+        return view('erp.platform-company', compact('company', 'workspaces', 'members', 'events', 'customDomain'));
     }
 
     public function updateCompany(Request $request, int $companyId)

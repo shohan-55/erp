@@ -35,7 +35,7 @@ if (in_array(app()->environment(), ['local', 'testing'], true)) {
         Route::get('/activate', AccountActivation::class)->name('firm.activate');
     });
 } else {
-    Route::view('/', 'erp.welcome')->name('home');
+    Route::get('/', [\App\Http\Controllers\Erp\CustomDomainEntryController::class, 'index'])->name('home');
     Route::get('/platform/login', fn () => redirect()->route('erp.platform.login'))->name('platform.login');
     Route::get('/c/{firmSlug}/login', fn (string $firmSlug) =>
         redirect()->route('erp.login', ['firmSlug' => $firmSlug])

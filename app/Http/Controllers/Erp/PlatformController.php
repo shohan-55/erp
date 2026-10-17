@@ -49,22 +49,46 @@ class PlatformController extends Controller
         return redirect()->route('erp.platform.login');
     }
 
-    public function dashboard()
+    public function dashboard(Request $request)
     {
         // Platform operators see organization-level metadata, never private tenant records.
-        $companies = DB::table('companies')->orderByDesc('created_at')->get();
+        $filter = [
+            'q' => mb_substr(trim((string) $request->query('q', '')), 0, 80),
+            'status' => (string) $request->query('status', 'all'),
+        ];
+        if (! in_array($filter['status'], ['all', 'active', 'suspended', 'archived'], true)) {
+            $filter['status'] = 'all';
+        }
+
+        $companies = DB::table('companies')
+            ->when($filter['q'] !== '', fn ($q) => $q->where(function ($sub) use ($filter) {
+                $sub->where('name', 'like', '%'.$filter['q'].'%')
+                    ->orWhere('slug', 'like', '%'.$filter['q'].'%');
+            }))
+            ->when($filter['status'] === 'active', fn ($q) => $q->where('active', true)->whereNull('archived_at'))
+            ->when($filter['status'] === 'suspended', fn ($q) => $q->where('active', false)->whereNull('archived_at'))
+            ->when($filter['status'] === 'archived', fn ($q) => $q->whereNotNull('archived_at'))
+            ->orderByDesc('created_at')->get();
         $stats = [
-            'companies' => $companies->count(),
+            'companies' => DB::table('companies')->count(),
             'workspaces' => DB::table('workspaces')->count(),
             'active_memberships' => DB::table('memberships')->where('active', true)->count(),
             'pending_invitations' => DB::table('memberships')->where('active', false)
                 ->whereNull('platform_suspended_at')->count(),
+            'active_domains' => DB::table('company_custom_domains')->where('active', true)->count(),
+            'domains_awaiting_setup' => DB::table('company_custom_domains')->where('active', false)->count(),
         ];
 
         $workspaces = DB::table('workspaces')->select('company_id', DB::raw('COUNT(*) as total'))
             ->groupBy('company_id')->pluck('total', 'company_id');
 
-        return view('erp.platform-dashboard', compact('companies', 'stats', 'workspaces'));
+        $domains = DB::table('company_custom_domains')->get()->keyBy('company_id');
+        $recentOperations = DB::table('platform_control_events as e')
+            ->join('companies as c', 'c.id', '=', 'e.company_id')
+            ->select('e.action', 'e.subject_type', 'e.created_at', 'c.slug', 'c.name')
+            ->orderByDesc('e.id')->limit(8)->get();
+
+        return view('erp.platform-dashboard', compact('companies', 'stats', 'workspaces', 'domains', 'filter', 'recentOperations'));
     }
 
     public function createFirm(Request $request)

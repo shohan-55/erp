@@ -12,12 +12,14 @@ use App\Http\Controllers\Erp\TeamController;
 use App\Http\Controllers\Erp\PolicyController;
 use App\Http\Controllers\Erp\PlatformController;
 use App\Http\Controllers\Erp\PlatformManagementController;
+use App\Http\Controllers\Erp\PlatformCustomDomainController;
+use App\Http\Controllers\Erp\CustomDomainEntryController;
 use App\Http\Controllers\Erp\MfaController;
 use App\Http\Controllers\Erp\SecurityController;
 use Illuminate\Support\Facades\Route;
 
 // Authenticated first-factor accounts can enroll or complete a second factor.
-Route::prefix('security/mfa')->middleware('auth')->name('erp.mfa.')->group(function () {
+Route::prefix('security/mfa')->middleware(['auth', 'mfa.host'])->name('erp.mfa.')->group(function () {
     Route::get('/setup', [MfaController::class, 'setup'])->name('setup');
     Route::post('/setup', [MfaController::class, 'confirmSetup'])->middleware('throttle:5,1')->name('confirm');
     Route::get('/challenge', [MfaController::class, 'challenge'])->name('challenge');
@@ -25,7 +27,10 @@ Route::prefix('security/mfa')->middleware('auth')->name('erp.mfa.')->group(funct
     Route::get('/recovery', [MfaController::class, 'recovery'])->name('recovery');
 });
 
-Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
+// Client-owned hostnames are allowed only after DNS + HTTPS approval and tenant matching.
+Route::get('/login', [CustomDomainEntryController::class, 'login'])->name('erp.custom-domain.login');
+
+Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->group(function () {
     Route::get('/login', [AuthController::class, 'show'])->name('login');
     Route::post('/login', [AuthController::class, 'attempt'])
         ->middleware('throttle:5,1')->name('login.attempt');
@@ -80,7 +85,7 @@ Route::prefix('c/{firmSlug}/app')->name('erp.')->group(function () {
         Route::post('/notifications/{id}/read', [WorkflowController::class, 'readNotification'])->name('notifications.read');
     });
 });
-Route::prefix('platform/app')->name('erp.platform.')->group(function () {
+Route::prefix('platform/app')->middleware('platform.host')->name('erp.platform.')->group(function () {
     Route::get('/login', [PlatformController::class, 'login'])->name('login');
     Route::post('/login', [PlatformController::class, 'signIn'])
         ->middleware('throttle:5,1')->name('login.attempt');
@@ -92,6 +97,11 @@ Route::prefix('platform/app')->name('erp.platform.')->group(function () {
         Route::get('/', [PlatformController::class, 'dashboard'])->name('dashboard');
         Route::post('/companies', [PlatformController::class, 'createFirm'])->name('companies.create');
         Route::post('/companies/{companyId}/partners', [PlatformController::class, 'addPartner'])->name('partners.create');
+        Route::post('/companies/{companyId}/custom-domain', [PlatformCustomDomainController::class, 'store'])->name('domains.store');
+        Route::post('/companies/{companyId}/custom-domain/verify', [PlatformCustomDomainController::class, 'verify'])->middleware('throttle:5,1')->name('domains.verify');
+        Route::post('/companies/{companyId}/custom-domain/tls', [PlatformCustomDomainController::class, 'approveTls'])->name('domains.tls');
+        Route::post('/companies/{companyId}/custom-domain/activate', [PlatformCustomDomainController::class, 'activate'])->middleware('throttle:5,1')->name('domains.activate');
+        Route::post('/companies/{companyId}/custom-domain/disable', [PlatformCustomDomainController::class, 'disable'])->name('domains.disable');
         Route::get('/companies/{companyId}', [PlatformManagementController::class, 'showCompany'])->name('companies.show');
         Route::patch('/companies/{companyId}', [PlatformManagementController::class, 'updateCompany'])->name('companies.update');
         Route::post('/companies/{companyId}/lifecycle', [PlatformManagementController::class, 'transitionCompany'])->name('companies.lifecycle');
