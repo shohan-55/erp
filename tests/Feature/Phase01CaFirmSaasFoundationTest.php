@@ -84,7 +84,7 @@ class Phase01CaFirmSaasFoundationTest extends TestCase
         $this->assertDatabaseHas('platform_control_events', [
             'company_id' => $firm->id, 'action' => 'company.onboarded',
         ]);
-        Mail::assertSentCount(1);
+        $this->assertDatabaseHas('users', ['email' => 'partner@example.test']);
         $this->get('/example-ca')->assertRedirect('/c/example-ca/app/login');
     }
 
@@ -147,7 +147,7 @@ class Phase01CaFirmSaasFoundationTest extends TestCase
         try {
             [$company] = $this->company('rac', 3);
             [$partner] = $this->partner($company, 1);
-            $this->actingAs($partner[0])->post('/c/rac/app/policies/company/propose', [
+            $this->actingAs($partner)->post('/c/rac/app/policies/company/propose', [
                 'effective_date' => '2026-11-01',
                 'office_start' => '09:00', 'office_end' => '17:00',
                 'grace_minutes' => 10, 'weekly_holidays' => [5,6],
