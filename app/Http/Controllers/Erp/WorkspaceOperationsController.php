@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\PolicyResolver;
 use App\Support\WorkspaceRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -18,6 +19,14 @@ class WorkspaceOperationsController extends Controller
         TenantOps::requireRole($actor, ['partner', 'manager']);
 
         $rules = WorkspaceRules::effective($company, $workspace, now($company->timezone)->toDateString());
+        $attendanceRules = PolicyResolver::forDate($company, $workspace, now($company->timezone)->toDateString());
+        $attendanceRequests = DB::table('workspace_attendance_policy_requests as r')
+            ->join('memberships as m', 'm.id', '=', 'r.proposed_by')
+            ->join('users as u', 'u.id', '=', 'm.user_id')
+            ->where('r.company_id', $company->id)->where('r.workspace_id', $workspace->id)
+            ->select('r.*', 'u.name as proposer_name')
+            ->orderByDesc('r.id')->limit(20)->get();
+
         $policyRequests = DB::table('workspace_operational_policy_requests as r')
             ->join('memberships as m', 'm.id', '=', 'r.proposed_by')
             ->join('users as u', 'u.id', '=', 'm.user_id')
@@ -37,8 +46,113 @@ class WorkspaceOperationsController extends Controller
             ->orderByDesc('work_date')->orderByDesc('id')->limit(20)->get();
 
         return view('erp.workspace-operations', compact(
-            'company', 'workspace', 'actor', 'firmSlug', 'rules', 'policyRequests', 'holidayRequests', 'calendar'
+            'company', 'workspace', 'actor', 'firmSlug', 'rules', 'attendanceRules', 'attendanceRequests', 'policyRequests', 'holidayRequests', 'calendar'
         ));
+    }
+
+    public function proposeAttendance(Request $request, string $firmSlug)
+    {
+        [$company, $workspace, $actor] = TenantOps::context($request);
+        TenantOps::requireRole($actor, ['partner', 'manager']);
+
+        $data = $request->validate([
+            'effective_date' => ['required', 'date_format:Y-m-d'],
+            'office_start' => ['required', 'date_format:H:i'],
+            'office_end' => ['required', 'date_format:H:i', 'after:office_start'],
+            'grace_minutes' => ['required', 'integer', 'between:0,30'],
+            'weekly_holidays' => ['required', 'array', 'min:1', 'max:3'],
+            'weekly_holidays.*' => ['integer', 'between:1,7', 'distinct'],
+            'reason' => ['required', 'string', 'min:15', 'max:1000'],
+        ]);
+        $firstNextMonth = CarbonImmutable::now($company->timezone)->startOfMonth()->addMonth()->toDateString();
+        if ($data['effective_date'] < $firstNextMonth
+            || ! str_ends_with($data['effective_date'], '-01')) {
+            throw ValidationException::withMessages(['effective_date' => 'Choose the first day of a future month.']);
+        }
+
+        // Partner direct overrides use the established versioned, audited path.
+        if ($actor->role === 'partner') {
+            return app(PolicyController::class)->override($request, $firmSlug);
+        }
+
+        DB::transaction(function () use ($company, $workspace, $actor, $data) {
+            DB::table('workspaces')->where('id', $workspace->id)
+                ->where('company_id', $company->id)->lockForUpdate()->first();
+            if (DB::table('workspace_attendance_policy_requests')
+                ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
+                ->where('effective_date', $data['effective_date'])->where('status', 'pending')->exists()) {
+                throw ValidationException::withMessages(['effective_date' =>
+                    'There is already a pending attendance policy for this month.']);
+            }
+
+            $id = DB::table('workspace_attendance_policy_requests')->insertGetId([
+                'company_id' => $company->id, 'workspace_id' => $workspace->id,
+                'proposed_by' => $actor->id, 'effective_date' => $data['effective_date'],
+                'office_start' => $data['office_start'], 'office_end' => $data['office_end'],
+                'grace_minutes' => $data['grace_minutes'],
+                'weekly_holidays' => json_encode(array_map('intval', $data['weekly_holidays']), JSON_THROW_ON_ERROR),
+                'reason' => trim($data['reason']), 'status' => 'pending',
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
+            TenantOps::audit($actor, 'workspace.attendance.requested', 'workspace_attendance_policy_request', $id);
+            $this->notifyPartners($actor, 'Attendance rules need Partner approval',
+                'A Manager has requested a change in office schedule, grace time or weekly holidays.');
+        }, 3);
+
+        return back()->with('success', 'Attendance policy request sent for Partner approval.');
+    }
+
+    public function decideAttendance(Request $request, string $firmSlug, int $id)
+    {
+        [$company, $workspace, $actor] = TenantOps::context($request);
+        TenantOps::requireRole($actor, ['partner']);
+        $data = $request->validate(['decision' => ['required', 'in:approve,reject']]);
+
+        DB::transaction(function () use ($company, $workspace, $actor, $id, $data) {
+            DB::table('workspaces')->where('id', $workspace->id)
+                ->where('company_id', $company->id)->lockForUpdate()->first();
+            $row = DB::table('workspace_attendance_policy_requests')
+                ->where('id', $id)->where('company_id', $company->id)
+                ->where('workspace_id', $workspace->id)->lockForUpdate()->first();
+            abort_unless($row, 404);
+            if ($row->status !== 'pending' ||
+                $row->effective_date < CarbonImmutable::now($company->timezone)
+                    ->startOfMonth()->addMonth()->toDateString()) {
+                throw ValidationException::withMessages(['decision' => 'This attendance request is no longer pending for a future month.']);
+            }
+
+            if ($data['decision'] === 'approve') {
+                if (DB::table('workspace_policy_overrides')
+                    ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
+                    ->where('effective_date', $row->effective_date)->exists()) {
+                    throw ValidationException::withMessages(['decision' => 'An override already exists for that month.']);
+                }
+
+                $versionId = DB::table('workspace_policy_overrides')->insertGetId([
+                    'company_id' => $company->id, 'workspace_id' => $workspace->id,
+                    'authorized_by' => $actor->id, 'effective_date' => $row->effective_date,
+                    'office_start' => $row->office_start, 'office_end' => $row->office_end,
+                    'grace_minutes' => $row->grace_minutes, 'weekly_holidays' => $row->weekly_holidays,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+                TenantOps::audit($actor, 'policy.override_workspace', 'workspace_policy_override', $versionId,
+                    ['request_id' => $id, 'effective_date' => $row->effective_date]);
+            }
+            DB::table('workspace_attendance_policy_requests')->where('id', $id)->update([
+                'status' => $data['decision'] === 'approve' ? 'approved' : 'rejected',
+                'decided_by' => $actor->id, 'decided_at' => now(), 'updated_at' => now(),
+            ]);
+            TenantOps::audit($actor, 'workspace.attendance.'.$data['decision'], 'workspace_attendance_policy_request', $id);
+            $proposerActive = DB::table('memberships')->where('id', $row->proposed_by)
+                ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
+                ->where('active', true)->exists();
+            if ($proposerActive) {
+                TenantOps::notify($actor, $row->proposed_by, 'Attendance policy decision',
+                    'Your attendance policy request was '.$data['decision'].'d.');
+            }
+        }, 3);
+
+        return back()->with('success', 'Attendance rule decision recorded.');
     }
 
     public function proposeRules(Request $request, string $firmSlug)
