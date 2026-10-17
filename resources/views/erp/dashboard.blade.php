@@ -2,6 +2,29 @@
 @section('title','Workspace Dashboard')
 @section('content')
 <section><p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">PRACTICE OPERATIONS</p><h2 class="mt-2 text-2xl font-extrabold sm:text-3xl">Welcome, {{ auth()->user()->name }}</h2><p class="mt-2 text-sm text-slate-500">Live statistics for {{ $workspace->name }}. {{ $actor->role === 'manager' ? 'Your assigned student team only.' : ($actor->role === 'student' ? 'Your own records only.' : 'Your own Partner workspace only.') }}</p></section>
+@if(in_array($actor->role, ['partner', 'manager'], true))
+<section class="rounded-3xl border border-amber-200 bg-gradient-to-br from-[#17191F] to-[#3B3424] p-6 text-white shadow-sm sm:p-8">
+<p class="text-xs font-extrabold uppercase tracking-widest text-[#FCDF02]">{{ $actor->role === 'partner' ? 'PARTNER CONTROL CENTER' : 'MANAGER OPERATIONS' }}</p>
+<h3 class="mt-2 text-2xl font-extrabold">Run your practice, not just view reports.</h3>
+<p class="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300">Manage team attendance, policy proposals, leave reviews, conveyance approvals and upcoming holidays from real operational controls. {{ $actor->role === 'partner' ? 'You authorize changes within your workspace.' : 'You review assigned staff and propose controlled policy changes to your Partner.' }}</p>
+<div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+@foreach([
+['title'=>'Practice Management','desc'=>'Leave limits, conveyance & holiday rules','route'=>'erp.manage','icon'=>'sliders-horizontal'],
+['title'=>'Attendance & Office Policy','desc'=>'Hours, grace, weekly and special days','route'=>'erp.policies','icon'=>'calendar-cog'],
+['title'=>'Attendance Report','desc'=>'Review staff time and sessions','route'=>'erp.attendance.report','icon'=>'calendar-check-2'],
+['title'=>'Leave Approvals','desc'=>'Review pending team requests','route'=>'erp.leaves','icon'=>'calendar-days'],
+['title'=>'Conveyance Reviews','desc'=>'Inspect evidence and decisions','route'=>'erp.claims','icon'=>'receipt'],
+['title'=>$actor->role === 'partner' ? 'Team & Accounts' : 'My Assigned Team','desc'=>'Staff and manager assignments','route'=>'erp.team','icon'=>'users'],
+] as $action)
+<a href="{{ route($action['route'],['firmSlug'=>$firmSlug]) }}" class="group rounded-2xl border border-white/15 bg-white/10 p-4 transition hover:border-[#FCDF02] hover:bg-white/15">
+<i data-lucide="{{ $action['icon'] }}" class="h-5 w-5 text-[#FCDF02]"></i>
+<p class="mt-3 text-sm font-extrabold">{{ $action['title'] }} →</p>
+<p class="mt-1 text-xs text-slate-300">{{ $action['desc'] }}</p>
+</a>
+@endforeach
+</div>
+</section>
+@endif
 @if($actor->role === 'student')
 <section class="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm sm:p-6" aria-label="Quick attendance">
   <div class="flex flex-wrap items-start justify-between gap-3">
@@ -39,7 +62,7 @@
 @endif</div><button type="submit" class="min-h-12 rounded-xl bg-[#FCDF02] px-7 py-3 text-sm font-extrabold text-slate-950 hover:bg-[#F5AD16]">Check In</button>
     </form>
   @endif
-  <p class="mt-3 text-xs text-slate-500">Your attendance uses server time and is recorded in your own workspace. GPS check-in will be introduced after location consent and policy review in Phase 3.</p>
+  <p class="mt-3 text-xs text-slate-500">Your attendance uses server time and is recorded in your own workspace. Optional GPS is available only when the Partner enables it and the employee grants consent per event.</p>
   <a href="{{ route('erp.attendance', ['firmSlug'=>$firmSlug]) }}" class="mt-3 inline-flex text-xs font-bold text-amber-800 underline">View attendance history</a>
 </section>
 @endif
