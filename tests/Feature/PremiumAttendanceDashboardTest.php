@@ -174,29 +174,41 @@ class PremiumAttendanceDashboardTest extends TestCase
                 ->post('/c/wow-ca/app/policies/attendance-clock', ['half_day_warning_time' => '13:00'])
                 ->assertForbidden();
 
+            // Legacy direct setting route cannot bypass future, versioned
+            // Partner governance or change the current effective policy.
             $this->actingAs($people['partner']['user'])
                 ->post('/c/wow-ca/app/policies/attendance-clock', ['half_day_warning_time' => '13:00'])
-                ->assertRedirect();
-            $this->assertDatabaseHas('workspaces', [
-                'id' => $workspace, 'half_day_warning_time' => '13:00:00',
-            ]);
-            $this->assertDatabaseHas('tenant_audit_events', [
-                'action' => 'attendance.clock.threshold_changed',
-                'actor_membership_id' => $people['partner']['id'],
-            ]);
+                ->assertRedirect('/c/wow-ca/app/settings/hr-policies');
+            $this->assertNull(DB::table('workspaces')
+                ->where('id', $workspace)->value('half_day_warning_time'));
 
+            $this->actingAs($people['partner']['user'])
+                ->post('/c/wow-ca/app/settings/hr-policies/revisions', [
+                    'effective_date' => '2026-10-20',
+                    'office_start' => '10:00',
+                    'office_end' => '18:00',
+                    'grace_minutes' => 10,
+                    'weekly_holidays' => [5,6],
+                    'half_day_warning_time' => '13:00',
+                    'late_review_days' => 3,
+                    'grace_late_exempt' => 1,
+                    'reason' => 'Future half-day visual policy review',
+                ])->assertRedirect();
+            $this->assertDatabaseHas('workspace_hr_policy_revisions', [
+                'workspace_id' => $workspace,
+                'effective_date' => '2026-10-20',
+                'status' => 'approved',
+            ]);
+            $this->actingAs($people['student']['user'])
+                ->getJson('/c/wow-ca/app/attendance/clock')->assertOk()
+                ->assertJsonPath('clock.half_day_ms', null); // future policy
+
+            $this->travelTo(CarbonImmutable::parse('2026-10-20 10:10:01', 'Asia/Dhaka'));
             $response = $this->actingAs($people['student']['user'])
                 ->getJson('/c/wow-ca/app/attendance/clock')->assertOk();
             $schedule = $response->json('clock');
             $this->assertNotNull($schedule['half_day_ms']);
             $this->assertGreaterThan($schedule['grace_end_ms'], $schedule['half_day_ms']);
-            $this->assertSame('13:00', substr((string) DB::table('workspaces')
-                ->where('id', $workspace)->value('half_day_warning_time'), 0, 5));
-
-            $this->actingAs($people['partner']['user'])
-                ->post('/c/wow-ca/app/policies/attendance-clock', ['half_day_warning_time' => ''])
-                ->assertRedirect();
-            $this->assertNull(DB::table('workspaces')->where('id', $workspace)->value('half_day_warning_time'));
         } finally {
             $this->travelBack();
         }
