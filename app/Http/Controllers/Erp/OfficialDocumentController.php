@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\BrandIdentity;
 use App\Support\PortableDocx;
+use App\Support\OfficialTemplate;
 use App\Support\TenantOps;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +60,17 @@ final class OfficialDocumentController extends Controller
                 ->where('e.action','leave.manager_reviewed')
                 ->where('m.role','manager')
                 ->orderByDesc('e.id')->value('u.name');
+            $template=OfficialTemplate::current($company,$workspace,'leave_approval');
+            $variables=[
+                'employee_name'=>$leave->member_name,
+                'company_name'=>$profile->public_name ?: $company->name,
+                'workspace_name'=>$workspace->name,
+                'leave_from'=>$source->date_from,'leave_to'=>$source->date_to,
+                'leave_type'=>$source->leave_type,'leave_reason'=>$source->reason,
+                'approval_date'=>$source->reviewed_at,'approver_name'=>$partner,
+                'reference'=>sprintf('LEAVE-%d-%d-%06d',$company->id,$workspace->id,$source->id),
+                'issue_date'=>now($company->timezone)->toDateString(),
+            ];
             $snapshot=[
                 'company_name'=>$company->name,
                 'display_name'=>$profile->public_name ?: ($company->brand_name ?: $company->name),
@@ -77,6 +89,10 @@ final class OfficialDocumentController extends Controller
                 'manager_reviewer'=>$manager,'partner_approver'=>$partner,
                 'approved_at'=>$source->reviewed_at,
                 'decision_note'=>$source->decision_note,
+                'template_title'=>$template['title'],
+                'template_body'=>OfficialTemplate::render($template['body'],$variables),
+                'template_footer'=>OfficialTemplate::render($template['footer']??'',$variables),
+                'template_version'=>$template['version'],
             ];
             $ref=sprintf('LEAVE-%d-%d-%06d',$company->id,$workspace->id,$source->id);
             $issueId=DB::table('official_document_issues')->insertGetId([
@@ -109,6 +125,7 @@ final class OfficialDocumentController extends Controller
             ['text'=>'Period: '.$snapshot['date_from'].' through '.$snapshot['date_to']],
             ['text'=>'Charged working days: '.$snapshot['charge_days']],
             ['text'=>'Application / reason: '.$snapshot['reason']],
+            ['text'=>$snapshot['template_body']??''],
             ['text'=>'Manager review: '.($snapshot['manager_reviewer'] ?: 'Not separately recorded')],
             ['text'=>'Final approval by Partner: '.$snapshot['partner_approver']],
             ['text'=>'Approved at: '.$snapshot['approved_at']],

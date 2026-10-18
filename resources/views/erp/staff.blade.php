@@ -48,6 +48,24 @@
 <button class="rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white">Schedule Salary Change</button>
 </form>
 @endif
+@if($member->role==='student')
+<form method="POST" action="{{ route('erp.staff_certificates.issue',['firmSlug'=>$firmSlug,'memberId'=>$member->id]) }}"
+ data-corporate-confirm="Issue an immutable authorized certificate for this student? Salary certificates require a locked payroll month."
+ class="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">@csrf
+<h4 class="text-sm font-extrabold">Issue Official Certificate</h4>
+<p class="text-xs text-slate-600">An approved staff profile is mandatory. Salary Certificate also requires a locked Payroll Run. The issue is snapshotted, auditable and available in the Student's private Document Library.</p>
+<label class="block text-xs font-bold">Certificate Type
+<select name="kind" required class="mt-1 w-full rounded-lg border border-amber-300 p-2 text-xs">
+<option value="employment">Employment / Articleship Verification</option>
+<option value="salary">Verified Monthly Salary / Allowance</option>
+</select></label>
+<label class="block text-xs font-bold">Payroll Month (for salary certificate)
+<input type="month" name="period" value="{{ now($company->timezone)->format('Y-m') }}" class="mt-1 w-full rounded-lg border border-amber-300 p-2 text-xs"></label>
+<label class="block text-xs font-bold">Authorized Purpose
+<textarea name="purpose" required minlength="10" maxlength="500" rows="2" placeholder="State the approved request purpose" class="mt-1 w-full rounded-lg border border-amber-300 p-2 text-xs"></textarea></label>
+<button class="rounded-lg bg-[#17191F] px-4 py-3 text-xs font-extrabold text-[#FCDF02]">Issue Verified Certificate</button>
+</form>
+@endif
 <form method="POST" action="{{ route('erp.staff.documents.upload',['firmSlug'=>$firmSlug,'id'=>$member->id]) }}" enctype="multipart/form-data" class="space-y-3 rounded-xl border border-slate-200 p-4">@csrf
 <h4 class="text-sm font-extrabold">Secure Staff Documents</h4>
 <label class="block text-xs font-bold">Document Type

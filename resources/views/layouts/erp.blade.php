@@ -33,13 +33,15 @@
 ['label'=>'Smart HR Policy Center','name'=>'erp.hr_policies.index','icon'=>'sliders-horizontal'],
 ['label'=>'Annual Holiday Planner','name'=>'erp.annual_holidays.index','icon'=>'calendar-range'],
 ['label'=>'Company Brand Studio','name'=>'erp.brand.index','icon'=>'palette'],
+['label'=>'Document Template Studio','name'=>'erp.official_templates.index','icon'=>'file-pen-line'],
+['label'=>'Official Certificates','name'=>'erp.staff_certificates.index','icon'=>'file-badge-2'],
 ['label'=>'Notifications','name'=>'erp.notifications','icon'=>'bell'],
 ['label'=>'Settings / Security','name'=>'erp.security','icon'=>'settings-2'],
 ] as $item)
-@if($actor->role === 'manager' && $item['name'] === 'erp.payroll')
+@if($actor->role === 'manager' && in_array($item['name'],['erp.payroll','erp.staff_certificates.index'],true))
 @continue
 @endif
-@if($actor->role === 'student' && in_array($item['name'],['erp.hr_policies.index','erp.annual_holidays.index','erp.brand.index'],true))
+@if($actor->role === 'student' && in_array($item['name'],['erp.hr_policies.index','erp.annual_holidays.index','erp.brand.index','erp.official_templates.index'],true))
 @continue
 @endif
 @php($featureKey = \App\Support\StudentFeatureAccess::featureForRoute($item['name']))

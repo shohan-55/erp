@@ -126,6 +126,8 @@
 </section>
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
  <h3 class="text-base font-extrabold">Official Letter & Report Center</h3>
+ <a href="{{ route('erp.official_templates.index',['firmSlug'=>$firmSlug]) }}" class="mt-3 inline-flex rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold">Edit Official Document Templates ↗</a>
+ <a href="{{ route('erp.staff_certificates.index',['firmSlug'=>$firmSlug]) }}" class="mt-3 inline-flex rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold">Official Certificate Library ↗</a>
  <p class="mt-2 text-xs text-slate-500">After final Partner approval, Students can print or download their approved Leave Letter in Word format from Leave History. Official PDF is available via the browser's Save as PDF action.</p>
  <div class="mt-4 flex flex-wrap gap-2">
    <a href="{{ route('erp.leaves',['firmSlug'=>$firmSlug]) }}" class="rounded-xl bg-[#17191F] px-4 py-3 text-xs font-bold text-[#FCDF02]">Leave Applications →</a>

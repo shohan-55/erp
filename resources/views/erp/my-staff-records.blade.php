@@ -26,6 +26,11 @@
 <p class="mt-4 rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-950">Latest approved monthly allowance: ৳ {{ number_format((float)$latestSalary->new_amount,2) }} · Effective {{ $latestSalary->effective_month }}</p>
 @endif
 </section>
+<section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+ <h3 class="text-base font-extrabold">Official Employment & Salary Certificates</h3>
+ <p class="mt-2 text-xs text-slate-600">After Partner issue, download and print verified certificates here. Draft payroll does not qualify.</p>
+ <a href="{{ route('erp.staff_certificates.index',['firmSlug'=>$firmSlug]) }}" class="mt-3 inline-flex rounded-xl bg-[#17191F] px-5 py-3 text-xs font-bold text-[#FCDF02]">Open My Official Certificate Library →</a>
+</section>
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 <h3 class="text-base font-extrabold">My Private Documents</h3>
 @forelse($documents as $doc)
