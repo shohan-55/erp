@@ -214,4 +214,63 @@ class BrandIdentityOfficialDocumentTest extends TestCase
             $zip->close();unlink($tmp);
         }
     }
+    public function test_word_export_embeds_png_letterhead_and_logo_with_real_ooxml_relationships():void
+    {
+        $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jWeEAAAAASUVORK5CYII=');
+        $word=PortableDocx::make([
+            ['text'=>'Dhaka Corporate Branding', 'bold'=>true],
+            ['text'=>'Verified leave record for audit history'],
+        ],[
+            ['bytes'=>$png,'mime'=>'image/png'],
+            ['bytes'=>$png,'mime'=>'image/png'],
+        ]);
+        $this->assertStringStartsWith('PK',$word);
+        $this->assertStringContainsString('word/media/brand-1.png',$word);
+        $this->assertStringContainsString('word/media/brand-2.png',$word);
+        $this->assertStringContainsString('rIdBrand1',$word);
+        if(class_exists(\ZipArchive::class)){
+            $tmp=tempnam(sys_get_temp_dir(),'word').'.docx';
+            file_put_contents($tmp,$word);
+            $zip=new \ZipArchive();
+            $this->assertTrue($zip->open($tmp)===true);
+            $this->assertNotFalse($zip->getFromName('word/media/brand-1.png'));
+            $xml=$zip->getFromName('word/document.xml');
+            $rels=$zip->getFromName('word/_rels/document.xml.rels');
+            $this->assertStringContainsString('<wp:inline',$xml);
+            $this->assertStringContainsString('rIdBrand2',$rels);
+            $zip->close();unlink($tmp);
+        }
+    }
+
+    public function test_official_register_excel_is_genuine_zip_xlsx_with_formula_safe_literal_cells():void
+    {
+        [$company,$workspace,$p]=$this->fixture();
+        $approved=$this->leave($company,$workspace,$p);
+        $this->actingAs($p['student']['user'])
+            ->get('/c/brand-firm/app/documents/approved-leave/'.$approved.'/print')->assertOk();
+        $this->get('/c/brand-firm/app/documents/official-register/excel')->assertForbidden();
+        $response=$this->actingAs($p['partner']['user'])
+            ->get('/c/brand-firm/app/documents/official-register/excel')->assertOk();
+        $response->assertHeader('Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $xlsx=$response->getContent();
+        $this->assertStringStartsWith('PK',$xlsx);
+        $this->assertStringContainsString('xl/workbook.xml',$xlsx);
+        $this->assertStringContainsString('LEAVE-'.$company.'-'.$workspace,$xlsx);
+        $generated=\App\Support\PortableXlsx::make([['Name','Reference'],
+            ['=HYPERLINK("evil","click")','SAFE']]);
+        $this->assertStringContainsString('t="inlineStr"',$generated);
+        $this->assertStringNotContainsString('<f>',$generated);
+        if(class_exists(\ZipArchive::class)){
+            $tmp=tempnam(sys_get_temp_dir(),'xlsx').'.xlsx';
+            file_put_contents($tmp,$generated);
+            $zip=new \ZipArchive();
+            $this->assertTrue($zip->open($tmp)===true);
+            $xml=$zip->getFromName('xl/worksheets/sheet1.xml');
+            $this->assertStringContainsString('=HYPERLINK',$xml);
+            $this->assertStringContainsString('t="inlineStr"',$xml);
+            $zip->close();unlink($tmp);
+        }
+    }
+
 }

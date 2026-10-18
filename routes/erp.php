@@ -175,6 +175,7 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::get('/documents/approved-leave/{id}/print', [OfficialDocumentController::class,'print'])->middleware('throttle:30,1')->name('official.leave.print');
         Route::get('/documents/approved-leave/{id}/word', [OfficialDocumentController::class,'word'])->middleware('throttle:30,1')->name('official.leave.word');
         Route::get('/documents/official-register/export', [OfficialDocumentController::class,'register'])->middleware('throttle:10,1')->name('official.register.export');
+        Route::get('/documents/official-register/excel', [OfficialDocumentController::class,'registerExcel'])->middleware('throttle:10,1')->name('official.register.excel');
         Route::get('/documents', [PracticeDocumentController::class, 'index'])->name('documents');
         Route::post('/documents', [PracticeDocumentController::class, 'upload'])
             ->middleware('throttle:10,1')->name('documents.upload');
