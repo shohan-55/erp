@@ -3,6 +3,9 @@
 @section('content')
 @php($studentFeatures = \App\Support\StudentFeatureAccess::enabledMap($actor))
 @push('styles')
+  <style id="erp-corporate-workspace-style">{!! file_get_contents(public_path('css/erp-corporate-workspace.css')) !!}</style>
+@endpush
+@push('styles')
     <style id="erp-month-calendar-style">{!! file_get_contents(public_path('css/erp-month-calendar.css')) !!}</style>
 @endpush
 @push('scripts')
@@ -26,6 +29,7 @@
 @if($actor->role === 'manager' || ($actor->role === 'student' && $studentFeatures['attendance']))
 @include('erp.partials.dashboard-attendance')
 @endif
+@include('erp.partials.dashboard-work-pulse')
 @include('erp.partials.dashboard-month-calendar')
 @include('erp.partials.dashboard-action-center')
 <section class="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Live workspace metrics">
