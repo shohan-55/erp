@@ -86,6 +86,8 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/policies/workspace/override', [PolicyController::class, 'override'])->name('policies.override');
         Route::post('/policies/calendar/day', [PolicyController::class, 'dayOverride'])
             ->middleware('throttle:5,1')->name('policies.day_override');
+        Route::post('/policies/calendar/day/{id}/decision', [PolicyController::class, 'reviewDayOverride'])
+            ->middleware('throttle:5,1')->name('policies.day_review');
         Route::get('/permissions/students', [StudentPermissionController::class, 'index'])->name('permissions.index');
         Route::post('/permissions/students/{memberId}', [StudentPermissionController::class, 'updateStudent'])->middleware('throttle:30,1')->name('permissions.student');
         Route::post('/permissions/managers/{memberId}/delegation', [StudentPermissionController::class, 'delegateManager'])->middleware('throttle:15,1')->name('permissions.delegate');
