@@ -3,20 +3,12 @@
 @section('content')
 <section><p class="text-[11px] font-extrabold uppercase tracking-[.15em] text-amber-800">COMPANY POLICY · HOME PARTNER GOVERNANCE</p><h2 class="mt-1 text-2xl font-extrabold">Versioned Policies & Approvals</h2><p class="mt-2 text-sm leading-relaxed text-slate-500">Company defaults require separate unanimous Partner votes. Workspace overrides apply only to your own Partner, starting on the first day of a future month.</p></section>
 
-<section class="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm sm:p-6" aria-label="Attendance clock warning settings">
-    <p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">SMART ATTENDANCE CLOCK</p>
-    <h3 class="mt-1 text-lg font-extrabold">Visual Half-day Warning Threshold</h3>
-    <p class="mt-2 text-sm leading-relaxed text-slate-600">Late is shown immediately after the scheduled office start. Late arrivals within grace are recorded but excluded from the three-day payroll review count. Set an optional Partner-specific half-day warning time; this is a visual warning only and never generates leave or salary deductions. An incompatible special shift suppresses the warning.</p>
-    <p class="mt-3 text-xs font-semibold text-slate-700">Current warning time: {{ $workspace->half_day_warning_time ? substr($workspace->half_day_warning_time, 0, 5) : 'Not configured' }}</p>
-    @if($actor->role === 'partner')
-    <form method="POST" action="{{ route('erp.policies.attendance_clock', ['firmSlug'=>$firmSlug]) }}" class="mt-4 flex flex-wrap items-end gap-3">
-        @csrf
-        <label class="text-xs font-bold text-slate-700">Half-day warning time (optional)
-            <input name="half_day_warning_time" type="time" value="{{ $workspace->half_day_warning_time ? substr($workspace->half_day_warning_time, 0, 5) : '' }}" class="mt-2 block rounded-xl border border-slate-300 px-3 py-2.5 text-sm">
-        </label>
-        <button class="min-h-11 rounded-xl bg-[#17191F] px-5 py-2.5 text-sm font-extrabold text-white">Save warning time</button>
-    </form>
-    <p class="mt-2 text-xs text-slate-500">Clear the time and save to disable the half-day warning. This setting is audited and restricted to the Partner.</p>
+<section class="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm sm:p-6">
+    <p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">SMART HR POLICY ENGINE</p>
+    <h3 class="mt-1 text-lg font-extrabold">Centralized, versioned attendance and HR rules</h3>
+    <p class="mt-2 text-sm text-slate-600">Office hours, grace period, holidays, late review and optional half-day warnings are now configured through a separate permission-controlled Policy Center. Changes require a future effective date and are audited.</p>
+    @if(in_array($actor->role, ['partner', 'manager'], true))
+    <a href="{{ route('erp.hr_policies.index', ['firmSlug'=>$firmSlug]) }}" class="mt-4 inline-flex rounded-xl bg-[#17191F] px-5 py-3 text-sm font-extrabold text-[#FCDF02]">Open Smart HR Policy Center →</a>
     @endif
 </section>
 <section class="grid gap-3 sm:grid-cols-4">
