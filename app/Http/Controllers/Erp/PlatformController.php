@@ -195,6 +195,7 @@ class PlatformController extends Controller
                 throw ValidationException::withMessages(['workspace_slug' => 'That workspace slug already exists.']);
             }
 
+            \App\Support\SaasBilling::assertCapacity($companyId,1,1);
             $user = $this->invitedUser($email, $data['partner_name']);
 
             if (DB::table('memberships')->where('company_id', $companyId)
