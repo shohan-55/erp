@@ -2,15 +2,23 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="{{ csrf_token() }}">
 <meta name="robots" content="noindex,nofollow">
 <title>@yield('title', 'ERP Workspace') · {{ $company->brand_name ?: $company->name }}</title>
+@php($brandProfile = \App\Support\BrandIdentity::profile($company,$workspace))
 @vite(['resources/css/app.css','resources/js/app.js'])
+<style id="erp-dynamic-brand-palette">
+:root{--erp-brand-accent:{{ $brandProfile->accent_color }};--erp-brand-on-accent:{{ \App\Support\BrandIdentity::onAccent($brandProfile->accent_color) }};--erp-brand-sidebar:{{ $brandProfile->sidebar_color }}}
+.erp-branded-workspace aside.erp-brand-sidebar{background:var(--erp-brand-sidebar)!important}
+.erp-branded-workspace .erp-brand-active,.erp-branded-workspace [class~="bg-[#FCDF02]"]{background:var(--erp-brand-accent)!important;color:var(--erp-brand-on-accent)!important}
+.erp-branded-workspace [class~="text-[#FCDF02]"]{color:var(--erp-brand-accent)!important}
+.erp-branded-workspace .erp-brand-accent-border{border-color:var(--erp-brand-accent)!important}
+</style>
 <style>[x-cloak]{display:none!important}</style>@livewireStyles
 <style id="erp-corporate-workspace-style">{!! file_get_contents(public_path('css/erp-corporate-workspace.css')) !!}</style>
 @stack('styles')</head>
-<body class="min-h-screen bg-[#F6F7F9] font-sans text-[#17191F]">
+<body class="erp-branded-workspace min-h-screen bg-[#F6F7F9] font-sans text-[#17191F]">
 <div x-data="{ open:false }" class="min-h-screen">
 <div x-show="open" x-cloak @click="open=false" class="fixed inset-0 z-40 bg-slate-950/60 lg:hidden"></div>
-<aside :class="open ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 z-50 flex w-[262px] flex-col bg-[#17191F] text-white shadow-xl transition-transform lg:translate-x-0">
-<div class="flex items-center gap-3 border-b border-white/10 px-5 py-5"><div class="flex h-11 w-11 items-center justify-center rounded-xl p-1.5" style="background-color: {{ $company->brand_accent_color }}">@if($company->brand_logo_asset)<img src="{{ asset($company->brand_logo_asset) }}" alt="" class="h-full object-contain">@else<span class="text-[11px] font-extrabold text-slate-900">{{ mb_strtoupper(mb_substr($company->brand_name ?: $company->name, 0, 2)) }}</span>@endif</div><div class="min-w-0"><p class="truncate text-sm font-extrabold">{{ $company->brand_name ?: $company->name }}</p><p class="text-[10px] text-slate-400">{{ $workspace->name }}</p></div><button type="button" @click="open=false" class="ml-auto lg:hidden" aria-label="Close navigation">×</button></div>
+<aside :class="open ? 'translate-x-0' : '-translate-x-full'" class="erp-brand-sidebar fixed inset-y-0 left-0 z-50 flex w-[262px] flex-col bg-[#17191F] text-white shadow-xl transition-transform lg:translate-x-0">
+<div class="flex items-center gap-3 border-b border-white/10 px-5 py-5"><div class="flex h-11 w-11 items-center justify-center rounded-xl p-1.5" style="background-color: {{ $brandProfile->accent_color }};color:{{ \App\Support\BrandIdentity::onAccent($brandProfile->accent_color) }}">@if($brandProfile->logo_asset_id)<img src="{{ route('erp.brand.asset',['firmSlug'=>$firmSlug,'id'=>$brandProfile->logo_asset_id]) }}" alt="" class="h-full object-contain">@elseif($company->brand_logo_asset)<img src="{{ asset($company->brand_logo_asset) }}" alt="" class="h-full object-contain">@else<span class="text-[11px] font-extrabold">{{ mb_strtoupper(mb_substr($brandProfile->public_name, 0, 2)) }}</span>@endif</div><div class="min-w-0"><p class="truncate text-sm font-extrabold">{{ $brandProfile->public_name }}</p><p class="text-[10px] text-slate-400">{{ $workspace->name }}</p></div><button type="button" @click="open=false" class="ml-auto lg:hidden" aria-label="Close navigation">×</button></div>
 <div class="border-b border-white/10 p-4"><p class="text-[11px] font-bold uppercase tracking-widest text-[#FCDF02]">{{ ucfirst($actor->role) }} Workspace</p><p class="mt-1 truncate text-xs text-slate-300">{{ auth()->user()->name }}</p></div>
 @php($studentFeatures = \App\Support\StudentFeatureAccess::enabledMap($actor))
 <nav class="flex-1 space-y-1 overflow-y-auto p-3" aria-label="ERP Navigation">
@@ -24,18 +32,19 @@
 ['label'=>'Policy & Governance','name'=>'erp.policies','icon'=>'shield-check'],
 ['label'=>'Smart HR Policy Center','name'=>'erp.hr_policies.index','icon'=>'sliders-horizontal'],
 ['label'=>'Annual Holiday Planner','name'=>'erp.annual_holidays.index','icon'=>'calendar-range'],
+['label'=>'Company Brand Studio','name'=>'erp.brand.index','icon'=>'palette'],
 ['label'=>'Notifications','name'=>'erp.notifications','icon'=>'bell'],
 ['label'=>'Settings / Security','name'=>'erp.security','icon'=>'settings-2'],
 ] as $item)
 @if($actor->role === 'manager' && $item['name'] === 'erp.payroll')
 @continue
 @endif
-@if($actor->role === 'student' && in_array($item['name'],['erp.hr_policies.index','erp.annual_holidays.index'],true))
+@if($actor->role === 'student' && in_array($item['name'],['erp.hr_policies.index','erp.annual_holidays.index','erp.brand.index'],true))
 @continue
 @endif
 @php($featureKey = \App\Support\StudentFeatureAccess::featureForRoute($item['name']))
 @if($actor->role !== 'student' || ($item['name'] !== 'erp.hr_policies.index' && ($featureKey === null || ($studentFeatures[$featureKey] ?? false))))
-<a href="{{ route($item['name'], ['firmSlug'=>$firmSlug]) }}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition {{ request()->routeIs($item['name']) ? 'bg-[#FCDF02] text-[#17191F]' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
+<a href="{{ route($item['name'], ['firmSlug'=>$firmSlug]) }}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition {{ request()->routeIs($item['name']) ? 'erp-brand-active bg-[#FCDF02] text-[#17191F]' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
 <i data-lucide="{{ $item['icon'] }}" class="h-4 w-4"></i>{{ $item['label'] }}</a>
 @endif
 @endforeach
