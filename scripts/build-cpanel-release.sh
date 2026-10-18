@@ -68,5 +68,24 @@ test -f "$WEB/index.php"
 )
 
 ( cd "$DIST" && sha256sum erp-cpanel-*.zip > SHA256SUMS.txt )
+# Review manifest is nonsecret and binds the exact source commit to the package
+# checksums. These are integrity checks, NOT a signature or deployment approval.
+SOURCE_SHA="${GITHUB_SHA:-unverified-local-build}" python3 - "$DIST" <<'PY'
+import datetime, hashlib, json, os, pathlib, sys
+root=pathlib.Path(sys.argv[1])
+sha=os.environ['SOURCE_SHA']
+if sha != 'unverified-local-build' and not (len(sha)==40 and all(c in '0123456789abcdef' for c in sha.lower())):
+    raise SystemExit('Invalid reviewed Git SHA')
+files=['erp-cpanel-application.zip','erp-cpanel-split-webroot.zip']
+manifest={
+    'project':'DhakaWala ERP',
+    'source_commit_sha':sha,
+    'build_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    'artifacts_sha256':{f:hashlib.sha256((root/f).read_bytes()).hexdigest() for f in files},
+    'deployment_authorized':False,
+    'notice':'Review artifacts only. A separate staging restore, human security/UAT approval, and explicit production deployment authorization are mandatory.',
+}
+(root/'release-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+PY
 echo "Release package created: no environment file, personal data, QA seeders or database."
 echo "Do not deploy without target-account verification and signed release approval."
