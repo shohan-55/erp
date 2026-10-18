@@ -3,21 +3,24 @@
 @section('content')
 @php($studentFeatures = \App\Support\StudentFeatureAccess::enabledMap($actor))
 @if($actor->role === 'manager' || ($actor->role === 'student' && $studentFeatures['attendance']))
+    {{-- Read verified, version-controlled CSS/JS from the private Laravel application.
+         Avoid cPanel split-webroot mismatches that otherwise leave this card unstyled. --}}
     @push('styles')
-        <link rel="stylesheet" href="{{ asset('css/erp-attendance-experience.css') }}">
+        <style id="erp-attendance-style">{!! file_get_contents(public_path('css/erp-attendance-experience.css')) !!}</style>
     @endpush
     @push('scripts')
-        <script src="{{ asset('js/erp-attendance-experience.js') }}" defer></script>
+        <script id="erp-attendance-script">{!! file_get_contents(public_path('js/erp-attendance-experience.js')) !!}</script>
         @if($workspace->attendance_location_enabled)
-            <script src="{{ asset('js/erp-attendance-location.js') }}" defer></script>
+            <script id="erp-attendance-location-script">{!! file_get_contents(public_path('js/erp-attendance-location.js')) !!}</script>
         @endif
     @endpush
 @endif
 <section><p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">PRACTICE OPERATIONS</p><h2 class="mt-2 text-2xl font-extrabold sm:text-3xl">Welcome, {{ auth()->user()->name }}</h2><p class="mt-2 text-sm text-slate-500">Live statistics for {{ $workspace->name }}. {{ $actor->role === 'manager' ? 'Your assigned student team only.' : ($actor->role === 'student' ? 'Your own records only.' : 'Your own Partner workspace only.') }}</p></section>
-@include('erp.partials.dashboard-action-center')
+{{-- Attendance is the primary daily action. It must appear above the long Quick Actions grid. --}}
 @if($actor->role === 'manager' || ($actor->role === 'student' && $studentFeatures['attendance']))
 @include('erp.partials.dashboard-attendance')
 @endif
+@include('erp.partials.dashboard-action-center')
 <section class="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Live workspace metrics">
 @foreach([
 ['label'=>'Accessible Team','value'=>$stats['members'],'icon'=>'users','feature'=>null],

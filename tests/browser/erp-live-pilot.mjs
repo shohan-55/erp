@@ -64,6 +64,13 @@ try {
     // This browser suite uses an isolated temporary database seeded with fake QA users.
     await login('e2e.student@example.test');
     await page.getByRole('heading',{name:'Workspace Dashboard'}).waitFor();
+    const attendance = page.locator('.attendance-spotlight');
+    await attendance.waitFor({state:'visible'});
+    assert.equal(await attendance.evaluate(el => getComputedStyle(el).backgroundImage.includes('gradient')), true, 'Premium attendance gradients must be applied, not unstyled HTML');
+    assert.equal(await page.evaluate(() =>
+        document.querySelector('.attendance-spotlight').getBoundingClientRect().top <
+        document.querySelector('section[aria-label="Quick management actions"]').getBoundingClientRect().top
+    ), true, 'Attendance must appear above the long action grid');
     await page.screenshot({path:output+'/01-student-dashboard.png',fullPage:true});
 
     // The premium Dashboard button must NOT submit before explicit confirmation.
@@ -160,6 +167,7 @@ try {
         return drawer && drawer.getBoundingClientRect().right <= 1;
     }, null, {timeout:5000});
     await page.screenshot({path:output+'/09-student-mobile.png',fullPage:true});
+    assert.equal(await page.locator('.attendance-spotlight').evaluate(el => getComputedStyle(el).borderRadius !== '0px'), true, 'Premium card must retain mobile styling');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2),false,'390px should not overflow');
 
     await page.getByRole('button',{name:'Open navigation'}).click();
