@@ -6,6 +6,7 @@
 <h2 class="mt-1 text-2xl font-extrabold">Leave, Balances & Approvals</h2>
 <p class="mt-2 max-w-3xl text-sm text-slate-600">Students apply and can withdraw pending leave. Managers review assigned students; the Partner gives final approval. Each Partner's entitlements, working-day policy and decision records remain independent. Leave does not automatically reduce payroll.</p>
 </section>
+@include('erp.partials.module-guide',['module'=>'leave'])
 
 @if($actor->role==='student')
 <section class="space-y-4">
