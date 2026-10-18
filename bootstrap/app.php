@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'tenant.member' => \App\Http\Middleware\EnsureTenantMember::class,
+            'student.features' => \App\Http\Middleware\EnforceStudentFeatureAccess::class,
             'tenant.host' => \App\Http\Middleware\EnsureTenantHost::class,
             'platform.host' => \App\Http\Middleware\EnsurePlatformHost::class,
             'mfa.host' => \App\Http\Middleware\EnsureMfaHost::class,

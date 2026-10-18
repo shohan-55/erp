@@ -10,6 +10,7 @@ use App\Http\Controllers\Erp\PayrollController;
 use App\Http\Controllers\Erp\PasswordController;
 use App\Http\Controllers\Erp\ActivationController;
 use App\Http\Controllers\Erp\TeamController;
+use App\Http\Controllers\Erp\StudentPermissionController;
 use App\Http\Controllers\Erp\PolicyController;
 use App\Http\Controllers\Erp\PlatformController;
 use App\Http\Controllers\Erp\PlatformManagementController;
@@ -55,7 +56,7 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/workspaces/select', [WorkspaceSwitchController::class, 'select'])
             ->middleware('throttle:10,1')->name('workspaces.select');
     });
-    Route::middleware(['auth', 'tenant.member', 'mfa.verified'])->group(function () {
+    Route::middleware(['auth', 'tenant.member', 'mfa.verified', 'student.features'])->group(function () {
         Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
         Route::get('/settings/security', [SecurityController::class, 'index'])->name('security');
         Route::post('/settings/security/mfa/disable', [SecurityController::class, 'disableMfa'])
@@ -85,6 +86,9 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/policies/workspace/override', [PolicyController::class, 'override'])->name('policies.override');
         Route::post('/policies/calendar/day', [PolicyController::class, 'dayOverride'])
             ->middleware('throttle:5,1')->name('policies.day_override');
+        Route::get('/permissions/students', [StudentPermissionController::class, 'index'])->name('permissions.index');
+        Route::post('/permissions/students/{memberId}', [StudentPermissionController::class, 'updateStudent'])->middleware('throttle:30,1')->name('permissions.student');
+        Route::post('/permissions/managers/{memberId}/delegation', [StudentPermissionController::class, 'delegateManager'])->middleware('throttle:15,1')->name('permissions.delegate');
         Route::get('/team', [TeamController::class, 'index'])->name('team');
         Route::post('/team/invite', [TeamController::class, 'invite'])->middleware('throttle:10,1')->name('team.invite');
         Route::post('/team/{id}/resend', [TeamController::class, 'resend'])->middleware('throttle:5,1')->name('team.resend');
