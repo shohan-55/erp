@@ -29,7 +29,7 @@ DhakaWala owns the software. CA firms (such as RA&C if onboarded) are customers.
 
 The precise reviewed Git commit must pass:
 1. PHPUnit, dependency audits, production Vite build and authenticated browser QA.
-2. MySQL 8 fresh schema migration, full PHPUnit, the read-only commands erp:db:check, erp:integrity:check, erp:billing:check.
+2. MySQL 8 fresh schema migration, full PHPUnit, the read-only commands erp:db:check, erp:integrity:check, erp:billing:check, erp:tenant:check.
 3. cPanel private Laravel ZIP and separate public-webroot ZIP; SHA256SUMS.txt; release-manifest.json; verify package checksums and reviewed GITHUB_SHA.
 
 The release manifest explicitly records deployment_authorized=false. It is a checksum/integrity report, not a signature or a go-live approval. Freeze an actual all-green reviewed merge SHA and build matching release artifacts when final human gates have been met.
@@ -55,13 +55,13 @@ ANY missing evidence means Production NO-GO. Green CI, staging CLI checks and ar
 
 In the private /home/erpdhakawala/erp-app directory, before deployment or migration, inspect the commands and environment:
 
-    php artisan erp:hosting:check && php artisan erp:release:check && php artisan erp:db:check && php artisan erp:integrity:check && php artisan erp:billing:check && php artisan migrate:status
+    php artisan erp:hosting:check && php artisan erp:release:check && php artisan erp:db:check && php artisan erp:integrity:check && php artisan erp:billing:check && php artisan erp:tenant:check && php artisan migrate:status
 
 If migrations are pending, the schema check correctly reports not ready. Never migrate live merely to silence a check.
 
 On a separate, authorized staging restore ONLY, review migrations and then use:
 
-    php artisan migrate --force && php artisan erp:db:check && php artisan erp:integrity:check && php artisan erp:billing:check && php artisan erp:release:check
+    php artisan migrate --force && php artisan erp:db:check && php artisan erp:integrity:check && php artisan erp:billing:check && php artisan erp:tenant:check && php artisan erp:release:check
 
 Never paste passwords, APP_KEY, authentication codes, payment references or private audit records in chat/GitHub.
 
