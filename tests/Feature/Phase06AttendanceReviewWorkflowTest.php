@@ -64,7 +64,7 @@ class Phase06AttendanceReviewWorkflowTest extends TestCase
         ]);
     }
 
-    private function session(int $company,object $student,?string $end=null): int
+    private function seedAttendanceSession(int $company,object $student,?string $end=null): int
     {
         return DB::table('attendance_sessions')->insertGetId([
             'company_id'=>$company,'workspace_id'=>$student->workspace,'membership_id'=>$student->id,
@@ -79,7 +79,7 @@ class Phase06AttendanceReviewWorkflowTest extends TestCase
         $this->setClock();
         try {
             [$company,$p]=$this->fixture();
-            $session=$this->session($company,$p['partner-a']['student']);
+            $session=$this->seedAttendanceSession($company,$p['partner-a']['student']);
             $this->submitCheckout($p['partner-a']['student'],$session)->assertRedirect();
             $request=DB::table('attendance_review_requests')->first();
             $this->assertSame('pending',$request->status);
@@ -161,7 +161,7 @@ class Phase06AttendanceReviewWorkflowTest extends TestCase
         $this->setClock();
         try {
             [$company,$p]=$this->fixture();
-            $session=$this->session($company,$p['partner-a']['student']);
+            $session=$this->seedAttendanceSession($company,$p['partner-a']['student']);
             $this->submitCheckout($p['partner-a']['student'],$session)->assertRedirect();
             $row=DB::table('attendance_review_requests')->first();
             $url="/c/demo-ca/app/attendance/reviews/{$row->id}/decision";
@@ -228,7 +228,7 @@ class Phase06AttendanceReviewWorkflowTest extends TestCase
         $this->setClock();
         try {
             [$company,$p]=$this->fixture();
-            $session=$this->session($company,$p['partner-a']['student']);
+            $session=$this->seedAttendanceSession($company,$p['partner-a']['student']);
             $this->submitCheckout($p['partner-a']['student'],$session)->assertRedirect();
             $row=DB::table('attendance_review_requests')->first();
             DB::table('payroll_runs')->insert([
