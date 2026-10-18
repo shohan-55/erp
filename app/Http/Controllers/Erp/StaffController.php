@@ -78,6 +78,24 @@ class StaffController extends Controller
             ->header('Cache-Control','private, no-store, max-age=0');
     }
 
+    public function myRecords(Request $request,string $firmSlug)
+    {
+        [$company,$workspace,$actor]=TenantOps::context($request);
+        TenantOps::requireRole($actor,['manager','student']);
+        $profile=DB::table('staff_profiles')->where('company_id',$company->id)
+            ->where('workspace_id',$workspace->id)->where('membership_id',$actor->id)->first();
+        $documents=DB::table('staff_documents')->where('company_id',$company->id)
+            ->where('workspace_id',$workspace->id)->where('membership_id',$actor->id)
+            ->latest('id')->get();
+        $latestSalary=$actor->role==='student'
+            ? DB::table('staff_compensation_changes')->where('company_id',$company->id)
+                ->where('workspace_id',$workspace->id)->where('membership_id',$actor->id)
+                ->orderByDesc('effective_month')->first() : null;
+        return response()->view('erp.my-staff-records',compact(
+            'company','workspace','actor','firmSlug','profile','documents','latestSalary'
+        ))->header('Cache-Control','private, no-store, max-age=0');
+    }
+
     public function profile(Request $request,string $firmSlug,int $id)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
