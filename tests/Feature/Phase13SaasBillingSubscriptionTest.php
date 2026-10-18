@@ -257,6 +257,53 @@ class Phase13SaasBillingSubscriptionTest extends TestCase
         $this->assertDatabaseCount('saas_invoices',1);
     }
 
+    public function test_plan_capacity_enforced_for_platform_partner_and_tenant_invitations():void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        [$firm,,$partner]=$this->firm('seat-limit');
+        $this->actingAs($this->operator());
+        $this->post('/platform/app/billing/plans',[
+            'code'=>'one_seat','name'=>'Single Seat Plan','monthly_bdt'=>'250.00',
+            'max_partner_workspaces'=>1,'max_members'=>1,'custom_domain_enabled'=>0,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $plan=(int)DB::table('saas_plans')->where('code','one_seat')->value('id');
+        $this->subscribe($firm,$plan);
+        $this->post("/platform/app/companies/$firm/partners",[
+            'workspace_slug'=>'partner-two','workspace_name'=>'Partner Two',
+            'partner_name'=>'Another Business Partner',
+            'partner_email'=>'another_partner@example.test',
+        ])->assertSessionHasErrors('workspace_slug');
+        $this->post("/platform/app/companies/$firm/members",[
+            'workspace_id'=>DB::table('workspaces')->where('company_id',$firm)->value('id'),
+            'name'=>'Additional Audit Student',
+            'email'=>'blocked-student@example.test','role'=>'student',
+        ])->assertSessionHasErrors('email');
+        $this->actingAs($partner)->post('/c/seat-limit/app/team/invite',[
+            'name'=>'A New Audit Student','email'=>'seat-full@example.test',
+            'role'=>'student','monthly_allowance'=>'8000',
+        ])->assertSessionHasErrors('email');
+        $this->assertDatabaseCount('memberships',1);
+        $this->assertDatabaseCount('workspaces',1);
+    }
+
+    public function test_retired_plan_still_allows_renewal_for_existing_subscriber():void
+    {
+        [$firm]=$this->firm('retained');
+        $this->actingAs($this->operator());
+        $plan=$this->plan('v1');
+        $this->subscribe($firm,$plan);
+        $this->post("/platform/app/billing/plans/$plan/availability",[
+            'available'=>0,
+        ])->assertRedirect();
+        $invoice=$this->invoice($firm);
+        $this->assertDatabaseHas('saas_invoices',[
+            'id'=>$invoice,'total_amount'=>'1000.00','status'=>'pending',
+        ]);
+        $this->post("/platform/app/companies/$firm/subscription",[
+            'plan_id'=>$plan,'grace_days'=>7,
+        ])->assertSessionHasErrors('plan_id');
+    }
+
     public function test_unfunded_or_no_domain_plan_prevents_new_domain_activation_without_disabling_existing():void
     {
         [$firm]=$this->firm('domain-firm');
