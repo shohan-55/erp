@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\PolicyResolver;
+use App\Support\WorkCalendar;
 use App\Support\TenantOps;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -38,7 +39,21 @@ class PolicyController extends Controller
             ->where('workspace_id', $workspace->id)
             ->orderByDesc('work_date')->orderByDesc('id')->limit(30)->get();
 
-        return view('erp.policies', compact('company', 'workspace', 'actor', 'firmSlug', 'effectivePolicy', 'proposals', 'votes', 'overrides', 'dayOverrides'));
+        // The upcoming schedule is computed server-side from approved decisions
+        // only. Pending Manager proposals never change these published hours.
+        $calendarPreview = collect(range(1, 14))->map(function (int $offset) use ($company, $workspace) {
+            $date = CarbonImmutable::now($company->timezone)->startOfDay()
+                ->addDays($offset)->toDateString();
+            $base = PolicyResolver::forDate($company, $workspace, $date);
+            $weekly = is_array($base['weekly_holidays']) ? $base['weekly_holidays'] : [5, 6];
+            $day = WorkCalendar::forDate($company, $workspace, $date, $weekly, $base);
+            return ['date' => $date, 'day' => CarbonImmutable::parse($date)->format('D'), ...$day];
+        });
+
+        return view('erp.policies', compact(
+            'company', 'workspace', 'actor', 'firmSlug', 'effectivePolicy',
+            'proposals', 'votes', 'overrides', 'dayOverrides', 'calendarPreview'
+        ));
     }
 
     public function propose(Request $request, string $firmSlug)
