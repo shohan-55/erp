@@ -81,6 +81,33 @@ try {
     const clockResponse = await page.request.get(baseUrl+'/c/rac/app/attendance/clock');
     assert.equal(clockResponse.status(),200,'Authenticated clock sync must return the server schedule');
     assert.equal((await clockResponse.json()).clock.timezone,'Asia/Dhaka');
+
+    // Personalized work pulse and saved shortcuts remain within the student's
+    // existing authorized routes; no secret or salary data is stored in browser.
+    const pulse = page.locator('.erp-work-pulse');
+    await pulse.waitFor();
+    await pulse.getByText('My leave requests').waitFor();
+    const finder = page.locator('[data-corporate-action-center]');
+    await finder.waitFor();
+    const quickSearch = finder.locator('[data-corporate-action-search]');
+    await quickSearch.fill('leave');
+    const filteredCards = finder.locator('[data-corporate-action]:visible');
+    assert.equal(await filteredCards.count() >= 1, true, 'Search should display matching authorized actions');
+    await filteredCards.first().locator('[data-corporate-pin]').click();
+    await finder.getByRole('button',{name:'Pinned',exact:true}).click();
+    assert.equal(await filteredCards.count(),1,'Pinned shortcuts must be available in one click');
+    await finder.getByRole('button',{name:'All',exact:true}).click();
+    await quickSearch.fill('');
+    assert.equal(await filteredCards.count()>=4,true,'Clearing search must restore authorized shortcuts');
+    const allMonths = page.getByRole('link',{name:'Explore all months ↗'});
+    await allMonths.click();
+    await page.getByRole('heading',{name:'Workforce Calendar'}).waitFor();
+    await page.getByText('Jump to month').waitFor();
+    const csv = await page.request.get(page.url().replace('/calendar','/calendar/export'));
+    assert.equal(csv.status(),200,'Authorized personal calendar CSV must download');
+    assert.match(csv.headers()['content-type']||'',/text\/csv/);
+    await page.goBack({waitUntil:'networkidle'});
+
     // Dynamic watermark must be behind readable day cells; clicking a date opens
     // a read-only, keyboard-accessible detail dialog.
     const calendar=page.locator('.erp-month-calendar');
