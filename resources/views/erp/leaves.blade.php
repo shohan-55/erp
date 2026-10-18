@@ -123,6 +123,12 @@
 <button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">{{ $actor->role==='manager' ? 'Review' : 'Approve' }}</button>
 <button name="decision" value="reject" class="rounded-lg bg-rose-700 px-3 py-2 text-xs font-bold text-white">Reject</button></form>
 @endif
+@if($row->status==='approved')
+<div class="flex flex-wrap gap-2" aria-label="Approved leave letter downloads">
+  <a href="{{ route('erp.official.leave.print',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" class="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-extrabold text-emerald-900">Print / Save PDF</a>
+  <a href="{{ route('erp.official.leave.word',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-extrabold text-slate-800">Download Word</a>
+</div>
+@endif
 @if($actor->role==='student' && in_array($row->status,['pending','manager_reviewed']))
 <form action="{{ route('erp.leaves.withdraw',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST">@csrf
 <button class="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-900">Withdraw Pending Request</button>
