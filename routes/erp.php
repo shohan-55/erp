@@ -8,6 +8,7 @@ use App\Http\Controllers\Erp\AttendanceReportController;
 use App\Http\Controllers\Erp\AttendanceReconciliationController;
 use App\Http\Controllers\Erp\AttendanceReviewController;
 use App\Http\Controllers\Erp\WorkflowController;
+use App\Http\Controllers\Erp\ExpenseManagementController;
 use App\Http\Controllers\Erp\LeaveController;
 use App\Http\Controllers\Erp\LeavePolicyController;
 use App\Http\Controllers\Erp\PayrollController;
@@ -89,6 +90,12 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/claims', [WorkflowController::class, 'submitClaim'])->name('claims.submit');
         Route::get('/claims/{id}/receipt', [WorkflowController::class, 'receipt'])->name('claims.receipt');
         Route::post('/claims/{id}/decision', [WorkflowController::class, 'decideClaim'])->name('claims.decide');
+        Route::post('/claims/{id}/withdraw', [ExpenseManagementController::class, 'withdraw'])
+            ->middleware('throttle:10,1')->name('claims.withdraw');
+        Route::post('/claims/policy', [ExpenseManagementController::class, 'savePolicy'])
+            ->middleware('throttle:5,1')->name('claims.policy');
+        Route::get('/claims/export', [ExpenseManagementController::class, 'export'])
+            ->middleware('throttle:10,1')->name('claims.export');
         Route::get('/payroll', [PayrollController::class, 'index'])->name('payroll');
         Route::post('/payroll', [PayrollController::class, 'generate'])->name('payroll.generate');
         Route::post('/payroll/{runId}/transition', [PayrollController::class, 'advance'])->name('payroll.advance');
