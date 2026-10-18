@@ -15,7 +15,7 @@
   <p class="mt-2 text-xs text-slate-600">You may use any of the following exactly as written. HTML, arbitrary code and unknown placeholders will be rejected. Values are pulled from approved records and XML/HTML escaped during export.</p>
   <div class="mt-3 flex flex-wrap gap-2">
     @foreach(\App\Support\OfficialTemplate::TOKENS as $token)
-      <code class="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs text-slate-700">@{{ '{{'.$token.'}}' }}</code>
+      <code class="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs text-slate-700">{!! '&#123;&#123;'.e($token).'&#125;&#125;' !!}</code>
     @endforeach
   </div>
 </section>
