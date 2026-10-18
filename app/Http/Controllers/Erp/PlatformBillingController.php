@@ -33,7 +33,7 @@ class PlatformBillingController extends Controller
         $d=$request->validate([
             'code'=>['required','regex:/^[a-z][a-z0-9_-]{1,49}$/'],
             'name'=>['required','string','min:3','max:120'],
-            'monthly_bdt'=>['required','numeric','between:0,99999999','decimal:0,2'],
+            'monthly_bdt'=>['required','numeric','between:1,99999999','decimal:0,2'],
             'max_partner_workspaces'=>['required','integer','between:1,500'],
             'max_members'=>['required','integer','between:1,100000'],
             'custom_domain_enabled'=>['required','boolean'],
