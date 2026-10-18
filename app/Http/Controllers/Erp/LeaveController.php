@@ -116,7 +116,7 @@ class LeaveController extends Controller
                     $input['leave_type'].' leave ('.$days.' day(s)) is pending review.');
             }
         },3);
-        return back()->with('success','Leave submitted with reserved balance, pending authorization.');
+        return back()->with('success','Leave request submitted for review.');
     }
 
     public function decide(Request $request,string $firmSlug,int $id)
@@ -174,7 +174,7 @@ class LeaveController extends Controller
                 }
             }
         },3);
-        return back()->with('success','Leave decision recorded.');
+        return back()->with('success','Leave review recorded.');
     }
 
     public function withdraw(Request $request,string $firmSlug,int $id)
