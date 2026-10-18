@@ -81,7 +81,7 @@ class PremiumAttendanceDashboardTest extends TestCase
                 'company_id' => $company,
                 'workspace_id' => $workspace,
                 'membership_id' => $manager['id'],
-                'late' => 1, 'holiday' => 0, 'ended_at' => null,
+                'late' => 1, 'late_within_grace' => 0, 'holiday' => 0, 'ended_at' => null,
             ]);
             $this->assertDatabaseMissing('attendance_sessions', [
                 'membership_id' => $people['student']['id'],
@@ -104,9 +104,43 @@ class PremiumAttendanceDashboardTest extends TestCase
         }
     }
 
-    public function test_student_on_time_result_and_partner_denied_self_punch(): void
+    public function test_student_grace_arrival_is_visibly_late_but_exempt_from_three_day_count(): void
     {
         $this->travelTo(CarbonImmutable::parse('2026-10-19 10:05:00', 'Asia/Dhaka'));
+        try {
+            [$company, $workspace, $people] = $this->fixture();
+            $student = $people['student'];
+            $this->actingAs($student['user'])
+                ->from('/c/wow-ca/app')
+                ->post('/c/wow-ca/app/attendance/check-in', ['work_mode' => 'office'])
+                ->assertRedirect('/c/wow-ca/app')
+                ->assertSessionHas('attendance_result.late', true)
+                ->assertSessionHas('attendance_result.within_grace', true);
+
+            $this->assertDatabaseHas('attendance_sessions', [
+                'membership_id' => $student['id'], 'late' => 1, 'late_within_grace' => 1,
+            ]);
+            $this->assertSame(0, \App\Support\AttendanceClock::qualifyingLateDays(
+                DB::table('companies')->find($company), DB::table('workspaces')->find($workspace),
+                (object) ['id' => $student['id']], '2026-10-19'
+            ));
+            $this->get('/c/wow-ca/app')->assertOk()
+                ->assertSeeText('Late, but within your grace window.')
+                ->assertSeeText('LATE WITHIN GRACE · NOT COUNTED');
+
+            $this->actingAs($people['partner']['user'])
+                ->post('/c/wow-ca/app/attendance/check-in', ['work_mode' => 'office'])
+                ->assertForbidden();
+            $this->assertDatabaseCount('attendance_sessions', 1);
+            $this->assertDatabaseCount('payroll_line_adjustments', 0);
+        } finally {
+            $this->travelBack();
+        }
+    }
+
+    public function test_attendance_before_office_start_is_not_late(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-10-19 09:59:00', 'Asia/Dhaka'));
         try {
             [, , $people] = $this->fixture();
             $this->actingAs($people['student']['user'])
@@ -114,17 +148,71 @@ class PremiumAttendanceDashboardTest extends TestCase
                 ->post('/c/wow-ca/app/attendance/check-in', ['work_mode' => 'office'])
                 ->assertRedirect('/c/wow-ca/app')
                 ->assertSessionHas('attendance_result.late', false);
-            $this->get('/c/wow-ca/app')->assertOk()
-                ->assertSeeText('You are officially checked in!')
-                ->assertDontSeeText('LATE ARRIVAL RECORDED');
-
-            $this->actingAs($people['partner']['user'])
-                ->post('/c/wow-ca/app/attendance/check-in', ['work_mode' => 'office'])
-                ->assertForbidden();
-            $this->assertDatabaseCount('attendance_sessions', 1);
+            $this->assertDatabaseHas('attendance_sessions', [
+                'membership_id' => $people['student']['id'], 'late' => 0, 'late_within_grace' => 0,
+            ]);
         } finally {
             $this->travelBack();
         }
+    }
+
+
+    public function test_clock_endpoint_uses_real_server_time_and_partner_approved_half_day_warning(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-10-19 10:10:01', 'Asia/Dhaka'));
+        try {
+            [$company, $workspace, $people] = $this->fixture();
+
+            $this->actingAs($people['student']['user'])
+                ->getJson('/c/wow-ca/app/attendance/clock')->assertOk()
+                ->assertJsonPath('clock.timezone', 'Asia/Dhaka')
+                ->assertJsonPath('clock.grace_minutes', 10)
+                ->assertJsonPath('clock.half_day_ms', null)
+                ->assertJsonPath('qualifying_late_days', 0);
+
+            $this->actingAs($people['manager']['user'])
+                ->post('/c/wow-ca/app/policies/attendance-clock', ['half_day_warning_time' => '13:00'])
+                ->assertForbidden();
+
+            $this->actingAs($people['partner']['user'])
+                ->post('/c/wow-ca/app/policies/attendance-clock', ['half_day_warning_time' => '13:00'])
+                ->assertRedirect();
+            $this->assertDatabaseHas('workspaces', [
+                'id' => $workspace, 'half_day_warning_time' => '13:00:00',
+            ]);
+            $this->assertDatabaseHas('tenant_audit_events', [
+                'action' => 'attendance.clock.threshold_changed',
+                'actor_membership_id' => $people['partner']['id'],
+            ]);
+
+            $response = $this->actingAs($people['student']['user'])
+                ->getJson('/c/wow-ca/app/attendance/clock')->assertOk();
+            $schedule = $response->json('clock');
+            $this->assertNotNull($schedule['half_day_ms']);
+            $this->assertGreaterThan($schedule['grace_end_ms'], $schedule['half_day_ms']);
+            $this->assertSame('13:00', substr((string) DB::table('workspaces')
+                ->where('id', $workspace)->value('half_day_warning_time'), 0, 5));
+
+            $this->actingAs($people['partner']['user'])
+                ->post('/c/wow-ca/app/policies/attendance-clock', ['half_day_warning_time' => ''])
+                ->assertRedirect();
+            $this->assertNull(DB::table('workspaces')->where('id', $workspace)->value('half_day_warning_time'));
+        } finally {
+            $this->travelBack();
+        }
+    }
+
+    public function test_grace_endpoint_is_inaccessible_to_other_firm_and_respects_feature_gate(): void
+    {
+        [$company, $workspace, $people] = $this->fixture();
+        DB::table('student_feature_controls')->insert([
+            'company_id' => $company, 'workspace_id' => $workspace,
+            'membership_id' => $people['student']['id'],
+            'feature_key' => 'attendance', 'partner_enabled' => false,
+            'manager_enabled' => true, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->actingAs($people['student']['user'])
+            ->getJson('/c/wow-ca/app/attendance/clock')->assertForbidden();
     }
 
     public function test_disabled_student_attendance_has_no_dashboard_punch(): void
