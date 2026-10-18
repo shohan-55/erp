@@ -81,6 +81,19 @@ try {
     const clockResponse = await page.request.get(baseUrl+'/c/rac/app/attendance/clock');
     assert.equal(clockResponse.status(),200,'Authenticated clock sync must return the server schedule');
     assert.equal((await clockResponse.json()).clock.timezone,'Asia/Dhaka');
+    // Dynamic watermark must be behind readable day cells; clicking a date opens
+    // a read-only, keyboard-accessible detail dialog.
+    const calendar=page.locator('.erp-month-calendar');
+    await calendar.waitFor({state:'visible'});
+    assert.equal(await calendar.locator('.erp-month-calendar__day').count()>=28,true,'Current month day cells must render');
+    assert.equal(await calendar.locator('.erp-month-calendar__watermark').count(),1,'Company watermark should render');
+    assert.equal(await calendar.evaluate(el=>getComputedStyle(el).backgroundImage.includes('gradient')),true,'Calendar should be premium-styled');
+    await calendar.locator('[data-calendar-day]').first().click();
+    await page.locator('[data-calendar-dialog][open]').waitFor();
+    assert.match(await page.locator('[data-calendar-modal-date]').textContent(),/^\\d{4}-\\d{2}-\\d{2}$/);
+    await page.getByRole('button',{name:'Done',exact:true}).click();
+    assert.equal(await page.locator('[data-calendar-dialog][open]').count(),0,'Calendar dialog must close');
+
 
     assert.equal(await page.evaluate(() =>
         document.querySelector('.attendance-spotlight').getBoundingClientRect().top <
@@ -196,6 +209,8 @@ try {
     assert.equal(await page.locator('.attendance-spotlight').evaluate(el => getComputedStyle(el).borderRadius !== '0px'), true, 'Premium card must retain mobile styling');
     await page.locator('[data-attendance-clock-time]').waitFor();
     assert.equal(await page.locator('[data-attendance-clock]').evaluate(el=>el.getBoundingClientRect().width <= window.innerWidth),true,'Mobile digital clock must not overflow');
+    assert.equal(await page.locator('.erp-month-calendar').evaluate(el=>el.getBoundingClientRect().width<=window.innerWidth),true,'Premium calendar must fit mobile');
+
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2),false,'390px should not overflow');
 
     await page.getByRole('button',{name:'Open navigation'}).click();
