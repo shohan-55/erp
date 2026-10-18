@@ -195,6 +195,10 @@ class Phase13SaasBillingSubscriptionTest extends TestCase
         $this->post("/platform/app/companies/$firm/payments/$first/decide",[
             'decision'=>'reject','operator_note'=>'No funds found in matching settlement.',
         ])->assertRedirect();
+        $this->assertDatabaseHas('saas_payments',['id'=>$first,'status'=>'rejected']);
+        // The deliberate overpayment failure flashes an error bag; clear only
+        // the test session before asserting a fresh successful request.
+        $this->withSession(['errors'=>new \Illuminate\Support\ViewErrorBag()]);
         $retry=$this->record($firm,$invoice,'BANK-REF-0042','1000.00');
         $this->post("/platform/app/companies/$firm/payments/$retry/decide",[
             'decision'=>'approve','operator_note'=>'Unchecked, unauthorized settlement.',
