@@ -191,7 +191,7 @@ class PlatformBillingController extends Controller
         $d=$request->validate([
             'decision'=>['required','in:approve,reject'],
             'operator_note'=>['required','string','min:12','max:1000'],
-            'verified_externally'=>['required_if:decision,approve','nullable','accepted'],
+            'verified_externally'=>['accepted_if:decision,approve'],
         ]);
         DB::transaction(function()use($companyId,$paymentId,$d){
             $company=DB::table('companies')->where('id',$companyId)->lockForUpdate()->first();
