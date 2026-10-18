@@ -71,6 +71,9 @@ final class DashboardOverview
                 $make('Audit Engagements', 'Partner clients, audit teams and budgets', 'erp.engagements', 'briefcase-business'),
                 $make('Timesheet Approvals', 'Approve engagement working hours', 'erp.timesheets', 'clock-3'),
                 $make('Attendance Report', 'Review workspace attendance', 'erp.attendance.report', 'calendar-check-2'),
+                $make('Practice Reports', 'Consolidated private monthly reporting', 'erp.reports.practice', 'chart-no-axes-combined'),
+                $make('Publish Notices', 'Send messages to your own practice', 'erp.notices', 'megaphone'),
+                $make('Document Center', 'Secure Partner and employee files', 'erp.documents', 'folder-lock'),
                 $make('Notifications', 'Read your private messages', 'erp.notifications', 'bell'),
             ];
         }
@@ -82,6 +85,7 @@ final class DashboardOverview
                 $make('Audit Engagements', 'Your team client assignments', 'erp.engagements', 'briefcase-business'),
                 $make('Team Timesheets', 'Review assigned students and own work hours', 'erp.timesheets', 'clock-3'),
                 $make('Notifications', 'Follow up on team approvals', 'erp.notifications', 'bell'),
+                $make('Document Center', 'Own and assigned-team secure documents', 'erp.documents', 'folder-lock'),
                 $make('My Staff Records', 'Private employment and document records', 'erp.staff.my_records', 'file-user'),
             ];
             if ((bool) $actor->can_manage_student_features) {
@@ -100,6 +104,7 @@ final class DashboardOverview
             $make('My Engagements', 'See assigned audit clients and assignments', 'erp.engagements', 'briefcase-business', 'timesheets'),
             $make('My Timesheets', 'Submit audit work hours for review', 'erp.timesheets', 'clock-3', 'timesheets'),
             $make('Notifications', 'Read your own notices', 'erp.notifications', 'bell', 'notifications'),
+            $make('My Shared Documents', 'Access private practice documents shared with you', 'erp.documents', 'folder-lock'),
             $make('Account Security', 'Manage account protection', 'erp.security', 'shield-check'),
             $make('My Staff Records', 'My articleship, employment and private documents', 'erp.staff.my_records', 'file-user'),
         ];
