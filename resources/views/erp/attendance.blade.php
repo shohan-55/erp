@@ -6,6 +6,7 @@
 @endif
 <a class="mt-3 inline-flex rounded-xl border border-amber-300 px-4 py-2 text-sm font-bold text-amber-950" href="{{ route('erp.attendance.reviews',['firmSlug'=>$firmSlug]) }}">Attendance & Client Duty Requests</a>
 </section>
+@include('erp.partials.module-guide',['module'=>'attendance'])
 @if($actor->role === 'student')
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
 <h3 class="text-base font-extrabold">{{ $openSession ? 'Current active session' : 'Start a new work session' }}</h3>
