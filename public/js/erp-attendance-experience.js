@@ -64,7 +64,9 @@
           progress = clamp((nowMs - schedule.start_ms) / Math.max(1000, schedule.grace_end_ms - schedule.start_ms));
           accent = [Math.round(34 + 200*progress), Math.round(197 - 18*progress), Math.round(94 - 86*progress)];
           message = 'Late · Within grace';
-          context = 'Late is visible now, but this arrival is excluded from the 3-day review count.';
+          context = schedule.grace_late_exempt
+            ? 'Late is visible, but arrival within grace is exempt from the '+schedule.late_review_days+'-day review count.'
+            : 'Your firm includes grace arrivals in its '+schedule.late_review_days+'-day review count.';
         } else if (nowMs > schedule.grace_end_ms) {
           const end = schedule.half_day_ms ?? schedule.office_end_ms;
           progress = clamp((nowMs - schedule.grace_end_ms) / Math.max(1000, end - schedule.grace_end_ms));
@@ -73,7 +75,7 @@
           message = stage === 'half' ? 'Half-day warning threshold reached' : 'Late · Grace period ended';
           context = stage === 'half'
             ? 'Visual alert only. Half-day leave or payroll action needs an approved decision.'
-            : 'After-grace arrival may count toward the 3-day review; salary is never deducted automatically.';
+            : 'An after-grace arrival may count toward the '+schedule.late_review_days+'-day review; salary is never deducted automatically.';
         }
         clock.classList.remove(...phaseClasses);
         clock.classList.add('attendance-clock--'+stage);
