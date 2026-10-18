@@ -10,6 +10,7 @@
 <aside :class="open ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 z-50 flex w-[262px] flex-col bg-[#17191F] text-white shadow-xl transition-transform lg:translate-x-0">
 <div class="flex items-center gap-3 border-b border-white/10 px-5 py-5"><div class="flex h-11 w-11 items-center justify-center rounded-xl p-1.5" style="background-color: {{ $company->brand_accent_color }}">@if($company->brand_logo_asset)<img src="{{ asset($company->brand_logo_asset) }}" alt="" class="h-full object-contain">@else<span class="text-[11px] font-extrabold text-slate-900">{{ mb_strtoupper(mb_substr($company->brand_name ?: $company->name, 0, 2)) }}</span>@endif</div><div class="min-w-0"><p class="truncate text-sm font-extrabold">{{ $company->brand_name ?: $company->name }}</p><p class="text-[10px] text-slate-400">{{ $workspace->name }}</p></div><button type="button" @click="open=false" class="ml-auto lg:hidden" aria-label="Close navigation">×</button></div>
 <div class="border-b border-white/10 p-4"><p class="text-[11px] font-bold uppercase tracking-widest text-[#FCDF02]">{{ ucfirst($actor->role) }} Workspace</p><p class="mt-1 truncate text-xs text-slate-300">{{ auth()->user()->name }}</p></div>
+@php($studentFeatures = \App\Support\StudentFeatureAccess::enabledMap($actor))
 <nav class="flex-1 space-y-1 overflow-y-auto p-3" aria-label="ERP Navigation">
 @foreach([
 ['label'=>'Dashboard','name'=>'erp.dashboard','icon'=>'layout-dashboard'],
@@ -21,10 +22,16 @@
 ['label'=>'Notifications','name'=>'erp.notifications','icon'=>'bell'],
 ['label'=>'Settings / Security','name'=>'erp.security','icon'=>'settings-2'],
 ] as $item)
+@php($featureKey = \App\Support\StudentFeatureAccess::featureForRoute($item['name']))
+@if($actor->role !== 'student' || $featureKey === null || ($studentFeatures[$featureKey] ?? false))
 <a href="{{ route($item['name'], ['firmSlug'=>$firmSlug]) }}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition {{ request()->routeIs($item['name']) ? 'bg-[#FCDF02] text-[#17191F]' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
 <i data-lucide="{{ $item['icon'] }}" class="h-4 w-4"></i>{{ $item['label'] }}</a>
+@endif
 @endforeach
 </nav>
+@if($actor->role === 'partner' || ($actor->role === 'manager' && $actor->can_manage_student_features))
+<a href="{{ route('erp.permissions.index', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-[#FCDF02] hover:bg-white/10"><i data-lucide="shield-check" class="h-4 w-4"></i>Student Permissions</a>
+@endif
 @if($actor->role === 'partner')
 <a href="{{ route('erp.team', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"><i data-lucide="users-round" class="h-4 w-4"></i>Team & Accounts</a>
 @endif
