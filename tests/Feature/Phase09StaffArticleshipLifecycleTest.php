@@ -254,6 +254,73 @@ class Phase09StaffArticleshipLifecycleTest extends TestCase
         } finally {$this->unclock();}
     }
 
+    public function test_active_manager_exit_is_blocked_until_students_are_reassigned(): void
+    {
+        $this->clock();
+        try {
+            [, $p]=$this->fixture();
+            $manager=$p['a']['manager'];
+            $this->actingAs($p['a']['partner']->user)
+                ->post("/c/client-firm/app/staff/{$manager->id}/lifecycle",[
+                    'action'=>'exit','reason'=>'Manager cannot leave while supervising active students.',
+                ])->assertSessionHasErrors('action');
+            $this->assertDatabaseHas('memberships',['id'=>$manager->id,'active'=>true]);
+        } finally {$this->unclock();}
+    }
+
+    public function test_transfer_refuses_unresolved_future_salary_and_preserves_source_membership(): void
+    {
+        $this->clock();
+        try {
+            [, $p]=$this->fixture();
+            $student=$p['a']['student'];
+            $this->actingAs($p['a']['partner']->user)->post(
+                "/c/client-firm/app/staff/{$student->id}/compensation",[
+                    'effective_month'=>'2026-11','new_amount'=>'9800',
+                    'reason'=>'Future agreed salary not yet transferred to another Partner.',
+                ])->assertRedirect();
+            $this->post("/c/client-firm/app/staff/{$student->id}/transfer",[
+                'target_workspace_id'=>$p['b']['partner']->workspace,
+                'reason'=>'Approved staff movement to the other Partner practice.',
+            ])->assertRedirect();
+            $row=DB::table('staff_transfer_requests')->first();
+            $this->actingAs($p['b']['partner']->user)
+                ->post("/c/client-firm/app/staff/transfers/{$row->id}/decision",[
+                    'decision'=>'approve',
+                ])->assertSessionHasErrors('decision');
+            $this->assertDatabaseHas('memberships',['id'=>$student->id,'active'=>true]);
+            $this->assertDatabaseCount('memberships',6);
+        } finally {$this->unclock();}
+    }
+
+    public function test_employee_personal_records_exclude_other_staff_and_partner_files(): void
+    {
+        $this->clock();
+        Storage::fake('local');
+        try {
+            [, $p]=$this->fixture();
+            $student=$p['a']['student'];
+            $this->actingAs($p['a']['partner']->user)->post(
+                "/c/client-firm/app/staff/{$student->id}/profile",
+                $this->staffProfile($p['a']['partner'],$student->id))->assertRedirect();
+            $this->post("/c/client-firm/app/staff/{$student->id}/documents",[
+                'title'=>'Articleship Enrollment Confirmation',
+                'document_type'=>'articleship',
+                'document'=>UploadedFile::fake()->create('articleship.pdf',18,'application/pdf'),
+            ])->assertRedirect();
+            $this->actingAs($student->user)
+                ->get('/c/client-firm/app/staff/my-records')->assertOk()
+                ->assertSeeText('Articleship Enrollment Confirmation')
+                ->assertSeeText('ICAB-TEST-2026')
+                ->assertDontSeeText('b-student');
+            $this->actingAs($p['b']['student']->user)
+                ->get('/c/client-firm/app/staff/my-records')->assertOk()
+                ->assertDontSeeText('Articleship Enrollment Confirmation');
+            $this->actingAs($p['a']['partner']->user)
+                ->get('/c/client-firm/app/staff/my-records')->assertForbidden();
+        } finally {$this->unclock();}
+    }
+
     public function test_private_document_downloads_are_partner_and_own_member_scoped(): void
     {
         $this->clock();Storage::fake('local');
