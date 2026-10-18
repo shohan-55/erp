@@ -11,6 +11,7 @@
     <span class="rounded-full border border-white/20 bg-white/10 px-3 py-2 font-bold">{{ $company->timezone }}</span>
   </div>
 </section>
+@include('erp.partials.module-guide',['module'=>'policies'])
 
 @if($actor->role === 'partner')
 <section class="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm sm:p-6">
