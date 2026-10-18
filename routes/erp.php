@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Erp\AuthController;
+use App\Http\Controllers\Erp\WorkspaceSwitchController;
 use App\Http\Controllers\Erp\PortalController;
 use App\Http\Controllers\Erp\AttendanceController;
 use App\Http\Controllers\Erp\AttendanceReportController;
@@ -44,8 +45,15 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
     Route::post('/activate', [ActivationController::class, 'accept'])
         ->middleware('throttle:5,1')->name('activate.accept');
 
-    Route::middleware(['auth', 'tenant.member'])->group(function () {
+    // Workspace choice is available to signed-in, MFA-verified users BEFORE
+    // tenant.member resolves a selected membership.
+    Route::middleware(['auth'])->group(function () {
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    });
+    Route::middleware(['auth', 'mfa.verified'])->group(function () {
+        Route::get('/workspaces', [WorkspaceSwitchController::class, 'index'])->name('workspaces.index');
+        Route::post('/workspaces/select', [WorkspaceSwitchController::class, 'select'])
+            ->middleware('throttle:10,1')->name('workspaces.select');
     });
     Route::middleware(['auth', 'tenant.member', 'mfa.verified'])->group(function () {
         Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
