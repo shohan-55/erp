@@ -12,15 +12,34 @@
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs font-semibold text-slate-500">{{ $item['title'] }}</p><p class="mt-3 text-xl font-extrabold">{{ $item['value'] }}</p></div>
 @endforeach
 </section>
-<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-label="Partner day calendar">
   <div>
-    <p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">SCHEDULE EXCEPTIONS</p>
+    <p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">ADVANCED WORK CALENDAR</p>
     <h3 class="mt-1 text-lg font-extrabold">Special Working Days & Holidays</h3>
-    <p class="mt-2 text-sm text-slate-600">A future holiday can be marked as a working day, or a working day can become a special holiday. Applies only to this Partner workspace. Changes are versioned and audit logged, and do not automatically deduct pay.</p>
+    <p class="mt-2 text-sm text-slate-600">Only this Partner's workspace is affected. Government holiday labels are entered and authorized by your practice; this is not an automatic official holiday feed. Friday may be a working day with its own hours, e.g. 11:30–17:30. A Manager may submit a request, but only a Partner can approve. Prior calendar decisions remain in the audit history; frozen payroll is protected.</p>
   </div>
-  @if($actor->role === 'partner')
-  <form method="POST" action="{{ route('erp.policies.day_override', ['firmSlug'=>$firmSlug]) }}" class="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr]">
+
+  <div class="mt-5 overflow-hidden rounded-xl border border-slate-200">
+    <div class="border-b border-slate-200 bg-slate-50 px-4 py-3"><p class="text-sm font-extrabold">Next 14 Days — Approved Schedule</p><p class="mt-1 text-xs text-slate-500">Firm defaults → Partner policies → approved date-specific exceptions</p></div>
+    <div class="grid grid-cols-2 gap-px bg-slate-200 sm:grid-cols-3 lg:grid-cols-7">
+      @foreach($calendarPreview as $day)
+      <div class="min-w-0 bg-white p-3">
+        <p class="text-[11px] font-bold text-slate-500">{{ $day['day'] }} · {{ substr($day['date'],5) }}</p>
+        <p class="mt-1 text-xs font-extrabold {{ $day['holiday'] ? 'text-rose-800' : 'text-emerald-800' }}">{{ $day['holiday'] ? 'Holiday' : 'Working' }}</p>
+        @unless($day['holiday'])
+        <p class="mt-1 text-[11px] text-slate-700">{{ substr($day['office_start'],0,5) }}–{{ substr($day['office_end'],0,5) }}</p>
+        <p class="text-[10px] text-slate-500">Grace {{ $day['grace_minutes'] }}m</p>
+        @endunless
+        @if($day['exception_id'])<p class="mt-1 text-[10px] font-bold text-amber-800">Special Decision</p>@endif
+      </div>
+      @endforeach
+    </div>
+  </div>
+
+  @if(in_array($actor->role, ['partner','manager'], true))
+  <form method="POST" action="{{ route('erp.policies.day_override', ['firmSlug'=>$firmSlug]) }}" class="mt-5 grid gap-3 sm:grid-cols-2">
     @csrf
+    <div class="sm:col-span-2"><h4 class="text-sm font-extrabold">{{ $actor->role === 'partner' ? 'Approve a Special Day for Your Partner Unit' : 'Request a Special Day from Your Partner' }}</h4><p class="mt-1 text-xs text-slate-500">Leave working hours blank to use your Partner's normal office hours. For holidays, leave all hours blank.</p></div>
     <label class="text-xs font-bold text-slate-700">Future Date
       <input name="work_date" type="date" min="{{ now($company->timezone)->addDay()->toDateString() }}" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm">
     </label>
@@ -30,22 +49,53 @@
         <option value="holiday">Special Holiday</option>
       </select>
     </label>
-    <label class="text-xs font-bold text-slate-700 sm:col-span-2">Reason / Authorization Notes
-      <textarea name="reason" rows="2" minlength="15" maxlength="1000" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm" placeholder="Why is this office day being changed?"></textarea>
+    <label class="text-xs font-bold text-slate-700">Holiday / Workday Category
+      <select name="holiday_category" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm">
+        <option value="partner_decision">Partner Decision</option>
+        <option value="government">Bangladesh Government Holiday (verified by firm)</option>
+        <option value="optional">Optional / Religious / Local Holiday</option>
+        <option value="client_duty">Client Assignment / Special Duty</option>
+        <option value="emergency">Emergency / Unplanned</option>
+      </select>
     </label>
-    <button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-extrabold sm:col-span-2">Save Future Day Override</button>
+    <div class="hidden sm:block"></div>
+    <label class="text-xs font-bold text-slate-700">Special Office Start (optional)
+      <input type="time" name="office_start" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm">
+    </label>
+    <label class="text-xs font-bold text-slate-700">Special Office End (optional)
+      <input type="time" name="office_end" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm">
+    </label>
+    <label class="text-xs font-bold text-slate-700">Special Grace Minutes (optional)
+      <input type="number" name="grace_minutes" min="0" max="60" placeholder="Use normal grace" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm">
+    </label>
+    <label class="text-xs font-bold text-slate-700 sm:col-span-2">Reason / Authorization Notes
+      <textarea name="reason" rows="2" minlength="15" maxlength="1000" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm" placeholder="Explain the special day and the approved schedule"></textarea>
+    </label>
+    <button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-extrabold sm:col-span-2">{{ $actor->role === 'partner' ? 'Authorize Special Day' : 'Submit to Partner for Approval' }}</button>
   </form>
   @endif
+
   <div class="mt-5 space-y-2">
-    <p class="text-xs font-bold text-slate-600">Authorized Day Decisions (most recent 30 records)</p>
+    <p class="text-xs font-bold text-slate-600">Day Decisions & Manager Requests (most recent 30, append-only history)</p>
     @forelse($dayOverrides as $decision)
-    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs">
-      <span class="font-bold">{{ $decision->work_date }}</span>
-      <span>{{ $decision->day_type === 'working' ? 'Working Day' : 'Holiday' }}</span>
-      <span class="text-slate-500">{{ $decision->reason }}</span>
+    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
+      <div class="flex flex-wrap items-center gap-2">
+        <strong>{{ $decision->work_date }}</strong>
+        <span>{{ $decision->day_type === 'working' ? 'Working Day' : 'Holiday' }}</span>
+        <span class="rounded-full px-2 py-1 font-bold {{ $decision->status === 'approved' ? 'bg-emerald-100 text-emerald-800' : ($decision->status === 'pending' ? 'bg-amber-100 text-amber-900' : 'bg-slate-200 text-slate-700') }}">{{ ucfirst($decision->status) }}</span>
+        @if($decision->office_start && $decision->office_end)<span>{{ substr($decision->office_start,0,5) }}–{{ substr($decision->office_end,0,5) }} @if($decision->grace_minutes !== null)· Grace {{ $decision->grace_minutes }}m@endif</span>@endif
+        <span class="text-slate-500">{{ str_replace('_',' ', ucfirst($decision->holiday_category)) }}</span>
+      </div>
+      <p class="mt-2 text-slate-600">{{ $decision->reason }}</p>
+      @if($actor->role === 'partner' && $decision->status === 'pending')
+      <form method="POST" action="{{ route('erp.policies.day_review', ['firmSlug'=>$firmSlug,'id'=>$decision->id]) }}" class="mt-3 flex flex-wrap gap-2">@csrf
+        <button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-extrabold text-white">Approve Request</button>
+        <button name="decision" value="reject" class="rounded-lg bg-rose-700 px-4 py-2 text-xs font-extrabold text-white">Reject Request</button>
+      </form>
+      @endif
     </div>
     @empty
-    <p class="text-xs text-slate-500">No special working days or holidays have been authorized yet.</p>
+    <p class="text-xs text-slate-500">No special working days or holidays have been scheduled yet.</p>
     @endforelse
   </div>
 </section>
@@ -71,7 +121,7 @@
 </section>
 <div class="grid items-start gap-5 xl:grid-cols-2">
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-<h3 class="text-base font-extrabold">Propose Company-wide Policy</h3><p class="mt-2 text-xs text-slate-500">RA&C requires all three Partners to vote separately. One rejection stops the proposal. Proposed changes are never applied retroactively.</p>
+<h3 class="text-base font-extrabold">Propose Company-wide Policy</h3><p class="mt-2 text-xs text-slate-500">All eligible Partners of this Client Firm must vote separately on shared firm-wide policies. Partner-local scheduling needs no other Partner's approval. Proposed changes are never retroactive.</p>
 <form action="{{ route('erp.policies.propose',['firmSlug'=>$firmSlug]) }}" method="POST" class="mt-5 grid gap-3 sm:grid-cols-2">@csrf
 <label class="text-xs font-bold text-slate-600 sm:col-span-2">Effective First Day of Month<input type="date" name="effective_date" value="{{ $futureDate }}" min="{{ $futureDate }}" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
 <label class="text-xs font-bold text-slate-600">Office Start<input type="time" name="office_start" value="{{ substr($effectivePolicy['office_start'],0,5) }}" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
@@ -79,7 +129,7 @@
 <label class="text-xs font-bold text-slate-600 sm:col-span-2">Grace Minutes (0–30)<input type="number" name="grace_minutes" min="0" max="30" value="{{ $effectivePolicy['grace_minutes'] }}" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
 <fieldset class="sm:col-span-2"><legend class="text-xs font-bold text-slate-600">Weekly Holidays</legend><div class="mt-2 flex flex-wrap gap-3 text-xs text-slate-600">@foreach([1=>'Mon',2=>'Tue',3=>'Wed',4=>'Thu',5=>'Fri',6=>'Sat',7=>'Sun'] as $day=>$label)<label class="flex items-center gap-1"><input type="checkbox" name="weekly_holidays[]" value="{{ $day }}" @checked(in_array($day,[5,6],true))> {{ $label }}</label>@endforeach</div></fieldset>
 <label class="text-xs font-bold text-slate-600 sm:col-span-2">Reason / Justification<textarea name="justification" rows="3" minlength="15" maxlength="2000" required placeholder="Explain why the company-wide default should change" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></textarea></label>
-<button class="rounded-xl bg-[#FCDF02] p-3 text-sm font-extrabold sm:col-span-2">Create Proposal for 3-Partner Vote</button>
+<button class="rounded-xl bg-[#FCDF02] p-3 text-sm font-extrabold sm:col-span-2">Create Firm-wide Policy Proposal</button>
 </form></section>
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
 <h3 class="text-base font-extrabold">Schedule My Partner Override</h3><p class="mt-2 text-xs leading-relaxed text-slate-500">Only {{ $workspace->name }} is affected. A Partner may apply permitted scheduling fields without other Partners' approval. Changes start in a future month and do not alter finalized history.</p>
