@@ -26,10 +26,10 @@
       <div class="min-w-0 bg-white p-3">
         <p class="text-[11px] font-bold text-slate-500">{{ $day['day'] }} · {{ substr($day['date'],5) }}</p>
         <p class="mt-1 text-xs font-extrabold {{ $day['holiday'] ? 'text-rose-800' : 'text-emerald-800' }}">{{ $day['holiday'] ? 'Holiday' : 'Working' }}</p>
-        @unless($day['holiday'])
+        @if(! $day['holiday'])
         <p class="mt-1 text-[11px] text-slate-700">{{ substr($day['office_start'],0,5) }}–{{ substr($day['office_end'],0,5) }}</p>
         <p class="text-[10px] text-slate-500">Grace {{ $day['grace_minutes'] }}m</p>
-        @endunless
+        @endif
         @if($day['exception_id'])<p class="mt-1 text-[10px] font-bold text-amber-800">Special Decision</p>@endif
       </div>
       @endforeach
