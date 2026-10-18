@@ -57,7 +57,7 @@
 <p class="text-xs font-bold">{{ $adjustment->student_name }} · {{ ucfirst($adjustment->kind) }} · ৳ {{ number_format((float)$adjustment->amount,2) }} · {{ $adjustment->voided_at ? 'VOIDED' : 'ACTIVE' }}</p>
 <p class="mt-2 text-xs text-slate-500">{{ $adjustment->reason }}</p>
 @if(!$adjustment->voided_at && $run->status==='draft')
-<form method="POST" action="{{ route('erp.payroll.adjustments.void',['firmSlug'=>$firmSlug,'runId'=>$run->id,'adjustmentId'=>$adjustment->id]) }}" class="mt-2 flex flex-wrap gap-2">@csrf
+<form data-corporate-confirm="Void this financial adjustment? The change will remain visible in the audit history." method="POST" action="{{ route('erp.payroll.adjustments.void',['firmSlug'=>$firmSlug,'runId'=>$run->id,'adjustmentId'=>$adjustment->id]) }}" class="mt-2 flex flex-wrap gap-2">@csrf
 <input name="reason" minlength="15" maxlength="1000" required placeholder="Reason for voiding (required)" class="min-w-52 flex-1 rounded-lg border border-slate-200 p-2 text-xs">
 <button class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">Void Adjustment</button>
 </form>
@@ -86,7 +86,7 @@
 <p class="mb-4 text-xs text-slate-500">Recorded {{ $run->payment_channel }} · {{ $run->payment_date }} · Reconciled {{ number_format((float) $run->reconciled_total, 2) }} BDT</p>
 @endif
 @if(in_array($run->status,['draft','reviewed','approved','paid']))
-<form action="{{ route('erp.payroll.advance',['firmSlug'=>$firmSlug,'runId'=>$run->id]) }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">@csrf
+<form data-corporate-confirm="Review this payroll transition carefully. Recording Paid is not a money transfer; only confirm it after payment evidence has been verified. Locked payroll cannot be casually edited." action="{{ route('erp.payroll.advance',['firmSlug'=>$firmSlug,'runId'=>$run->id]) }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">@csrf
 @if($run->status==='approved')
 <div class="w-full rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">
     Mark Paid only after disbursement occurred externally. Upload supporting evidence and reconcile the exact total of every payroll line. Uploading evidence is not verification by a bank or payment provider.
