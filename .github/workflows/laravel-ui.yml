@@ -247,5 +247,6 @@ jobs:
             dist/erp-cpanel-application.zip
             dist/erp-cpanel-split-webroot.zip
             dist/SHA256SUMS.txt
+            dist/release-manifest.json
           if-no-files-found: error
           retention-days: 14
