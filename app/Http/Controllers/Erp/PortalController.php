@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
 use App\Support\PolicyResolver;
 use App\Support\DashboardOverview;
+use App\Support\WorkspacePulse;
 use App\Support\WorkCalendar;
 use App\Support\AttendanceClock;
 use App\Support\DashboardMonthCalendar;
@@ -91,12 +92,13 @@ class PortalController extends Controller
 
         $queues = DashboardOverview::queues($actor);
         $quickActions = DashboardOverview::actions($actor, $queues);
+        $workPulse = WorkspacePulse::forActor($actor, $queues, $activeAttendance);
 
         return view('erp.dashboard', compact(
             'company', 'workspace', 'actor', 'firmSlug',
             'stats', 'recent', 'effectivePolicy', 'activeAttendance',
             'attendanceClock', 'qualifyingLateDays',
-            'queues', 'quickActions', 'monthCalendar'
+            'queues', 'quickActions', 'monthCalendar', 'workPulse'
         ));
     }
 }

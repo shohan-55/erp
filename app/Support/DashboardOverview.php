@@ -102,6 +102,7 @@ final class DashboardOverview
         $allowed = StudentFeatureAccess::enabledMap($actor);
         $links = [
             $make('My Attendance', 'Check in/out and view history', 'erp.attendance', 'calendar-check-2', 'attendance'),
+            $make('Workforce Calendar', 'Review your private workdays and approved holidays', 'erp.calendar.index', 'calendar-days'),
             $make('Apply for Leave', 'Submit or track leave requests', 'erp.leaves', 'calendar-days', 'leave'),
             $make('Conveyance Claim', 'Submit expense claims', 'erp.claims', 'receipt', 'conveyance'),
             $make('Attendance Report', 'Review recorded work sessions', 'erp.attendance.report', 'clipboard-list', 'attendance_report'),

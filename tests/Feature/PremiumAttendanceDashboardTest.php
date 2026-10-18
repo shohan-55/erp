@@ -58,7 +58,7 @@ class PremiumAttendanceDashboardTest extends TestCase
         }
         $this->actingAs($people['student']['user'])->get('/c/wow-ca/app')
             ->assertOk()
-            ->assertSeeInOrder(['QUICK ATTENDANCE', 'Your Quick Actions']);
+            ->assertSeeInOrder(['QUICK ATTENDANCE', 'Find an action in seconds.']);
         $this->actingAs($people['partner']['user'])
             ->get('/c/wow-ca/app')->assertOk()->assertDontSeeText('QUICK ATTENDANCE');
     }

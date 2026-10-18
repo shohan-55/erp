@@ -41,7 +41,11 @@
         </div>
         <p class="erp-month-calendar__disclaimer"><i data-lucide="shield-check" aria-hidden="true"></i> Missing attendance is flagged for review, never assumed absent or penalized automatically.</p>
     </div>
-    <footer class="erp-month-calendar__legend" aria-label="Calendar status legend">
+    <div class="flex items-center justify-between gap-2 border-t border-white/10 px-5 py-3 text-xs">
+  <span class="font-semibold text-slate-300">Select any date to see details</span>
+  <a href="{{ route('erp.calendar.index',['firmSlug'=>$firmSlug,'month'=>$monthCalendar['month_key']]) }}" class="rounded-lg border border-amber-400/40 px-3 py-2 font-extrabold text-[#FCDF02] hover:bg-white/10">Explore all months ↗</a>
+</div>
+<footer class="erp-month-calendar__legend" aria-label="Calendar status legend">
         @foreach([
             ['On time','on_time'],['Grace late','grace'],['Late','late'],['Leave','leave'],['Holiday','holiday'],['Needs review','review']
         ] as $legend)

@@ -3,7 +3,9 @@
 <meta name="robots" content="noindex,nofollow">
 <title>@yield('title', 'ERP Workspace') · {{ $company->brand_name ?: $company->name }}</title>
 @vite(['resources/css/app.css','resources/js/app.js'])
-<style>[x-cloak]{display:none!important}</style>@livewireStyles @stack('styles')</head>
+<style>[x-cloak]{display:none!important}</style>@livewireStyles
+<style id="erp-corporate-workspace-style">{!! file_get_contents(public_path('css/erp-corporate-workspace.css')) !!}</style>
+@stack('styles')</head>
 <body class="min-h-screen bg-[#F6F7F9] font-sans text-[#17191F]">
 <div x-data="{ open:false }" class="min-h-screen">
 <div x-show="open" x-cloak @click="open=false" class="fixed inset-0 z-40 bg-slate-950/60 lg:hidden"></div>
@@ -14,6 +16,7 @@
 <nav class="flex-1 space-y-1 overflow-y-auto p-3" aria-label="ERP Navigation">
 @foreach([
 ['label'=>'Dashboard','name'=>'erp.dashboard','icon'=>'layout-dashboard'],
+['label'=>'Workforce Calendar','name'=>'erp.calendar.index','icon'=>'calendar-days'],
 ['label'=>'Attendance','name'=>'erp.attendance','icon'=>'calendar-check-2'],
 ['label'=>'Leave Requests','name'=>'erp.leaves','icon'=>'calendar-days'],
 ['label'=>'Conveyance','name'=>'erp.claims','icon'=>'receipt'],
@@ -62,4 +65,11 @@
 </main></div></div>
 @livewireScripts
 @stack('scripts')
+<script id="erp-corporate-workspace-script">{!! file_get_contents(public_path('js/erp-corporate-workspace.js')) !!}</script>
+<dialog class="erp-ux-confirm" data-corporate-confirm-dialog aria-labelledby="erp-ux-confirm-title" aria-describedby="erp-ux-confirm-description">
+  <p class="text-xs font-black tracking-widest text-amber-800">✦ CONFIRM BEFORE CHANGING</p>
+  <h3 id="erp-ux-confirm-title">Review this action</h3>
+  <p id="erp-ux-confirm-description" data-corporate-confirm-label>Are you sure you want to proceed?</p>
+  <div class="erp-ux-confirm__buttons"><button type="button" data-corporate-cancel>Cancel</button><button type="button" data-corporate-confirm-go>Yes, proceed →</button></div>
+</dialog>
 </body></html>

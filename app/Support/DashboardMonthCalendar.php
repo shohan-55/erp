@@ -11,10 +11,10 @@ use Illuminate\Support\Facades\DB;
  */
 final class DashboardMonthCalendar
 {
-    public static function forActor(object $company, object $workspace, object $actor, bool $showPersonal): array
+    public static function forActor(object $company, object $workspace, object $actor, bool $showPersonal, ?CarbonImmutable $month = null): array
     {
         $now = CarbonImmutable::now($company->timezone);
-        $start = $now->startOfMonth();
+        $start = ($month ?? $now)->setTimezone($company->timezone)->startOfMonth();
         $end = $now->endOfMonth();
         $today = $now->toDateString();
 
@@ -123,6 +123,9 @@ final class DashboardMonthCalendar
 
         return [
             'month'=>$start->format('F Y'),
+            'month_key'=>$start->format('Y-m'),
+            'previous_month'=>$start->subMonth()->format('Y-m'),
+            'next_month'=>$start->addMonth()->format('Y-m'),
             'leading_blanks'=>$start->dayOfWeek,
             'days'=>$days,
             'is_personal'=>$personal,

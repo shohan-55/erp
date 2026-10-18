@@ -81,6 +81,33 @@ try {
     const clockResponse = await page.request.get(baseUrl+'/c/rac/app/attendance/clock');
     assert.equal(clockResponse.status(),200,'Authenticated clock sync must return the server schedule');
     assert.equal((await clockResponse.json()).clock.timezone,'Asia/Dhaka');
+
+    // Personalized work pulse and saved shortcuts remain within the student's
+    // existing authorized routes; no secret or salary data is stored in browser.
+    const pulse = page.locator('.erp-work-pulse');
+    await pulse.waitFor();
+    await pulse.getByText('My leave requests').waitFor();
+    const finder = page.locator('[data-corporate-action-center]');
+    await finder.waitFor();
+    const quickSearch = finder.locator('[data-corporate-action-search]');
+    await quickSearch.fill('leave');
+    const filteredCards = finder.locator('[data-corporate-action]:visible');
+    assert.equal(await filteredCards.count() >= 1, true, 'Search should display matching authorized actions');
+    await filteredCards.first().locator('[data-corporate-pin]').click();
+    await finder.getByRole('button',{name:'Pinned',exact:true}).click();
+    assert.equal(await filteredCards.count(),1,'Pinned shortcuts must be available in one click');
+    await finder.getByRole('button',{name:'All',exact:true}).click();
+    await quickSearch.fill('');
+    assert.equal(await filteredCards.count()>=4,true,'Clearing search must restore authorized shortcuts');
+    const allMonths = page.getByRole('link',{name:'Explore all months ↗'});
+    await allMonths.click();
+    await page.getByRole('heading',{name:'Workforce Calendar'}).waitFor();
+    await page.getByText('Jump to month').waitFor();
+    const csv = await page.request.get(page.url().replace('/calendar','/calendar/export'));
+    assert.equal(csv.status(),200,'Authorized personal calendar CSV must download');
+    assert.match(csv.headers()['content-type']||'',/text\/csv/);
+    await page.goBack({waitUntil:'networkidle'});
+
     // Dynamic watermark must be behind readable day cells; clicking a date opens
     // a read-only, keyboard-accessible detail dialog.
     const calendar=page.locator('.erp-month-calendar');
@@ -136,6 +163,14 @@ try {
     await page.locator('textarea[name=reason]').fill('Sample QA leave application only');
     await page.getByRole('button',{name:'Submit Leave Request'}).click();
     await page.getByText('Leave request submitted for review.').waitFor();
+    const leaveFilter = page.locator('[data-corporate-history-toolbar][data-history-target="leave"]');
+    await leaveFilter.waitFor();
+    await leaveFilter.locator('[data-history-search]').fill('Sample QA leave application only');
+    assert.equal(await page.locator('[data-corporate-history-group="leave"] [data-corporate-history-item]:visible').count(),1,'Student can find their own submitted leave');
+    await leaveFilter.locator('[data-history-status]').selectOption('approved');
+    assert.equal(await page.locator('[data-corporate-history-group="leave"] [data-corporate-history-item]:visible').count(),0,'Status filter hides non-matching records');
+    await leaveFilter.locator('[data-history-reset]').click();
+    assert.equal(await page.locator('[data-corporate-history-group="leave"] [data-corporate-history-item]:visible').count()>=1,true,'Reset restores records');
     await page.screenshot({path:output+'/03-student-leave.png',fullPage:true});
 
     await page.getByRole('button',{name:'Sign Out'}).click();
@@ -152,8 +187,17 @@ try {
     await page.getByRole('alertdialog').waitFor();
     await page.getByRole('button',{name:/Continue to dashboard/}).click();
     await nav('Leave Requests');
+    let leaveDecisionSubmissions=0;
+    page.on('request',r=>{if(r.method()==='POST'&&/\/leave\/\d+\/decision$/.test(new URL(r.url()).pathname))leaveDecisionSubmissions++;});
     await page.getByRole('button',{name:'Review',exact:true}).first().click();
+    await page.locator('[data-corporate-confirm-dialog][open]').waitFor();
+    assert.equal(leaveDecisionSubmissions,0,'Manager review must await explicit confirmation');
+    await page.locator('[data-corporate-cancel]').click();
+    assert.equal(leaveDecisionSubmissions,0,'Cancelling review sends no approval POST');
+    await page.getByRole('button',{name:'Review',exact:true}).first().click();
+    await page.locator('[data-corporate-confirm-go]').click();
     await page.getByText('Leave review recorded.').waitFor();
+    assert.equal(leaveDecisionSubmissions,1,'Manager review submits exactly once after confirmation');
     await page.getByRole('button',{name:'Sign Out'}).click();
 
     await login('e2e.partner@example.test');
@@ -173,6 +217,8 @@ try {
 
     await nav('Leave Requests');
     await page.locator('button[name=decision][value=approve]').first().click();
+    await page.locator('[data-corporate-confirm-dialog][open]').waitFor();
+    await page.locator('[data-corporate-confirm-go]').click();
     await page.getByText('Leave review recorded.').waitFor();
 
     await nav('Team & Accounts');

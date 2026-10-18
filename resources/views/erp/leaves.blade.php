@@ -6,6 +6,7 @@
 <h2 class="mt-1 text-2xl font-extrabold">Leave, Balances & Approvals</h2>
 <p class="mt-2 max-w-3xl text-sm text-slate-600">Students apply and can withdraw pending leave. Managers review assigned students; the Partner gives final approval. Each Partner's entitlements, working-day policy and decision records remain independent. Leave does not automatically reduce payroll.</p>
 </section>
+@include('erp.partials.module-guide',['module'=>'leave'])
 
 @if($actor->role==='student')
 <section class="space-y-4">
@@ -107,16 +108,17 @@
 
 <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 <div class="border-b border-slate-100 p-5"><h3 class="text-sm font-extrabold">Leave History & Review Queue</h3></div>
-<div class="divide-y divide-slate-100">
+@include('erp.partials.history-filter',['historyKey'=>'leave','historyTitle'=>'Leave records','historyStatuses'=>['pending'=>'Pending','manager_reviewed'=>'Manager reviewed','approved'=>'Approved','rejected'=>'Rejected','withdrawn'=>'Withdrawn','cancelled'=>'Cancelled']])
+<div class="divide-y divide-slate-100" data-corporate-history-group="leave">
 @forelse($rows as $row)
-<article class="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between">
+<article data-corporate-history-item data-history-status="{{ $row->status }}" class="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between">
 <div><p class="text-sm font-bold">{{ $row->member_name }} <span class="text-xs font-normal text-slate-400">#{{ $row->id }}</span></p>
 <p class="mt-1 text-xs text-slate-600">{{ ucfirst($row->leave_type) }} · {{ $row->date_from }} → {{ $row->date_to }} · {{ ucfirst($row->day_portion) }} @if($row->charge_days !== null)· {{ number_format($row->charge_days,1) }} days @endif</p>
 <p class="mt-2 max-w-xl text-xs text-slate-500">{{ $row->reason }}</p></div>
 <div class="space-y-2">
 <span class="inline-flex rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{{ str_replace('_',' ',ucfirst($row->status)) }}</span>
 @if(in_array($actor->role,['partner','manager']) && ($row->status==='pending' || ($actor->role==='partner' && $row->status==='manager_reviewed')))
-<form action="{{ route('erp.leaves.decide',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
+<form data-corporate-confirm="Review this leave decision? The student's request will advance or be rejected, and the action will be audited." action="{{ route('erp.leaves.decide',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
 <input type="text" name="decision_note" maxlength="1000" placeholder="Decision note (optional)" class="min-w-44 flex-1 rounded-lg border border-slate-300 p-2 text-xs">
 <button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">{{ $actor->role==='manager' ? 'Review' : 'Approve' }}</button>
 <button name="decision" value="reject" class="rounded-lg bg-rose-700 px-3 py-2 text-xs font-bold text-white">Reject</button></form>
@@ -127,7 +129,7 @@
 </form>
 @endif
 @if($actor->role==='partner' && $row->status==='approved' && $row->date_from > now($company->timezone)->toDateString())
-<form action="{{ route('erp.leaves.cancel',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
+<form data-corporate-confirm="Cancel this previously approved future leave? The authorized change will be audited and leave entitlement recalculated." action="{{ route('erp.leaves.cancel',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
 <input name="reason" required minlength="15" maxlength="1000" placeholder="Cancellation reason (mandatory)" class="min-w-44 rounded-lg border border-slate-300 p-2 text-xs">
 <button class="rounded-lg bg-rose-100 px-3 py-2 text-xs font-bold text-rose-950">Cancel Approved Future Leave</button>
 </form>

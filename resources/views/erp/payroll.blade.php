@@ -2,6 +2,7 @@
 @section('title','Monthly Payroll')
 @section('content')
 <section><h2 class="text-2xl font-extrabold">Allowance & Payroll</h2><p class="mt-2 max-w-3xl text-sm text-slate-500">Monthly allowance snapshots and approved claims for your Home Partner. <strong>Payment must actually occur outside this app before selecting Record Paid.</strong> Automatic attendance or late/half-day salary penalties are not calculated. Drafts require manual Partner review.</p></section>
+@include('erp.partials.module-guide',['module'=>'payroll'])
 @if($actor->role==='partner')
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 class="text-sm font-extrabold">Create Monthly Payroll Draft</h3><form action="{{ route('erp.payroll.generate',['firmSlug'=>$firmSlug]) }}" method="POST" class="mt-4 flex flex-wrap items-end gap-3">@csrf<label class="text-xs font-bold">Month<input type="month" name="month" required class="mt-2 block rounded-xl border border-slate-300 p-3 text-sm"></label><button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-extrabold">Generate Draft</button></form><p class="mt-3 text-xs text-slate-500">Each Partner workspace has one run per period. Review freezes approved claims and allowance snapshots.</p></section>
 @endif
@@ -57,7 +58,7 @@
 <p class="text-xs font-bold">{{ $adjustment->student_name }} · {{ ucfirst($adjustment->kind) }} · ৳ {{ number_format((float)$adjustment->amount,2) }} · {{ $adjustment->voided_at ? 'VOIDED' : 'ACTIVE' }}</p>
 <p class="mt-2 text-xs text-slate-500">{{ $adjustment->reason }}</p>
 @if(!$adjustment->voided_at && $run->status==='draft')
-<form method="POST" action="{{ route('erp.payroll.adjustments.void',['firmSlug'=>$firmSlug,'runId'=>$run->id,'adjustmentId'=>$adjustment->id]) }}" class="mt-2 flex flex-wrap gap-2">@csrf
+<form data-corporate-confirm="Void this financial adjustment? The change will remain visible in the audit history." method="POST" action="{{ route('erp.payroll.adjustments.void',['firmSlug'=>$firmSlug,'runId'=>$run->id,'adjustmentId'=>$adjustment->id]) }}" class="mt-2 flex flex-wrap gap-2">@csrf
 <input name="reason" minlength="15" maxlength="1000" required placeholder="Reason for voiding (required)" class="min-w-52 flex-1 rounded-lg border border-slate-200 p-2 text-xs">
 <button class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">Void Adjustment</button>
 </form>
@@ -86,7 +87,7 @@
 <p class="mb-4 text-xs text-slate-500">Recorded {{ $run->payment_channel }} · {{ $run->payment_date }} · Reconciled {{ number_format((float) $run->reconciled_total, 2) }} BDT</p>
 @endif
 @if(in_array($run->status,['draft','reviewed','approved','paid']))
-<form action="{{ route('erp.payroll.advance',['firmSlug'=>$firmSlug,'runId'=>$run->id]) }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">@csrf
+<form data-corporate-confirm="Review this payroll transition carefully. Recording Paid is not a money transfer; only confirm it after payment evidence has been verified. Locked payroll cannot be casually edited." action="{{ route('erp.payroll.advance',['firmSlug'=>$firmSlug,'runId'=>$run->id]) }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">@csrf
 @if($run->status==='approved')
 <div class="w-full rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">
     Mark Paid only after disbursement occurred externally. Upload supporting evidence and reconcile the exact total of every payroll line. Uploading evidence is not verification by a bank or payment provider.

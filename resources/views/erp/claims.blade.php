@@ -2,6 +2,7 @@
 @section('title','Conveyance Claims')
 @section('content')
 <section><h2 class="text-2xl font-extrabold">Conveyance & Travel Claims</h2><p class="mt-2 text-sm text-slate-500">Receipts are stored privately; reimbursement is included in payroll only after Partner-authorized approval.</p></section>
+@include('erp.partials.module-guide',['module'=>'claims'])
 <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 @foreach([
 ['label'=>'Claims in View','value'=>$summary['submitted']],
@@ -49,7 +50,8 @@
 <label class="text-xs font-bold text-slate-700 md:col-span-2">Receipt (PDF/JPG/PNG, max 2 MB)<input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png" required class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-xs"></label>
 <button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-extrabold md:col-span-2">Submit Claim</button></form></section>@endif
 <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b border-slate-100 p-5"><h3 class="text-sm font-extrabold">Claims & Reviews</h3></div>
-<div class="divide-y divide-slate-100">@forelse($rows as $row)<article class="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between"><div><p class="text-sm font-bold">{{ $row->member_name }} · Claimed ৳ {{ number_format((float)$row->amount,2) }}</p>
+@include('erp.partials.history-filter',['historyKey'=>'claims','historyTitle'=>'Conveyance claims','historyStatuses'=>['pending'=>'Pending','manager_reviewed'=>'Manager reviewed','approved'=>'Approved','rejected'=>'Rejected','paid'=>'Paid','withdrawn'=>'Withdrawn']])
+<div class="divide-y divide-slate-100" data-corporate-history-group="claims">@forelse($rows as $row)<article data-corporate-history-item data-history-status="{{ $row->status }}" class="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between"><div><p class="text-sm font-bold">{{ $row->member_name }} · Claimed ৳ {{ number_format((float)$row->amount,2) }}</p>
 @if($row->manager_recommended_amount !== null)<p class="mt-1 text-xs text-slate-600">Manager recommended: ৳ {{ number_format((float)$row->manager_recommended_amount, 2) }}</p>@endif
 @if($row->approved_amount !== null)<p class="mt-1 text-xs font-bold text-emerald-800">Partner approved: ৳ {{ number_format((float)$row->approved_amount, 2) }} · Payroll uses approved amount</p>@endif<p class="mt-1 text-xs text-slate-500">{{ $row->journey_date }} · {{ $row->journey_route }} · {{ \App\Support\ExpenseRules::CATEGORIES[$row->expense_category] ?? 'Transport' }}</p><p class="mt-2 text-xs text-slate-600">{{ $row->purpose }}</p><a class="mt-2 inline-flex text-xs font-bold text-amber-800 hover:underline" href="{{ route('erp.claims.receipt',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}">Download private receipt</a></div><div class="space-y-2"><span class="inline-flex rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{{ ucfirst($row->status) }}</span>
 @if($row->status === 'paid')
@@ -60,7 +62,7 @@
 <p class="mt-1 text-xs font-bold text-amber-900">Approved — awaiting Payroll settlement</p>
 @endif
 @if(in_array($actor->role,['partner','manager']) && ($row->status==='pending' || ($actor->role==='partner' && $row->status==='manager_reviewed')))
-<form action="{{ route('erp.claims.decide',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
+<form data-corporate-confirm="Confirm this expense-claim review? Approved amounts may flow into a future payroll after final Partner approval." action="{{ route('erp.claims.decide',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
 <label class="text-xs font-bold text-slate-600">Reviewed amount (৳)
 <input type="number" name="approved_amount" min="0.01" max="{{ $row->amount }}" step="0.01" value="{{ $actor->role==='partner' ? ($row->manager_recommended_amount ?? $row->amount) : $row->amount }}" class="mt-1 w-36 rounded-lg border border-slate-300 p-2 text-xs"></label>
 <input type="text" name="decision_note" maxlength="1000" placeholder="Review note" class="min-w-44 flex-1 rounded-lg border border-slate-300 p-2 text-xs">

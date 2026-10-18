@@ -26,6 +26,7 @@
 @if($actor->role === 'manager' || ($actor->role === 'student' && $studentFeatures['attendance']))
 @include('erp.partials.dashboard-attendance')
 @endif
+@include('erp.partials.dashboard-work-pulse')
 @include('erp.partials.dashboard-month-calendar')
 @include('erp.partials.dashboard-action-center')
 <section class="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Live workspace metrics">

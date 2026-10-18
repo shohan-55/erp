@@ -11,6 +11,7 @@
     <span class="rounded-full border border-white/20 bg-white/10 px-3 py-2 font-bold">{{ $company->timezone }}</span>
   </div>
 </section>
+@include('erp.partials.module-guide',['module'=>'policies'])
 
 @if($actor->role === 'partner')
 <section class="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm sm:p-6">
@@ -117,8 +118,8 @@
       <p class="mt-2 text-xs text-slate-700">{{ $version->reason }}</p>
       @if($actor->role === 'partner' && $version->status === 'pending')
       <div class="mt-3 flex flex-wrap gap-2">
-        <form method="POST" action="{{ route('erp.hr_policies.decide',['firmSlug'=>$firmSlug,'revisionId'=>$version->id]) }}">@csrf<input type="hidden" name="decision" value="approve"><button class="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-extrabold text-white">Approve</button></form>
-        <form method="POST" action="{{ route('erp.hr_policies.decide',['firmSlug'=>$firmSlug,'revisionId'=>$version->id]) }}">@csrf<input type="hidden" name="decision" value="reject"><button class="rounded-lg bg-rose-700 px-4 py-2 text-xs font-extrabold text-white">Reject</button></form>
+        <form data-corporate-confirm="Approve or reject this future policy proposal? The decision is audited; approved rules become active only from the effective date." method="POST" action="{{ route('erp.hr_policies.decide',['firmSlug'=>$firmSlug,'revisionId'=>$version->id]) }}">@csrf<input type="hidden" name="decision" value="approve"><button class="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-extrabold text-white">Approve</button></form>
+        <form data-corporate-confirm="Approve or reject this future policy proposal? The decision is audited; approved rules become active only from the effective date." method="POST" action="{{ route('erp.hr_policies.decide',['firmSlug'=>$firmSlug,'revisionId'=>$version->id]) }}">@csrf<input type="hidden" name="decision" value="reject"><button class="rounded-lg bg-rose-700 px-4 py-2 text-xs font-extrabold text-white">Reject</button></form>
       </div>
       @endif
     </article>
