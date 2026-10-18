@@ -191,6 +191,7 @@ class PlatformManagementController extends Controller
                 throw ValidationException::withMessages(['email' => 'Account already exists.']);
             }
 
+            \App\Support\SaasBilling::assertCapacity($companyId,0,1);
             $user = User::create([
                 'name' => trim($data['name']), 'email' => $email,
                 'password' => Hash::make(Str::random(64)),
