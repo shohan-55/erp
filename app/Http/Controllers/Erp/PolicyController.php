@@ -85,6 +85,52 @@ class PolicyController extends Controller
         ));
     }
 
+    /**
+     * Partner-owned, visual-only half-day warning threshold.
+     * This setting never grants leave or calculates salary deductions.
+     * Actual scheduled shift exceptions may suppress an invalid warning.
+     */
+    public function attendanceClock(Request $request, string $firmSlug)
+    {
+        [$company, $workspace, $actor] = TenantOps::context($request);
+        TenantOps::requireRole($actor, ['partner']);
+        $data = $request->validate([
+            'half_day_warning_time' => ['nullable', 'date_format:H:i'],
+        ]);
+        $value = ($data['half_day_warning_time'] ?? '') ?: null;
+        if ($value !== null) {
+            $day = now($company->timezone)->toDateString();
+            $policy = PolicyResolver::forDate($company, $workspace, $day);
+            $officeStart = CarbonImmutable::parse($day.' '.$policy['office_start'], $company->timezone)
+                ->addMinutes((int) $policy['grace_minutes']);
+            $officeEnd = CarbonImmutable::parse($day.' '.$policy['office_end'], $company->timezone);
+            $chosen = CarbonImmutable::parse($day.' '.$value, $company->timezone);
+            if (! $chosen->greaterThan($officeStart) || ! $chosen->lessThan($officeEnd)) {
+                throw ValidationException::withMessages([
+                    'half_day_warning_time' => 'Choose a time after the grace period and before office closing.',
+                ]);
+            }
+        }
+
+        DB::transaction(function () use ($workspace, $actor, $value) {
+            $row = DB::table('workspaces')
+                ->where('id', $workspace->id)
+                ->where('company_id', $actor->company_id)
+                ->lockForUpdate()->first();
+            abort_unless($row, 404);
+            DB::table('workspaces')->where('id', $row->id)->update([
+                'half_day_warning_time' => $value, 'updated_at' => now(),
+            ]);
+            TenantOps::audit($actor, 'attendance.clock.threshold_changed', 'workspace', $workspace->id, [
+                'old_time' => $row->half_day_warning_time,
+                'new_time' => $value,
+                'visual_warning_only' => true,
+            ]);
+        }, 3);
+
+        return back()->with('success', 'Attendance clock warning threshold updated. No leave or payroll policy changed.');
+    }
+
     public function propose(Request $request, string $firmSlug)
     {
         [$company, , $actor] = TenantOps::context($request);
