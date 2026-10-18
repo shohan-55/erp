@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Support\PolicyResolver;
+use App\Support\PayrollCalculator;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -67,30 +68,10 @@ class GenerateMonthlyPayrollDrafts extends Command
                     'created_at' => now(), 'updated_at' => now(),
                 ]);
 
-                foreach ($members as $member) {
-                    $claims = DB::table('conveyance_claims')
-                        ->where('company_id', $company->id)
-                        ->where('workspace_id', $workspace->id)
-                        ->where('membership_id', $member->id)
-                        ->where('status', 'approved')
-                        ->whereBetween('journey_date', [$period, CarbonImmutable::parse($period)->endOfMonth()->toDateString()])
-                        ->whereNull('reserved_payroll_run_id')
-                        ->whereNull('paid_payroll_run_id')
-                        ->get()->sum(fn ($c) => (int) round(((float) ($c->approved_amount ?? $c->amount)) * 100));
-
-                    $base = (int) round(((float) $member->monthly_allowance) * 100);
-                    $toMoney = fn (int $cents) => sprintf('%d.%02d', intdiv($cents, 100), abs($cents % 100));
-
-                    DB::table('payroll_lines')->insert([
-                        'payroll_run_id' => $id,
-                        'membership_id' => $member->id,
-                        'base_allowance' => $toMoney($base),
-                        'approved_claims' => $toMoney($claims),
-                        'adjustment' => '0.00',
-                        'total_amount' => $toMoney($base + $claims),
-                        'created_at' => now(), 'updated_at' => now(),
-                    ]);
-                }
+                // Identical arithmetic to Partner-created drafts: effective
+                // salary decisions, approved claims and explicit adjustments.
+                PayrollCalculator::refresh($id,$period,(int)$company->id,
+                    (int)$workspace->id);
 
                 DB::table('tenant_audit_events')->insert([
                     'company_id' => $company->id,
