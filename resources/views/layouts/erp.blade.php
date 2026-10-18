@@ -20,13 +20,14 @@
 ['label'=>'Payroll','name'=>'erp.payroll','icon'=>'wallet-cards'],
 ['label'=>'Policy & Governance','name'=>'erp.policies','icon'=>'shield-check'],
 ['label'=>'Smart HR Policy Center','name'=>'erp.hr_policies.index','icon'=>'sliders-horizontal'],
+['label'=>'Annual Holiday Planner','name'=>'erp.annual_holidays.index','icon'=>'calendar-range'],
 ['label'=>'Notifications','name'=>'erp.notifications','icon'=>'bell'],
 ['label'=>'Settings / Security','name'=>'erp.security','icon'=>'settings-2'],
 ] as $item)
 @if($actor->role === 'manager' && $item['name'] === 'erp.payroll')
 @continue
 @endif
-@if($actor->role === 'student' && $item['name'] === 'erp.hr_policies.index')
+@if($actor->role === 'student' && in_array($item['name'],['erp.hr_policies.index','erp.annual_holidays.index'],true))
 @continue
 @endif
 @php($featureKey = \App\Support\StudentFeatureAccess::featureForRoute($item['name']))
