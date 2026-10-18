@@ -82,11 +82,18 @@ class StaffTransferController extends Controller
                     throw ValidationException::withMessages(['decision'=>'This Student already has a destination membership.']);
                 }
                 $this->ensureCleanHandoff($source,$actor);
+                $latestSalary=DB::table('staff_compensation_changes')
+                    ->where('company_id',$actor->company_id)
+                    ->where('workspace_id',$source->workspace_id)
+                    ->where('membership_id',$source->id)
+                    ->where('effective_month','<=',now('Asia/Dhaka')->startOfMonth()->toDateString())
+                    ->orderByDesc('effective_month')->latest('id')->first();
                 $newId=DB::table('memberships')->insertGetId([
                     'company_id'=>$actor->company_id,
                     'workspace_id'=>$actor->workspace_id,'user_id'=>$source->user_id,
                     'role'=>'student','manager_membership_id'=>null,
-                    'monthly_allowance'=>$source->monthly_allowance,'active'=>true,
+                    'monthly_allowance'=>$latestSalary?->new_amount??$source->monthly_allowance,
+                    'active'=>true,
                     'activated_at'=>now(),'created_at'=>now(),'updated_at'=>now(),
                 ]);
                 $profile=DB::table('staff_profiles')
@@ -148,6 +155,15 @@ class StaffTransferController extends Controller
     private function ensureCleanHandoff(object $member,object $actor): void
     {
         $month=now('Asia/Dhaka')->startOfMonth()->toDateString();
+        if(DB::table('staff_compensation_changes')
+            ->where('company_id',$actor->company_id)
+            ->where('workspace_id',$member->workspace_id)
+            ->where('membership_id',$member->id)
+            ->where('effective_month','>',now('Asia/Dhaka')->startOfMonth()->toDateString())
+            ->exists()){
+            throw ValidationException::withMessages(['decision'=>
+                'Resolve future-dated salary decisions in the original Partner before transfer.']);
+        }
         $claims=DB::table('conveyance_claims')
             ->where('company_id',$actor->company_id)
             ->where('workspace_id',$member->workspace_id)
