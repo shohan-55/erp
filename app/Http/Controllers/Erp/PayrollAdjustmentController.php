@@ -60,7 +60,7 @@ class PayrollAdjustmentController extends Controller
         return back()->with('success','Partner-authorized adjustment recorded; draft recalculated. No bank payment was made.');
     }
 
-    public function void(Request $request,string $firmSlug,int $runId,int $adjustmentId)
+    public function voidAdjustment(Request $request,string $firmSlug,int $runId,int $adjustmentId)
     {
         [, $workspace, $actor]=TenantOps::context($request);
         TenantOps::requireRole($actor,['partner']);
