@@ -12,6 +12,7 @@ use App\Http\Controllers\Erp\ActivationController;
 use App\Http\Controllers\Erp\TeamController;
 use App\Http\Controllers\Erp\StudentPermissionController;
 use App\Http\Controllers\Erp\PolicyController;
+use App\Http\Controllers\Erp\StudentShiftController;
 use App\Http\Controllers\Erp\PlatformController;
 use App\Http\Controllers\Erp\PlatformManagementController;
 use App\Http\Controllers\Erp\PlatformCustomDomainController;
@@ -88,6 +89,10 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
             ->middleware('throttle:5,1')->name('policies.day_override');
         Route::post('/policies/calendar/day/{id}/decision', [PolicyController::class, 'reviewDayOverride'])
             ->middleware('throttle:5,1')->name('policies.day_review');
+        Route::post('/policies/calendar/students', [StudentShiftController::class, 'store'])
+            ->middleware('throttle:10,1')->name('policies.student_shifts');
+        Route::post('/policies/calendar/students/{shiftId}/decision', [StudentShiftController::class, 'decide'])
+            ->middleware('throttle:10,1')->name('policies.student_shift_decide');
         Route::get('/permissions/students', [StudentPermissionController::class, 'index'])->name('permissions.index');
         Route::post('/permissions/students/{memberId}', [StudentPermissionController::class, 'updateStudent'])->middleware('throttle:30,1')->name('permissions.student');
         Route::post('/permissions/managers/{memberId}/delegation', [StudentPermissionController::class, 'delegateManager'])->middleware('throttle:15,1')->name('permissions.delegate');
