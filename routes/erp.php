@@ -28,6 +28,8 @@ use App\Http\Controllers\Erp\StudentPermissionController;
 use App\Http\Controllers\Erp\PolicyController;
 use App\Http\Controllers\Erp\StudentShiftController;
 use App\Http\Controllers\Erp\PlatformController;
+use App\Http\Controllers\Erp\PlatformBillingController;
+use App\Http\Controllers\Erp\TenantSubscriptionController;
 use App\Http\Controllers\Erp\PlatformManagementController;
 use App\Http\Controllers\Erp\PlatformCustomDomainController;
 use App\Http\Controllers\Erp\CustomDomainEntryController;
@@ -141,6 +143,7 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
             ->middleware('throttle:10,1')->name('timesheets.withdraw');
         Route::get('/timesheets/export', [AuditTimesheetController::class, 'export'])
             ->middleware('throttle:10,1')->name('timesheets.export');
+        Route::get('/subscription', [TenantSubscriptionController::class, 'index'])->name('subscription');
         Route::get('/reports/practice', [PracticeReportController::class, 'index'])->name('reports.practice');
         Route::get('/reports/practice/export', [PracticeReportController::class, 'export'])
             ->middleware('throttle:10,1')->name('reports.practice.export');
@@ -212,6 +215,21 @@ Route::prefix('platform/app')->middleware('platform.host')->name('erp.platform.'
         Route::post('/companies/{companyId}/custom-domain/tls', [PlatformCustomDomainController::class, 'approveTls'])->name('domains.tls');
         Route::post('/companies/{companyId}/custom-domain/activate', [PlatformCustomDomainController::class, 'activate'])->middleware('throttle:5,1')->name('domains.activate');
         Route::post('/companies/{companyId}/custom-domain/disable', [PlatformCustomDomainController::class, 'disable'])->name('domains.disable');
+        Route::get('/billing', [PlatformBillingController::class, 'index'])->name('billing');
+        Route::post('/billing/plans', [PlatformBillingController::class, 'storePlan'])
+            ->middleware('throttle:10,1')->name('billing.plans.create');
+        Route::post('/billing/plans/{planId}/availability', [PlatformBillingController::class, 'availability'])
+            ->middleware('throttle:10,1')->name('billing.plans.availability');
+        Route::get('/companies/{companyId}/billing', [PlatformBillingController::class, 'company'])
+            ->name('billing.company');
+        Route::post('/companies/{companyId}/subscription', [PlatformBillingController::class, 'subscribe'])
+            ->middleware('throttle:10,1')->name('billing.subscribe');
+        Route::post('/companies/{companyId}/invoices', [PlatformBillingController::class, 'invoice'])
+            ->middleware('throttle:10,1')->name('billing.invoice');
+        Route::post('/companies/{companyId}/invoices/{invoiceId}/payments', [PlatformBillingController::class, 'payment'])
+            ->middleware('throttle:10,1')->name('billing.payment');
+        Route::post('/companies/{companyId}/payments/{paymentId}/decide', [PlatformBillingController::class, 'decide'])
+            ->middleware('throttle:10,1')->name('billing.payment.decide');
         Route::get('/companies/{companyId}', [PlatformManagementController::class, 'showCompany'])->name('companies.show');
         Route::patch('/companies/{companyId}', [PlatformManagementController::class, 'updateCompany'])->name('companies.update');
         Route::post('/companies/{companyId}/lifecycle', [PlatformManagementController::class, 'transitionCompany'])->name('companies.lifecycle');
