@@ -172,6 +172,20 @@ class Phase03StudentPermissionTest extends TestCase
             'partner_enabled' => 1, 'manager_enabled' => 0,
         ]);
         $this->actingAs($student)->get('/c/firm-a/app/leave')->assertForbidden();
+
+        // Even after manager delegation is revoked, the Partner can explicitly
+        // clear stale manager restrictions without needing that manager.
+        $this->actingAs($partner)->post("/c/firm-a/app/permissions/managers/$managerId/delegation", [
+            'enabled' => 0,
+        ])->assertRedirect();
+        $this->post("/c/firm-a/app/permissions/students/$studentId", [
+            'feature_key' => 'leave', 'enabled' => 1, 'reset_manager_restriction' => 1,
+        ])->assertRedirect();
+        $this->assertDatabaseHas('student_feature_controls', [
+            'membership_id' => $studentId, 'feature_key' => 'leave',
+            'partner_enabled' => 1, 'manager_enabled' => 1,
+        ]);
+        $this->actingAs($student)->get('/c/firm-a/app/leave')->assertOk();
     }
 
     public function test_cross_partner_and_cross_firm_permission_changes_are_rejected(): void
