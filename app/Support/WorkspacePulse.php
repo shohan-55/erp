@@ -99,7 +99,6 @@ final class WorkspacePulse
             'attention_count' => collect($items)
                 ->filter(fn ($item)=>$item['tone']==='attention')
                 ->sum('count'),
-            'local_date' => now()->toDateString(), // presenter uses company timezone separately
         ];
     }
 }
