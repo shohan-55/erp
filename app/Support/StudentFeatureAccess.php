@@ -13,6 +13,7 @@ final class StudentFeatureAccess
         'leave' => 'Leave Application',
         'conveyance' => 'Conveyance Claims',
         'payslip' => 'Finalized Payslips',
+        'timesheets' => 'Audit Engagements & Timesheets',
         'notifications' => 'Notices & Notifications',
     ];
 
@@ -32,6 +33,9 @@ final class StudentFeatureAccess
         }
         if (str_starts_with($name, 'erp.claims')) {
             return 'conveyance';
+        }
+        if (str_starts_with($name, 'erp.engagements') || str_starts_with($name, 'erp.timesheets')) {
+            return 'timesheets';
         }
         if (str_starts_with($name, 'erp.payroll')) {
             return 'payslip';
