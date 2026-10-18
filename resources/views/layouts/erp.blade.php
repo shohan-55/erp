@@ -16,6 +16,7 @@
 <nav class="flex-1 space-y-1 overflow-y-auto p-3" aria-label="ERP Navigation">
 @foreach([
 ['label'=>'Dashboard','name'=>'erp.dashboard','icon'=>'layout-dashboard'],
+['label'=>'Workforce Calendar','name'=>'erp.calendar.index','icon'=>'calendar-days'],
 ['label'=>'Attendance','name'=>'erp.attendance','icon'=>'calendar-check-2'],
 ['label'=>'Leave Requests','name'=>'erp.leaves','icon'=>'calendar-days'],
 ['label'=>'Conveyance','name'=>'erp.claims','icon'=>'receipt'],
