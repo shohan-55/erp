@@ -8,6 +8,8 @@ use App\Support\PolicyResolver;
 use App\Support\DashboardOverview;
 use App\Support\WorkCalendar;
 use App\Support\AttendanceClock;
+use App\Support\DashboardMonthCalendar;
+use App\Support\StudentFeatureAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -55,6 +57,12 @@ class PortalController extends Controller
         $qualifyingLateDays = $attendanceClock
             ? AttendanceClock::qualifyingLateDays($company, $workspace, $actor, $today) : 0;
 
+        $showPersonalCalendar = $actor->role !== 'student'
+            || (StudentFeatureAccess::enabledMap($actor)['attendance'] ?? false);
+        $monthCalendar = DashboardMonthCalendar::forActor(
+            $company,$workspace,$actor,$showPersonalCalendar
+        );
+
         $stats = [
             'members' => $ids->count(),
             'checked_in_today' => DB::table('attendance_sessions')
@@ -88,7 +96,7 @@ class PortalController extends Controller
             'company', 'workspace', 'actor', 'firmSlug',
             'stats', 'recent', 'effectivePolicy', 'activeAttendance',
             'attendanceClock', 'qualifyingLateDays',
-            'queues', 'quickActions'
+            'queues', 'quickActions', 'monthCalendar'
         ));
     }
 }
