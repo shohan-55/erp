@@ -284,6 +284,43 @@ class Phase07AdvancedLeaveManagementTest extends TestCase
         } finally { $this->restoreClock(); }
     }
 
+    public function test_partner_can_cancel_only_future_approved_leave_and_restore_balance_with_audit(): void
+    {
+        $this->frozenClock();
+        try {
+            [, $m]=$this->setupFirm();
+            $this->addPolicy($m['a']['partner']);
+            $this->request($m['a']['student'],'2026-11-02')->assertRedirect();
+            $id=(int)DB::table('leave_requests')->first()->id;
+            $url="/c/practice/app/leave/$id/decision";
+            $this->actingAs($m['a']['manager']->user)
+                ->post($url,['decision'=>'approve'])->assertRedirect();
+            $this->actingAs($m['a']['partner']->user)
+                ->post($url,['decision'=>'approve'])->assertRedirect();
+            $student=DB::table('memberships')->find($m['a']['student']->id);
+            $this->assertSame(2.0,LeaveBalance::allowance($student,2026,'annual','2026-11-02')['remaining']);
+
+            $cancel="/c/practice/app/leave/$id/cancel";
+            $this->actingAs($m['a']['student']->user)->post($cancel,[
+                'reason'=>'Trying to cancel my own final approved leave.',
+            ])->assertForbidden();
+            $this->actingAs($m['b']['partner']->user)->post($cancel,[
+                'reason'=>'Other Partner should never be permitted.',
+            ])->assertNotFound();
+            $this->actingAs($m['a']['partner']->user)->post($cancel,[
+                'reason'=>'Client duty assignment needs a rescheduled leave date.',
+            ])->assertRedirect();
+            $this->assertDatabaseHas('leave_requests',['id'=>$id,'status'=>'cancelled']);
+            $this->assertDatabaseHas('tenant_audit_events',[
+                'action'=>'leave.cancelled','entity_id'=>$id,
+            ]);
+            $this->assertSame(3.0,LeaveBalance::allowance($student,2026,'annual','2026-11-02')['remaining']);
+            $this->post($cancel,[
+                'reason'=>'Double cancellation must never be applied.',
+            ])->assertSessionHasErrors('reason');
+        } finally { $this->restoreClock(); }
+    }
+
     public function test_legacy_full_day_requests_still_work_without_new_policy_or_portion(): void
     {
         $this->frozenClock();
