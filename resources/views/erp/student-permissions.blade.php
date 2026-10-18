@@ -57,7 +57,13 @@
 </form>
 @endif
 @if($actor->role === 'partner' && !$managerAllowed)
-<p class="mt-2 text-xs text-amber-800">Manager also restricted this feature.</p>
+<p class="mt-2 text-xs text-amber-800">A Manager also restricted this feature. Only the Partner can clear the remaining restriction.</p>
+<form action="{{ route('erp.permissions.student',['firmSlug'=>$firmSlug,'memberId'=>$student->id]) }}" method="POST" class="mt-2">@csrf
+<input type="hidden" name="feature_key" value="{{ $key }}">
+<input type="hidden" name="enabled" value="{{ $partnerAllowed ? '1' : '0' }}">
+<input type="hidden" name="reset_manager_restriction" value="1">
+<button type="submit" class="w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-extrabold text-amber-950">Clear Manager Restriction</button>
+</form>
 @endif
 </div>
 @endforeach
