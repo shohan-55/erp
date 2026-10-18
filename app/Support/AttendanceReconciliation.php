@@ -38,7 +38,7 @@ final class AttendanceReconciliation
             ->whereIn('membership_id', $ids)
             ->where('status', 'approved')
             ->where('date_from', '<=', $day)->where('date_to', '>=', $day)
-            ->pluck('membership_id')->flip();
+            ->get(['membership_id','day_portion'])->groupBy('membership_id');
 
         $approvedClientDuty = DB::table('attendance_review_requests')
             ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
@@ -77,6 +77,8 @@ final class AttendanceReconciliation
             $first = $own->first();
             $last = $own->last();
             $approvedLeave = $leaves->has($member->id);
+            $portions = $leaves->get($member->id, collect())->pluck('day_portion')->all();
+            $fullLeave = in_array('full', $portions, true) || (in_array('morning', $portions, true) && in_array('afternoon', $portions, true));
             $duty = $approvedClientDuty->get($member->id);
             $flag = 'present';
             $label = 'Present';
@@ -107,9 +109,12 @@ final class AttendanceReconciliation
             } elseif ($dayRule['holiday']) {
                 $flag = 'holiday';
                 $label = 'Holiday';
-            } elseif ($approvedLeave) {
+            } elseif ($approvedLeave && $fullLeave) {
                 $flag = 'leave';
                 $label = 'Approved Leave';
+            } elseif ($approvedLeave) {
+                $flag = 'half_leave';
+                $label = 'Half-day Leave · Check Attendance';
             } elseif ($day === $today) {
                 $flag = 'not_checked_in';
                 $label = 'Not Checked In Yet';
@@ -129,7 +134,8 @@ final class AttendanceReconciliation
                 'holiday' => $dayRule['holiday'],
                 'session_count' => $own->count(),
                 'has_approved_leave' => $approvedLeave,
-                'has_conflict' => $approvedLeave && ($own->isNotEmpty() || (bool)$duty),
+                'has_conflict' => $fullLeave && ($own->isNotEmpty() || (bool)$duty),
+                'half_day_leave' => $approvedLeave && ! $fullLeave,
                 'approved_client_site' => $duty?->client_site,
                 'first_check_in' => $first?->started_at,
                 'last_check_out' => $last?->ended_at,
@@ -146,7 +152,7 @@ final class AttendanceReconciliation
             'total' => 0, 'present' => 0, 'checked_in' => 0,
             'client_duty' => 0, 'late' => 0, 'early_exit' => 0,
             'missing_punch' => 0, 'holiday' => 0, 'leave' => 0,
-            'not_checked_in' => 0, 'review' => 0,
+            'not_checked_in' => 0, 'review' => 0, 'half_leave' => 0,
             'duty_authorized' => 0, 'client_duty_review' => 0,
         ];
     }
