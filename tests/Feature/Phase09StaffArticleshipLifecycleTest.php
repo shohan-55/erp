@@ -94,7 +94,7 @@ class Phase09StaffArticleshipLifecycleTest extends TestCase
             $this->get('/c/client-firm/app/staff')->assertOk()
                 ->assertSeeText('Staff & Articleship Management')
                 ->assertSeeText('Senior Audit Associate')
-                ->assertDontSeeText('Partner b');
+                ->assertDontSeeText('b-student');
         } finally {$this->unclock();}
     }
 
