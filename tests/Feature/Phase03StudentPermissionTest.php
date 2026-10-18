@@ -58,9 +58,7 @@ class Phase03StudentPermissionTest extends TestCase
 
         $this->actingAs($partner)->get('/c/firm-a/app/permissions/students')->assertOk()
             ->assertSee('Student Dashboard & Feature Permissions');
-        $this;
         $this->toggle('firm-a', $studentId, 'attendance', false)->assertRedirect();
-        $this;
         $this->toggle('firm-a', $studentId, 'leave', false)->assertRedirect();
         $this->assertDatabaseHas('tenant_audit_events', ['action' => 'student.feature.updated',
             'entity_id' => $studentId, 'workspace_id' => $workspace]);
@@ -90,11 +88,9 @@ class Phase03StudentPermissionTest extends TestCase
         [$partner] = $this->member($firm, $w, 'partner');
         [$student, $studentId] = $this->member($firm, $w, 'student');
         $this->actingAs($partner);
-        $this;
         $this->toggle('firm-a', $studentId, 'conveyance', false)->assertRedirect();
         $this->actingAs($student)->get('/c/firm-a/app/claims')->assertForbidden();
         $this->actingAs($partner);
-        $this;
         $this->toggle('firm-a', $studentId, 'conveyance', true)->assertRedirect();
         $this->actingAs($student)->get('/c/firm-a/app/claims')->assertOk();
         $this->assertDatabaseHas('student_feature_controls', [
@@ -113,7 +109,6 @@ class Phase03StudentPermissionTest extends TestCase
         [, $unassignedId] = $this->member($firm, $w, 'student');
 
         $this->actingAs($manager)->get('/c/firm-a/app/permissions/students')->assertForbidden();
-        $this;
         $this->toggle('firm-a', $studentId, 'notifications', false)->assertForbidden();
 
         $this->actingAs($partner)->post("/c/firm-a/app/permissions/managers/$managerId/delegation", [
@@ -122,9 +117,7 @@ class Phase03StudentPermissionTest extends TestCase
 
         $this->actingAs($manager)->get('/c/firm-a/app/permissions/students')->assertOk()
             ->assertSee($student->email);
-        $this;
         $this->toggle('firm-a', $unassignedId, 'notifications', false)->assertNotFound();
-        $this;
         $this->toggle('firm-a', $studentId, 'notifications', false)->assertRedirect();
         $this->actingAs($student)->get('/c/firm-a/app/notifications')->assertForbidden();
 
@@ -132,7 +125,6 @@ class Phase03StudentPermissionTest extends TestCase
             'enabled' => 0,
         ])->assertRedirect();
         $this->actingAs($manager)->get('/c/firm-a/app/permissions/students')->assertForbidden();
-        $this;
         $this->toggle('firm-a', $studentId, 'notifications', true)->assertForbidden();
     }
 
@@ -147,7 +139,6 @@ class Phase03StudentPermissionTest extends TestCase
         $this->actingAs($partner);
         $this->post("/c/firm-a/app/permissions/managers/$managerId/delegation", ['enabled' => 1])
             ->assertRedirect();
-        $this;
         $this->toggle('firm-a', $studentId, 'payslip', false)->assertRedirect();
 
         $this->actingAs($manager);
@@ -156,7 +147,6 @@ class Phase03StudentPermissionTest extends TestCase
         $this->actingAs($student)->get('/c/firm-a/app/payroll')->assertForbidden();
 
         $this->actingAs($manager);
-        $this;
         $this->toggle('firm-a', $studentId, 'attendance_report', false)->assertRedirect();
         $this->actingAs($student)->get('/c/firm-a/app/attendance/report')->assertForbidden();
         $this->get('/c/firm-a/app/attendance')->assertOk();
@@ -173,12 +163,9 @@ class Phase03StudentPermissionTest extends TestCase
         $this->actingAs($partner);
         $this->post("/c/firm-a/app/permissions/managers/$managerId/delegation", ['enabled' => 1])->assertRedirect();
         $this->actingAs($manager);
-        $this;
         $this->toggle('firm-a', $studentId, 'leave', false)->assertRedirect();
         $this->actingAs($partner);
-        $this;
         $this->toggle('firm-a', $studentId, 'leave', false)->assertRedirect();
-        $this;
         $this->toggle('firm-a', $studentId, 'leave', true)->assertRedirect();
         $this->assertDatabaseHas('student_feature_controls', [
             'membership_id' => $studentId, 'feature_key' => 'leave',
@@ -201,9 +188,7 @@ class Phase03StudentPermissionTest extends TestCase
         [, $foreignMember] = $this->member($other, $w3, 'student');
 
         $this->actingAs($partner);
-        $this;
         $this->toggle('firm-a', $otherMember, 'attendance', false)->assertNotFound();
-        $this;
         $this->toggle('firm-a', $foreignMember, 'attendance', false)->assertNotFound();
         $this->actingAs($unrelatedPartner)
             ->get('/c/firm-a/app/permissions/students')->assertOk();
@@ -223,7 +208,6 @@ class Phase03StudentPermissionTest extends TestCase
         [$student, $studentId] = $this->member($firm, $w, 'student', $managerId);
 
         $this->actingAs($student);
-        $this;
         $this->toggle('firm-a', $studentId, 'attendance', false)->assertForbidden();
         $this->post("/c/firm-a/app/permissions/managers/$managerId/delegation", [
             'enabled' => 1,
