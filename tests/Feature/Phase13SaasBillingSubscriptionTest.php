@@ -91,8 +91,13 @@ class Phase13SaasBillingSubscriptionTest extends TestCase
     {
         $this->post("/platform/app/companies/$company/invoices/$invoice/payments",[
             'method'=>'bkash','reference'=>$reference,'amount'=>$amount,
-        ])->assertRedirect()->assertSessionHasNoErrors();
-        return (int)DB::table('saas_payments')->where('reference',$reference)->value('id');
+        ])->assertRedirect();
+        // Prior deliberate validation-error requests can leave an empty Laravel
+        // error bag; database persistence is the authoritative new-request check.
+        $id=DB::table('saas_payments')->where('reference',$reference)->value('id');
+        $this->assertNotNull($id,'Accepted payment evidence must be persisted as pending.');
+        $this->assertDatabaseHas('saas_payments',['id'=>$id,'status'=>'pending']);
+        return (int)$id;
     }
 
     private function approve(int $company,int $payment):\Illuminate\Testing\TestResponse
