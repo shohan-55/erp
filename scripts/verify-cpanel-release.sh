@@ -9,6 +9,22 @@ trap 'rm -rf "$TEMP"' EXIT
 test -s "$DIST/erp-cpanel-application.zip"
 test -s "$DIST/erp-cpanel-split-webroot.zip"
 test -s "$DIST/SHA256SUMS.txt"
+test -s "$DIST/release-manifest.json"
+# Artifact claims must match actual content and the immutable CI checkout.
+# Even a perfectly matching manifest never authorizes live deployment.
+python3 - "$DIST" <<'PY'
+import hashlib, json, os, pathlib, sys
+root=pathlib.Path(sys.argv[1])
+data=json.loads((root/'release-manifest.json').read_text())
+assert data['project']=='DhakaWala ERP'
+assert data['deployment_authorized'] is False
+sha=os.environ.get('GITHUB_SHA')
+if sha:
+    assert data['source_commit_sha']==sha, 'SHA does not match reviewed checkout'
+for name in ('erp-cpanel-application.zip','erp-cpanel-split-webroot.zip'):
+    assert data['artifacts_sha256'][name]==hashlib.sha256((root/name).read_bytes()).hexdigest(), 'Archive manifest mismatch'
+print('PASS: exact SHA / archive-manifest integrity (not production authorization)')
+PY
 
 # Portable manifests must contain relative archive names only; no CI runner paths.
 if grep -Eq '(/home/runner/|/mnt/|/tmp/)' "$DIST/SHA256SUMS.txt"; then
