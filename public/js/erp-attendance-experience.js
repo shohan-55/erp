@@ -32,7 +32,7 @@
       description.textContent = checkingOut
         ? 'Confirm your check-out. The server will record your actual finishing time.'
         : 'Confirm your check-in. The server will determine your arrival status using your approved schedule.';
-      confirm.innerHTML = checkingOut ? 'Yes, check out →' : 'Yes, check in →';
+      confirm.textContent = checkingOut ? 'OK, Check Out →' : 'OK, Check In →';
       dialog.hidden = false;
       document.body.style.overflow = 'hidden';
       confirm.focus();
