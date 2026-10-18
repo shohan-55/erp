@@ -116,7 +116,7 @@
 <div class="space-y-2">
 <span class="inline-flex rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{{ str_replace('_',' ',ucfirst($row->status)) }}</span>
 @if(in_array($actor->role,['partner','manager']) && ($row->status==='pending' || ($actor->role==='partner' && $row->status==='manager_reviewed')))
-<form action="{{ route('erp.leaves.decide',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
+<form data-corporate-confirm="Review this leave decision? The student's request will advance or be rejected, and the action will be audited." action="{{ route('erp.leaves.decide',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
 <input type="text" name="decision_note" maxlength="1000" placeholder="Decision note (optional)" class="min-w-44 flex-1 rounded-lg border border-slate-300 p-2 text-xs">
 <button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">{{ $actor->role==='manager' ? 'Review' : 'Approve' }}</button>
 <button name="decision" value="reject" class="rounded-lg bg-rose-700 px-3 py-2 text-xs font-bold text-white">Reject</button></form>
@@ -127,7 +127,7 @@
 </form>
 @endif
 @if($actor->role==='partner' && $row->status==='approved' && $row->date_from > now($company->timezone)->toDateString())
-<form action="{{ route('erp.leaves.cancel',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
+<form data-corporate-confirm="Cancel this previously approved future leave? The authorized change will be audited and leave entitlement recalculated." action="{{ route('erp.leaves.cancel',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
 <input name="reason" required minlength="15" maxlength="1000" placeholder="Cancellation reason (mandatory)" class="min-w-44 rounded-lg border border-slate-300 p-2 text-xs">
 <button class="rounded-lg bg-rose-100 px-3 py-2 text-xs font-bold text-rose-950">Cancel Approved Future Leave</button>
 </form>
