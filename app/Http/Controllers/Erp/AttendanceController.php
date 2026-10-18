@@ -109,7 +109,7 @@ class AttendanceController extends Controller
                 'effective_shift_start' => $calendar['office_start'],
                 'effective_shift_end' => $calendar['office_end'],
                 'effective_grace_minutes' => $calendar['grace_minutes'],
-                'student_shift_id' => $calendar['student_shift_id'],
+                'student_shift_id' => $calendar['student_shift_id'] ?? null,
                 'browser_location_captured' => $captured,
             ]);
             return [
