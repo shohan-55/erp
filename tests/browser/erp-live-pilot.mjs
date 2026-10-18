@@ -74,16 +74,27 @@ try {
     await page.screenshot({path:output+'/01-student-dashboard.png',fullPage:true});
 
     // The premium Dashboard button must NOT submit before explicit confirmation.
+    // A Cancel must not cause a POST to reach the attendance endpoint.
+    let checkInSubmissions = 0;
+    page.on('request', request => {
+        if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/attendance/check-in')) {
+            checkInSubmissions++;
+        }
+    });
     await page.getByRole('button',{name:'Check In Now'}).click();
     await page.getByRole('dialog',{name:'Ready to check in?'}).waitFor();
+    assert.equal(checkInSubmissions, 0, 'Opening confirmation must not record attendance');
     await page.getByRole('button',{name:'Cancel'}).click();
+    await page.waitForTimeout(80);
+    assert.equal(checkInSubmissions, 0, 'Cancelling attendance must not submit a POST');
     await page.getByRole('button',{name:'Check In Now'}).click();
-    await page.getByRole('button',{name:'Yes, check in →'}).click();
+    await page.getByRole('button',{name:'OK, Check In →'}).click();
     await page.getByRole('alertdialog').waitFor();
+    assert.equal(checkInSubmissions, 1, 'Exactly one check-in POST after OK');
     await page.getByRole('button',{name:/Continue to dashboard/}).click();
     await page.getByRole('button',{name:'Check Out Now'}).click();
     await page.getByRole('dialog',{name:'Finish your work session?'}).waitFor();
-    await page.getByRole('button',{name:'Yes, check out →'}).click();
+    await page.getByRole('button',{name:'OK, Check Out →'}).click();
     await page.getByRole('alertdialog').waitFor();
     await page.getByRole('button',{name:/Continue to dashboard/}).click();
     await nav('Attendance');
@@ -105,11 +116,11 @@ try {
     await login('e2e.manager@example.test');
     await page.getByRole('button',{name:'Check In Now'}).click();
     await page.getByRole('dialog',{name:'Ready to check in?'}).waitFor();
-    await page.getByRole('button',{name:'Yes, check in →'}).click();
+    await page.getByRole('button',{name:'OK, Check In →'}).click();
     await page.getByRole('alertdialog').waitFor();
     await page.getByRole('button',{name:/Continue to dashboard/}).click();
     await page.getByRole('button',{name:'Check Out Now'}).click();
-    await page.getByRole('button',{name:'Yes, check out →'}).click();
+    await page.getByRole('button',{name:'OK, Check Out →'}).click();
     await page.getByRole('alertdialog').waitFor();
     await page.getByRole('button',{name:/Continue to dashboard/}).click();
     await nav('Leave Requests');
