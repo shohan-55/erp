@@ -47,7 +47,7 @@
 </div>
 </header>
 <div class="doc-heading">
-<h2>Approved Leave Application</h2>
+<h2>{{ $snapshot['template_title'] ?? 'Approved Leave Application' }}</h2>
 <div class="ref"><strong>{{ $issue->reference }}</strong><div>Issue date: {{ \Carbon\CarbonImmutable::parse($issue->issued_at)->setTimezone($company->timezone)->format('d M Y') }}</div></div>
 </div>
 <dl class="meta">
@@ -58,6 +58,12 @@
 <div class="field"><dt>Approved Working Days</dt><dd>{{ $snapshot['charge_days'] }}</dd></div>
 <div class="field"><dt>Final Approval</dt><dd>{{ \Carbon\CarbonImmutable::parse($snapshot['approved_at'])->setTimezone($company->timezone)->format('d M Y, h:i A') }}</dd></div>
 </dl>
+@if(!empty($snapshot['template_body']))
+<section class="application">
+  <strong>Approved Official Letter Wording</strong>
+  <p>{{ $snapshot['template_body'] }}</p>
+</section>
+@endif
 <section class="application">
 <strong>Application / Leave Reason</strong>
 <p>{{ $snapshot['reason'] }}</p>
@@ -74,7 +80,7 @@
 </section>
 <footer class="footer">
 Reference {{ $issue->reference }} · Officially approved in the ERP on {{ $snapshot['approved_at'] }}.<br>
-This page reflects the immutable issued snapshot. Verify the application against the authenticated ERP records.
+{{ $snapshot['template_footer'] ?? 'This page reflects the immutable issued snapshot. Verify the application against the authenticated ERP records.' }}
 </footer>
 </main>
 </body>
