@@ -58,25 +58,55 @@ class ProductionPreflight extends Command
             'verified_outbound_mailer' => in_array(config('mail.default'), ['smtp', 'ses', 'postmark', 'resend', 'mailgun'], true),
         ];
 
+        // Cover ALL commercial/financial/employee-document endpoints through
+        // Phase 13, not just the original MVP routes. A route missing even
+        // one guard is a release-blocking failure.
+        $platformRoutes = [
+            'erp.platform.dashboard','erp.platform.companies.create',
+            'erp.platform.members.invite','erp.platform.partners.create',
+            'erp.platform.domains.activate','erp.platform.domains.disable',
+            'erp.platform.billing','erp.platform.billing.plans.create',
+            'erp.platform.billing.plans.availability',
+            'erp.platform.billing.company','erp.platform.billing.subscribe',
+            'erp.platform.billing.invoice','erp.platform.billing.payment',
+            'erp.platform.billing.payment.decide',
+        ];
+        $tenantRoutes = [
+            'erp.dashboard','erp.attendance.check_in','erp.attendance.report',
+            'erp.attendance.location','erp.attendance.correct',
+            'erp.payroll','erp.payroll.generate','erp.payroll.advance',
+            'erp.payroll.evidence','erp.payroll.payslip','erp.payroll.register',
+            'erp.payroll.adjustments.create','erp.payroll.adjustments.void',
+            'erp.claims.receipt','erp.policies.vote',
+            'erp.engagements','erp.engagements.clients.create',
+            'erp.engagements.create','erp.engagements.assign',
+            'erp.timesheets','erp.timesheets.submit','erp.timesheets.decide',
+            'erp.timesheets.export','erp.reports.practice',
+            'erp.reports.practice.export','erp.notices.publish',
+            'erp.documents','erp.documents.upload','erp.documents.download',
+            'erp.documents.archive','erp.subscription',
+        ];
         foreach ([
-            'erp.platform.dashboard',
-            'erp.platform.companies.create',
-            'erp.dashboard',
-            'erp.attendance.check_in',
-            'erp.attendance.report',
-            'erp.attendance.location',
-            'erp.attendance.correct',
-            'erp.payroll',
-            'erp.payroll.generate',
-            'erp.payroll.advance',
-            'erp.payroll.evidence',
-            'erp.claims.receipt',
-            'erp.policies.vote',
-        ] as $routeName) {
-            $route = Route::getRoutes()->getByName($routeName);
-            $checks['mfa_guard_'.str_replace('.', '_', $routeName)]
-                = $route !== null && in_array('mfa.verified', $route->gatherMiddleware(), true);
+            'platform' => [$platformRoutes, ['platform.host','auth','platform.admin','mfa.verified']],
+            'tenant' => [$tenantRoutes, ['tenant.host','auth','tenant.member','mfa.verified','student.features']],
+        ] as $group => [$names, $required]) {
+            foreach ($names as $routeName) {
+                $route = Route::getRoutes()->getByName($routeName);
+                $middleware = $route?->gatherMiddleware() ?? [];
+                foreach ($required as $guard) {
+                    $checks['guard_'.str_replace('.', '_', $routeName).'_'.str_replace('.', '_', $guard)]
+                        = $route !== null && in_array($guard, $middleware, true);
+                }
+            }
         }
+        $privateRoot = realpath(storage_path('app/private'));
+        $publicRoot = realpath(public_path());
+        $checks['private_files_outside_public_webroot'] = $privateRoot !== false
+            && $publicRoot !== false
+            && ! str_starts_with($privateRoot.DIRECTORY_SEPARATOR, $publicRoot.DIRECTORY_SEPARATOR);
+        $checks['local_disk_matches_private_storage'] = rtrim(
+            (string)config('filesystems.disks.local.root'), DIRECTORY_SEPARATOR
+        ) === rtrim(storage_path('app/private'), DIRECTORY_SEPARATOR);
 
         $previewRoutes = collect(Route::getRoutes())->contains(
             fn ($route) => $route->uri() === 'platform/dashboard-preview'
@@ -95,7 +125,7 @@ class ProductionPreflight extends Command
         if ($this->option('json')) {
             $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
         } else {
-            $this->line('RA&C ERP — Production Configuration Preflight');
+            $this->line('DhakaWala ERP — Production Configuration Preflight');
             foreach ($checks as $name => $pass) {
                 $this->line(($pass ? '[PASS] ' : '[FAIL] ').$name);
             }

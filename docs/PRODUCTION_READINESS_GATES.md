@@ -1,3 +1,5 @@
+> **2026-10-18 Phase 14 update — authoritative checklist:** [PHASE_14_FINAL_PRODUCTION_HANDOFF.md](PHASE_14_FINAL_PRODUCTION_HANDOFF.md) is the current full 14-phase release gate. This older document preserves historical security findings and must not be used as the sole production approval. Even after all development code/tests are merged, **LIVE DEPLOYMENT REMAINS NO-GO** until independent staging restore, server security, SMTP, financial-policy approval, full user acceptance and explicit owner permission. The historical references below to a ten-phase prototype, competing PR alternatives and RA&C ownership describe the former project state; **DhakaWala owns the SaaS**, and CA firms are customers. No live deployment has occurred as part of Phase 14.
+
 # RA&C ERP SaaS — Production Go / No-Go Release Gate
 
 **Status: NO-GO** until every mandatory gate below is satisfied with dated evidence and independent review.

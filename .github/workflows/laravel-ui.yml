@@ -192,6 +192,15 @@ jobs:
       - name: Run real MySQL schema migrations
         run: php artisan migrate --force
 
+      # Phase 14: these checks run on an isolated fresh MySQL CI database.
+      # NEVER point this workflow at live ERP; it only checks committed test schema.
+      - name: Verify complete migrated schema and read-only financial integrity
+        run: |
+          php artisan erp:db:check
+          php artisan erp:integrity:check
+          php artisan erp:billing:check
+          php artisan erp:tenant:check
+
       - name: Execute complete test suite using MySQL 8
         run: php artisan test
 
@@ -239,5 +248,6 @@ jobs:
             dist/erp-cpanel-application.zip
             dist/erp-cpanel-split-webroot.zip
             dist/SHA256SUMS.txt
+            dist/release-manifest.json
           if-no-files-found: error
           retention-days: 14
