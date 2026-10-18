@@ -66,12 +66,22 @@ try {
     await page.getByRole('heading',{name:'Workspace Dashboard'}).waitFor();
     await page.screenshot({path:output+'/01-student-dashboard.png',fullPage:true});
 
+    // The premium Dashboard button must NOT submit before explicit confirmation.
+    await page.getByRole('button',{name:'Check In Now'}).click();
+    await page.getByRole('dialog',{name:'Ready to check in?'}).waitFor();
+    await page.getByRole('button',{name:'Cancel'}).click();
+    await page.getByRole('button',{name:'Check In Now'}).click();
+    await page.getByRole('button',{name:'Yes, check in →'}).click();
+    await page.getByRole('alertdialog').waitFor();
+    await page.getByRole('button',{name:/Continue to dashboard/}).click();
+    await page.getByRole('button',{name:'Check Out Now'}).click();
+    await page.getByRole('dialog',{name:'Finish your work session?'}).waitFor();
+    await page.getByRole('button',{name:'Yes, check out →'}).click();
+    await page.getByRole('alertdialog').waitFor();
+    await page.getByRole('button',{name:/Continue to dashboard/}).click();
     await nav('Attendance');
-    await page.getByRole('button',{name:'Check In',exact:true}).click();
-    await page.getByText('Check-in saved using the server clock.').waitFor();
+    await page.getByText('Attendance History (last 100 sessions)').waitFor();
     await page.screenshot({path:output+'/02-student-attendance.png',fullPage:true});
-    await page.getByRole('button',{name:'Check Out',exact:true}).click();
-    await page.getByText('Check-out recorded.').waitFor();
 
     await nav('Leave Requests');
     await page.locator('select[name=leave_type]').selectOption('annual');
@@ -86,6 +96,15 @@ try {
 
     // Assigned students now require Manager review before final Partner approval.
     await login('e2e.manager@example.test');
+    await page.getByRole('button',{name:'Check In Now'}).click();
+    await page.getByRole('dialog',{name:'Ready to check in?'}).waitFor();
+    await page.getByRole('button',{name:'Yes, check in →'}).click();
+    await page.getByRole('alertdialog').waitFor();
+    await page.getByRole('button',{name:/Continue to dashboard/}).click();
+    await page.getByRole('button',{name:'Check Out Now'}).click();
+    await page.getByRole('button',{name:'Yes, check out →'}).click();
+    await page.getByRole('alertdialog').waitFor();
+    await page.getByRole('button',{name:/Continue to dashboard/}).click();
     await nav('Leave Requests');
     await page.getByRole('button',{name:'Review',exact:true}).first().click();
     await page.getByText('Leave review recorded.').waitFor();
