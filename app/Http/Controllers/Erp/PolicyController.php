@@ -190,64 +190,173 @@ class PolicyController extends Controller
      * Partner workspace. Revisions are append-only; no old decision disappears.
      * This never calculates wage deductions or rewrites finalized payroll.
      */
+    /**
+     * A Partner may authorize a future calendar decision immediately.
+     * A Manager may only PROPOSE one for Partner approval. Past dates,
+     * frozen payroll, cross-workspace changes and implicit approvals fail closed.
+     */
     public function dayOverride(Request $request, string $firmSlug)
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['partner']);
+        TenantOps::requireRole($actor, ['partner', 'manager']);
 
         $input = $request->validate([
             'work_date' => ['required', 'date_format:Y-m-d'],
             'day_type' => ['required', 'in:working,holiday'],
+            'holiday_category' => ['nullable', 'in:partner_decision,government,optional,client_duty,emergency'],
+            'office_start' => ['nullable', 'required_with:office_end', 'date_format:H:i'],
+            'office_end' => ['nullable', 'required_with:office_start', 'date_format:H:i', 'after:office_start'],
+            'grace_minutes' => ['nullable', 'integer', 'between:0,60'],
             'reason' => ['required', 'string', 'min:15', 'max:1000'],
         ]);
 
-        $dt = CarbonImmutable::createFromFormat('!Y-m-d', $input['work_date'], $company->timezone);
-        if (! $dt || $dt->toDateString() !== $input['work_date']
-            || ! $dt->greaterThan(CarbonImmutable::now($company->timezone)->startOfDay())) {
-            throw ValidationException::withMessages(['work_date' => 'Special working days and holidays must be scheduled for a future calendar date.']);
+        if ($input['day_type'] === 'holiday' && (
+            ! empty($input['office_start']) || ! empty($input['office_end']) || isset($input['grace_minutes'])
+        )) {
+            throw ValidationException::withMessages(['office_start' => 'Holiday decisions cannot include working hours.']);
         }
+        if (isset($input['grace_minutes']) && (empty($input['office_start']) || empty($input['office_end']))) {
+            throw ValidationException::withMessages(['grace_minutes' => 'Provide both start and end times with a special grace period.']);
+        }
+
+        $this->validateProspectiveWorkDate($company, $input['work_date']);
 
         DB::transaction(function () use ($company, $workspace, $actor, $input) {
             DB::table('workspaces')->where('id', $workspace->id)
                 ->where('company_id', $company->id)->lockForUpdate()->first();
 
-            if ($input['work_date'] <= CarbonImmutable::now($company->timezone)->toDateString()) {
-                throw ValidationException::withMessages(['work_date' => 'This date is no longer in the future.']);
-            }
+            $this->assertCalendarDateEditable($company, $workspace, $input['work_date']);
 
-            $month = substr($input['work_date'], 0, 7).'-01';
-            if (DB::table('payroll_runs')->where('company_id', $company->id)
-                ->where('workspace_id', $workspace->id)->where('period_month', $month)
-                ->whereIn('status', ['reviewed', 'approved', 'paid', 'locked'])->exists()) {
-                throw ValidationException::withMessages(['work_date' => 'Payroll is frozen for this period.']);
+            if (DB::table('workspace_day_overrides')
+                ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
+                ->where('work_date', $input['work_date'])->where('status', 'pending')->exists()) {
+                throw ValidationException::withMessages(['work_date' => 'An outstanding day decision needs Partner review first.']);
             }
 
             $last = DB::table('workspace_day_overrides')
                 ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
-                ->where('work_date', $input['work_date'])->latest('id')->first();
-            if ($last && $last->day_type === $input['day_type']) {
-                throw ValidationException::withMessages(['day_type' => 'The latest decision already has this type for that date.']);
+                ->where('work_date', $input['work_date'])
+                ->where('status', 'approved')->latest('id')->first();
+
+            $start = $input['office_start'] ?? null;
+            $end = $input['office_end'] ?? null;
+            $grace = $input['grace_minutes'] ?? null;
+            $category = $input['holiday_category'] ?? 'partner_decision';
+
+            if ($last && $last->day_type === $input['day_type']
+                && substr((string) $last->office_start, 0, 5) === ($start ?? '')
+                && substr((string) $last->office_end, 0, 5) === ($end ?? '')
+                && ($last->grace_minutes === null ? null : (int) $last->grace_minutes)
+                    === ($grace === null ? null : (int) $grace)
+                && $last->holiday_category === $category) {
+                throw ValidationException::withMessages(['day_type' => 'This calendar decision is already approved for that date.']);
             }
 
+            $approved = $actor->role === 'partner';
             $id = DB::table('workspace_day_overrides')->insertGetId([
                 'company_id' => $company->id,
                 'workspace_id' => $workspace->id,
                 'work_date' => $input['work_date'],
                 'day_type' => $input['day_type'],
+                'holiday_category' => $category,
+                'office_start' => $start,
+                'office_end' => $end,
+                'grace_minutes' => $grace,
                 'reason' => trim($input['reason']),
-                'authorized_by' => $actor->id,
+                'status' => $approved ? 'approved' : 'pending',
+                'proposed_by' => $actor->id,
+                'authorized_by' => $approved ? $actor->id : null,
+                'reviewed_by' => $approved ? $actor->id : null,
+                'reviewed_at' => $approved ? now() : null,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
 
-            TenantOps::audit($actor, 'calendar.day_override', 'workspace_day_override', $id, [
-                'work_date' => $input['work_date'],
-                'prior_decision_id' => $last?->id,
-                'day_type' => $input['day_type'],
-                'reason' => trim($input['reason']),
-            ]);
+            TenantOps::audit($actor, $approved ? 'calendar.day_override' : 'calendar.day_proposed',
+                'workspace_day_override', $id, [
+                    'work_date' => $input['work_date'],
+                    'prior_decision_id' => $last?->id,
+                    'day_type' => $input['day_type'], 'holiday_category' => $category,
+                    'office_start' => $start, 'office_end' => $end,
+                    'grace_minutes' => $grace,
+                ]);
+
+            if (! $approved) {
+                $partnerIds = DB::table('memberships')
+                    ->where('company_id', $company->id)
+                    ->where('workspace_id', $workspace->id)
+                    ->where('role', 'partner')->where('active', true)->pluck('id');
+                foreach ($partnerIds as $partnerId) {
+                    TenantOps::notify($actor, (int) $partnerId, 'Calendar approval requested',
+                        'A Manager has proposed a special day change for '.$input['work_date'].'.');
+                }
+            }
         }, 3);
 
-        return back()->with('success', 'The future calendar exception was saved for your Partner workspace.');
+        return back()->with('success', $actor->role === 'partner'
+            ? 'Your Partner calendar decision is approved and scheduled.'
+            : 'Calendar proposal sent to your Partner for review. It does not change attendance until approved.');
+    }
+
+    /** A Manager request can only become effective through a Partner decision. */
+    public function reviewDayOverride(Request $request, string $firmSlug, int $id)
+    {
+        [$company, $workspace, $actor] = TenantOps::context($request);
+        TenantOps::requireRole($actor, ['partner']);
+        $input = $request->validate(['decision' => ['required', 'in:approve,reject']]);
+
+        DB::transaction(function () use ($company, $workspace, $actor, $id, $input) {
+            DB::table('workspaces')->where('company_id', $company->id)
+                ->where('id', $workspace->id)->lockForUpdate()->first();
+
+            $proposal = DB::table('workspace_day_overrides')
+                ->where('id', $id)->where('company_id', $company->id)
+                ->where('workspace_id', $workspace->id)->lockForUpdate()->first();
+            abort_unless($proposal, 404);
+            if ($proposal->status !== 'pending') {
+                throw ValidationException::withMessages(['decision' => 'This calendar request has already been reviewed.']);
+            }
+
+            $this->assertCalendarDateEditable($company, $workspace, $proposal->work_date);
+
+            $status = $input['decision'] === 'approve' ? 'approved' : 'rejected';
+            DB::table('workspace_day_overrides')->where('id', $proposal->id)->update([
+                'status' => $status,
+                'authorized_by' => $status === 'approved' ? $actor->id : null,
+                'reviewed_by' => $actor->id, 'reviewed_at' => now(), 'updated_at' => now(),
+            ]);
+            TenantOps::audit($actor, 'calendar.day_'.$status, 'workspace_day_override', $id, [
+                'work_date' => $proposal->work_date,
+                'proposed_by' => $proposal->proposed_by,
+            ]);
+
+            if ($proposal->proposed_by && $proposal->proposed_by !== $actor->id) {
+                TenantOps::notify($actor, (int) $proposal->proposed_by,
+                    'Calendar proposal '.$status,
+                    'Your proposed calendar decision for '.$proposal->work_date.' was '.$status.'.');
+            }
+        }, 3);
+
+        return back()->with('success', 'Calendar proposal decision saved.');
+    }
+
+    private function validateProspectiveWorkDate(object $company, string $date): void
+    {
+        $dt = CarbonImmutable::createFromFormat('!Y-m-d', $date, $company->timezone);
+        if (! $dt || $dt->toDateString() !== $date
+            || $date <= CarbonImmutable::now($company->timezone)->toDateString()) {
+            throw ValidationException::withMessages(['work_date' => 'Only future calendar dates can be changed.']);
+        }
+    }
+
+    private function assertCalendarDateEditable(object $company, object $workspace, string $date): void
+    {
+        $this->validateProspectiveWorkDate($company, $date);
+        $month = substr($date, 0, 7).'-01';
+        if (DB::table('payroll_runs')->where('company_id', $company->id)
+            ->where('workspace_id', $workspace->id)->where('period_month', $month)
+            ->whereIn('status', ['reviewed', 'approved', 'paid', 'locked'])->exists()) {
+            throw ValidationException::withMessages(['work_date' => 'Payroll is frozen for this period.']);
+        }
     }
 
     private function validatePolicy(Request $request, bool $companyWide): array
