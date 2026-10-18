@@ -50,7 +50,7 @@ class PracticeReportController extends Controller
                     $r->leave_requests,number_format($r->approved_claim_bdt,2,'.',''),
                     number_format($r->approved_hours,2,'.',''),
                     number_format($r->billable_hours,2,'.',''),
-                    $r->locked_payroll_bdt??'NOT LOCKED']);
+                    $r->locked_payroll_bdt===null?'NOT LOCKED':number_format((float)$r->locked_payroll_bdt,2,'.','')]);
             }
             fclose($out);
         },'partner-report-'.$month.'.csv',[
