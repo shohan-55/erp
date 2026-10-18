@@ -55,7 +55,7 @@ class Phase06AttendanceReconciliationTest extends TestCase
         return [$company,$people];
     }
 
-    private function session(int $company,object $person,string $mode='office',bool $ended=true,bool $late=false): void
+    private function seedSession(int $company,object $person,string $mode='office',bool $ended=true,bool $late=false): void
     {
         DB::table('attendance_sessions')->insert([
             'company_id'=>$company, 'workspace_id'=>$person->workspace,
@@ -73,8 +73,8 @@ class Phase06AttendanceReconciliationTest extends TestCase
         $this->clock();
         try {
             [$company,$p] = $this->fixture();
-            $this->session($company,$p['partner-a']['student-a'],'client');
-            $this->session($company,$p['partner-a']['student-b'],'office',false);
+            $this->seedSession($company,$p['partner-a']['student-a'],'client');
+            $this->seedSession($company,$p['partner-a']['student-b'],'office',false);
             $this->actingAs($p['partner-a']['partner']->user)
                 ->get('/c/audit-co/app/attendance/reconcile?date=2026-10-19')
                 ->assertOk()
