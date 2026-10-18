@@ -321,6 +321,54 @@ class Phase07AdvancedLeaveManagementTest extends TestCase
         } finally { $this->restoreClock(); }
     }
 
+    public function test_approved_half_day_is_not_reported_as_a_full_day_absence_or_false_attendance_conflict(): void
+    {
+        $this->frozenClock();
+        try {
+            [$firm,$m]=$this->setupFirm();
+            $student=$m['a']['student'];
+            $partner=$m['a']['partner'];
+            $row=[
+                'company_id'=>$firm,'workspace_id'=>$partner->workspace,
+                'membership_id'=>$student->id,'leave_type'=>'annual',
+                'day_portion'=>'morning','charge_days'=>0.5,
+                'date_from'=>'2026-10-19','date_to'=>'2026-10-19',
+                'reason'=>'Approved morning half-day for family arrangements.',
+                'status'=>'approved','created_at'=>now(),'updated_at'=>now(),
+            ];
+            DB::table('leave_requests')->insert($row);
+            $company=DB::table('companies')->find($firm);
+            $workspace=DB::table('workspaces')->find($partner->workspace);
+            $actor=DB::table('memberships')->find($student->id);
+            $daily=\App\Support\AttendanceReconciliation::forDate(
+                $company,$workspace,$actor,'2026-10-19'
+            );
+            $this->assertSame('half_leave',$daily['rows']->first()->status_key);
+            $this->assertFalse($daily['rows']->first()->has_conflict);
+            $this->assertSame(1,$daily['summary']['half_leave']);
+
+            DB::table('attendance_sessions')->insert([
+                'company_id'=>$firm,'workspace_id'=>$partner->workspace,
+                'membership_id'=>$student->id,'work_date'=>'2026-10-19',
+                'work_mode'=>'office','started_at'=>'2026-10-19 07:00:00',
+                'ended_at'=>'2026-10-19 12:00:00',
+                'late'=>true,'holiday'=>false,'created_at'=>now(),'updated_at'=>now(),
+            ]);
+            $present=\App\Support\AttendanceReconciliation::forDate(
+                $company,$workspace,$actor,'2026-10-19'
+            );
+            $this->assertFalse($present['rows']->first()->has_conflict);
+
+            DB::table('leave_requests')->insert([
+                ...$row,'day_portion'=>'afternoon',
+            ]);
+            $full=\App\Support\AttendanceReconciliation::forDate(
+                $company,$workspace,$actor,'2026-10-19'
+            );
+            $this->assertTrue($full['rows']->first()->has_conflict);
+        } finally { $this->restoreClock(); }
+    }
+
     public function test_legacy_full_day_requests_still_work_without_new_policy_or_portion(): void
     {
         $this->frozenClock();
