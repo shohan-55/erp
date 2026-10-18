@@ -55,6 +55,7 @@ class StudentPermissionController extends Controller
         $input = $request->validate([
             'feature_key' => ['required', Rule::in(array_keys(StudentFeatureAccess::FEATURES))],
             'enabled' => ['required', 'boolean'],
+            'reset_manager_restriction' => ['sometimes', 'boolean'],
         ]);
 
         DB::transaction(function () use ($actor, $memberId, $input) {
@@ -86,6 +87,12 @@ class StudentPermissionController extends Controller
             $values = [
                 $column => $enabled, $actorColumn => $actor->id, 'updated_at' => now(),
             ];
+            // The Partner is the final authority. A revoked Manager must
+            // never leave a student's module permanently locked.
+            if ($actor->role === 'partner' && ($input['reset_manager_restriction'] ?? false)) {
+                $values['manager_enabled'] = true;
+                $values['manager_updated_by'] = null;
+            }
             if ($row) {
                 DB::table('student_feature_controls')->where('id', $row->id)->update($values);
             } else {
@@ -102,6 +109,8 @@ class StudentPermissionController extends Controller
                 'feature_key' => $key, 'enabled' => $enabled,
                 'controller' => $actor->role,
                 'partner_limit_preserved' => $actor->role === 'manager',
+                'manager_restriction_cleared' => $actor->role === 'partner'
+                    && (bool) ($input['reset_manager_restriction'] ?? false),
             ]);
         }, 3);
 
