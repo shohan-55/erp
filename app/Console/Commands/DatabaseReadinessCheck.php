@@ -35,6 +35,18 @@ class DatabaseReadinessCheck extends Command
             'leave_table_present' => false,
             'conveyance_table_present' => false,
             'payroll_table_present' => false,
+            'custom_domains_table_present' => false,
+            'staff_lifecycle_table_present' => false,
+            'audit_clients_table_present' => false,
+            'audit_engagements_table_present' => false,
+            'audit_timesheets_table_present' => false,
+            'practice_notices_table_present' => false,
+            'private_documents_table_present' => false,
+            'saas_plans_table_present' => false,
+            'saas_subscriptions_table_present' => false,
+            'saas_invoices_table_present' => false,
+            'saas_payments_table_present' => false,
+            'all_release_migrations_applied' => false,
         ];
 
         try {
@@ -51,8 +63,27 @@ class DatabaseReadinessCheck extends Command
                 'leave_table_present' => 'leave_requests',
                 'conveyance_table_present' => 'conveyance_claims',
                 'payroll_table_present' => 'payroll_runs',
+                'custom_domains_table_present' => 'company_custom_domains',
+                'staff_lifecycle_table_present' => 'staff_profiles',
+                'audit_clients_table_present' => 'audit_clients',
+                'audit_engagements_table_present' => 'audit_engagements',
+                'audit_timesheets_table_present' => 'audit_timesheets',
+                'practice_notices_table_present' => 'practice_notices',
+                'private_documents_table_present' => 'practice_documents',
+                'saas_plans_table_present' => 'saas_plans',
+                'saas_subscriptions_table_present' => 'saas_subscriptions',
+                'saas_invoices_table_present' => 'saas_invoices',
+                'saas_payments_table_present' => 'saas_payments',
             ] as $check => $table) {
                 $checks[$check] = Schema::hasTable($table);
+            }
+
+            if ($checks['migrations_table_present']) {
+                $files = glob(database_path('migrations/*.php')) ?: [];
+                $expected = array_map(static fn (string $path) => pathinfo($path, PATHINFO_FILENAME), $files);
+                $applied = DB::table('migrations')->pluck('migration')->all();
+                $checks['all_release_migrations_applied'] = $expected !== []
+                    && count(array_diff($expected, $applied)) === 0;
             }
         } catch (Throwable $exception) {
             // Do NOT display or log the raw connection exception to end users
@@ -76,7 +107,7 @@ class DatabaseReadinessCheck extends Command
         if ($this->option('json')) {
             $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
         } else {
-            $this->info('RA&C ERP — cPanel Database Readiness');
+            $this->info('DhakaWala ERP — cPanel Database Readiness');
             foreach ($checks as $name => $pass) {
                 $this->line(($pass ? '[PASS] ' : '[FAIL] ').$name);
             }
