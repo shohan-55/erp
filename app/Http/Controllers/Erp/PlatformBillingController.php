@@ -98,8 +98,16 @@ class PlatformBillingController extends Controller
             $plan=DB::table('saas_plans')->where('id',$d['plan_id'])
                 ->where('available',true)->first();
             abort_unless($plan,404);
-            $ws=DB::table('workspaces')->where('company_id',$companyId)->count();
-            $members=DB::table('memberships')->where('company_id',$companyId)->count();
+            $ws=DB::table('workspaces')->where('company_id',$companyId)
+                ->where('active',true)->count();
+            $members=DB::table('memberships')->where('company_id',$companyId)
+                ->where(function($q) {
+                    $q->where('active',true)
+                        ->orWhere(function($pending){
+                            $pending->whereNotNull('invited_at')->whereNull('activated_at')
+                                ->whereNull('platform_suspended_at');
+                        });
+                })->count();
             if($ws>$plan->max_partner_workspaces || $members>$plan->max_members){
                 throw ValidationException::withMessages(['plan_id'=>'This plan does not cover the existing workspaces/memberships.']);
             }
@@ -132,9 +140,8 @@ class PlatformBillingController extends Controller
             abort_unless($sub,404);
             $plan=DB::table('saas_plans')->where('id',$sub->plan_id)->first();
             abort_unless($plan,404);
-            if(!$plan->available){
-                throw ValidationException::withMessages(['months'=>'This plan is discontinued for new invoices.']);
-            }
+            // Retiring a plan prevents new enrolments, never a forced
+            // cancellation or surprise renewal denial to existing subscribers.
             if(DB::table('saas_invoices')->where('subscription_id',$sub->id)
                 ->whereIn('status',['pending','partial'])->exists()){
                 throw ValidationException::withMessages(['months'=>'Settle the current invoice before generating the next one.']);
