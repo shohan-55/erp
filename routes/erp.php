@@ -26,6 +26,7 @@ use App\Http\Controllers\Erp\PracticeNoticeController;
 use App\Http\Controllers\Erp\PracticeDocumentController;
 use App\Http\Controllers\Erp\StudentPermissionController;
 use App\Http\Controllers\Erp\PolicyController;
+use App\Http\Controllers\Erp\AnnualHolidayController;
 use App\Http\Controllers\Erp\HrPolicyController;
 use App\Http\Controllers\Erp\StudentShiftController;
 use App\Http\Controllers\Erp\PlatformController;
@@ -165,6 +166,10 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/settings/hr-policies/permissions', [HrPolicyController::class, 'delegate'])->middleware('throttle:5,1')->name('hr_policies.delegate');
         Route::post('/settings/hr-policies/revisions', [HrPolicyController::class, 'propose'])->middleware('throttle:8,1')->name('hr_policies.propose');
         Route::post('/settings/hr-policies/revisions/{revisionId}/decision', [HrPolicyController::class, 'decide'])->middleware('throttle:12,1')->name('hr_policies.decide');
+        Route::get('/settings/annual-holidays', [AnnualHolidayController::class, 'index'])->name('annual_holidays.index');
+        Route::post('/settings/annual-holidays', [AnnualHolidayController::class, 'submit'])->middleware('throttle:5,1')->name('annual_holidays.submit');
+        Route::post('/settings/annual-holidays/{planId}/decision', [AnnualHolidayController::class, 'decide'])->middleware('throttle:10,1')->name('annual_holidays.decide');
+        Route::post('/settings/annual-holidays/branding', [AnnualHolidayController::class, 'branding'])->middleware('throttle:5,1')->name('annual_holidays.branding');
         Route::get('/policies', [PolicyController::class, 'index'])->name('policies');
         Route::post('/policies/company/propose', [PolicyController::class, 'propose'])->name('policies.propose');
         Route::post('/policies/company/{id}/vote', [PolicyController::class, 'vote'])->name('policies.vote');

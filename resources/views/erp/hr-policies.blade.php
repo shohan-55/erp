@@ -29,6 +29,9 @@
 </section>
 @endif
 
+<section class="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+  <div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="font-extrabold text-slate-900">Annual Holiday Planner</h3><p class="mt-1 text-sm text-slate-600">Import a full year's dates, review proposed government holidays, and control your calendar watermark.</p></div><a href="{{ route('erp.annual_holidays.index',['firmSlug'=>$firmSlug]) }}" class="rounded-xl bg-[#17191F] px-5 py-3 text-sm font-extrabold text-[#FCDF02]">Open Annual Planner →</a></div>
+</section>
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-label="Current effective HR policy">
   <div class="flex flex-wrap items-center justify-between gap-2"><h3 class="text-lg font-extrabold">Current Effective Policy</h3><span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">Read-only until future effective date</span></div>
   <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

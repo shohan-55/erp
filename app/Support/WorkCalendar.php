@@ -29,7 +29,10 @@ final class WorkCalendar
             ->where('status', 'approved')
             ->orderByDesc('id')->first();
 
-        $holiday = $exception ? $exception->day_type === 'holiday' : $weekly;
+        // Explicit approved day exceptions outrank annual plans; a dated
+        // annual snapshot outranks the recurring weekly schedule.
+        $annual = $exception ? null : AnnualHolidayCalendar::forDate($company, $workspace, $day);
+        $holiday = $exception ? $exception->day_type === 'holiday' : ($annual !== null || $weekly);
         $start = $exception?->office_start ?: $base['office_start'];
         $end = $exception?->office_end ?: $base['office_end'];
         $grace = $exception?->grace_minutes !== null
@@ -41,9 +44,11 @@ final class WorkCalendar
             'office_start' => self::normalizeTime($start),
             'office_end' => self::normalizeTime($end),
             'grace_minutes' => $grace,
-            'holiday_category' => $exception?->holiday_category,
+            'holiday_category' => $exception?->holiday_category ?? $annual['category'] ?? null,
+            'holiday_title' => $exception?->reason ?? $annual['title'] ?? null,
+            'annual_plan_id' => $annual['plan_id'] ?? null,
             'exception_id' => $exception?->id,
-            'source' => $exception ? 'workspace_override' : 'weekly_policy',
+            'source' => $exception ? 'workspace_override' : ($annual ? 'annual_holiday_plan' : 'weekly_policy'),
         ];
     }
 
