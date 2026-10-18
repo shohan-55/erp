@@ -2,6 +2,7 @@
 @section('title','Notifications')
 @section('content')
 <section><h2 class="text-2xl font-extrabold">Your Notifications</h2><p class="mt-2 text-sm text-slate-500">Persisted notifications belonging to your authenticated company membership only.</p></section>
+@include('erp.partials.module-guide',['module'=>'notifications'])
 <form method="POST" action="{{ route('erp.notifications.read_all',['firmSlug'=>$firmSlug]) }}" class="flex justify-end">@csrf<button class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-extrabold">Mark All My Notifications Read</button></form>
 <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="divide-y divide-slate-100">
 @forelse($rows as $item)
