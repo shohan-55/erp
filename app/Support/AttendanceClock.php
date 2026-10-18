@@ -35,24 +35,26 @@ final class AttendanceClock
             }
         }
         return [
-            'server_ms' => $now->getTimestamp() * 1000,
+            'server_ms' => $now->getTimestampMs(),
             'timezone' => $company->timezone,
             'date' => $date,
             'office_start' => $start->format('h:i A'),
             'office_end' => $end->format('h:i A'),
             'grace_minutes' => (int) $calendar['grace_minutes'],
-            'start_ms' => $start->getTimestamp() * 1000,
-            'grace_end_ms' => $graceEnd->getTimestamp() * 1000,
-            'office_end_ms' => $end->getTimestamp() * 1000,
-            'half_day_ms' => $halfDay?->getTimestamp() * 1000,
+            'start_ms' => $start->getTimestampMs(),
+            'grace_end_ms' => $graceEnd->getTimestampMs(),
+            'office_end_ms' => $end->getTimestampMs(),
+            'half_day_ms' => $halfDay?->getTimestampMs(),
             'holiday' => (bool) $calendar['holiday'],
             'calendar_source' => $calendar['source'],
+            'calendar_exception_id' => $calendar['exception_id'],
+            'student_shift_id' => $calendar['student_shift_id'] ?? null,
         ];
     }
 
     public static function arrival(array $schedule, CarbonImmutable $instant, bool $firstSession): array
     {
-        $when = $instant->getTimestamp() * 1000;
+        $when = $instant->getTimestampMs();
         $late = $firstSession && ! $schedule['holiday'] && $when > $schedule['start_ms'];
         return [
             'late' => $late,
