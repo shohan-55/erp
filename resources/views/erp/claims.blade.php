@@ -2,6 +2,7 @@
 @section('title','Conveyance Claims')
 @section('content')
 <section><h2 class="text-2xl font-extrabold">Conveyance & Travel Claims</h2><p class="mt-2 text-sm text-slate-500">Receipts are stored privately; reimbursement is included in payroll only after Partner-authorized approval.</p></section>
+@include('erp.partials.module-guide',['module'=>'claims'])
 <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 @foreach([
 ['label'=>'Claims in View','value'=>$summary['submitted']],
