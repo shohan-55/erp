@@ -138,9 +138,8 @@ class FlexibleHrPolicyEngineTest extends TestCase
         $this->assertSame('pending',$second->status);
         $this->assertSame(1,(int)$second->sensitive);
         $this->assertSame(3, PolicyResolver::forDate($company,$workspace,'2026-11-10')['late_review_days']);
-        $this->assertSame('approval_required', DB::table('workspace_hr_policy_revisions')
-            ->where('id',$first->id)->value('manager_mode_snapshot') === 'direct'
-            ? 'approval_required' : 'unexpected'); // direct status was recorded, not inherited from request.
+        $this->assertSame('direct', DB::table('workspace_hr_policy_revisions')
+            ->where('id',$first->id)->value('manager_mode_snapshot'));
     }
 
     public function test_versioned_late_policy_changes_review_counter_without_rewriting_past_days(): void
