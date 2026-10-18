@@ -30,26 +30,74 @@ $roleCopy = match ($actor->role) {
 </div>
 </section>
 
-<section class="space-y-4" aria-label="Quick management actions">
-<div class="flex flex-wrap items-end justify-between gap-2">
-<div><p class="text-xs font-bold uppercase tracking-widest text-amber-800">DIRECT ACCESS</p>
-<h3 class="mt-1 text-lg font-extrabold">Your Quick Actions</h3></div>
-<p class="text-xs text-slate-500">Available to your current role and workspace</p>
-</div>
-<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-@foreach($quickActions as $action)
-<a href="{{ route($action['route'], ['firmSlug' => $firmSlug]) }}" class="group flex min-h-[128px] flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-amber-400 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600">
-<div class="flex items-start justify-between gap-3">
-<span class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-900"><i data-lucide="{{ $action['icon'] }}" class="h-5 w-5"></i></span>
-@if($action['count'] !== null)
-<span class="rounded-full px-2.5 py-1 text-xs font-extrabold tabular-nums {{ $action['count'] > 0 ? 'bg-amber-100 text-amber-950' : 'bg-slate-100 text-slate-600' }}">{{ $action['count'] }} open</span>
-@else
-<i data-lucide="arrow-up-right" class="h-4 w-4 text-slate-400 transition group-hover:text-amber-800"></i>
-@endif
-</div>
-<div class="mt-4"><h4 class="text-sm font-extrabold text-slate-900">{{ $action['title'] }}</h4>
-<p class="mt-1 text-xs leading-relaxed text-slate-500">{{ $action['description'] }}</p></div>
-</a>
-@endforeach
-</div>
+<section class="space-y-4 erp-action-finder" aria-label="Quick management actions"
+         data-corporate-action-center data-scope="{{ $company->id }}-{{ $workspace->id }}-{{ $actor->id }}">
+  <div class="flex flex-wrap items-end justify-between gap-2">
+    <div><p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">YOUR WORKDESK</p>
+      <h3 class="mt-1 text-lg font-extrabold">Find an action in seconds.</h3>
+      <p class="mt-1 text-xs leading-relaxed text-slate-500">Search, filter or pin up to eight shortcuts for this workspace. Every action respects your role permissions.</p>
+    </div>
+    <span class="erp-action-finder__count" data-corporate-action-count aria-live="polite"></span>
+  </div>
+  <div class="erp-action-finder__controls">
+    <label class="sr-only" for="erp-dashboard-action-search">Search your available actions</label>
+    <input id="erp-dashboard-action-search" type="search" class="erp-action-finder__search"
+       autocomplete="off" placeholder="Search attendance, leave, claims, payroll…" data-corporate-action-search>
+    <div class="erp-action-finder__filters" role="group" aria-label="Filter shortcuts">
+      @foreach(['all'=>'All','pinned'=>'Pinned','daily'=>'Daily work','approvals'=>'Approvals','policies'=>'Policies','reports'=>'Reports','other'=>'More'] as $filterValue=>$filterName)
+        <button type="button" class="erp-action-finder__filter" data-corporate-filter="{{ $filterValue }}"
+          aria-pressed="{{ $filterValue==='all' ? 'true':'false' }}">{{ $filterName }}</button>
+      @endforeach
+    </div>
+  </div>
+  <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" data-corporate-grid>
+  @foreach($quickActions as $action)
+    @php
+    $category = match (true) {
+      in_array($action['route'],[
+        'erp.attendance','erp.leaves','erp.claims','erp.engagements','erp.timesheets',
+        'erp.notifications','erp.staff.my_records'
+      ],true) && $actor->role === 'student' => 'daily',
+      in_array($action['route'],[
+        'erp.leaves','erp.claims','erp.attendance.reviews'
+      ],true) && $actor->role !== 'student' => 'approvals',
+      in_array($action['route'],[
+        'erp.policies','erp.hr_policies.index','erp.annual_holidays.index','erp.permissions.index'
+      ],true) => 'policies',
+      in_array($action['route'],[
+        'erp.attendance.report','erp.reports.practice','erp.payroll'
+      ],true) => 'reports',
+      in_array($action['route'],[
+        'erp.attendance','erp.leaves','erp.claims','erp.engagements','erp.timesheets'
+      ],true) => 'daily',
+      default => 'other',
+    };
+    @endphp
+    <article class="erp-action-finder__card"
+       data-corporate-action
+       data-action-id="{{ $action['route'] }}"
+       data-action-title="{{ $action['title'] }}"
+       data-search="{{ $action['title'] }} {{ $action['description'] }}"
+       data-action-category="{{ $category }}">
+      <button type="button" class="erp-action-finder__pin"
+        data-corporate-pin data-pinned="false" aria-pressed="false"
+        aria-label="Pin {{ $action['title'] }}" title="Pin or unpin this action">
+        <i data-lucide="star" aria-hidden="true"></i>
+      </button>
+      <a class="erp-action-finder__link" href="{{ route($action['route'], ['firmSlug'=>$firmSlug]) }}">
+        <div class="flex items-start justify-between gap-3">
+          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-900">
+            <i data-lucide="{{ $action['icon'] }}" class="h-5 w-5" aria-hidden="true"></i>
+          </span>
+          @if($action['count'] !== null)
+            <span class="mr-9 rounded-full px-2 py-1 text-[10px] font-extrabold {{ $action['count']>0 ? 'bg-amber-100 text-amber-950' : 'bg-slate-100 text-slate-600' }}">{{ $action['count'] }} open</span>
+          @endif
+        </div>
+        <div><h4 class="text-sm font-extrabold text-slate-900">{{ $action['title'] }}</h4>
+          <p class="mt-1 text-xs leading-relaxed text-slate-500">{{ $action['description'] }}</p></div>
+      </a>
+    </article>
+  @endforeach
+  </div>
+  <p class="erp-action-finder__empty" data-corporate-action-empty hidden>No matching action. Try a different search or choose All.</p>
 </section>
