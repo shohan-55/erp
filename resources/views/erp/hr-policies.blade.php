@@ -81,7 +81,7 @@
       </label>
     </div>
     <fieldset class="rounded-xl border border-slate-200 p-4">
-      <legend class="px-2 text-xs font-extrabold text-slate-700">Weekly Holidays (all selectable)</legend>
+      <legend class="px-2 text-xs font-extrabold text-slate-700">Weekly Holidays (leave all unchecked for none)</legend>
       <div class="flex flex-wrap gap-4">
         @foreach(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] as $weekday)
         <label class="inline-flex items-center gap-2 text-sm text-slate-700">
