@@ -21,6 +21,9 @@ use App\Http\Controllers\Erp\StaffController;
 use App\Http\Controllers\Erp\StaffTransferController;
 use App\Http\Controllers\Erp\EngagementController;
 use App\Http\Controllers\Erp\AuditTimesheetController;
+use App\Http\Controllers\Erp\PracticeReportController;
+use App\Http\Controllers\Erp\PracticeNoticeController;
+use App\Http\Controllers\Erp\PracticeDocumentController;
 use App\Http\Controllers\Erp\StudentPermissionController;
 use App\Http\Controllers\Erp\PolicyController;
 use App\Http\Controllers\Erp\StudentShiftController;
@@ -138,6 +141,21 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
             ->middleware('throttle:10,1')->name('timesheets.withdraw');
         Route::get('/timesheets/export', [AuditTimesheetController::class, 'export'])
             ->middleware('throttle:10,1')->name('timesheets.export');
+        Route::get('/reports/practice', [PracticeReportController::class, 'index'])->name('reports.practice');
+        Route::get('/reports/practice/export', [PracticeReportController::class, 'export'])
+            ->middleware('throttle:10,1')->name('reports.practice.export');
+        Route::get('/notices', [PracticeNoticeController::class, 'index'])->name('notices');
+        Route::post('/notices', [PracticeNoticeController::class, 'publish'])
+            ->middleware('throttle:5,1')->name('notices.publish');
+        Route::post('/notifications/read-all', [PracticeNoticeController::class, 'markAllRead'])
+            ->middleware('throttle:10,1')->name('notifications.read_all');
+        Route::get('/documents', [PracticeDocumentController::class, 'index'])->name('documents');
+        Route::post('/documents', [PracticeDocumentController::class, 'upload'])
+            ->middleware('throttle:10,1')->name('documents.upload');
+        Route::get('/documents/{id}/download', [PracticeDocumentController::class, 'download'])
+            ->middleware('throttle:30,1')->name('documents.download');
+        Route::post('/documents/{id}/archive', [PracticeDocumentController::class, 'archive'])
+            ->middleware('throttle:10,1')->name('documents.archive');
         Route::get('/policies', [PolicyController::class, 'index'])->name('policies');
         Route::post('/policies/company/propose', [PolicyController::class, 'propose'])->name('policies.propose');
         Route::post('/policies/company/{id}/vote', [PolicyController::class, 'vote'])->name('policies.vote');
