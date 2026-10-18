@@ -75,6 +75,7 @@ final class DashboardOverview
                 $make('Publish Notices', 'Send messages to your own practice', 'erp.notices', 'megaphone'),
                 $make('Document Center', 'Secure Partner and employee files', 'erp.documents', 'folder-lock'),
                 $make('Notifications', 'Read your private messages', 'erp.notifications', 'bell'),
+                $make('SaaS Subscription', 'Firm-level billing status and invoices', 'erp.subscription', 'credit-card'),
             ];
         }
         if ($actor->role === 'manager') {

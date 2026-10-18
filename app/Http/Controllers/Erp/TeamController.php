@@ -59,6 +59,7 @@ class TeamController extends Controller
         }
 
         [$user, $membershipId] = DB::transaction(function () use ($actor, $company, $workspace, $input, $email, $existingUser, $managerId) {
+            \App\Support\SaasBilling::assertCapacity((int)$company->id,0,1);
             $user = $existingUser ?: User::create([
                 'name' => $input['name'], 'email' => $email,
                 'password' => Hash::make(Str::random(64)),

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\CustomDomainDnsVerifier;
+use App\Support\SaasBilling;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -129,6 +130,10 @@ class PlatformCustomDomainController extends Controller
         $data = $request->validate(['confirmation_hostname' => ['required', 'string', 'max:253']]);
         $this->activeCompany($companyId);
 
+        if (! SaasBilling::domainAllowed($companyId)) {
+            throw ValidationException::withMessages(['confirmation_hostname' =>
+                'This company requires an active/grace paid subscription with Custom Domain entitlement. Existing approved domains are never disabled automatically.']);
+        }
         $row = DB::table('company_custom_domains')->where('company_id', $companyId)->first();
         abort_unless($row, 404);
         if (! $row->verified_at || ! $row->tls_approved_at
