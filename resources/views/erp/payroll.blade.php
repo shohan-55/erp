@@ -2,6 +2,7 @@
 @section('title','Monthly Payroll')
 @section('content')
 <section><h2 class="text-2xl font-extrabold">Allowance & Payroll</h2><p class="mt-2 max-w-3xl text-sm text-slate-500">Monthly allowance snapshots and approved claims for your Home Partner. <strong>Payment must actually occur outside this app before selecting Record Paid.</strong> Automatic attendance or late/half-day salary penalties are not calculated. Drafts require manual Partner review.</p></section>
+@include('erp.partials.module-guide',['module'=>'payroll'])
 @if($actor->role==='partner')
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 class="text-sm font-extrabold">Create Monthly Payroll Draft</h3><form action="{{ route('erp.payroll.generate',['firmSlug'=>$firmSlug]) }}" method="POST" class="mt-4 flex flex-wrap items-end gap-3">@csrf<label class="text-xs font-bold">Month<input type="month" name="month" required class="mt-2 block rounded-xl border border-slate-300 p-3 text-sm"></label><button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-extrabold">Generate Draft</button></form><p class="mt-3 text-xs text-slate-500">Each Partner workspace has one run per period. Review freezes approved claims and allowance snapshots.</p></section>
 @endif
