@@ -83,7 +83,13 @@
         <strong>{{ $decision->work_date }}</strong>
         <span>{{ $decision->day_type === 'working' ? 'Working Day' : 'Holiday' }}</span>
         <span class="rounded-full px-2 py-1 font-bold {{ $decision->status === 'approved' ? 'bg-emerald-100 text-emerald-800' : ($decision->status === 'pending' ? 'bg-amber-100 text-amber-900' : 'bg-slate-200 text-slate-700') }}">{{ ucfirst($decision->status) }}</span>
-        @if($decision->office_start && $decision->office_end)<span>{{ substr($decision->office_start,0,5) }}–{{ substr($decision->office_end,0,5) }} @if($decision->grace_minutes !== null)· Grace {{ $decision->grace_minutes }}m@endif</span>@endif
+        @if($decision->office_start && $decision->office_end)
+          <span>{{ substr($decision->office_start,0,5) }}–{{ substr($decision->office_end,0,5) }}
+            @if($decision->grace_minutes !== null)
+              · Grace {{ $decision->grace_minutes }}m
+            @endif
+          </span>
+        @endif
         <span class="text-slate-500">{{ str_replace('_',' ', ucfirst($decision->holiday_category)) }}</span>
       </div>
       <p class="mt-2 text-slate-600">{{ $decision->reason }}</p>
