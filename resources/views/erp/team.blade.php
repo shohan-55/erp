@@ -2,6 +2,8 @@
 @section('title','Team & Accounts')
 @section('content')
 <section><p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">HOME PARTNER · ACCOUNT MANAGEMENT</p><h2 class="mt-1 text-2xl font-extrabold">Manage Your Practice Team</h2><p class="mt-2 text-sm text-slate-500">Invite Managers or Students to {{ $workspace->name }}. They must accept the one-time email invitation before accessing the ERP. Only an authorized Partner can manage these accounts.</p></section>
+<a href="{{ route('erp.staff',['firmSlug'=>$firmSlug]) }}" class="inline-flex rounded-lg bg-[#FCDF02] px-4 py-2 text-xs font-extrabold text-slate-900">Staff, Articleship & HR Lifecycle</a>
+<p class="text-xs text-slate-500">Monthly allowance here is an initial onboarding setting. Once staff activity exists, use Staff & Articleship Management to schedule auditable future increments.</p>
 <section class="grid items-start gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(290px,1fr)]">
 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b border-slate-100 p-5"><h3 class="text-sm font-extrabold">Workspace Members</h3><p class="mt-1 text-xs text-slate-500">Staff belonging to your Home Partner only</p></div>
 <div class="divide-y divide-slate-100">
