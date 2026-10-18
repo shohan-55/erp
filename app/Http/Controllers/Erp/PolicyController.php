@@ -253,14 +253,14 @@ class PolicyController extends Controller
                 ->where('work_date', $input['work_date'])
                 ->where('status', 'approved')->latest('id')->first();
 
-            $start = $input['office_start'] ?? null;
-            $end = $input['office_end'] ?? null;
+            $start = isset($input['office_start']) ? $input['office_start'].':00' : null;
+            $end = isset($input['office_end']) ? $input['office_end'].':00' : null;
             $grace = $input['grace_minutes'] ?? null;
             $category = $input['holiday_category'] ?? 'partner_decision';
 
             if ($last && $last->day_type === $input['day_type']
-                && substr((string) $last->office_start, 0, 5) === ($start ?? '')
-                && substr((string) $last->office_end, 0, 5) === ($end ?? '')
+                && substr((string) $last->office_start, 0, 5) === ($start ? substr($start, 0, 5) : '')
+                && substr((string) $last->office_end, 0, 5) === ($end ? substr($end, 0, 5) : '')
                 && ($last->grace_minutes === null ? null : (int) $last->grace_minutes)
                     === ($grace === null ? null : (int) $grace)
                 && $last->holiday_category === $category) {
