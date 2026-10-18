@@ -159,7 +159,7 @@ final class OfficialDocumentController extends Controller
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
         [$issue,$snapshot]=$this->issued($company,$workspace,$actor,$id);
-        $docx=PortableDocx::make($this->lines($issue,$snapshot));
+        $docx=PortableDocx::make($this->lines($issue,$snapshot), BrandIdentity::officeImages($actor,$snapshot));
         TenantOps::audit($actor,'official_document.word_downloaded','official_document_issue',$issue->id);
         return response($docx,200,[
             'Content-Type'=>'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
