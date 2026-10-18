@@ -132,6 +132,7 @@
  <div class="mt-4 flex flex-wrap gap-2">
    <a href="{{ route('erp.leaves',['firmSlug'=>$firmSlug]) }}" class="rounded-xl bg-[#17191F] px-4 py-3 text-xs font-bold text-[#FCDF02]">Leave Applications →</a>
    @if($actor->role==='partner')
+   <a href="{{ route('erp.official.register.excel',['firmSlug'=>$firmSlug]) }}" class="rounded-xl border border-slate-300 px-4 py-3 text-xs font-bold">Download Excel (.xlsx) ↓</a>
    <a href="{{ route('erp.official.register.export',['firmSlug'=>$firmSlug]) }}" class="rounded-xl border border-slate-300 px-4 py-3 text-xs font-bold">Export Official Register (Excel CSV) ↓</a>
    @endif
  </div>
