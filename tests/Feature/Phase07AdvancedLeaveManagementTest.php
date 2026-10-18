@@ -75,8 +75,9 @@ class Phase07AdvancedLeaveManagementTest extends TestCase
     }
 
     private function request(object $student,string $from='2026-11-02',
-        string $to='2026-11-02',string $type='annual',string $portion='full'): \Illuminate\Testing\TestResponse
+        ?string $to=null,string $type='annual',string $portion='full'): \Illuminate\Testing\TestResponse
     {
+        $to=$to??$from;
         return $this->actingAs($student->user)->post('/c/practice/app/leave',[
             'leave_type'=>$type,'day_portion'=>$portion,
             'date_from'=>$from,'date_to'=>$to,
