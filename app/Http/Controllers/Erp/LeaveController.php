@@ -203,6 +203,45 @@ class LeaveController extends Controller
         return back()->with('success','Pending leave withdrawn; its reserved days were released.');
     }
 
+    /** The owning Partner may void a future approved leave, never erase it. */
+    public function cancel(Request $request,string $firmSlug,int $id)
+    {
+        [$company,$workspace,$actor]=TenantOps::context($request);
+        TenantOps::requireRole($actor,['partner']);
+        $input=$request->validate([
+            'reason'=>['required','string','min:15','max:1000'],
+        ]);
+        DB::transaction(function()use($company,$workspace,$actor,$id,$input) {
+            DB::table('workspaces')->where('company_id',$company->id)
+                ->where('id',$workspace->id)->lockForUpdate()->first();
+            $row=DB::table('leave_requests')
+                ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+                ->where('id',$id)->lockForUpdate()->first();
+            abort_unless($row,404);
+            $subject=TenantOps::subject($actor,(int)$row->membership_id);
+            abort_unless($subject->role==='student',404);
+            if ($row->status!=='approved') {
+                throw ValidationException::withMessages(['reason'=>'Only final approved leave can be cancelled by a Partner.']);
+            }
+            $today=CarbonImmutable::now($company->timezone)->toDateString();
+            if ($row->date_from<=$today) {
+                throw ValidationException::withMessages(['reason'=>'Only future approved leave can be cancelled.']);
+            }
+            $this->assertPayrollEditable($subject,$row->date_from,$row->date_to);
+            DB::table('leave_requests')->where('id',$row->id)->update([
+                'status'=>'cancelled','decision_note'=>trim($input['reason']),
+                'reviewed_by'=>$actor->id,'reviewed_at'=>now(),'updated_at'=>now(),
+            ]);
+            TenantOps::audit($actor,'leave.cancelled','leave_request',$row->id,[
+                'prior_status'=>'approved','reason'=>trim($input['reason']),
+                'restored_days'=>$row->charge_days,
+            ]);
+            TenantOps::notify($actor,(int)$subject->id,'Approved leave cancelled',
+                'Your approved leave was cancelled by your Partner; the days are restored.');
+        },3);
+        return back()->with('success','Future approved leave cancelled; balance restored.');
+    }
+
     private function assignedManagerActive(object $student): bool
     {
         return $student->manager_membership_id
