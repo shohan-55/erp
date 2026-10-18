@@ -61,6 +61,10 @@ class StaffController extends Controller
             ->select('e.*','u.name')->latest('e.id')->limit(60)->get();
         $documents=DB::table('staff_documents')->where('company_id',$company->id)
             ->where('workspace_id',$workspace->id)->latest('id')->limit(50)->get();
+        $salaryChanges=DB::table('staff_compensation_changes')
+            ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+            ->orderByDesc('effective_month')->orderByDesc('id')->get()
+            ->unique('membership_id')->keyBy('membership_id');
         $managers=$members->where('role','manager')->where('active',true);
         $workspaces=DB::table('workspaces')->where('company_id',$company->id)
             ->where('id','!=',$workspace->id)->where('active',true)
@@ -70,7 +74,7 @@ class StaffController extends Controller
         $inbound=DB::table('staff_transfer_requests')->where('company_id',$company->id)
             ->where('target_workspace_id',$workspace->id)->latest('id')->limit(30)->get();
         return response()->view('erp.staff',compact('company','workspace','actor','firmSlug',
-            'members','events','documents','managers','workspaces','outbound','inbound'))
+            'members','events','documents','managers','workspaces','outbound','inbound','salaryChanges'))
             ->header('Cache-Control','private, no-store, max-age=0');
     }
 
@@ -185,6 +189,18 @@ class StaffController extends Controller
                 if (!$member->active) {
                     throw ValidationException::withMessages(['action'=>'Staff member is not active.']);
                 }
+                if ($member->role==='manager' && DB::table('memberships')
+                    ->where('company_id',$actor->company_id)
+                    ->where('workspace_id',$actor->workspace_id)
+                    ->where('manager_membership_id',$id)
+                    ->where('role','student')->where('active',true)->exists()) {
+                    throw ValidationException::withMessages(['action'=>'Reassign all active Students before this Manager exits.']);
+                }
+                if (DB::table('attendance_review_requests')->where('company_id',$actor->company_id)
+                    ->where('workspace_id',$actor->workspace_id)->where('membership_id',$id)
+                    ->whereIn('status',['pending','manager_reviewed'])->exists()) {
+                    throw ValidationException::withMessages(['action'=>'Resolve outstanding attendance reviews before exit.']);
+                }
                 if (DB::table('attendance_sessions')->where('company_id',$actor->company_id)
                     ->where('workspace_id',$actor->workspace_id)->where('membership_id',$id)
                     ->whereNull('ended_at')->exists()) {
@@ -195,7 +211,13 @@ class StaffController extends Controller
                     ->whereIn('status',['pending','manager_reviewed','approved'])->exists()
                     || DB::table('leave_requests')->where('company_id',$actor->company_id)
                         ->where('workspace_id',$actor->workspace_id)->where('membership_id',$id)
-                        ->whereIn('status',['pending','manager_reviewed'])->exists();
+                        ->where(function($q){
+                            $q->whereIn('status',['pending','manager_reviewed'])
+                              ->orWhere(function($sub){
+                                  $sub->where('status','approved')->where('date_to','>=',
+                                      now('Asia/Dhaka')->toDateString());
+                              });
+                        })->exists();
                 if ($pending) {
                     throw ValidationException::withMessages(['action'=>'Resolve outstanding leave and reimbursement before exit.']);
                 }
