@@ -281,6 +281,9 @@ class Phase11AuditEngagementTimesheetsTest extends TestCase
                     'engagement_id'=>$engagement,'work_date'=>'2026-10-15','hours'=>1,
                     'billable'=>1,'work_description'=>'Work cannot be logged to a closed engagement.',
                 ])->assertNotFound();
+            // Repeated requests in one simulated minute can exhaust shared
+            // test throttle buckets; preserve all production route limits.
+            $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
             $this->actingAs($p['a']['partner']->user)
                 ->post("/c/client-practice/app/engagements/clients/$client/archive")
                 ->assertRedirect();
