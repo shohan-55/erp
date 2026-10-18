@@ -60,7 +60,7 @@
 <p class="mt-1 text-xs font-bold text-amber-900">Approved — awaiting Payroll settlement</p>
 @endif
 @if(in_array($actor->role,['partner','manager']) && ($row->status==='pending' || ($actor->role==='partner' && $row->status==='manager_reviewed')))
-<form action="{{ route('erp.claims.decide',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
+<form data-corporate-confirm="Confirm this expense-claim review? Approved amounts may flow into a future payroll after final Partner approval." action="{{ route('erp.claims.decide',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
 <label class="text-xs font-bold text-slate-600">Reviewed amount (৳)
 <input type="number" name="approved_amount" min="0.01" max="{{ $row->amount }}" step="0.01" value="{{ $actor->role==='partner' ? ($row->manager_recommended_amount ?? $row->amount) : $row->amount }}" class="mt-1 w-36 rounded-lg border border-slate-300 p-2 text-xs"></label>
 <input type="text" name="decision_note" maxlength="1000" placeholder="Review note" class="min-w-44 flex-1 rounded-lg border border-slate-300 p-2 text-xs">
