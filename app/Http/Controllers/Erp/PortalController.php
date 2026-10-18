@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
 use App\Support\PolicyResolver;
 use App\Support\DashboardOverview;
+use App\Support\WorkCalendar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -24,6 +25,12 @@ class PortalController extends Controller
         $ids = $members->pluck('id');
         $today = now($company->timezone)->toDateString();
         $effectivePolicy = PolicyResolver::forDate($company, $workspace, $today);
+        if ($actor->role === 'student') {
+            $resolved = WorkCalendar::forMemberDate($company, $workspace, $actor, $today);
+            $effectivePolicy = [...$effectivePolicy,
+                'office_start' => $resolved['office_start'], 'office_end' => $resolved['office_end'],
+                'grace_minutes' => $resolved['grace_minutes']];
+        }
         // Show the actual student's open session only, never another team
         // member's session or client-provided attendance state.
         $activeAttendance = $actor->role === 'student'

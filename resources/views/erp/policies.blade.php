@@ -105,6 +105,7 @@
     @endforelse
   </div>
 </section>
+@include('erp.partials.student-shifts')
 @if($actor->role === 'partner')
 @php $futureDate=\Carbon\Carbon::now($company->timezone)->addMonth()->startOfMonth()->toDateString(); @endphp
 <section class="mb-5 rounded-2xl border border-amber-200 bg-white p-5 shadow-sm sm:p-6">

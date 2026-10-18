@@ -50,9 +50,38 @@ class PolicyController extends Controller
             return ['date' => $date, 'day' => CarbonImmutable::parse($date)->format('D'), ...$day];
         });
 
+        $shiftStudents = DB::table('memberships as m')
+            ->join('users as u', 'u.id', '=', 'm.user_id')
+            ->where('m.company_id', $company->id)->where('m.workspace_id', $workspace->id)
+            ->where('m.role', 'student')->where('m.active', true)
+            ->when($actor->role === 'manager',
+                fn ($q) => $q->where('m.manager_membership_id', $actor->id))
+            ->select('m.id', 'u.name', 'm.manager_membership_id')
+            ->orderBy('u.name')->get();
+
+        $shiftManagers = DB::table('memberships as m')
+            ->join('users as u', 'u.id', '=', 'm.user_id')
+            ->where('m.company_id', $company->id)->where('m.workspace_id', $workspace->id)
+            ->where('m.role', 'manager')->where('m.active', true)
+            ->when($actor->role === 'manager', fn ($q) => $q->where('m.id', $actor->id))
+            ->select('m.id', 'u.name')->orderBy('u.name')->get();
+
+        $studentShifts = DB::table('student_calendar_shifts as s')
+            ->join('memberships as m', 'm.id', '=', 's.student_membership_id')
+            ->join('users as actual_student', 'actual_student.id', '=', 'm.user_id')
+            ->where('s.company_id', $company->id)->where('s.workspace_id', $workspace->id)
+            ->where('m.company_id', $company->id)->where('m.workspace_id', $workspace->id)
+            ->when($actor->role === 'student',
+                fn ($q) => $q->where('s.student_membership_id', $actor->id))
+            ->when($actor->role === 'manager',
+                fn ($q) => $q->where('m.manager_membership_id', $actor->id))
+            ->select('s.*', 'actual_student.name as student_name')
+            ->orderByDesc('s.id')->limit(40)->get();
+
         return view('erp.policies', compact(
             'company', 'workspace', 'actor', 'firmSlug', 'effectivePolicy',
-            'proposals', 'votes', 'overrides', 'dayOverrides', 'calendarPreview'
+            'proposals', 'votes', 'overrides', 'dayOverrides', 'calendarPreview',
+            'shiftStudents', 'shiftManagers', 'studentShifts'
         ));
     }
 
