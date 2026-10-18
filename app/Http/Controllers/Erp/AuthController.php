@@ -15,9 +15,20 @@ class AuthController extends Controller
         $company = DB::table('companies')->where('slug', $firmSlug)->where('active', true)->first();
         abort_unless($company, 404);
 
-        if ($request->user() && DB::table('memberships')->where('company_id', $company->id)
-            ->where('user_id', $request->user()->id)->where('active', true)->exists()) {
-            return redirect()->route('erp.dashboard', ['firmSlug' => $firmSlug]);
+        if ($request->user()) {
+            $count = DB::table('memberships as m')
+                ->join('workspaces as w', function ($join) {
+                    $join->on('w.id', '=', 'm.workspace_id')
+                        ->on('w.company_id', '=', 'm.company_id');
+                })
+                ->where('m.company_id', $company->id)
+                ->where('m.user_id', $request->user()->id)
+                ->where('m.active', true)->whereNull('m.platform_suspended_at')
+                ->where('w.active', true)->count();
+            if ($count > 0) {
+                return redirect()->route($count > 1 ? 'erp.workspaces.index' : 'erp.dashboard',
+                    ['firmSlug' => $firmSlug]);
+            }
         }
 
         return view('erp.login', compact('company', 'firmSlug'));
@@ -39,16 +50,17 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['email' => 'The supplied credentials are invalid for this workspace.']);
         }
 
-        $membership = DB::table('memberships')
-            ->where('company_id', $company->id)
-            ->where('user_id', Auth::id())
-            ->where('active', true)->first();
-        $workspaceActive = $membership && DB::table('workspaces')
-            ->where('id', $membership->workspace_id)
-            ->where('company_id', $company->id)
-            ->where('active', true)->exists();
+        $activeMemberships = DB::table('memberships as m')
+            ->join('workspaces as w', function ($join) {
+                $join->on('w.id', '=', 'm.workspace_id')
+                    ->on('w.company_id', '=', 'm.company_id');
+            })
+            ->where('m.company_id', $company->id)
+            ->where('m.user_id', Auth::id())
+            ->where('m.active', true)->whereNull('m.platform_suspended_at')
+            ->where('w.active', true)->count();
 
-        if (! $workspaceActive) {
+        if ($activeMemberships === 0) {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -56,10 +68,16 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
-        $request->session()->forget(['erp_mfa_verified_user_id', 'erp_mfa_pending_secret', 'erp_mfa_setup_user_id']);
+        $request->session()->forget([
+            'erp_mfa_verified_user_id', 'erp_mfa_pending_secret', 'erp_mfa_setup_user_id',
+            'erp.active_membership',
+        ]);
         $request->session()->put(['erp_mfa_context' => 'firm', 'erp_mfa_firm_slug' => $firmSlug]);
 
-        return redirect()->intended(route('erp.dashboard', ['firmSlug' => $firmSlug]));
+        // Never arbitrarily choose the first Partner when the same user holds
+        // multiple authorized memberships in this firm.
+        return redirect()->intended(route($activeMemberships > 1
+            ? 'erp.workspaces.index' : 'erp.dashboard', ['firmSlug' => $firmSlug]));
     }
 
     public function logout(Request $request, string $firmSlug)
