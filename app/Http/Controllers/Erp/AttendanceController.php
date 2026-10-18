@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
 use App\Support\PolicyResolver;
+use App\Support\AttendanceClock;
 use App\Support\WorkCalendar;
 use App\Support\AttendanceLocation;
 use Illuminate\Support\Facades\Crypt;
@@ -50,6 +51,31 @@ class AttendanceController extends Controller
         return view('erp.attendance', compact('company', 'workspace', 'actor', 'firmSlug', 'records', 'openSession', 'locationSessionIds'));
     }
 
+    /**
+     * Read-only time sync for the current authenticated student/manager.
+     * Browser time is display-only; attendance is always graded on POST.
+     */
+    public function clock(Request $request, string $firmSlug)
+    {
+        [$company, $workspace, $actor] = TenantOps::context($request);
+        TenantOps::requireRole($actor, ['student', 'manager']);
+
+        $schedule = AttendanceClock::schedule($company, $workspace, $actor);
+        $active = DB::table('attendance_sessions')
+            ->where('company_id', $company->id)
+            ->where('workspace_id', $workspace->id)
+            ->where('membership_id', $actor->id)
+            ->whereNull('ended_at')->exists();
+
+        return response()->json([
+            'clock' => $schedule,
+            'active' => $active,
+            'qualifying_late_days' => AttendanceClock::qualifyingLateDays(
+                $company, $workspace, $actor, $schedule['date']
+            ),
+        ])->header('Cache-Control', 'private, no-store, max-age=0');
+    }
+
     public function checkIn(Request $request, string $firmSlug)
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
@@ -77,17 +103,12 @@ class AttendanceController extends Controller
             $firstSession = ! DB::table('attendance_sessions')->where('membership_id', $actor->id)
                 ->where('work_date', $day)->exists();
 
-            $policy = PolicyResolver::forDate($company, $workspace, $day);
-            $holidays = is_array($policy['weekly_holidays']) ? $policy['weekly_holidays'] : [5, 6];
-            // Student-specific approved shifts apply only to students; managers
-            // follow the approved workspace calendar and cannot punch for others.
-            $calendar = $actor->role === 'student'
-                ? WorkCalendar::forMemberDate($company, $workspace, $actor, $day)
-                : WorkCalendar::forDate($company, $workspace, $day, $holidays, $policy);
-            $cutoff = CarbonImmutable::parse($day.' '.$calendar['office_start'], $company->timezone)
-                ->addMinutes($calendar['grace_minutes'])->endOfMinute();
-            $isHoliday = $calendar['holiday'];
-            $late = $firstSession && ! $isHoliday && $localNow->greaterThan($cutoff);
+            // A visible late arrival begins immediately after the scheduled
+            // start; grace arrivals are saved but excluded from qualifying days.
+            $clock = AttendanceClock::schedule($company, $workspace, $actor, $localNow);
+            $arrival = AttendanceClock::arrival($clock, $localNow, $firstSession);
+            $isHoliday = $clock['holiday'];
+            $late = $arrival['late'];
 
             $id = DB::table('attendance_sessions')->insertGetId([
                 'company_id' => $actor->company_id,
@@ -98,6 +119,7 @@ class AttendanceController extends Controller
                 'client_site' => $data['work_mode'] === 'client' ? trim($data['client_site']) : null,
                 'started_at' => $localNow->utc()->toDateTimeString(),
                 'late' => $late,
+                'late_within_grace' => $arrival['late_within_grace'],
                 'holiday' => $isHoliday,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
@@ -105,15 +127,18 @@ class AttendanceController extends Controller
             $captured = AttendanceLocation::record($actor, $id, 'check_in', $location);
             TenantOps::audit($actor, 'attendance.check_in', 'attendance_session', $id, [
                 'work_mode' => $data['work_mode'], 'local_date' => $day,
-                'calendar_source' => $calendar['source'], 'calendar_exception_id' => $calendar['exception_id'],
-                'effective_shift_start' => $calendar['office_start'],
-                'effective_shift_end' => $calendar['office_end'],
-                'effective_grace_minutes' => $calendar['grace_minutes'],
-                'student_shift_id' => $calendar['student_shift_id'] ?? null,
+                'calendar_source' => $clock['calendar_source'], 'calendar_exception_id' => $clock['calendar_exception_id'],
+                'effective_shift_start' => $clock['office_start'],
+                'effective_shift_end' => $clock['office_end'],
+                'effective_grace_minutes' => $clock['grace_minutes'],
+                'student_shift_id' => $clock['student_shift_id'],
+                'late_within_grace' => $arrival['late_within_grace'],
+                'qualifies_for_three_day_review' => $arrival['after_grace'],
                 'browser_location_captured' => $captured,
             ]);
             return [
-                'kind' => 'in', 'late' => $late, 'holiday' => $isHoliday,
+                'kind' => 'in', 'late' => $late, 'within_grace' => $arrival['late_within_grace'],
+                'half_day_warning' => $arrival['half_day_warning'], 'holiday' => $isHoliday,
                 'time' => $localNow->format('h:i A'),
             ];
         }, 3);
