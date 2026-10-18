@@ -73,7 +73,8 @@ final class LeaveBalance
                     ->where('company_id',$student->company_id)->where('workspace_id',$student->workspace_id)
                     ->where('membership_id',$student->id)->where('leave_type','annual')
                     ->where('status','approved')->whereYear('date_from',$year-1)
-                    ->sum('charge_days');
+                    ->get(['date_from','date_to','charge_days','day_portion'])
+                    ->sum(fn($r)=>self::rowCharge($r));
                 $carry=min((float)$policy->carry_forward_limit,max(0,$lastEntitled+$lastCredit-$usedPrevious));
             }
         }
@@ -89,12 +90,15 @@ final class LeaveBalance
         $used=(float)DB::table('leave_requests')
             ->where('company_id',$student->company_id)->where('workspace_id',$student->workspace_id)
             ->where('membership_id',$student->id)->where('leave_type',$type)
-            ->where('status','approved')->whereYear('date_from',$year)->sum('charge_days');
+            ->where('status','approved')->whereYear('date_from',$year)
+            ->get(['date_from','date_to','charge_days','day_portion'])
+            ->sum(fn($r)=>self::rowCharge($r));
         $reserved=(float)DB::table('leave_requests')
             ->where('company_id',$student->company_id)->where('workspace_id',$student->workspace_id)
             ->where('membership_id',$student->id)->where('leave_type',$type)
             ->whereIn('status',['pending','manager_reviewed'])->whereYear('date_from',$year)
-            ->sum('charge_days');
+            ->get(['date_from','date_to','charge_days','day_portion'])
+            ->sum(fn($r)=>self::rowCharge($r));
         $entitled=$base+$credits+$carry;
         return [
             'policy'=>$policy,'entitled'=>$entitled,'used'=>$used,
@@ -129,6 +133,18 @@ final class LeaveBalance
                     .number_format(max(0,$available),1).' day(s).',
             ]);
         }
+    }
+
+    private static function rowCharge(object $row): float
+    {
+        if ($row->charge_days !== null) {
+            return (float)$row->charge_days;
+        }
+        // Legacy requests have no balance snapshot. Charge conservatively by
+        // calendar days rather than pretending historical approved leave is free.
+        // Never rewrite older attendance, leave or payroll rows on migration.
+        return $row->day_portion !== 'full' ? 0.5
+            : CarbonImmutable::parse($row->date_from)->diffInDays(CarbonImmutable::parse($row->date_to)) + 1;
     }
 
     public static function overlaps(object $student, string $from, string $to,
