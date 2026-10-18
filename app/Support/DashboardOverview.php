@@ -64,6 +64,7 @@ final class DashboardOverview
                 $make('Review Leave', 'Approve outstanding student leave', 'erp.leaves', 'calendar-days', null, $queue['leave']),
                 $make('Review Conveyance', 'Verify submitted expense claims', 'erp.claims', 'receipt', null, $queue['claims']),
                 $make('Team & Accounts', 'Assign managers and student accounts', 'erp.team', 'users-round'),
+                $make('Staff & Articleship', 'People records, promotions and transfers', 'erp.staff', 'briefcase-business'),
                 $make('Student Permissions', 'Control student grids and access', 'erp.permissions.index', 'shield-check'),
                 $make('Office Policies', 'Manage workspace attendance rules', 'erp.policies', 'settings-2'),
                 $make('Payroll Control', 'Review your Partner payroll only', 'erp.payroll', 'wallet-cards', null, $queue['payroll']),
@@ -77,6 +78,7 @@ final class DashboardOverview
                 $make('Review Team Claims', 'Only your assigned students', 'erp.claims', 'receipt', null, $queue['claims']),
                 $make('Team Attendance', 'View assigned student attendance', 'erp.attendance.report', 'calendar-check-2'),
                 $make('Notifications', 'Follow up on team approvals', 'erp.notifications', 'bell'),
+                $make('My Staff Records', 'Private employment and document records', 'erp.staff.my_records', 'file-user'),
             ];
             if ((bool) $actor->can_manage_student_features) {
                 $links[] = $make('Student Permissions', 'Delegated assigned-team controls', 'erp.permissions.index', 'shield-check');
@@ -93,6 +95,7 @@ final class DashboardOverview
             $make('My Payslips', 'Only finalized and locked records', 'erp.payroll', 'wallet-cards', 'payslip'),
             $make('Notifications', 'Read your own notices', 'erp.notifications', 'bell', 'notifications'),
             $make('Account Security', 'Manage account protection', 'erp.security', 'shield-check'),
+            $make('My Staff Records', 'My articleship, employment and private documents', 'erp.staff.my_records', 'file-user'),
         ];
         return array_values(array_filter($links, static fn (array $item) =>
             $item['feature'] === null || ($allowed[$item['feature']] ?? false)));

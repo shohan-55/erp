@@ -118,6 +118,24 @@ class TeamController extends Controller
                 ->where('role', 'student')->lockForUpdate()->first();
             abort_unless($member, 404);
 
+            if (number_format((float)$member->monthly_allowance,2,'.','')
+                !== number_format((float)$data['monthly_allowance'],2,'.','')) {
+                $hasHistory = DB::table('staff_profiles')->where('membership_id',$id)
+                    ->where('company_id',$actor->company_id)
+                    ->where('workspace_id',$actor->workspace_id)->exists()
+                    || DB::table('staff_compensation_changes')->where('membership_id',$id)
+                        ->where('company_id',$actor->company_id)
+                        ->where('workspace_id',$actor->workspace_id)->exists()
+                    || DB::table('attendance_sessions')->where('membership_id',$id)
+                        ->where('company_id',$actor->company_id)->where('workspace_id',$actor->workspace_id)->exists()
+                    || DB::table('payroll_runs')->where('company_id',$actor->company_id)
+                        ->where('workspace_id',$actor->workspace_id)->exists();
+                if ($hasHistory) {
+                    throw ValidationException::withMessages([
+                        'monthly_allowance' => 'After staff activity begins, schedule changes under Staff & Articleship Management to protect historical payroll.',
+                    ]);
+                }
+            }
             DB::table('memberships')->where('id', $id)->update([
                 'manager_membership_id' => $managerId,
                 'monthly_allowance' => $data['monthly_allowance'],

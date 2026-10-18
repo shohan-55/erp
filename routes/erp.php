@@ -15,6 +15,8 @@ use App\Http\Controllers\Erp\PayrollController;
 use App\Http\Controllers\Erp\PasswordController;
 use App\Http\Controllers\Erp\ActivationController;
 use App\Http\Controllers\Erp\TeamController;
+use App\Http\Controllers\Erp\StaffController;
+use App\Http\Controllers\Erp\StaffTransferController;
 use App\Http\Controllers\Erp\StudentPermissionController;
 use App\Http\Controllers\Erp\PolicyController;
 use App\Http\Controllers\Erp\StudentShiftController;
@@ -115,6 +117,22 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::get('/permissions/students', [StudentPermissionController::class, 'index'])->name('permissions.index');
         Route::post('/permissions/students/{memberId}', [StudentPermissionController::class, 'updateStudent'])->middleware('throttle:30,1')->name('permissions.student');
         Route::post('/permissions/managers/{memberId}/delegation', [StudentPermissionController::class, 'delegateManager'])->middleware('throttle:15,1')->name('permissions.delegate');
+        Route::get('/staff', [StaffController::class, 'index'])->name('staff');
+        Route::get('/staff/my-records', [StaffController::class, 'myRecords'])->name('staff.my_records');
+        Route::post('/staff/{id}/profile', [StaffController::class, 'profile'])
+            ->middleware('throttle:10,1')->name('staff.profile');
+        Route::post('/staff/{id}/compensation', [StaffController::class, 'compensation'])
+            ->middleware('throttle:5,1')->name('staff.compensation');
+        Route::post('/staff/{id}/lifecycle', [StaffController::class, 'lifecycle'])
+            ->middleware('throttle:5,1')->name('staff.lifecycle');
+        Route::post('/staff/{id}/documents', [StaffController::class, 'upload'])
+            ->middleware('throttle:10,1')->name('staff.documents.upload');
+        Route::get('/staff/documents/{documentId}', [StaffController::class, 'download'])
+            ->name('staff.documents.download');
+        Route::post('/staff/{memberId}/transfer', [StaffTransferController::class, 'request'])
+            ->middleware('throttle:5,1')->name('staff.transfer.request');
+        Route::post('/staff/transfers/{id}/decision', [StaffTransferController::class, 'decide'])
+            ->middleware('throttle:5,1')->name('staff.transfer.decide');
         Route::get('/team', [TeamController::class, 'index'])->name('team');
         Route::post('/team/invite', [TeamController::class, 'invite'])->middleware('throttle:10,1')->name('team.invite');
         Route::post('/team/{id}/resend', [TeamController::class, 'resend'])->middleware('throttle:5,1')->name('team.resend');

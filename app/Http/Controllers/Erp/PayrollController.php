@@ -247,7 +247,16 @@ class PayrollController extends Controller
             ->lockForUpdate()->get()->groupBy('membership_id');
 
         foreach ($members as $member) {
-            $base = $this->cents($member->monthly_allowance);
+            // Original allowance remains the historical baseline; a Partner-
+            // approved, effective-dated salary adjustment applies only to this
+            // and later payroll months. Previous locked snapshots are untouched.
+            $change = DB::table('staff_compensation_changes')
+                ->where('company_id', $actor->company_id)
+                ->where('workspace_id', $actor->workspace_id)
+                ->where('membership_id', $member->id)
+                ->where('effective_month', '<=', $period)
+                ->orderByDesc('effective_month')->orderByDesc('id')->first();
+            $base = $this->cents($change?->new_amount ?? $member->monthly_allowance);
             $claimTotal = $claims->get($member->id, collect())
                 ->sum(fn ($c) => $this->cents($c->approved_amount ?? $c->amount));
 
