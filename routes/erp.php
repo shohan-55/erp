@@ -12,6 +12,8 @@ use App\Http\Controllers\Erp\ExpenseManagementController;
 use App\Http\Controllers\Erp\LeaveController;
 use App\Http\Controllers\Erp\LeavePolicyController;
 use App\Http\Controllers\Erp\PayrollController;
+use App\Http\Controllers\Erp\PayrollAdjustmentController;
+use App\Http\Controllers\Erp\PayrollStatementController;
 use App\Http\Controllers\Erp\PasswordController;
 use App\Http\Controllers\Erp\ActivationController;
 use App\Http\Controllers\Erp\TeamController;
@@ -102,6 +104,14 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/payroll', [PayrollController::class, 'generate'])->name('payroll.generate');
         Route::post('/payroll/{runId}/transition', [PayrollController::class, 'advance'])->name('payroll.advance');
         Route::get('/payroll/{runId}/payment-evidence', [PayrollController::class, 'paymentEvidence'])->name('payroll.evidence');
+        Route::post('/payroll/{runId}/adjustments', [PayrollAdjustmentController::class, 'create'])
+            ->middleware('throttle:10,1')->name('payroll.adjustments.create');
+        Route::post('/payroll/{runId}/adjustments/{adjustmentId}/void', [PayrollAdjustmentController::class, 'voidAdjustment'])
+            ->middleware('throttle:10,1')->name('payroll.adjustments.void');
+        Route::get('/payroll/{runId}/payslips/{memberId}', [PayrollStatementController::class, 'payslip'])
+            ->name('payroll.payslip');
+        Route::get('/payroll/{runId}/register', [PayrollStatementController::class, 'register'])
+            ->middleware('throttle:10,1')->name('payroll.register');
         Route::get('/policies', [PolicyController::class, 'index'])->name('policies');
         Route::post('/policies/company/propose', [PolicyController::class, 'propose'])->name('policies.propose');
         Route::post('/policies/company/{id}/vote', [PolicyController::class, 'vote'])->name('policies.vote');
