@@ -118,7 +118,7 @@
 @if(in_array($actor->role,['partner','manager']) && ($row->status==='pending' || ($actor->role==='partner' && $row->status==='manager_reviewed')))
 <form action="{{ route('erp.leaves.decide',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
 <input type="text" name="decision_note" maxlength="1000" placeholder="Decision note (optional)" class="min-w-44 flex-1 rounded-lg border border-slate-300 p-2 text-xs">
-<button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">{{ $actor->role==='manager' ? 'Recommend Approval' : 'Approve' }}</button>
+<button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">{{ $actor->role==='manager' ? 'Review' : 'Approve' }}</button>
 <button name="decision" value="reject" class="rounded-lg bg-rose-700 px-3 py-2 text-xs font-bold text-white">Reject</button></form>
 @endif
 @if($actor->role==='student' && in_array($row->status,['pending','manager_reviewed']))
