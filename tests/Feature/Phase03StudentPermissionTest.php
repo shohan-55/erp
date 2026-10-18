@@ -57,7 +57,7 @@ class Phase03StudentPermissionTest extends TestCase
         [$student, $studentId] = $this->member($firm, $workspace, 'student');
 
         $this->actingAs($partner)->get('/c/firm-a/app/permissions/students')->assertOk()
-            ->assertSee('Student Dashboard & Feature Permissions');
+            ->assertSeeText('Student Dashboard & Feature Permissions');
         $this->toggle('firm-a', $studentId, 'attendance', false)->assertRedirect();
         $this->toggle('firm-a', $studentId, 'leave', false)->assertRedirect();
         $this->assertDatabaseHas('tenant_audit_events', ['action' => 'student.feature.updated',
