@@ -50,7 +50,7 @@ return new class extends Migration {
             $t->boolean('active')->default(true);
             $t->timestamps();
             $t->unique(['engagement_id', 'membership_id'], 'audit_engagement_assignment_unique');
-            $t->index(['company_id', 'workspace_id', 'membership_id']);
+            $t->index(['company_id', 'workspace_id', 'membership_id'], 'audit_assign_member_scope');
         });
         Schema::create('audit_timesheets', function (Blueprint $t) {
             $t->id();
