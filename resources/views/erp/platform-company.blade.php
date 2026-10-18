@@ -88,6 +88,7 @@
 </section>
 
 <aside class="space-y-5">
+<a href="{{ route('erp.platform.billing.company',['companyId'=>$company->id]) }}" class="block rounded-2xl bg-[#FCDF02] p-5 text-sm font-extrabold text-slate-900">SaaS Billing · Invoices & Payments →</a>
 @include('erp.partials.platform-custom-domain')
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 <h2 class="text-sm font-extrabold">Edit Company</h2><p class="mt-1 text-xs text-slate-500">Company name only. The login slug is intentionally permanent to protect links and integrations.</p>
@@ -150,7 +151,7 @@
 <button class="w-full rounded-xl bg-[#FCDF02] p-3 text-sm font-extrabold">Send Secure Invitation</button></form>
 @else<p class="mt-3 text-xs font-semibold text-rose-800">Company is not active. Invitations are disabled.</p>@endif
 </div>
-<div class="rounded-2xl bg-[#17191F] p-5 text-white"><h2 class="text-sm font-extrabold">Privacy-first Management</h2><p class="mt-3 text-xs leading-relaxed text-slate-300">This console manages organization and membership metadata only. Platform operators do not inherit Partner roles or access to tenant attendance, leave, conveyance, salary or supporting documents.</p><p class="mt-3 text-xs leading-relaxed text-amber-200">Subscription plans and billing will be introduced in Phase 2/3, after account lifecycle validation.</p></div>
+<div class="rounded-2xl bg-[#17191F] p-5 text-white"><h2 class="text-sm font-extrabold">Privacy-first Management</h2><p class="mt-3 text-xs leading-relaxed text-slate-300">This console manages organization and membership metadata only. Platform operators do not inherit Partner roles or access to tenant attendance, leave, conveyance, salary or supporting documents.</p><p class="mt-3 text-xs leading-relaxed text-amber-200">SaaS billing is administered through the separate Platform Billing console. Subscription expiry does not automatically alter tenant access or delete records.</p></div>
 </aside>
 </div>
 </main>
