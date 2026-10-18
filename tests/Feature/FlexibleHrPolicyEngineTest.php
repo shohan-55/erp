@@ -197,6 +197,21 @@ class FlexibleHrPolicyEngineTest extends TestCase
         $this->assertDatabaseCount('workspace_hr_policy_revisions',0);
     }
 
+    public function test_partner_may_choose_zero_holidays_and_disable_optional_half_day_warning(): void
+    {
+        [$company,$workspace,$p] = $this->fixture();
+        $payload = $this->rules([
+            'effective_date' => '2026-11-02',
+            'weekly_holidays' => [],
+            'half_day_warning_time' => '',
+        ]);
+        $this->actingAs($p['partner']['user'])
+            ->post('/c/firm-a/app/settings/hr-policies/revisions',$payload)->assertRedirect();
+        $effective = PolicyResolver::forDate($company,$workspace,'2026-11-02');
+        $this->assertSame([], $effective['weekly_holidays']);
+        $this->assertNull($effective['half_day_warning_time']);
+    }
+
     public function test_partner_cannot_approve_other_tenant_proposal(): void
     {
         [,,$p] = $this->fixture();
