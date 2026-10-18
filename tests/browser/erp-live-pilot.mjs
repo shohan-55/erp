@@ -90,7 +90,7 @@ try {
     assert.equal(await calendar.evaluate(el=>getComputedStyle(el).backgroundImage.includes('gradient')),true,'Calendar should be premium-styled');
     await calendar.locator('[data-calendar-day]').first().click();
     await page.locator('[data-calendar-dialog][open]').waitFor();
-    assert.match(await page.locator('[data-calendar-modal-date]').textContent(),/^\\d{4}-\\d{2}-\\d{2}$/);
+    assert.match(await page.locator('[data-calendar-modal-date]').textContent(),/^\d{4}-\d{2}-\d{2}$/);
     await page.getByRole('button',{name:'Done',exact:true}).click();
     assert.equal(await page.locator('[data-calendar-dialog][open]').count(),0,'Calendar dialog must close');
 
