@@ -87,6 +87,7 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::get('/attendance/{sessionId}/location', [AttendanceController::class, 'location'])->name('attendance.location');
         Route::post('/attendance/location-policy', [AttendanceController::class, 'updateLocationPolicy'])
             ->middleware('throttle:5,1')->name('attendance.location_policy');
+        Route::get('/attendance/clock', [AttendanceController::class, 'clock'])->middleware('throttle:30,1')->name('attendance.clock');
         Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn'])->name('attendance.check_in');
         Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut'])->name('attendance.check_out');
         Route::post('/attendance/{sessionId}/correct', [AttendanceController::class, 'correction'])->name('attendance.correct');
@@ -163,6 +164,7 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/policies/company/propose', [PolicyController::class, 'propose'])->name('policies.propose');
         Route::post('/policies/company/{id}/vote', [PolicyController::class, 'vote'])->name('policies.vote');
         Route::post('/policies/workspace/override', [PolicyController::class, 'override'])->name('policies.override');
+        Route::post('/policies/attendance-clock', [PolicyController::class, 'attendanceClock'])->middleware('throttle:5,1')->name('policies.attendance_clock');
         Route::post('/policies/calendar/day', [PolicyController::class, 'dayOverride'])
             ->middleware('throttle:5,1')->name('policies.day_override');
         Route::post('/policies/calendar/day/{id}/decision', [PolicyController::class, 'reviewDayOverride'])
