@@ -40,6 +40,12 @@ final class AttendanceReconciliation
             ->where('date_from', '<=', $day)->where('date_to', '>=', $day)
             ->pluck('membership_id')->flip();
 
+        $approvedClientDuty = DB::table('attendance_review_requests')
+            ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+            ->whereIn('membership_id',$ids)->where('work_date',$day)
+            ->where('kind','client_duty')->where('status','approved')
+            ->orderByDesc('id')->get()->unique('membership_id')->keyBy('membership_id');
+
         $approvedShifts = DB::table('student_calendar_shifts')
             ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
             ->whereIn('student_membership_id', $ids)
@@ -55,7 +61,7 @@ final class AttendanceReconciliation
         $summary = self::initialSummary();
         $rows = $members->map(function ($member) use (
             $day, $sessions, $leaves, $approvedShifts, $workspaceDay,
-            $company, $today, &$summary
+            $company, $today, $approvedClientDuty, &$summary
         ) {
             $dayRule = $workspaceDay;
             $shift = $approvedShifts->get($member->id);
@@ -71,6 +77,7 @@ final class AttendanceReconciliation
             $first = $own->first();
             $last = $own->last();
             $approvedLeave = $leaves->has($member->id);
+            $duty = $approvedClientDuty->get($member->id);
             $flag = 'present';
             $label = 'Present';
 
@@ -79,8 +86,10 @@ final class AttendanceReconciliation
                     $flag = $day === $today ? 'checked_in' : 'missing_punch';
                     $label = $day === $today ? 'Checked In' : 'Missing Punch · Review';
                 } elseif ($own->contains(fn ($s) => $s->work_mode === 'client')) {
-                    $flag = 'client_duty';
-                    $label = 'Client Duty';
+                    $matched = $duty && $own->contains(fn ($s) => $s->work_mode === 'client'
+                        && strcasecmp(trim((string)$s->client_site),trim((string)$duty->client_site)) === 0);
+                    $flag = $matched ? 'client_duty' : 'client_duty_review';
+                    $label = $matched ? 'Client Duty · Authorized' : 'Client Duty · Verify Assignment';
                 } else {
                     $scheduledEnd = CarbonImmutable::parse($day.' '.substr($dayRule['office_end'],0,8),$company->timezone);
                     $actualEnd = CarbonImmutable::parse($last->ended_at,'UTC')->setTimezone($company->timezone);
@@ -92,6 +101,9 @@ final class AttendanceReconciliation
                         $label = 'Late';
                     }
                 }
+            } elseif ($duty) {
+                $flag = 'duty_authorized';
+                $label = 'Client Duty Approved · No Check-in';
             } elseif ($dayRule['holiday']) {
                 $flag = 'holiday';
                 $label = 'Holiday';
@@ -117,7 +129,8 @@ final class AttendanceReconciliation
                 'holiday' => $dayRule['holiday'],
                 'session_count' => $own->count(),
                 'has_approved_leave' => $approvedLeave,
-                'has_conflict' => $approvedLeave && $own->isNotEmpty(),
+                'has_conflict' => $approvedLeave && ($own->isNotEmpty() || (bool)$duty),
+                'approved_client_site' => $duty?->client_site,
                 'first_check_in' => $first?->started_at,
                 'last_check_out' => $last?->ended_at,
             ];
@@ -134,6 +147,7 @@ final class AttendanceReconciliation
             'client_duty' => 0, 'late' => 0, 'early_exit' => 0,
             'missing_punch' => 0, 'holiday' => 0, 'leave' => 0,
             'not_checked_in' => 0, 'review' => 0,
+            'duty_authorized' => 0, 'client_duty_review' => 0,
         ];
     }
 }

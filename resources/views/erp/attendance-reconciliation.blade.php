@@ -12,6 +12,7 @@
 <input type="date" name="date" required value="{{ $date }}" min="{{ now($company->timezone)->subDays(60)->toDateString() }}" max="{{ now($company->timezone)->toDateString() }}" class="mt-2 block rounded-xl border border-slate-300 p-3 text-sm"></label>
 <button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-xs font-extrabold">Review Date</button>
 <a href="{{ route('erp.attendance.report',['firmSlug'=>$firmSlug]) }}" class="rounded-xl border border-slate-300 px-5 py-3 text-xs font-extrabold">Monthly Session Summary</a>
+<a href="{{ route('erp.attendance.reviews',['firmSlug'=>$firmSlug]) }}" class="rounded-xl border border-amber-300 px-5 py-3 text-xs font-extrabold">Duty & Punch Approvals</a>
 </form>
 </section>
 
@@ -22,7 +23,7 @@
 ['label'=>'Client Duty','value'=>$summary['client_duty']],
 ['label'=>'Approved Leave','value'=>$summary['leave']],
 ['label'=>'Holiday','value'=>$summary['holiday']],
-['label'=>'Needs Review','value'=>$summary['review']+$summary['missing_punch']+$summary['early_exit']],
+['label'=>'Needs Review','value'=>$summary['review']+$summary['missing_punch']+$summary['early_exit']+$summary['duty_authorized']+$summary['client_duty_review']],
 ] as $metric)
 <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 <p class="text-[11px] font-semibold text-slate-500">{{ $metric['label'] }}</p>
@@ -40,13 +41,13 @@
 @forelse($rows as $row)
 <tr>
 <td class="p-4 font-bold">{{ $row->student_name }}</td>
-<td class="p-4"><span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {{ in_array($row->status_key,['review','missing_punch','early_exit'],true) ? 'bg-amber-100 text-amber-950' : ($row->status_key==='holiday' || $row->status_key==='leave' ? 'bg-slate-100 text-slate-800' : 'bg-emerald-50 text-emerald-800') }}">{{ $row->status_label }}</span></td>
+<td class="p-4"><span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {{ in_array($row->status_key,['review','missing_punch','early_exit','duty_authorized','client_duty_review'],true) ? 'bg-amber-100 text-amber-950' : ($row->status_key==='holiday' || $row->status_key==='leave' ? 'bg-slate-100 text-slate-800' : 'bg-emerald-50 text-emerald-800') }}">{{ $row->status_label }}</span></td>
 <td class="p-4">{{ $row->holiday ? 'Off day' : $row->scheduled_start.'–'.$row->scheduled_end }}</td>
 <td class="p-4">{{ $row->session_count }}</td>
 <td class="p-4 text-xs text-slate-600">
 @if($row->has_conflict)
 Attendance overlaps with approved leave — human review required.
-@elseif(in_array($row->status_key,['review','missing_punch','early_exit'],true))
+@elseif(in_array($row->status_key,['review','missing_punch','early_exit','duty_authorized','client_duty_review'],true))
 Verify with Student and the authorized Partner before any action.
 @else
 Recorded status only; no payroll adjustment.

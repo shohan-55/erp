@@ -6,6 +6,7 @@ use App\Http\Controllers\Erp\PortalController;
 use App\Http\Controllers\Erp\AttendanceController;
 use App\Http\Controllers\Erp\AttendanceReportController;
 use App\Http\Controllers\Erp\AttendanceReconciliationController;
+use App\Http\Controllers\Erp\AttendanceReviewController;
 use App\Http\Controllers\Erp\WorkflowController;
 use App\Http\Controllers\Erp\PayrollController;
 use App\Http\Controllers\Erp\PasswordController;
@@ -66,6 +67,9 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance');
         Route::get('/attendance/report', [AttendanceReportController::class, 'index'])->name('attendance.report');
         Route::get('/attendance/reconcile', [AttendanceReconciliationController::class, 'index'])->name('attendance.reconcile');
+        Route::get('/attendance/reviews', [AttendanceReviewController::class, 'index'])->name('attendance.reviews');
+        Route::post('/attendance/reviews', [AttendanceReviewController::class, 'submit'])->middleware('throttle:10,1')->name('attendance.reviews.submit');
+        Route::post('/attendance/reviews/{id}/decision', [AttendanceReviewController::class, 'decide'])->middleware('throttle:20,1')->name('attendance.reviews.decide');
         Route::get('/attendance/{sessionId}/location', [AttendanceController::class, 'location'])->name('attendance.location');
         Route::post('/attendance/location-policy', [AttendanceController::class, 'updateLocationPolicy'])
             ->middleware('throttle:5,1')->name('attendance.location_policy');
