@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main
+      # Always build release review artifacts from the final *squash-merged*
+      # development SHA, rather than a pre-merge feature branch commit.
+      - security/production-readiness-gates
       - feature/phase-03-platform-dashboard
       - feature/phases-04-10-practice-suite-ui
 
