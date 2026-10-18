@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\ExpenseRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -133,7 +134,18 @@ class WorkflowController extends Controller
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
         $rows = $this->ownedRows($actor, 'conveyance_claims');
-        return view('erp.claims', compact('company', 'workspace', 'actor', 'firmSlug', 'rows'));
+        $year = (int) now($company->timezone)->year;
+        $policy = ExpenseRules::policy($actor, now($company->timezone)->toDateString());
+        $summary = [
+            'submitted' => $rows->count(),
+            'awaiting_review' => $rows->whereIn('status', ['pending','manager_reviewed'])->count(),
+            'approved_bdt' => $rows->where('status','approved')
+                ->sum(fn($c) => (float)($c->approved_amount??$c->amount)),
+            'paid_bdt' => $rows->where('status','paid')
+                ->sum(fn($c) => (float)($c->approved_amount??$c->amount)),
+        ];
+        return view('erp.claims', compact('company', 'workspace', 'actor', 'firmSlug',
+            'rows', 'policy', 'year', 'summary'));
     }
 
     public function submitClaim(Request $request, string $firmSlug)
@@ -143,12 +155,20 @@ class WorkflowController extends Controller
 
         $input = $request->validate([
             'journey_date' => ['required', 'date_format:Y-m-d'],
+            'expense_category' => ['nullable', 'in:transport,client_duty,meals,lodging,other'],
             'journey_route' => ['required', 'string', 'min:3', 'max:200'],
             'purpose' => ['required', 'string', 'min:10', 'max:2000'],
             'amount' => ['required', 'numeric', 'min:0.01', 'max:50000', 'decimal:0,2'],
             'receipt' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:2048'],
         ]);
 
+        $input['expense_category'] = $input['expense_category'] ?? 'transport';
+        if ($input['journey_date'] > now('Asia/Dhaka')->toDateString()) {
+            throw ValidationException::withMessages([
+                'journey_date' => 'Claims cannot be submitted for a future journey.',
+            ]);
+        }
+        $hash = hash_file('sha256', $request->file('receipt')->getRealPath());
         $period = substr($input['journey_date'], 0, 7).'-01';
         if (DB::table('payroll_runs')->where('company_id', $actor->company_id)
             ->where('workspace_id', $actor->workspace_id)
@@ -160,7 +180,7 @@ class WorkflowController extends Controller
         $filePath = $request->file('receipt')->store('claim-evidence/'.$actor->company_id.'/'.$actor->id, 'local');
 
         try {
-            DB::transaction(function () use ($actor, $input, $filePath, $period) {
+            DB::transaction(function () use ($actor, $input, $filePath, $period, $hash) {
                 // Use the same workspace lock as payroll review: a claim cannot
                 // slip into a month while its payroll snapshot is being frozen.
                 DB::table('workspaces')->where('id', $actor->workspace_id)->lockForUpdate()->first();
@@ -170,12 +190,22 @@ class WorkflowController extends Controller
                     ->whereIn('status', ['reviewed', 'approved', 'paid', 'locked'])->exists()) {
                     throw ValidationException::withMessages(['journey_date' => 'This payroll month is already frozen.']);
                 }
+                if (ExpenseRules::receiptDuplicate($actor, $hash)) {
+                    throw ValidationException::withMessages([
+                        'receipt' => 'This receipt was already submitted in an active or approved claim.',
+                    ]);
+                }
+                ExpenseRules::enforce($actor, $input['journey_date'], $input['amount'],
+                    $input['expense_category'], $hash);
                 $id = DB::table('conveyance_claims')->insertGetId([
                     'company_id' => $actor->company_id, 'workspace_id' => $actor->workspace_id,
                     'membership_id' => $actor->id,
                     'journey_date' => $input['journey_date'], 'journey_route' => $input['journey_route'],
                     'purpose' => $input['purpose'], 'amount' => $input['amount'],
-                    'receipt_path' => $filePath, 'status' => 'pending',
+                    'receipt_path' => $filePath,
+                    'receipt_sha256' => $hash,
+                    'expense_category' => $input['expense_category'],
+                    'status' => 'pending',
                     'created_at' => now(), 'updated_at' => now(),
                 ]);
                 TenantOps::audit($actor, 'claim.submit', 'conveyance_claim', $id);
