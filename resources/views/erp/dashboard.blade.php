@@ -3,9 +3,6 @@
 @section('content')
 @php($studentFeatures = \App\Support\StudentFeatureAccess::enabledMap($actor))
 @push('styles')
-  <style id="erp-corporate-workspace-style">{!! file_get_contents(public_path('css/erp-corporate-workspace.css')) !!}</style>
-@endpush
-@push('styles')
     <style id="erp-month-calendar-style">{!! file_get_contents(public_path('css/erp-month-calendar.css')) !!}</style>
 @endpush
 @push('scripts')
