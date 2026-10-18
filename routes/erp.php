@@ -26,6 +26,7 @@ use App\Http\Controllers\Erp\PracticeNoticeController;
 use App\Http\Controllers\Erp\PracticeDocumentController;
 use App\Http\Controllers\Erp\StudentPermissionController;
 use App\Http\Controllers\Erp\PolicyController;
+use App\Http\Controllers\Erp\HrPolicyController;
 use App\Http\Controllers\Erp\StudentShiftController;
 use App\Http\Controllers\Erp\PlatformController;
 use App\Http\Controllers\Erp\PlatformBillingController;
@@ -160,6 +161,10 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
             ->middleware('throttle:30,1')->name('documents.download');
         Route::post('/documents/{id}/archive', [PracticeDocumentController::class, 'archive'])
             ->middleware('throttle:10,1')->name('documents.archive');
+        Route::get('/settings/hr-policies', [HrPolicyController::class, 'index'])->name('hr_policies.index');
+        Route::post('/settings/hr-policies/permissions', [HrPolicyController::class, 'delegate'])->middleware('throttle:5,1')->name('hr_policies.delegate');
+        Route::post('/settings/hr-policies/revisions', [HrPolicyController::class, 'propose'])->middleware('throttle:8,1')->name('hr_policies.propose');
+        Route::post('/settings/hr-policies/revisions/{revisionId}/decision', [HrPolicyController::class, 'decide'])->middleware('throttle:12,1')->name('hr_policies.decide');
         Route::get('/policies', [PolicyController::class, 'index'])->name('policies');
         Route::post('/policies/company/propose', [PolicyController::class, 'propose'])->name('policies.propose');
         Route::post('/policies/company/{id}/vote', [PolicyController::class, 'vote'])->name('policies.vote');

@@ -32,7 +32,7 @@
                     <strong data-attendance-clock-status>{{ $onDuty ? 'Session active' : 'Schedule loading' }}</strong>
                 </div>
                 <p class="attendance-clock__context" data-attendance-clock-context>Arrival status follows your approved shift and timezone.</p>
-                <p class="attendance-clock__fineprint">Office {{ $attendanceClock['office_start'] }} – {{ $attendanceClock['office_end'] }} · Grace {{ $attendanceClock['grace_minutes'] }}m · After-grace days this month: <strong data-attendance-qualifying-count>{{ $qualifyingLateDays }}</strong></p>
+                <p class="attendance-clock__fineprint">Office {{ $attendanceClock['office_start'] }} – {{ $attendanceClock['office_end'] }} · Grace {{ $attendanceClock['grace_minutes'] }}m · Qualifying late days this month: <strong data-attendance-qualifying-count>{{ $qualifyingLateDays }}</strong></p>
             </div>
             <script type="application/json" data-attendance-clock-config>@json(['schedule' => $attendanceClock, 'active' => $onDuty, 'qualifying_late_days' => $qualifyingLateDays])</script>
             @if($onDuty)
@@ -94,14 +94,16 @@
     @php($attendanceLate = ($attendanceResult['kind'] ?? '') === 'in' && ($attendanceResult['late'] ?? false))
     @php($attendanceGrace = $attendanceLate && ($attendanceResult['within_grace'] ?? false))
     @php($attendanceHalf = $attendanceLate && ($attendanceResult['half_day_warning'] ?? false))
+    @php($graceExcluded = $attendanceResult['grace_exempt'] ?? true)
+    @php($reviewDays = $attendanceResult['review_days'] ?? $attendanceClock['late_review_days'])
     <div class="attendance-celebration {{ $attendanceLate ? 'attendance-celebration--late' : '' }}" data-attendance-result>
         <div class="attendance-celebration__backdrop" aria-hidden="true"></div>
         <section class="attendance-celebration__panel" role="alertdialog" aria-modal="true" aria-labelledby="attendance-result-title" aria-describedby="attendance-result-description" tabindex="-1">
             <div class="attendance-celebration__confetti" aria-hidden="true"><span>✦</span><span>✧</span><span>✦</span><span>✧</span><span>✦</span></div>
             <div class="attendance-celebration__halo"><i data-lucide="{{ $attendanceLate ? 'clock-alert' : (($attendanceResult['kind'] ?? '') === 'out' ? 'flag-triangle-right' : 'check') }}" aria-hidden="true"></i></div>
-            <p class="attendance-celebration__eyebrow">{{ $attendanceGrace ? 'LATE WITHIN GRACE · NOT COUNTED' : ($attendanceLate ? ($attendanceHalf ? 'HALF-DAY WARNING · REVIEW ONLY' : 'LATE ARRIVAL RECORDED') : 'ATTENDANCE CONFIRMED') }}</p>
+            <p class="attendance-celebration__eyebrow">{{ $attendanceGrace ? ($graceExcluded ? 'LATE WITHIN GRACE · NOT COUNTED' : 'LATE WITHIN GRACE · REVIEW COUNTED') : ($attendanceLate ? ($attendanceHalf ? 'HALF-DAY WARNING · REVIEW ONLY' : 'LATE ARRIVAL RECORDED') : 'ATTENDANCE CONFIRMED') }}</p>
             <h3 id="attendance-result-title">{{ $attendanceLate ? ($attendanceGrace ? 'Late, but within your grace window.' : 'You are checked in — a little late.') : (($attendanceResult['kind'] ?? '') === 'out' ? 'Beautiful work today!' : 'You are officially checked in!') }}</h3>
-            <p id="attendance-result-description">{{ $attendanceLate ? ($attendanceGrace ? 'Attendance saved. This late arrival is excluded from the three-day payroll review count.' : ($attendanceHalf ? 'Your arrival is beyond the configured half-day warning time. This is a visual alert only; leave and salary decisions require review.' : 'Your arrival was recorded after grace. It may count toward a three-day policy review, but no automatic pay deduction is applied.')) : (($attendanceResult['kind'] ?? '') === 'out' ? 'Your check-out has been safely recorded. See you next time!' : (($attendanceResult['holiday'] ?? false) ? 'Attendance saved for your scheduled day off.' : 'Great start! Your work session has been saved securely.')) }}</p>
+            <p id="attendance-result-description">{{ $attendanceLate ? ($attendanceGrace ? ($graceExcluded ? 'Attendance saved. This arrival is excluded from the qualifying late-day review count.' : 'Attendance saved. Your firm includes grace-period late arrivals in its review count.') : ($attendanceHalf ? 'Your arrival is beyond the configured half-day warning time. This is a visual alert only; leave and salary decisions require review.' : 'Your arrival was recorded after grace. It may count toward a review after '.$reviewDays.' qualifying late days; no automatic pay deduction is applied.')) : (($attendanceResult['kind'] ?? '') === 'out' ? 'Your check-out has been safely recorded. See you next time!' : (($attendanceResult['holiday'] ?? false) ? 'Attendance saved for your scheduled day off.' : 'Great start! Your work session has been saved securely.')) }}</p>
             <p class="attendance-celebration__time"><i data-lucide="clock-3" aria-hidden="true"></i> Recorded {{ $attendanceResult['time'] ?? '' }} · {{ $company->timezone }}</p>
             <button type="button" class="attendance-celebration__done" data-attendance-done>Continue to dashboard <i data-lucide="arrow-right" aria-hidden="true"></i></button>
         </section>
