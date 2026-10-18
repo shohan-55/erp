@@ -82,6 +82,7 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/leave', [LeaveController::class, 'submit'])->middleware('throttle:10,1')->name('leaves.submit');
         Route::post('/leave/{id}/decision', [LeaveController::class, 'decide'])->middleware('throttle:20,1')->name('leaves.decide');
         Route::post('/leave/{id}/withdraw', [LeaveController::class, 'withdraw'])->middleware('throttle:10,1')->name('leaves.withdraw');
+        Route::post('/leave/{id}/cancel', [LeaveController::class, 'cancel'])->middleware('throttle:10,1')->name('leaves.cancel');
         Route::post('/leave/policies', [LeavePolicyController::class, 'save'])->middleware('throttle:5,1')->name('leaves.policy');
         Route::post('/leave/credits', [LeavePolicyController::class, 'credit'])->middleware('throttle:10,1')->name('leaves.credit');
         Route::get('/claims', [WorkflowController::class, 'claims'])->name('claims');
