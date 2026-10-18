@@ -23,7 +23,7 @@
 ['label'=>'Client Duty','value'=>$summary['client_duty']],
 ['label'=>'Approved Leave','value'=>$summary['leave']],
 ['label'=>'Holiday','value'=>$summary['holiday']],
-['label'=>'Needs Review','value'=>$summary['review']+$summary['missing_punch']+$summary['early_exit']+$summary['duty_authorized']+$summary['client_duty_review']],
+['label'=>'Needs Review','value'=>$summary['review']+$summary['missing_punch']+$summary['early_exit']+$summary['duty_authorized']+$summary['client_duty_review']+$summary['half_leave']],
 ] as $metric)
 <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 <p class="text-[11px] font-semibold text-slate-500">{{ $metric['label'] }}</p>
@@ -41,13 +41,13 @@
 @forelse($rows as $row)
 <tr>
 <td class="p-4 font-bold">{{ $row->student_name }}</td>
-<td class="p-4"><span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {{ in_array($row->status_key,['review','missing_punch','early_exit','duty_authorized','client_duty_review'],true) ? 'bg-amber-100 text-amber-950' : ($row->status_key==='holiday' || $row->status_key==='leave' ? 'bg-slate-100 text-slate-800' : 'bg-emerald-50 text-emerald-800') }}">{{ $row->status_label }}</span></td>
+<td class="p-4"><span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {{ in_array($row->status_key,['review','missing_punch','early_exit','duty_authorized','client_duty_review','half_leave'],true) ? 'bg-amber-100 text-amber-950' : ($row->status_key==='holiday' || $row->status_key==='leave' ? 'bg-slate-100 text-slate-800' : 'bg-emerald-50 text-emerald-800') }}">{{ $row->status_label }}</span></td>
 <td class="p-4">{{ $row->holiday ? 'Off day' : $row->scheduled_start.'–'.$row->scheduled_end }}</td>
 <td class="p-4">{{ $row->session_count }}</td>
 <td class="p-4 text-xs text-slate-600">
 @if($row->has_conflict)
 Attendance overlaps with approved leave — human review required.
-@elseif(in_array($row->status_key,['review','missing_punch','early_exit','duty_authorized','client_duty_review'],true))
+@elseif(in_array($row->status_key,['review','missing_punch','early_exit','duty_authorized','client_duty_review','half_leave'],true))
 Verify with Student and the authorized Partner before any action.
 @else
 Recorded status only; no payroll adjustment.
