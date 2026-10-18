@@ -53,7 +53,7 @@ final class SaasBilling
         // guessable tokens; authorization never depends on invoice numbers.
         $invoice=DB::table('saas_invoices')->insertGetId([
             'company_id'=>$company->id,'subscription_id'=>$subscription->id,'plan_id'=>$plan->id,
-            'invoice_number'=>'TMP-'.\Illuminate\Support\Str::uuid(),
+            'invoice_number'=>'TMP-'.\Illuminate\Support\Str::random(24),
             'plan_name_snapshot'=>$plan->name,'currency'=>'BDT','months'=>$months,
             'period_start'=>$start,'period_end'=>$end,
             'total_amount'=>self::money($amount),'paid_amount'=>'0.00',
