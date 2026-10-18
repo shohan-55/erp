@@ -3,6 +3,7 @@
 use App\Http\Controllers\Erp\AuthController;
 use App\Http\Controllers\Erp\WorkspaceSwitchController;
 use App\Http\Controllers\Erp\PortalController;
+use App\Http\Controllers\Erp\CorporateCalendarController;
 use App\Http\Controllers\Erp\AttendanceController;
 use App\Http\Controllers\Erp\AttendanceReportController;
 use App\Http\Controllers\Erp\AttendanceReconciliationController;
@@ -77,6 +78,8 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
     });
     Route::middleware(['auth', 'tenant.member', 'mfa.verified', 'student.features'])->group(function () {
         Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
+        Route::get('/calendar', [CorporateCalendarController::class, 'index'])->name('calendar.index');
+        Route::get('/calendar/export', [CorporateCalendarController::class, 'export'])->middleware('throttle:20,1')->name('calendar.export');
         Route::get('/settings/security', [SecurityController::class, 'index'])->name('security');
         Route::post('/settings/security/mfa/disable', [SecurityController::class, 'disableMfa'])
             ->middleware('throttle:5,1')->name('security.mfa.disable');
