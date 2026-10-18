@@ -119,7 +119,7 @@ class PolicyController extends Controller
                 ->lockForUpdate()->first();
             abort_unless($row, 404);
             DB::table('workspaces')->where('id', $row->id)->update([
-                'half_day_warning_time' => $value, 'updated_at' => now(),
+                'half_day_warning_time' => $value !== null ? $value.':00' : null, 'updated_at' => now(),
             ]);
             TenantOps::audit($actor, 'attendance.clock.threshold_changed', 'workspace', $workspace->id, [
                 'old_time' => $row->half_day_warning_time,
