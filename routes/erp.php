@@ -19,6 +19,8 @@ use App\Http\Controllers\Erp\ActivationController;
 use App\Http\Controllers\Erp\TeamController;
 use App\Http\Controllers\Erp\StaffController;
 use App\Http\Controllers\Erp\StaffTransferController;
+use App\Http\Controllers\Erp\EngagementController;
+use App\Http\Controllers\Erp\AuditTimesheetController;
 use App\Http\Controllers\Erp\StudentPermissionController;
 use App\Http\Controllers\Erp\PolicyController;
 use App\Http\Controllers\Erp\StudentShiftController;
@@ -112,6 +114,30 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
             ->name('payroll.payslip');
         Route::get('/payroll/{runId}/register', [PayrollStatementController::class, 'register'])
             ->middleware('throttle:10,1')->name('payroll.register');
+        Route::get('/engagements', [EngagementController::class, 'index'])->name('engagements');
+        Route::post('/engagements/clients', [EngagementController::class, 'client'])
+            ->middleware('throttle:10,1')->name('engagements.clients.create');
+        Route::post('/engagements/clients/{id}/update', [EngagementController::class, 'client'])
+            ->middleware('throttle:10,1')->name('engagements.clients.update');
+        Route::post('/engagements/clients/{id}/archive', [EngagementController::class, 'archiveClient'])
+            ->middleware('throttle:5,1')->name('engagements.clients.archive');
+        Route::post('/engagements', [EngagementController::class, 'engagement'])
+            ->middleware('throttle:10,1')->name('engagements.create');
+        Route::post('/engagements/{id}/update', [EngagementController::class, 'engagement'])
+            ->middleware('throttle:10,1')->name('engagements.update');
+        Route::post('/engagements/{id}/close', [EngagementController::class, 'close'])
+            ->middleware('throttle:5,1')->name('engagements.close');
+        Route::post('/engagements/{id}/assign', [EngagementController::class, 'assign'])
+            ->middleware('throttle:15,1')->name('engagements.assign');
+        Route::get('/timesheets', [AuditTimesheetController::class, 'index'])->name('timesheets');
+        Route::post('/timesheets', [AuditTimesheetController::class, 'submit'])
+            ->middleware('throttle:20,1')->name('timesheets.submit');
+        Route::post('/timesheets/{id}/decision', [AuditTimesheetController::class, 'decide'])
+            ->middleware('throttle:20,1')->name('timesheets.decide');
+        Route::post('/timesheets/{id}/withdraw', [AuditTimesheetController::class, 'withdraw'])
+            ->middleware('throttle:10,1')->name('timesheets.withdraw');
+        Route::get('/timesheets/export', [AuditTimesheetController::class, 'export'])
+            ->middleware('throttle:10,1')->name('timesheets.export');
         Route::get('/policies', [PolicyController::class, 'index'])->name('policies');
         Route::post('/policies/company/propose', [PolicyController::class, 'propose'])->name('policies.propose');
         Route::post('/policies/company/{id}/vote', [PolicyController::class, 'vote'])->name('policies.vote');
