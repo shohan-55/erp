@@ -108,9 +108,10 @@
 
 <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 <div class="border-b border-slate-100 p-5"><h3 class="text-sm font-extrabold">Leave History & Review Queue</h3></div>
-<div class="divide-y divide-slate-100">
+@include('erp.partials.history-filter',['historyKey'=>'leave','historyTitle'=>'Leave records','historyStatuses'=>['pending'=>'Pending','manager_reviewed'=>'Manager reviewed','approved'=>'Approved','rejected'=>'Rejected','withdrawn'=>'Withdrawn','cancelled'=>'Cancelled']])
+<div class="divide-y divide-slate-100" data-corporate-history-group="leave">
 @forelse($rows as $row)
-<article class="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between">
+<article data-corporate-history-item data-history-status="{{ $row->status }}" class="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between">
 <div><p class="text-sm font-bold">{{ $row->member_name }} <span class="text-xs font-normal text-slate-400">#{{ $row->id }}</span></p>
 <p class="mt-1 text-xs text-slate-600">{{ ucfirst($row->leave_type) }} · {{ $row->date_from }} → {{ $row->date_to }} · {{ ucfirst($row->day_portion) }} @if($row->charge_days !== null)· {{ number_format($row->charge_days,1) }} days @endif</p>
 <p class="mt-2 max-w-xl text-xs text-slate-500">{{ $row->reason }}</p></div>
