@@ -185,7 +185,7 @@ final class StaffCertificateController extends Controller
                 .' / '.($snapshot['signatory_title']?:'Partner')],
             ['text'=>$snapshot['footer_note']?:'Official HR record; no cryptographic signature.'],
         ];
-        $bytes=PortableDocx::make($lines);
+        $bytes=PortableDocx::make($lines, BrandIdentity::officeImages($actor,$snapshot));
         TenantOps::audit($actor,'official_document.certificate_word_downloaded','official_document_issue',$issue->id);
         return response($bytes,200,[
             'Content-Type'=>'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
