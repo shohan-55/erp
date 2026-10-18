@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
 use App\Support\PolicyResolver;
+use App\Support\PayrollCalculator;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +44,19 @@ class PayrollController extends Controller
                 ->select('p.*', 'u.name as member_name')->orderBy('u.name')->get();
         }
 
-        return view('erp.payroll', compact('company', 'workspace', 'actor', 'firmSlug', 'runs', 'run', 'lines'));
+        $adjustments = $run && $actor->role === 'partner'
+            ? DB::table('payroll_line_adjustments as a')
+                ->join('memberships as m','m.id','=','a.membership_id')
+                ->join('users as u','u.id','=','m.user_id')
+                ->where('a.company_id',$company->id)
+                ->where('a.workspace_id',$workspace->id)->where('a.payroll_run_id',$run->id)
+                ->select('a.*','u.name as student_name')
+                ->orderByDesc('a.id')->get() : collect();
+
+        $overview = $run && $actor->role === 'partner'
+            ? \App\Support\PayrollReview::overview($company,$workspace,$run->period_month) : null;
+        return view('erp.payroll', compact('company', 'workspace', 'actor', 'firmSlug',
+            'runs', 'run', 'lines', 'adjustments', 'overview'));
     }
 
     public function generate(Request $request, string $firmSlug)
@@ -233,44 +246,8 @@ class PayrollController extends Controller
 
     private function snapshotLines(int $runId, string $period, object $actor): void
     {
-        $lastDate = CarbonImmutable::parse($period)->endOfMonth()->toDateString();
-        $members = DB::table('memberships')->where('company_id', $actor->company_id)
-            ->where('workspace_id', $actor->workspace_id)->where('role', 'student')
-            ->where('active', true)->get();
-
-        $claims = DB::table('conveyance_claims')
-            ->where('company_id', $actor->company_id)
-            ->where('workspace_id', $actor->workspace_id)
-            ->where('status', 'approved')
-            ->whereBetween('journey_date', [$period, $lastDate])
-            ->whereNull('reserved_payroll_run_id')->whereNull('paid_payroll_run_id')
-            ->lockForUpdate()->get()->groupBy('membership_id');
-
-        foreach ($members as $member) {
-            // Original allowance remains the historical baseline; a Partner-
-            // approved, effective-dated salary adjustment applies only to this
-            // and later payroll months. Previous locked snapshots are untouched.
-            $change = DB::table('staff_compensation_changes')
-                ->where('company_id', $actor->company_id)
-                ->where('workspace_id', $actor->workspace_id)
-                ->where('membership_id', $member->id)
-                ->where('effective_month', '<=', $period)
-                ->orderByDesc('effective_month')->orderByDesc('id')->first();
-            $base = $this->cents($change?->new_amount ?? $member->monthly_allowance);
-            $claimTotal = $claims->get($member->id, collect())
-                ->sum(fn ($c) => $this->cents($c->approved_amount ?? $c->amount));
-
-            DB::table('payroll_lines')->updateOrInsert([
-                'payroll_run_id' => $runId, 'membership_id' => $member->id,
-            ], [
-                'base_allowance' => $this->money($base),
-                'approved_claims' => $this->money($claimTotal),
-                'adjustment' => '0.00',
-                'total_amount' => $this->money($base + $claimTotal),
-                'updated_at' => now(),
-                'created_at' => now(),
-            ]);
-        }
+        PayrollCalculator::refresh($runId,$period,(int)$actor->company_id,
+            (int)$actor->workspace_id);
     }
 
     private function cents(string|int|float $amount): int
