@@ -199,6 +199,7 @@ jobs:
           php artisan erp:db:check
           php artisan erp:integrity:check
           php artisan erp:billing:check
+          php artisan erp:tenant:check
 
       - name: Execute complete test suite using MySQL 8
         run: php artisan test
