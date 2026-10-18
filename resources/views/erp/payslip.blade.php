@@ -18,8 +18,8 @@ body { background:white!important; color:black!important }
 @if($payrollBrand->logo_asset_id)<img class="h-12 w-12 object-contain" alt="" src="{{ route('erp.brand.asset',['firmSlug'=>$firmSlug,'id'=>$payrollBrand->logo_asset_id]) }}">@endif
 <div><p class="text-2xl font-extrabold">{{ $payrollBrand->public_name }}</p>
 <p class="text-xs text-slate-600">{{ $payrollBrand->office_address }}</p>
-</div></div><div class="hidden">
-<p class="mt-1 text-sm text-slate-600">{{ $workspace->name }} · Confidential Payroll Statement</p></div>
+<p class="mt-1 text-sm text-slate-600">{{ $workspace->name }} · Confidential Payroll Statement</p>
+</div></div>
 <div class="text-right"><p class="text-xs font-bold uppercase tracking-widest text-amber-900">Payslip</p>
 <p class="mt-2 text-lg font-extrabold">{{ \Carbon\CarbonImmutable::parse($run->period_month)->format('F Y') }}</p>
 <p class="mt-1 text-xs font-semibold">{{ strtoupper($run->status) }} · Run #{{ $run->id }}</p></div>
