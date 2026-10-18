@@ -26,7 +26,10 @@ class AttendanceController extends Controller
             ->where('s.workspace_id', $workspace->id)
             ->where('m.company_id', $company->id)
             ->where('m.workspace_id', $workspace->id)
-            ->when($actor->role === 'manager', fn ($q) => $q->where('m.manager_membership_id', $actor->id))
+            ->when($actor->role === 'manager', fn ($q) => $q->where(
+                fn ($ownOrTeam) => $ownOrTeam->where('m.manager_membership_id', $actor->id)
+                    ->orWhere('m.id', $actor->id)
+            ))
             ->when($actor->role === 'student', fn ($q) => $q->where('m.id', $actor->id))
             ->select('s.*', 'u.name as member_name')
             ->orderByDesc('s.started_at')
@@ -50,7 +53,7 @@ class AttendanceController extends Controller
     public function checkIn(Request $request, string $firmSlug)
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['student']);
+        TenantOps::requireRole($actor, ['student', 'manager']);
 
         $data = $request->validate([
             'work_mode' => ['required', 'in:office,client'],
@@ -59,7 +62,7 @@ class AttendanceController extends Controller
 
         $location = AttendanceLocation::fromRequest($request, $workspace);
 
-        DB::transaction(function () use ($company, $workspace, $actor, $data, $location) {
+        $attendanceResult = DB::transaction(function () use ($company, $workspace, $actor, $data, $location) {
             // Every check-in/out for a member acquires the same row lock so concurrent
             // requests cannot create overlapping active sessions.
             DB::table('memberships')->where('id', $actor->id)->lockForUpdate()->first();
@@ -76,10 +79,15 @@ class AttendanceController extends Controller
 
             $policy = PolicyResolver::forDate($company, $workspace, $day);
             $holidays = is_array($policy['weekly_holidays']) ? $policy['weekly_holidays'] : [5, 6];
-            $calendar = WorkCalendar::forMemberDate($company, $workspace, $actor, $day);
+            // Student-specific approved shifts apply only to students; managers
+            // follow the approved workspace calendar and cannot punch for others.
+            $calendar = $actor->role === 'student'
+                ? WorkCalendar::forMemberDate($company, $workspace, $actor, $day)
+                : WorkCalendar::forDate($company, $workspace, $day, $holidays, $policy);
             $cutoff = CarbonImmutable::parse($day.' '.$calendar['office_start'], $company->timezone)
                 ->addMinutes($calendar['grace_minutes'])->endOfMinute();
             $isHoliday = $calendar['holiday'];
+            $late = $firstSession && ! $isHoliday && $localNow->greaterThan($cutoff);
 
             $id = DB::table('attendance_sessions')->insertGetId([
                 'company_id' => $actor->company_id,
@@ -89,7 +97,7 @@ class AttendanceController extends Controller
                 'work_mode' => $data['work_mode'],
                 'client_site' => $data['work_mode'] === 'client' ? trim($data['client_site']) : null,
                 'started_at' => $localNow->utc()->toDateTimeString(),
-                'late' => $firstSession && ! $isHoliday && $localNow->greaterThan($cutoff),
+                'late' => $late,
                 'holiday' => $isHoliday,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
@@ -101,21 +109,26 @@ class AttendanceController extends Controller
                 'effective_shift_start' => $calendar['office_start'],
                 'effective_shift_end' => $calendar['office_end'],
                 'effective_grace_minutes' => $calendar['grace_minutes'],
-                'student_shift_id' => $calendar['student_shift_id'],
+                'student_shift_id' => $calendar['student_shift_id'] ?? null,
                 'browser_location_captured' => $captured,
             ]);
+            return [
+                'kind' => 'in', 'late' => $late, 'holiday' => $isHoliday,
+                'time' => $localNow->format('h:i A'),
+            ];
         }, 3);
 
-        return back()->with('success', 'Check-in saved using the server clock.');
+        return back()->with('success', 'Check-in saved using the server clock.')
+            ->with('attendance_result', $attendanceResult);
     }
 
     public function checkOut(Request $request, string $firmSlug)
     {
-        [, $workspace, $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['student']);
+        [$company, $workspace, $actor] = TenantOps::context($request);
+        TenantOps::requireRole($actor, ['student', 'manager']);
         $location = AttendanceLocation::fromRequest($request, $workspace);
 
-        DB::transaction(function () use ($actor, $location) {
+        $recordedTime = DB::transaction(function () use ($company, $actor, $location) {
             DB::table('memberships')->where('id', $actor->id)->lockForUpdate()->first();
 
             $session = DB::table('attendance_sessions')
@@ -136,9 +149,11 @@ class AttendanceController extends Controller
             TenantOps::audit($actor, 'attendance.check_out', 'attendance_session', $session->id, [
                 'browser_location_captured' => $captured,
             ]);
+            return $ended->copy()->timezone($company->timezone)->format('h:i A');
         }, 3);
 
-        return back()->with('success', 'Check-out recorded.');
+        return back()->with('success', 'Check-out recorded.')
+            ->with('attendance_result', ['kind' => 'out', 'late' => false, 'time' => $recordedTime]);
     }
 
     /**
@@ -155,7 +170,9 @@ class AttendanceController extends Controller
             ->where('company_id', $company->id)
             ->where('workspace_id', $workspace->id)->first();
         abort_unless($session, 404);
-        TenantOps::subject($actor, $session->membership_id);
+        if ((int) $session->membership_id !== (int) $actor->id) {
+            TenantOps::subject($actor, $session->membership_id);
+        }
 
         $locations = DB::table('attendance_locations')
             ->where('attendance_session_id', $session->id)

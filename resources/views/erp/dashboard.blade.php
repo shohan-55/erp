@@ -2,48 +2,21 @@
 @section('title','Workspace Dashboard')
 @section('content')
 @php($studentFeatures = \App\Support\StudentFeatureAccess::enabledMap($actor))
+@if($actor->role === 'manager' || ($actor->role === 'student' && $studentFeatures['attendance']))
+    @push('styles')
+        <link rel="stylesheet" href="{{ asset('css/erp-attendance-experience.css') }}">
+    @endpush
+    @push('scripts')
+        <script src="{{ asset('js/erp-attendance-experience.js') }}" defer></script>
+        @if($workspace->attendance_location_enabled)
+            <script src="{{ asset('js/erp-attendance-location.js') }}" defer></script>
+        @endif
+    @endpush
+@endif
 <section><p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">PRACTICE OPERATIONS</p><h2 class="mt-2 text-2xl font-extrabold sm:text-3xl">Welcome, {{ auth()->user()->name }}</h2><p class="mt-2 text-sm text-slate-500">Live statistics for {{ $workspace->name }}. {{ $actor->role === 'manager' ? 'Your assigned student team only.' : ($actor->role === 'student' ? 'Your own records only.' : 'Your own Partner workspace only.') }}</p></section>
 @include('erp.partials.dashboard-action-center')
-@if($actor->role === 'student' && $studentFeatures['attendance'])
-<section class="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm sm:p-6" aria-label="Quick attendance">
-  <div class="flex flex-wrap items-start justify-between gap-3">
-    <div>
-      <p class="text-xs font-extrabold uppercase tracking-wider text-amber-800">QUICK ATTENDANCE</p>
-      <h3 class="mt-1 text-xl font-extrabold">{{ $activeAttendance ? 'Currently checked in' : 'Check in for work' }}</h3>
-      <p class="mt-2 text-sm text-slate-600">Office: {{ substr($effectivePolicy['office_start'],0,5) }} – {{ substr($effectivePolicy['office_end'],0,5) }} · Grace: {{ $effectivePolicy['grace_minutes'] }} minutes</p>
-    </div>
-    <span class="rounded-full px-3 py-1.5 text-xs font-extrabold {{ $activeAttendance ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900' }}">{{ $activeAttendance ? 'On duty' : 'Not checked in' }}</span>
-  </div>
-  @if($activeAttendance)
-    <p class="mt-4 text-sm text-slate-700">Started at {{ \Carbon\Carbon::parse($activeAttendance->started_at, 'UTC')->timezone($company->timezone)->format('h:i A') }} · {{ ucfirst($activeAttendance->work_mode) }}{{ $activeAttendance->client_site ? ' · '.$activeAttendance->client_site : '' }}</p>
-    <form action="{{ route('erp.attendance.check_out', ['firmSlug'=>$firmSlug]) }}" method="POST" @if($workspace->attendance_location_enabled) data-erp-attendance-form @endif class="mt-4">
-      @csrf
-      <div class="mb-3">@if($workspace->attendance_location_enabled)
-<label class="flex items-start gap-2 text-xs text-slate-600"><input type="checkbox" data-erp-location-consent class="mt-0.5"> I agree to share my approximate browser GPS for this single attendance event. If unavailable, attendance can still be submitted and may need manual verification.</label>
-<p data-erp-location-status role="status" class="text-xs text-slate-500" aria-live="polite"></p>
-@endif</div><button type="submit" class="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-extrabold text-white hover:bg-slate-800 sm:w-auto">Check Out</button>
-    </form>
-  @else
-    <form action="{{ route('erp.attendance.check_in', ['firmSlug'=>$firmSlug]) }}" method="POST" @if($workspace->attendance_location_enabled) data-erp-attendance-form @endif class="mt-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-end">
-      @csrf
-      <label class="min-w-0 flex-1 text-xs font-bold text-slate-700">Work Location
-        <select name="work_mode" class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm">
-          <option value="office">Office</option>
-          <option value="client">Client Site</option>
-        </select>
-      </label>
-      <label class="min-w-0 flex-[1.5] text-xs font-bold text-slate-700">Client Name (required for Client Site)
-        <input name="client_site" maxlength="180" placeholder="Client / engagement location" class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
-      </label>
-      <div class="self-center">@if($workspace->attendance_location_enabled)
-<label class="flex items-start gap-2 text-xs text-slate-600"><input type="checkbox" data-erp-location-consent class="mt-0.5"> I agree to share my approximate browser GPS for this single attendance event. If unavailable, attendance can still be submitted and may need manual verification.</label>
-<p data-erp-location-status role="status" class="text-xs text-slate-500" aria-live="polite"></p>
-@endif</div><button type="submit" class="min-h-12 rounded-xl bg-[#FCDF02] px-7 py-3 text-sm font-extrabold text-slate-950 hover:bg-[#F5AD16]">Check In</button>
-    </form>
-  @endif
-  <p class="mt-3 text-xs text-slate-500">Attendance timestamps are recorded by the server. When location sharing is enabled, GPS submission is optional, disclosed, and consent-based.</p>
-  <a href="{{ route('erp.attendance', ['firmSlug'=>$firmSlug]) }}" class="mt-3 inline-flex text-xs font-bold text-amber-800 underline">View attendance history</a>
-</section>
+@if($actor->role === 'manager' || ($actor->role === 'student' && $studentFeatures['attendance']))
+@include('erp.partials.dashboard-attendance')
 @endif
 <section class="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Live workspace metrics">
 @foreach([
@@ -72,7 +45,5 @@
 @endif
 </aside>
 </section>
-@if($workspace->attendance_location_enabled && $actor->role === 'student' && $studentFeatures['attendance'])
-<script src="{{ asset('js/erp-attendance-location.js') }}" defer></script>
-@endif
+
 @endsection

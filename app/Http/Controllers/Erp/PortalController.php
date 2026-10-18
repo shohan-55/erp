@@ -25,15 +25,20 @@ class PortalController extends Controller
         $ids = $members->pluck('id');
         $today = now($company->timezone)->toDateString();
         $effectivePolicy = PolicyResolver::forDate($company, $workspace, $today);
-        if ($actor->role === 'student') {
-            $resolved = WorkCalendar::forMemberDate($company, $workspace, $actor, $today);
+        if (in_array($actor->role, ['student', 'manager'], true)) {
+            $resolved = $actor->role === 'student'
+                ? WorkCalendar::forMemberDate($company, $workspace, $actor, $today)
+                : WorkCalendar::forDate(
+                    $company, $workspace, $today,
+                    is_array($effectivePolicy['weekly_holidays']) ? $effectivePolicy['weekly_holidays'] : [5, 6],
+                    $effectivePolicy
+                );
             $effectivePolicy = [...$effectivePolicy,
                 'office_start' => $resolved['office_start'], 'office_end' => $resolved['office_end'],
                 'grace_minutes' => $resolved['grace_minutes']];
         }
-        // Show the actual student's open session only, never another team
-        // member's session or client-provided attendance state.
-        $activeAttendance = $actor->role === 'student'
+        // Only the authenticated member's own open session is shown here.
+        $activeAttendance = in_array($actor->role, ['student', 'manager'], true)
             ? DB::table('attendance_sessions')
                 ->where('company_id', $company->id)
                 ->where('workspace_id', $workspace->id)
@@ -64,7 +69,7 @@ class PortalController extends Controller
             ->join('memberships as m', 'm.id', '=', 'a.membership_id')
             ->join('users as u', 'u.id', '=', 'm.user_id')
             ->where('a.company_id', $company->id)->where('a.workspace_id', $workspace->id)
-            ->whereIn('a.membership_id', $ids)
+            ->whereIn('a.membership_id', $actor->role === 'manager' ? array_values(array_unique([...$ids->all(), $actor->id])) : $ids)
             ->select('a.*', 'u.name as member_name')
             ->orderByDesc('a.started_at')->limit(8)->get();
 

@@ -109,7 +109,7 @@ class Phase02ShortLinksDashboardTest extends TestCase
         ])->assertRedirect();
 
         $this->get('/c/qa-pilot/app')->assertOk()
-            ->assertSee('Currently checked in')
+            ->assertSee('A productive day is underway.')
             ->assertSee('Check Out')
             ->assertDontSee('Not checked in');
 
@@ -127,16 +127,19 @@ class Phase02ShortLinksDashboardTest extends TestCase
         ]);
     }
 
-    public function test_dashboard_does_not_offer_student_attendance_actions_to_manager_or_partner(): void
+    public function test_dashboard_offers_personal_attendance_to_manager_but_not_partner(): void
     {
         [$company, $workspace] = $this->tenant('qa-pilot');
         $manager = $this->member($company, $workspace, 'manager');
         $partner = $this->member($company, $workspace, 'partner');
 
-        foreach ([$manager, $partner] as $member) {
-            $this->actingAs($member->user)->get('/c/qa-pilot/app')->assertOk()
-                ->assertDontSee('QUICK ATTENDANCE')
-                ->assertDontSee('name="work_mode"', false);
-        }
+        $this->actingAs($manager->user)->get('/c/qa-pilot/app')->assertOk()
+            ->assertSee('QUICK ATTENDANCE')
+            ->assertSee('data-attendance-confirm-form', false)
+            ->assertSee('name="work_mode"', false);
+
+        $this->actingAs($partner->user)->get('/c/qa-pilot/app')->assertOk()
+            ->assertDontSee('QUICK ATTENDANCE')
+            ->assertDontSee('name="work_mode"', false);
     }
 }

@@ -131,14 +131,22 @@ class Phase07AttendanceImpersonationBoundariesTest extends TestCase
         $this->actingAs($manager->user)
             ->post("/c/qa-a/app/attendance/{$sessionId}/correct", $payload)
             ->assertForbidden();
+        // Managers may punch only their own attendance, never a student's.
         $this->actingAs($manager->user)
-            ->post('/c/qa-a/app/attendance/check-in', ['work_mode' => 'office'])
-            ->assertForbidden();
+            ->post('/c/qa-a/app/attendance/check-in', [
+                'work_mode' => 'office',
+                'membership_id' => $student->id,
+                'user_id' => $student->user->id,
+            ])->assertRedirect();
 
         $this->assertDatabaseHas('attendance_sessions', [
             'id' => $sessionId, 'membership_id' => $student->id,
             'ended_at' => null, 'corrected_by' => null,
         ]);
-        $this->assertDatabaseCount('attendance_sessions', 1);
+        $this->assertDatabaseHas('attendance_sessions', [
+            'membership_id' => $manager->id, 'company_id' => $company,
+            'workspace_id' => $workspace, 'ended_at' => null,
+        ]);
+        $this->assertDatabaseCount('attendance_sessions', 2);
     }
 }
