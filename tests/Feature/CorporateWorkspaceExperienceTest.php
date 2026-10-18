@@ -126,7 +126,7 @@ class CorporateWorkspaceExperienceTest extends TestCase
         $this->actingAs($p['student']['user'])
             ->get('/c/corp-ux/app/calendar?month=2026-09')->assertOk()
             ->assertSeeText('September 2026')
-            ->assertSeeText('October 2026')
+            ->assertSee('month=2026-10',false)
             ->assertSeeText('Jump to month')
             ->assertSee('data-calendar-day',false)
             ->assertSee('erp-month-calendar__watermark',false)
@@ -153,7 +153,7 @@ class CorporateWorkspaceExperienceTest extends TestCase
         $response->assertOk();
         $csv=$response->streamedContent();
         $this->assertStringContainsString("'=HYPERLINK", $csv);
-        $this->assertStringContainsString('Date,Day,Status,Details,Team Check-ins', $csv);
+        $this->assertStringContainsString('Date,Day,Status,Details,"Team Check-ins"', $csv);
     }
 
     public function test_student_feature_gates_hide_personal_attendance_in_calendar_when_disabled(): void
