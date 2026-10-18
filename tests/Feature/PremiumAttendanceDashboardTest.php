@@ -51,8 +51,14 @@ class PremiumAttendanceDashboardTest extends TestCase
                 ->assertSeeText('Check In Now')
                 ->assertSee('data-attendance-confirm-form', false)
                 ->assertSee('data-attendance-dialog', false)
-                ->assertSee('erp-attendance-experience.js');
+                ->assertSee('id="erp-attendance-style"', false)
+                ->assertSee('.attendance-spotlight__content{', false)
+                ->assertSee('id="erp-attendance-script"', false)
+                ->assertSee('initAttendance()', false);
         }
+        $this->actingAs($people['student']['user'])->get('/c/wow-ca/app')
+            ->assertOk()
+            ->assertSeeInOrder(['QUICK ATTENDANCE', 'Your Quick Actions']);
         $this->actingAs($people['partner']['user'])
             ->get('/c/wow-ca/app')->assertOk()->assertDontSeeText('QUICK ATTENDANCE');
     }
