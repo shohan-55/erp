@@ -118,6 +118,7 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/permissions/students/{memberId}', [StudentPermissionController::class, 'updateStudent'])->middleware('throttle:30,1')->name('permissions.student');
         Route::post('/permissions/managers/{memberId}/delegation', [StudentPermissionController::class, 'delegateManager'])->middleware('throttle:15,1')->name('permissions.delegate');
         Route::get('/staff', [StaffController::class, 'index'])->name('staff');
+        Route::get('/staff/my-records', [StaffController::class, 'myRecords'])->name('staff.my_records');
         Route::post('/staff/{id}/profile', [StaffController::class, 'profile'])
             ->middleware('throttle:10,1')->name('staff.profile');
         Route::post('/staff/{id}/compensation', [StaffController::class, 'compensation'])
