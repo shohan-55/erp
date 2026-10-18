@@ -40,6 +40,25 @@ final class BrandIdentity
         return 'data:'.$asset->mime.';base64,'.base64_encode($bytes);
     }
 
+    /**
+     * Private in-memory only attachments for immutable authorized DOCX issues.
+     * Missing historical image does not prevent a text-based official letter.
+     */
+    public static function officeImages(object $actor,array $snapshot):array
+    {
+        $images=[];
+        foreach(['letterhead_asset_id','logo_asset_id'] as $field){
+            $id=(int)($snapshot[$field]??0);
+            if($id<=0)continue;
+            $asset=self::asset($actor,$id);
+            if(!$asset||!in_array($asset->mime,['image/png','image/jpeg'],true))continue;
+            $disk=Storage::disk('local');
+            if(!$disk->exists($asset->storage_path) || $asset->byte_size>4*1024*1024)continue;
+            $images[]=['bytes'=>$disk->get($asset->storage_path),'mime'=>$asset->mime];
+        }
+        return $images;
+    }
+
     public static function contrast(string $first,string $second): float
     {
         $luminance=static function(string $hex): float {
