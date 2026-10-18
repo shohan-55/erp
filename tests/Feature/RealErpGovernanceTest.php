@@ -19,6 +19,7 @@ class RealErpGovernanceTest extends TestCase
             'slug'=>'rac', 'name'=>'Rahman Anis & Co.', 'timezone'=>'Asia/Dhaka',
             'office_start'=>'10:00:00', 'office_end'=>'18:00:00',
             'grace_minutes'=>10, 'weekly_holidays'=>'[5,6]',
+            'min_active_partners_for_company_policy'=>3,
             'active'=>true, 'created_at'=>now(), 'updated_at'=>now(),
         ]);
 
@@ -120,7 +121,7 @@ class RealErpGovernanceTest extends TestCase
         $this->assertDatabaseCount('company_policy_votes',0);
     }
 
-    public function test_company_policy_proposal_rejects_fewer_than_three_rac_partners(): void
+    public function test_firm_configured_minimum_three_partners_blocks_company_policy_proposal(): void
     {
         [,,$partners] = $this->setupCompany(2);
         $this->actingAs($partners[0]->user)

@@ -55,6 +55,10 @@ class PlatformManagementController extends Controller
     {
         $data = $request->validate([
             'company_name' => ['required', 'string', 'min:3', 'max:255'],
+            'brand_name' => ['nullable', 'string', 'max:100'],
+            'brand_accent_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'timezone' => ['nullable', 'timezone'],
+            'min_active_partners_for_company_policy' => ['nullable', 'integer', 'between:1,200'],
         ]);
 
         $name = trim($data['company_name']);
@@ -62,20 +66,48 @@ class PlatformManagementController extends Controller
             throw ValidationException::withMessages(['company_name' => 'Company name is too short.']);
         }
 
-        DB::transaction(function () use ($companyId, $name) {
+        DB::transaction(function () use ($companyId, $data, $name) {
             $company = DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
             abort_unless($company, 404);
             $this->rejectArchived($company);
 
-            if ($company->name !== $name) {
+            $values = ['name' => $name];
+            if (array_key_exists('brand_name', $data)) {
+                $values['brand_name'] = trim($data['brand_name'] ?? '') ?: null;
+            }
+            if (array_key_exists('brand_accent_color', $data) && $data['brand_accent_color'] !== null) {
+                $values['brand_accent_color'] = strtoupper($data['brand_accent_color']);
+            }
+            if (array_key_exists('timezone', $data) && $data['timezone'] !== null) {
+                $values['timezone'] = $data['timezone'];
+            }
+            if (array_key_exists('min_active_partners_for_company_policy', $data)) {
+                $values['min_active_partners_for_company_policy'] = (int) $data['min_active_partners_for_company_policy'];
+            }
+
+            $changed = [];
+            foreach ($values as $field => $value) {
+                if ((string) $company->{$field} !== (string) $value) {
+                    $changed[$field] = $value;
+                }
+            }
+            if ($changed !== []) {
                 DB::table('companies')->where('id', $companyId)->update([
-                    'name' => $name, 'updated_at' => now(),
+                    ...$changed, 'updated_at' => now(),
                 ]);
-                $this->audit($companyId, 'company.name.updated', 'company', $companyId, ['field' => 'name']);
+                $this->audit($companyId, 'company.profile.updated', 'company', $companyId, [
+                    'fields' => array_keys($changed),
+                ]);
+                // Preserve the existing historical audit event relied on by earlier releases.
+                if (array_key_exists('name', $changed)) {
+                    $this->audit($companyId, 'company.name.updated', 'company', $companyId, [
+                        'field' => 'name',
+                    ]);
+                }
             }
         }, 3);
 
-        return back()->with('success', 'Company details updated. The login slug stays unchanged.');
+        return back()->with('success', 'Firm profile updated. The tenant login slug stays unchanged.');
     }
 
     public function transitionCompany(Request $request, int $companyId)

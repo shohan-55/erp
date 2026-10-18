@@ -55,6 +55,11 @@
 <form action="{{ route('erp.platform.companies.create') }}" method="POST" class="mt-5 space-y-3">@csrf
 <label class="block text-xs font-bold text-slate-700">Company Name<input name="company_name" required placeholder="Chartered Accountants Firm" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
 <label class="block text-xs font-bold text-slate-700">Company Slug<input name="company_slug" required placeholder="my-firm" pattern="[a-z0-9-]+" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
+<div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><strong>CA Firm (Phase 01)</strong> · Each firm has one shared login and isolated Partner workspaces. DhakaWala remains the SaaS operator.</div>
+<label class="block text-xs font-bold text-slate-700">Firm Display / Brand Name (optional)<input name="brand_name" maxlength="100" placeholder="Brand shown inside the client portal" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
+<label class="block text-xs font-bold text-slate-700">Brand Accent Color<input type="color" name="brand_accent_color" value="#FCDF02" class="mt-2 h-11 w-full rounded-lg border border-slate-300 bg-white p-1"></label>
+<label class="block text-xs font-bold text-slate-700">Firm Timezone<select name="timezone" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"><option value="Asia/Dhaka">Asia/Dhaka</option><option value="UTC">UTC</option></select></label>
+<label class="block text-xs font-bold text-slate-700">Minimum Active Partners for Firm-wide Policy Vote<input type="number" name="min_active_partners_for_company_policy" min="1" max="200" value="1" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
 <label class="block text-xs font-bold text-slate-700">First Partner Full Name<input name="partner_name" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
 <label class="block text-xs font-bold text-slate-700">First Partner Email<input type="email" name="partner_email" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
 <button class="w-full rounded-xl bg-[#FCDF02] p-3 text-sm font-extrabold">Create Company & Invite Partner</button></form></section>
