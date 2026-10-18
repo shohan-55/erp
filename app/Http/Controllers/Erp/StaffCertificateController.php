@@ -42,7 +42,7 @@ final class StaffCertificateController extends Controller
             'period'=>['nullable','date_format:Y-m'],
             'purpose'=>['required','string','min:10','max:500'],
         ]);
-        $month=$input['period'] ?: now($company->timezone)->format('Y-m');
+        $month=($input['period'] ?? null) ?: now($company->timezone)->format('Y-m');
         $docType=$input['kind'].'_'.str_replace('-','',$month);
         DB::transaction(function()use($company,$workspace,$actor,$memberId,$input,$month,$docType){
             DB::table('workspaces')->where('company_id',$company->id)
