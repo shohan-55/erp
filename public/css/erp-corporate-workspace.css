@@ -85,3 +85,5 @@
 .erp-history-tools__result{font-size:10px;color:#64748b}
 [data-corporate-history-item][hidden]{display:none!important}
 @media(max-width:450px){.erp-history-tools{padding:12px}.erp-history-tools__search{flex-basis:100%}.erp-history-tools__status{flex:1}}
+
+.erp-ux-confirm[data-decision-tone="danger"] [data-corporate-confirm-go]{background:#9f1239;border-color:#9f1239;color:#fff}
