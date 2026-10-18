@@ -75,10 +75,10 @@ class AttendanceController extends Controller
                 ->where('work_date', $day)->exists();
 
             $policy = PolicyResolver::forDate($company, $workspace, $day);
-            $cutoff = CarbonImmutable::parse($day.' '.$policy['office_start'], $company->timezone)
-                ->addMinutes($policy['grace_minutes'])->endOfMinute();
             $holidays = is_array($policy['weekly_holidays']) ? $policy['weekly_holidays'] : [5, 6];
-            $calendar = WorkCalendar::forDate($company, $workspace, $day, $holidays);
+            $calendar = WorkCalendar::forDate($company, $workspace, $day, $holidays, $policy);
+            $cutoff = CarbonImmutable::parse($day.' '.$calendar['office_start'], $company->timezone)
+                ->addMinutes($calendar['grace_minutes'])->endOfMinute();
             $isHoliday = $calendar['holiday'];
 
             $id = DB::table('attendance_sessions')->insertGetId([
@@ -98,6 +98,9 @@ class AttendanceController extends Controller
             TenantOps::audit($actor, 'attendance.check_in', 'attendance_session', $id, [
                 'work_mode' => $data['work_mode'], 'local_date' => $day,
                 'calendar_source' => $calendar['source'], 'calendar_exception_id' => $calendar['exception_id'],
+                'effective_shift_start' => $calendar['office_start'],
+                'effective_shift_end' => $calendar['office_end'],
+                'effective_grace_minutes' => $calendar['grace_minutes'],
                 'browser_location_captured' => $captured,
             ]);
         }, 3);
