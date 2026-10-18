@@ -22,6 +22,9 @@
 ['label'=>'Notifications','name'=>'erp.notifications','icon'=>'bell'],
 ['label'=>'Settings / Security','name'=>'erp.security','icon'=>'settings-2'],
 ] as $item)
+@if($actor->role === 'manager' && $item['name'] === 'erp.payroll')
+@continue
+@endif
 @php($featureKey = \App\Support\StudentFeatureAccess::featureForRoute($item['name']))
 @if($actor->role !== 'student' || $featureKey === null || ($studentFeatures[$featureKey] ?? false))
 <a href="{{ route($item['name'], ['firmSlug'=>$firmSlug]) }}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition {{ request()->routeIs($item['name']) ? 'bg-[#FCDF02] text-[#17191F]' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
