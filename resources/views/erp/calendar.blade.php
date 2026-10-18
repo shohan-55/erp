@@ -16,6 +16,7 @@
     <a href="{{ route('erp.calendar.export',['firmSlug'=>$firmSlug,'month'=>$monthCalendar['month_key']]) }}" class="rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold text-[#17191F]">Download private CSV ↓</a>
   </div>
 </section>
+@include('erp.partials.module-guide',['module'=>'calendar'])
 <nav class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" aria-label="Navigate calendar months">
   <a href="{{ route('erp.calendar.index',['firmSlug'=>$firmSlug,'month'=>$monthCalendar['previous_month']]) }}" class="min-h-11 rounded-xl border border-slate-300 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-amber-50">← Previous</a>
   <div class="min-w-0 text-center">
