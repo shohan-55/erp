@@ -16,9 +16,16 @@ final class PolicyResolver
             'office_end' => $company->office_end,
             'grace_minutes' => (int) $company->grace_minutes,
             'weekly_holidays' => json_decode($company->weekly_holidays ?? '[5,6]', true),
-            'half_day_warning_time' => $workspace->half_day_warning_time,
-            'late_review_days' => (int) $company->late_review_days,
-            'grace_late_exempt' => (bool) $company->grace_late_exempt,
+            // Some legacy read-only consumers pass a partial company/workspace
+            // object. Resolve missing properties from their tenant DB record,
+            // never from a hardcoded UI policy.
+            'half_day_warning_time' => $workspace->half_day_warning_time
+                ?? DB::table('workspaces')->where('id', $workspace->id)
+                    ->where('company_id', $company->id)->value('half_day_warning_time'),
+            'late_review_days' => (int) ($company->late_review_days
+                ?? DB::table('companies')->where('id', $company->id)->value('late_review_days')),
+            'grace_late_exempt' => (bool) ($company->grace_late_exempt
+                ?? DB::table('companies')->where('id', $company->id)->value('grace_late_exempt')),
             'hr_policy_revision_id' => null,
             'company_policy_proposal_id' => null,
             'workspace_override_id' => null,
