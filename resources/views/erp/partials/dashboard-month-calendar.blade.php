@@ -8,12 +8,15 @@
         <div class="erp-month-calendar__badge"><i data-lucide="calendar-days" aria-hidden="true"></i><span>MONTH VIEW</span></div>
     </header>
     <div class="erp-month-calendar__surface">
-        @if(($workspace->calendar_watermark_mode ?? 'name') !== 'off')
+        @php($calendarBrand = \App\Support\BrandIdentity::profile($company,$workspace))
+@if(($workspace->calendar_watermark_mode ?? 'name') !== 'off')
         <div class="erp-month-calendar__watermark" aria-hidden="true">
-            @if(($workspace->calendar_watermark_mode ?? 'name') === 'logo' && $company->brand_logo_asset)
+            @if(($workspace->calendar_watermark_mode ?? 'name') === 'logo' && $calendarBrand->logo_asset_id)
+                <img alt="" src="{{ route('erp.brand.asset',['firmSlug'=>$firmSlug,'id'=>$calendarBrand->logo_asset_id]) }}">
+            @elseif(($workspace->calendar_watermark_mode ?? 'name') === 'logo' && $company->brand_logo_asset)
                 <img alt="" src="{{ asset($company->brand_logo_asset) }}">
             @else
-                <span>{{ $company->brand_name ?: $company->name }}</span>
+                <span>{{ $calendarBrand->public_name }}</span>
             @endif
         </div>
         @endif

@@ -13,8 +13,13 @@ body { background:white!important; color:black!important }
 </div>
 <section class="payroll-print mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-7 shadow-sm sm:p-10">
 <div class="flex flex-wrap justify-between gap-4 border-b-2 border-amber-400 pb-5">
-<div><p class="text-2xl font-extrabold">{{ $company->name }}</p>
-<p class="mt-1 text-sm text-slate-600">{{ $workspace->name }} · Confidential Payroll Statement</p></div>
+@php($payrollBrand = \App\Support\BrandIdentity::profile($company,$workspace))
+<div class="flex items-center gap-3">
+@if($payrollBrand->logo_asset_id)<img class="h-12 w-12 object-contain" alt="" src="{{ route('erp.brand.asset',['firmSlug'=>$firmSlug,'id'=>$payrollBrand->logo_asset_id]) }}">@endif
+<div><p class="text-2xl font-extrabold">{{ $payrollBrand->public_name }}</p>
+<p class="text-xs text-slate-600">{{ $payrollBrand->office_address }}</p>
+<p class="mt-1 text-sm text-slate-600">{{ $workspace->name }} · Confidential Payroll Statement</p>
+</div></div>
 <div class="text-right"><p class="text-xs font-bold uppercase tracking-widest text-amber-900">Payslip</p>
 <p class="mt-2 text-lg font-extrabold">{{ \Carbon\CarbonImmutable::parse($run->period_month)->format('F Y') }}</p>
 <p class="mt-1 text-xs font-semibold">{{ strtoupper($run->status) }} · Run #{{ $run->id }}</p></div>

@@ -25,6 +25,8 @@ use App\Http\Controllers\Erp\AuditTimesheetController;
 use App\Http\Controllers\Erp\PracticeReportController;
 use App\Http\Controllers\Erp\PracticeNoticeController;
 use App\Http\Controllers\Erp\PracticeDocumentController;
+use App\Http\Controllers\Erp\BrandStudioController;
+use App\Http\Controllers\Erp\OfficialDocumentController;
 use App\Http\Controllers\Erp\StudentPermissionController;
 use App\Http\Controllers\Erp\PolicyController;
 use App\Http\Controllers\Erp\AnnualHolidayController;
@@ -158,6 +160,13 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
             ->middleware('throttle:5,1')->name('notices.publish');
         Route::post('/notifications/read-all', [PracticeNoticeController::class, 'markAllRead'])
             ->middleware('throttle:10,1')->name('notifications.read_all');
+        Route::get('/settings/brand-studio', [BrandStudioController::class,'index'])->name('brand.index');
+        Route::post('/settings/brand-studio', [BrandStudioController::class,'save'])->middleware('throttle:6,1')->name('brand.save');
+        Route::post('/settings/brand-studio/assets', [BrandStudioController::class,'upload'])->middleware('throttle:6,1')->name('brand.upload');
+        Route::get('/settings/brand-studio/assets/{id}', [BrandStudioController::class,'asset'])->middleware('throttle:30,1')->name('brand.asset');
+        Route::get('/documents/approved-leave/{id}/print', [OfficialDocumentController::class,'print'])->middleware('throttle:30,1')->name('official.leave.print');
+        Route::get('/documents/approved-leave/{id}/word', [OfficialDocumentController::class,'word'])->middleware('throttle:30,1')->name('official.leave.word');
+        Route::get('/documents/official-register/export', [OfficialDocumentController::class,'register'])->middleware('throttle:10,1')->name('official.register.export');
         Route::get('/documents', [PracticeDocumentController::class, 'index'])->name('documents');
         Route::post('/documents', [PracticeDocumentController::class, 'upload'])
             ->middleware('throttle:10,1')->name('documents.upload');
