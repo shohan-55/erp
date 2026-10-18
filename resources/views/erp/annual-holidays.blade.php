@@ -84,8 +84,8 @@
             <p class="mt-2 text-xs leading-relaxed text-slate-600">{{ $plan->source_note }}</p>
             @if($actor->role==='partner' && $plan->status==='pending')
             <div class="mt-3 flex gap-2">
-                <form method="POST" action="{{ route('erp.annual_holidays.decide',['firmSlug'=>$firmSlug,'planId'=>$plan->id]) }}">@csrf<input type="hidden" name="decision" value="approve"><button class="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-bold text-white">Approve</button></form>
-                <form method="POST" action="{{ route('erp.annual_holidays.decide',['firmSlug'=>$firmSlug,'planId'=>$plan->id]) }}">@csrf<input type="hidden" name="decision" value="reject"><button class="rounded-lg bg-rose-700 px-4 py-2 text-xs font-bold text-white">Reject</button></form>
+                <form data-corporate-confirm="Approve or reject this annual holiday plan? Approved future dates affect leave and work schedules across this workspace." method="POST" action="{{ route('erp.annual_holidays.decide',['firmSlug'=>$firmSlug,'planId'=>$plan->id]) }}">@csrf<input type="hidden" name="decision" value="approve"><button class="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-bold text-white">Approve</button></form>
+                <form data-corporate-confirm="Approve or reject this annual holiday plan? Approved future dates affect leave and work schedules across this workspace." method="POST" action="{{ route('erp.annual_holidays.decide',['firmSlug'=>$firmSlug,'planId'=>$plan->id]) }}">@csrf<input type="hidden" name="decision" value="reject"><button class="rounded-lg bg-rose-700 px-4 py-2 text-xs font-bold text-white">Reject</button></form>
             </div>
             @endif
         </article>
