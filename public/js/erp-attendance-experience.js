@@ -78,6 +78,25 @@
         clock.classList.remove(...phaseClasses);
         clock.classList.add('attendance-clock--'+stage);
         clock.dataset.attendanceStage = stage;
+        // Interpolate the ENTIRE panel color, not just its border.
+        // Green before start -> yellow over grace -> progressively deeper red.
+        const mix = (a, b, p) => a.map((v, i) => Math.round(v + (b[i] - v) * clamp(p)));
+        let bgA = [18,47,34], bgB = [18,65,47];
+        if (stage === 'grace') {
+          bgA = mix([18,47,34], [61,53,19], progress);
+          bgB = mix([18,65,47], [102,74,20], progress);
+        } else if (stage === 'late') {
+          bgA = mix([61,53,19], [69,10,19], progress);
+          bgB = mix([102,74,20], [131,12,24], progress);
+        } else if (stage === 'half') {
+          bgA = [73,8,16]; bgB = [150,9,22];
+        } else if (stage === 'active') {
+          bgA = [18,42,37]; bgB = [24,57,48];
+        } else if (stage === 'holiday') {
+          bgA = [34,40,51]; bgB = [52,59,71];
+        }
+        clock.style.setProperty('--clock-grad-a','rgb('+bgA.join(',')+')');
+        clock.style.setProperty('--clock-grad-b','rgb('+bgB.join(',')+')');
         clock.style.setProperty('--clock-accent','rgb('+accent.join(',')+')');
         clock.style.setProperty('--clock-glow','rgba('+accent.join(',')+',.3)');
         clockStatus.textContent = message;
@@ -134,7 +153,7 @@
       title.textContent = checkingOut ? 'Finish your work session?' : 'Ready to check in?';
       description.textContent = checkingOut
         ? 'Confirm your check-out. The server will record your actual finishing time.'
-        : 'Confirm your check-in. The server will determine your arrival status using your approved schedule.';
+        : 'Confirm your check-in. Current indicator: '+(clock?.querySelector('[data-attendance-clock-status]')?.textContent ?? 'server policy').trim()+'. The server will determine the final attendance status.';
       confirm.textContent = checkingOut ? 'OK, Check Out →' : 'OK, Check In →';
       dialog.hidden = false;
       document.body.style.overflow = 'hidden';
