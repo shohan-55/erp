@@ -95,6 +95,12 @@ class PlatformBillingController extends Controller
         DB::transaction(function()use($companyId,$d){
             $company=DB::table('companies')->where('id',$companyId)->lockForUpdate()->first();
             abort_unless($company && !$company->archived_at,404);
+            $sub=DB::table('saas_subscriptions')->where('company_id',$companyId)
+                ->lockForUpdate()->first();
+            if($sub){
+                throw ValidationException::withMessages(['plan_id'=>
+                    'An existing subscription cannot be silently repriced. Keep its plan; future plan changes require a separate reviewed migration.']);
+            }
             $plan=DB::table('saas_plans')->where('id',$d['plan_id'])
                 ->where('available',true)->first();
             abort_unless($plan,404);
@@ -110,12 +116,6 @@ class PlatformBillingController extends Controller
                 })->count();
             if($ws>$plan->max_partner_workspaces || $members>$plan->max_members){
                 throw ValidationException::withMessages(['plan_id'=>'This plan does not cover the existing workspaces/memberships.']);
-            }
-            $sub=DB::table('saas_subscriptions')->where('company_id',$companyId)
-                ->lockForUpdate()->first();
-            if($sub){
-                throw ValidationException::withMessages(['plan_id'=>
-                    'An existing subscription cannot be silently repriced. Keep its plan; future plan changes require a separate reviewed migration.']);
             }
             $id=DB::table('saas_subscriptions')->insertGetId([
                 'company_id'=>$companyId,'plan_id'=>$plan->id,
