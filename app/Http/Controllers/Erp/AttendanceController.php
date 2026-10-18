@@ -76,7 +76,7 @@ class AttendanceController extends Controller
 
             $policy = PolicyResolver::forDate($company, $workspace, $day);
             $holidays = is_array($policy['weekly_holidays']) ? $policy['weekly_holidays'] : [5, 6];
-            $calendar = WorkCalendar::forDate($company, $workspace, $day, $holidays, $policy);
+            $calendar = WorkCalendar::forMemberDate($company, $workspace, $actor, $day);
             $cutoff = CarbonImmutable::parse($day.' '.$calendar['office_start'], $company->timezone)
                 ->addMinutes($calendar['grace_minutes'])->endOfMinute();
             $isHoliday = $calendar['holiday'];
@@ -101,6 +101,7 @@ class AttendanceController extends Controller
                 'effective_shift_start' => $calendar['office_start'],
                 'effective_shift_end' => $calendar['office_end'],
                 'effective_grace_minutes' => $calendar['grace_minutes'],
+                'student_shift_id' => $calendar['student_shift_id'],
                 'browser_location_captured' => $captured,
             ]);
         }, 3);
