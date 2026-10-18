@@ -56,11 +56,12 @@ class LeaveController extends Controller
         TenantOps::requireRole($actor,['student']);
         $input=$request->validate([
             'leave_type'=>['required','in:annual,sick,casual,emergency,compensatory,unpaid'],
-            'day_portion'=>['required','in:full,morning,afternoon'],
+            'day_portion'=>['nullable','in:full,morning,afternoon'],
             'date_from'=>['required','date_format:Y-m-d'],
             'date_to'=>['required','date_format:Y-m-d','after_or_equal:date_from'],
             'reason'=>['required','string','min:10','max:2000'],
         ]);
+        $input['day_portion']=$input['day_portion']??'full';
         $year=(int)substr($input['date_from'],0,4);
         $today=CarbonImmutable::now($company->timezone)->toDateString();
         if ($year < (int)substr($today,0,4)-1 || $year > (int)substr($today,0,4)+1) {
@@ -110,8 +111,8 @@ class LeaveController extends Controller
                 'type'=>$input['leave_type'],'charge_days'=>$days,
                 'day_portion'=>$input['day_portion'],'policy_id'=>$policy?->id,
             ]);
-            foreach (TenantOps::teamRecipients($actor,$student) as $id) {
-                TenantOps::notify($actor,(int)$id,'New leave request',
+            foreach (TenantOps::teamRecipients($actor,$student) as $recipientId) {
+                TenantOps::notify($actor,(int)$recipientId,'New leave request',
                     $input['leave_type'].' leave ('.$days.' day(s)) is pending review.');
             }
         },3);
