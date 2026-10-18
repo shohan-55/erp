@@ -7,6 +7,7 @@
     <p class="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300">Plan a full year of Bangladesh government, optional and firm-specific holidays. Import a prepared CSV once, review the dates and publish them only with Partner authorization. Approved dates integrate with Attendance, Leave and your premium Dashboard Calendar.</p>
     <div class="mt-5 flex flex-wrap gap-2 text-xs font-bold"><span class="rounded-full border border-white/20 px-3 py-2">{{ $workspace->name }}</span><span class="rounded-full border border-[#FCDF02]/40 px-3 py-2 text-[#FCDF02]">{{ ucfirst($actor->role) }} access</span><span class="rounded-full border border-white/20 px-3 py-2">{{ $company->timezone }}</span></div>
 </section>
+@include('erp.partials.module-guide',['module'=>'calendar'])
 
 <div class="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(260px,1fr)]">
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
