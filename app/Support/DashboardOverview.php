@@ -68,6 +68,8 @@ final class DashboardOverview
                 $make('Student Permissions', 'Control student grids and access', 'erp.permissions.index', 'shield-check'),
                 $make('Office Policies', 'Manage workspace attendance rules', 'erp.policies', 'settings-2'),
                 $make('Payroll Control', 'Review your Partner payroll only', 'erp.payroll', 'wallet-cards', null, $queue['payroll']),
+                $make('Audit Engagements', 'Partner clients, audit teams and budgets', 'erp.engagements', 'briefcase-business'),
+                $make('Timesheet Approvals', 'Approve engagement working hours', 'erp.timesheets', 'clock-3'),
                 $make('Attendance Report', 'Review workspace attendance', 'erp.attendance.report', 'calendar-check-2'),
                 $make('Notifications', 'Read your private messages', 'erp.notifications', 'bell'),
             ];
@@ -77,6 +79,8 @@ final class DashboardOverview
                 $make('Review Team Leave', 'Only your assigned students', 'erp.leaves', 'calendar-days', null, $queue['leave']),
                 $make('Review Team Claims', 'Only your assigned students', 'erp.claims', 'receipt', null, $queue['claims']),
                 $make('Team Attendance', 'View assigned student attendance', 'erp.attendance.report', 'calendar-check-2'),
+                $make('Audit Engagements', 'Your team client assignments', 'erp.engagements', 'briefcase-business'),
+                $make('Team Timesheets', 'Review assigned students and own work hours', 'erp.timesheets', 'clock-3'),
                 $make('Notifications', 'Follow up on team approvals', 'erp.notifications', 'bell'),
                 $make('My Staff Records', 'Private employment and document records', 'erp.staff.my_records', 'file-user'),
             ];
@@ -93,6 +97,8 @@ final class DashboardOverview
             $make('Conveyance Claim', 'Submit expense claims', 'erp.claims', 'receipt', 'conveyance'),
             $make('Attendance Report', 'Review recorded work sessions', 'erp.attendance.report', 'clipboard-list', 'attendance_report'),
             $make('My Payslips', 'Only finalized and locked records', 'erp.payroll', 'wallet-cards', 'payslip'),
+            $make('My Engagements', 'See assigned audit clients and assignments', 'erp.engagements', 'briefcase-business', 'timesheets'),
+            $make('My Timesheets', 'Submit audit work hours for review', 'erp.timesheets', 'clock-3', 'timesheets'),
             $make('Notifications', 'Read your own notices', 'erp.notifications', 'bell', 'notifications'),
             $make('Account Security', 'Manage account protection', 'erp.security', 'shield-check'),
             $make('My Staff Records', 'My articleship, employment and private documents', 'erp.staff.my_records', 'file-user'),
