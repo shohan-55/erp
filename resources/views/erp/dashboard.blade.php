@@ -3,6 +3,7 @@
 @section('content')
 @php($studentFeatures = \App\Support\StudentFeatureAccess::enabledMap($actor))
 <section><p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">PRACTICE OPERATIONS</p><h2 class="mt-2 text-2xl font-extrabold sm:text-3xl">Welcome, {{ auth()->user()->name }}</h2><p class="mt-2 text-sm text-slate-500">Live statistics for {{ $workspace->name }}. {{ $actor->role === 'manager' ? 'Your assigned student team only.' : ($actor->role === 'student' ? 'Your own records only.' : 'Your own Partner workspace only.') }}</p></section>
+@include('erp.partials.dashboard-action-center')
 @if($actor->role === 'student' && $studentFeatures['attendance'])
 <section class="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm sm:p-6" aria-label="Quick attendance">
   <div class="flex flex-wrap items-start justify-between gap-3">
@@ -40,7 +41,7 @@
 @endif</div><button type="submit" class="min-h-12 rounded-xl bg-[#FCDF02] px-7 py-3 text-sm font-extrabold text-slate-950 hover:bg-[#F5AD16]">Check In</button>
     </form>
   @endif
-  <p class="mt-3 text-xs text-slate-500">Your attendance uses server time and is recorded in your own workspace. GPS check-in will be introduced after location consent and policy review in Phase 3.</p>
+  <p class="mt-3 text-xs text-slate-500">Attendance timestamps are recorded by the server. When location sharing is enabled, GPS submission is optional, disclosed, and consent-based.</p>
   <a href="{{ route('erp.attendance', ['firmSlug'=>$firmSlug]) }}" class="mt-3 inline-flex text-xs font-bold text-amber-800 underline">View attendance history</a>
 </section>
 @endif

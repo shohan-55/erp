@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
 use App\Support\PolicyResolver;
+use App\Support\DashboardOverview;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -60,6 +61,13 @@ class PortalController extends Controller
             ->select('a.*', 'u.name as member_name')
             ->orderByDesc('a.started_at')->limit(8)->get();
 
-        return view('erp.dashboard', compact('company', 'workspace', 'actor', 'firmSlug', 'stats', 'recent', 'effectivePolicy', 'activeAttendance'));
+        $queues = DashboardOverview::queues($actor);
+        $quickActions = DashboardOverview::actions($actor, $queues);
+
+        return view('erp.dashboard', compact(
+            'company', 'workspace', 'actor', 'firmSlug',
+            'stats', 'recent', 'effectivePolicy', 'activeAttendance',
+            'queues', 'quickActions'
+        ));
     }
 }
