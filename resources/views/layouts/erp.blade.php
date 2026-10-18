@@ -19,14 +19,18 @@
 ['label'=>'Conveyance','name'=>'erp.claims','icon'=>'receipt'],
 ['label'=>'Payroll','name'=>'erp.payroll','icon'=>'wallet-cards'],
 ['label'=>'Policy & Governance','name'=>'erp.policies','icon'=>'shield-check'],
+['label'=>'Smart HR Policy Center','name'=>'erp.hr_policies.index','icon'=>'sliders-horizontal'],
 ['label'=>'Notifications','name'=>'erp.notifications','icon'=>'bell'],
 ['label'=>'Settings / Security','name'=>'erp.security','icon'=>'settings-2'],
 ] as $item)
 @if($actor->role === 'manager' && $item['name'] === 'erp.payroll')
 @continue
 @endif
+@if($actor->role === 'student' && $item['name'] === 'erp.hr_policies.index')
+@continue
+@endif
 @php($featureKey = \App\Support\StudentFeatureAccess::featureForRoute($item['name']))
-@if($actor->role !== 'student' || $featureKey === null || ($studentFeatures[$featureKey] ?? false))
+@if($actor->role !== 'student' || ($item['name'] !== 'erp.hr_policies.index' && ($featureKey === null || ($studentFeatures[$featureKey] ?? false))))
 <a href="{{ route($item['name'], ['firmSlug'=>$firmSlug]) }}" class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition {{ request()->routeIs($item['name']) ? 'bg-[#FCDF02] text-[#17191F]' : 'text-slate-300 hover:bg-white/10 hover:text-white' }}">
 <i data-lucide="{{ $item['icon'] }}" class="h-4 w-4"></i>{{ $item['label'] }}</a>
 @endif
