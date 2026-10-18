@@ -109,7 +109,12 @@
         ev.preventDefault();
         if (pending || form.dataset.submitting === 'true') return;
         pending=form; submitter=ev.submitter || null;
-        label.textContent=form.dataset.corporateConfirm || 'Confirm this change before saving.';
+        const actionName = submitter?.textContent?.trim().replace(/\\s+/g,' ').slice(0,80) || 'Proceed';
+        const isDanger = /^(reject|cancel|void|delete|terminate|withdraw)/i.test(actionName);
+        dialog.dataset.decisionTone = isDanger ? 'danger' : 'normal';
+        label.textContent=(form.dataset.corporateConfirm || 'Confirm this change before saving.')
+          + ' Selected action: ' + actionName + '.';
+        go.textContent = 'Confirm ' + actionName + ' →';
         if(typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open','');
         go.focus();
       });
