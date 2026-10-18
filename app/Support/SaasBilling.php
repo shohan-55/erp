@@ -70,6 +70,41 @@ final class SaasBilling
         return $invoice;
     }
 
+    /**
+     * Reservation-safe plan limits for new workspaces and memberships.
+     * Current members, unaccepted invitations and active Partner units count;
+     * historical exited staff are retained without consuming a new seat.
+     * Caller must already be in a DB transaction; company row lock serializes
+     * parallel Platform and Partner-created invitations.
+     */
+    public static function assertCapacity(int $companyId,int $newWorkspaces,int $newMembers):void
+    {
+        DB::table('companies')->where('id',$companyId)->lockForUpdate()->first();
+        $plan=DB::table('saas_subscriptions as s')
+            ->join('saas_plans as p','p.id','=','s.plan_id')
+            ->where('s.company_id',$companyId)
+            ->select('p.max_partner_workspaces','p.max_members')->first();
+        if(!$plan) return; // legacy unbilled firms are grandfathered.
+        $ws=DB::table('workspaces')->where('company_id',$companyId)
+            ->where('active',true)->count();
+        $seats=DB::table('memberships')->where('company_id',$companyId)
+            ->where(function($q){
+                $q->where('active',true)
+                    ->orWhere(function($p){
+                        $p->whereNotNull('invited_at')->whereNull('activated_at')
+                            ->whereNull('platform_suspended_at');
+                    });
+            })->count();
+        if($ws+$newWorkspaces>$plan->max_partner_workspaces){
+            throw ValidationException::withMessages(['workspace_slug'=>
+                'The subscribed SaaS plan has reached its active Partner workspace capacity.']);
+        }
+        if($seats+$newMembers>$plan->max_members){
+            throw ValidationException::withMessages(['email'=>
+                'The subscribed SaaS plan has reached its active and invited membership capacity.']);
+        }
+    }
+
     public static function domainAllowed(int $companyId):bool
     {
         $sub=DB::table('saas_subscriptions as s')
