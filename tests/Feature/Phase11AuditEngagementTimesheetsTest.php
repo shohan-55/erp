@@ -293,7 +293,7 @@ class Phase11AuditEngagementTimesheetsTest extends TestCase
         $this->clock();
         try {
             [, $p]=$this->fixture();
-            $client=$this->makeClient($p['a']['partner'],'=X', 'Formula Unsafe Client');
+            $client=$this->makeClient($p['a']['partner'],'CX', 'Formula Unsafe Client');
             $engagement=$this->makeEngagement($p['a']['partner'],$client);
             $this->assign($p['a']['partner'],$engagement,$p['a']['student']->id)->assertRedirect();
             $this->submit($p['a']['student'],$engagement,'1.25','2026-10-15',
