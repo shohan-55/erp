@@ -59,6 +59,38 @@
       update();
     }
 
+
+    // Search/filter only already server-authorized records rendered on this page.
+    document.querySelectorAll('[data-corporate-history-toolbar]').forEach(toolbar => {
+      if (toolbar.dataset.initialized) return;
+      toolbar.dataset.initialized = '1';
+      const key = toolbar.dataset.historyTarget;
+      const group = [...document.querySelectorAll('[data-corporate-history-group]')]
+        .find(element => element.dataset.corporateHistoryGroup === key);
+      if (!group) return;
+      const items = [...group.querySelectorAll('[data-corporate-history-item]')];
+      const search = toolbar.querySelector('[data-history-search]');
+      const status = toolbar.querySelector('[data-history-status]');
+      const count = toolbar.querySelector('[data-history-count]');
+      const reset = toolbar.querySelector('[data-history-reset]');
+      const apply = () => {
+        const text = (search?.value || '').trim().toLocaleLowerCase();
+        const stage = status?.value || 'all';
+        let shown=0;
+        items.forEach(item => {
+          const match = (stage === 'all' || stage === item.dataset.historyStatus)
+            && item.textContent.toLocaleLowerCase().includes(text);
+          item.hidden = !match;
+          if (match) shown++;
+        });
+        if (count) count.textContent = shown + ' / ' + items.length + ' loaded records';
+      };
+      search?.addEventListener('input',apply);
+      status?.addEventListener('change',apply);
+      reset?.addEventListener('click',()=>{if(search)search.value='';if(status)status.value='all';apply();});
+      apply();
+    });
+
     // Extra confirmation for explicitly tagged approval/financial actions;
     // native attendance's existing confirmation remains separate.
     const dialog = document.querySelector('[data-corporate-confirm-dialog]');
