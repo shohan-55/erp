@@ -21,7 +21,7 @@ final class StudentFeatureAccess
         if (! $name) {
             return null;
         }
-        if ($name === 'erp.attendance.report') {
+        if (in_array($name, ['erp.attendance.report', 'erp.attendance.reconcile'], true)) {
             return 'attendance_report';
         }
         if (str_starts_with($name, 'erp.attendance')) {

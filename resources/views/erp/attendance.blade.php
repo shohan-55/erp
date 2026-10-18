@@ -1,7 +1,9 @@
 @extends('layouts.erp')
 @section('title','Attendance')
 @section('content')
-<section><h2 class="text-2xl font-extrabold">Office & Client Sessions</h2><p class="mt-2 text-sm text-slate-500">Server timestamps, one active session per student; history is scoped to your authorized team.</p><a class="mt-3 inline-flex rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold" href="{{ route('erp.attendance.report', ['firmSlug' => $firmSlug]) }}">Monthly Attendance Report</a></section>
+<section><h2 class="text-2xl font-extrabold">Office & Client Sessions</h2><p class="mt-2 text-sm text-slate-500">Server timestamps, one active session per student; history is scoped to your authorized team.</p>@if($actor->role !== 'student' || \App\Support\StudentFeatureAccess::enabled($actor,'attendance_report'))
+<a class="mt-3 inline-flex rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold" href="{{ route('erp.attendance.report', ['firmSlug' => $firmSlug]) }}">Monthly Attendance Report</a> <a class="mt-3 inline-flex rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-bold text-amber-950" href="{{ route('erp.attendance.reconcile', ['firmSlug'=>$firmSlug]) }}">Daily Reconciliation</a>
+@endif</section>
 @if($actor->role === 'student')
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
 <h3 class="text-base font-extrabold">{{ $openSession ? 'Current active session' : 'Start a new work session' }}</h3>
