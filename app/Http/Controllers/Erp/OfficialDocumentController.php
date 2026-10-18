@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\BrandIdentity;
 use App\Support\PortableDocx;
 use App\Support\OfficialTemplate;
+use App\Support\PortableXlsx;
 use App\Support\TenantOps;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -165,6 +166,33 @@ final class OfficialDocumentController extends Controller
             'Content-Type'=>'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'Content-Disposition'=>'attachment; filename="'.$issue->reference.'.docx"',
             'Content-Length'=>strlen($docx),
+            'Cache-Control'=>'private, no-store, max-age=0',
+            'X-Content-Type-Options'=>'nosniff',
+        ]);
+    }
+
+    public function registerExcel(Request $request,string $firmSlug)
+    {
+        [$company,$workspace,$actor]=TenantOps::context($request);
+        TenantOps::requireRole($actor,['partner']);
+        $rows=DB::table('official_document_issues')
+            ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+            ->orderByDesc('id')->limit(2000)
+            ->get(['reference','document_type','source_id','issued_at','issued_by']);
+
+        $sheet=[['Reference','Document Type','Source ID','Issued At','Approver Membership']];
+        foreach($rows as $r){
+            $sheet[]=[$r->reference,$r->document_type,(string)$r->source_id,
+                (string)$r->issued_at,(string)$r->issued_by];
+        }
+        $bytes=PortableXlsx::make($sheet,'Approved Document Register');
+        TenantOps::audit($actor,'official_document.register_xlsx_exported','workspace',$workspace->id,[
+            'count'=>$rows->count(),
+        ]);
+        return response($bytes,200,[
+            'Content-Type'=>'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition'=>'attachment; filename="official-document-register.xlsx"',
+            'Content-Length'=>strlen($bytes),
             'Cache-Control'=>'private, no-store, max-age=0',
             'X-Content-Type-Options'=>'nosniff',
         ]);
