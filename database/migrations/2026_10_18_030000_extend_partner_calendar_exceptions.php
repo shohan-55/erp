@@ -8,6 +8,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('workspace_day_overrides', function (Blueprint $table) {
+            $table->foreignId('authorized_by')->nullable()->change();
             $table->string('holiday_category', 32)->default('partner_decision');
             $table->time('office_start')->nullable();
             $table->time('office_end')->nullable();
@@ -27,6 +28,7 @@ return new class extends Migration {
             $table->dropIndex('day_override_status_lookup');
             $table->dropConstrainedForeignId('proposed_by');
             $table->dropConstrainedForeignId('reviewed_by');
+            $table->foreignId('authorized_by')->nullable(false)->change();
             $table->dropColumn([
                 'holiday_category', 'office_start', 'office_end', 'grace_minutes',
                 'status', 'reviewed_at',
