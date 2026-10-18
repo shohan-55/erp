@@ -37,6 +37,9 @@
 <form method="POST" action="{{ route('erp.staff.compensation',['firmSlug'=>$firmSlug,'id'=>$member->id]) }}" class="space-y-3 rounded-xl border border-slate-200 p-4">@csrf
 <h4 class="text-sm font-extrabold">Future Salary Increment</h4>
 <p class="text-xs text-slate-500">Current baseline ৳ {{ number_format((float)$member->monthly_allowance,2) }}. A scheduled future rate is applied by the Payroll engine only from its effective month.</p>
+@if($salaryChanges->has($member->id))
+<p class="rounded-lg bg-amber-50 p-2 text-xs font-bold text-amber-950">Latest authorized monthly rate: ৳ {{ number_format((float)$salaryChanges[$member->id]->new_amount,2) }} from {{ $salaryChanges[$member->id]->effective_month }}</p>
+@endif
 <div class="grid gap-3 sm:grid-cols-2">
 <label class="text-xs font-bold">Effective Month<input name="effective_month" type="month" min="{{ now($company->timezone)->addMonth()->format('Y-m') }}" required class="mt-1 w-full rounded-lg border border-slate-300 p-2 text-sm"></label>
 <label class="text-xs font-bold">New Monthly Allowance (BDT)<input name="new_amount" type="number" min="0" max="500000" step="0.01" required class="mt-1 w-full rounded-lg border border-slate-300 p-2 text-sm"></label>
