@@ -6,7 +6,7 @@
 <p class="mt-2 text-sm text-slate-600">Publish an immutable message to currently active authorized members of this Partner practice. Delivery is in-app; this action does not send email or SMS. Notices are copied into each member's private inbox and audited.</p></section>
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 <h3 class="text-sm font-extrabold">Publish a New Notice</h3>
-<form method="POST" action="{{ route('erp.notices.publish',['firmSlug'=>$firmSlug]) }}" class="mt-4 grid gap-3 md:grid-cols-2">@csrf
+<form data-corporate-confirm="Publish this notice to the selected authorized audience? Recipients will receive it in their private ERP inbox." method="POST" action="{{ route('erp.notices.publish',['firmSlug'=>$firmSlug]) }}" class="mt-4 grid gap-3 md:grid-cols-2">@csrf
 <label class="text-xs font-bold">Notice Title<input name="title" required minlength="5" maxlength="160" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm" placeholder="Monthly staff meeting"></label>
 <label class="text-xs font-bold">Who should receive it?
 <select name="audience" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm">
