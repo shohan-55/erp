@@ -133,11 +133,15 @@ class AttendanceController extends Controller
                 'effective_grace_minutes' => $clock['grace_minutes'],
                 'student_shift_id' => $clock['student_shift_id'],
                 'late_within_grace' => $arrival['late_within_grace'],
-                'qualifies_for_three_day_review' => $arrival['after_grace'],
+                'qualifies_for_policy_review' => $arrival['after_grace']
+                    || ($arrival['late_within_grace'] && ! $clock['grace_late_exempt']),
+                'policy_late_review_days' => $clock['late_review_days'],
+                'hr_policy_revision_id' => $clock['hr_policy_revision_id'],
                 'browser_location_captured' => $captured,
             ]);
             return [
                 'kind' => 'in', 'late' => $late, 'within_grace' => $arrival['late_within_grace'],
+                'grace_exempt' => $clock['grace_late_exempt'], 'review_days' => $clock['late_review_days'],
                 'half_day_warning' => $arrival['half_day_warning'], 'holiday' => $isHoliday,
                 'time' => $localNow->format('h:i A'),
             ];
