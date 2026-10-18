@@ -8,11 +8,33 @@
             <div class="attendance-spotlight__eyebrow"><span class="attendance-spotlight__sparkle" aria-hidden="true">✦</span> QUICK ATTENDANCE <span class="attendance-spotlight__eyebrow-line" aria-hidden="true"></span> YOUR WORKDAY</div>
             <h3 class="attendance-spotlight__heading">{{ $onDuty ? 'A productive day is underway.' : 'Ready to make today count?' }}</h3>
             <p class="attendance-spotlight__copy">{{ $onDuty ? 'Your session is live. Finish your day with one secure check-out.' : 'One tap to begin. Your attendance is recorded using the server clock.' }}</p>
-            <div class="attendance-spotlight__details">
-                <span><i data-lucide="clock-3" aria-hidden="true"></i> {{ substr($effectivePolicy['office_start'], 0, 5) }} – {{ substr($effectivePolicy['office_end'], 0, 5) }}</span>
-                <span><i data-lucide="timer" aria-hidden="true"></i> {{ $effectivePolicy['grace_minutes'] }} min grace</span>
-                <span class="attendance-spotlight__status {{ $onDuty ? 'attendance-spotlight__status--active' : '' }}"><span class="attendance-spotlight__status-dot" aria-hidden="true"></span>{{ $onDuty ? 'Session active' : 'Not checked in' }}</span>
+            <div class="attendance-clock attendance-clock--safe"
+                 data-attendance-clock data-attendance-clock-url="{{ route('erp.attendance.clock', ['firmSlug'=>$firmSlug]) }}">
+                <div class="attendance-clock__shine" aria-hidden="true"></div>
+                <div class="attendance-clock__main">
+                    <div class="attendance-clock__dial" aria-hidden="true">
+                        <span class="attendance-clock__dial-core"><i data-lucide="clock-3"></i></span>
+                    </div>
+                    <div class="attendance-clock__readout">
+                        <p class="attendance-clock__caption"><span class="attendance-clock__live-dot"></span> SERVER-SYNCED TIME</p>
+                        <div class="attendance-clock__digits">
+                            <time data-attendance-clock-time>{{ now($company->timezone)->format('h:i:s') }}</time>
+                            <span data-attendance-clock-period>{{ now($company->timezone)->format('A') }}</span>
+                        </div>
+                        <p class="attendance-clock__zone">{{ $company->timezone }} <span data-attendance-sync-label>· Connected</span></p>
+                    </div>
+                </div>
+                <div class="attendance-clock__timeline" role="progressbar" aria-label="Arrival status progression" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-attendance-progress>
+                    <span class="attendance-clock__timeline-fill" data-attendance-fill></span>
+                </div>
+                <div class="attendance-clock__status" role="status" aria-live="polite">
+                    <span class="attendance-clock__status-dot" aria-hidden="true"></span>
+                    <strong data-attendance-clock-status>{{ $onDuty ? 'Session active' : 'Schedule loading' }}</strong>
+                </div>
+                <p class="attendance-clock__context" data-attendance-clock-context>Arrival status follows your approved shift and timezone.</p>
+                <p class="attendance-clock__fineprint">Office {{ $attendanceClock['office_start'] }} – {{ $attendanceClock['office_end'] }} · Grace {{ $attendanceClock['grace_minutes'] }}m · After-grace days this month: <strong data-attendance-qualifying-count>{{ $qualifyingLateDays }}</strong></p>
             </div>
+            <script type="application/json" data-attendance-clock-config>@json(['schedule' => $attendanceClock, 'active' => $onDuty, 'qualifying_late_days' => $qualifyingLateDays])</script>
             @if($onDuty)
                 <p class="attendance-spotlight__started">Checked in at {{ \Carbon\Carbon::parse($activeAttendance->started_at, 'UTC')->timezone($company->timezone)->format('h:i A') }} · {{ ucfirst($activeAttendance->work_mode) }}{{ $activeAttendance->client_site ? ' · '.$activeAttendance->client_site : '' }}</p>
             @endif
@@ -70,14 +92,16 @@
 @if(session('attendance_result'))
     @php($attendanceResult = session('attendance_result'))
     @php($attendanceLate = ($attendanceResult['kind'] ?? '') === 'in' && ($attendanceResult['late'] ?? false))
+    @php($attendanceGrace = $attendanceLate && ($attendanceResult['within_grace'] ?? false))
+    @php($attendanceHalf = $attendanceLate && ($attendanceResult['half_day_warning'] ?? false))
     <div class="attendance-celebration {{ $attendanceLate ? 'attendance-celebration--late' : '' }}" data-attendance-result>
         <div class="attendance-celebration__backdrop" aria-hidden="true"></div>
         <section class="attendance-celebration__panel" role="alertdialog" aria-modal="true" aria-labelledby="attendance-result-title" aria-describedby="attendance-result-description" tabindex="-1">
             <div class="attendance-celebration__confetti" aria-hidden="true"><span>✦</span><span>✧</span><span>✦</span><span>✧</span><span>✦</span></div>
             <div class="attendance-celebration__halo"><i data-lucide="{{ $attendanceLate ? 'clock-alert' : (($attendanceResult['kind'] ?? '') === 'out' ? 'flag-triangle-right' : 'check') }}" aria-hidden="true"></i></div>
-            <p class="attendance-celebration__eyebrow">{{ $attendanceLate ? 'LATE ARRIVAL RECORDED' : 'ATTENDANCE CONFIRMED' }}</p>
-            <h3 id="attendance-result-title">{{ $attendanceLate ? 'You are checked in — a little late.' : (($attendanceResult['kind'] ?? '') === 'out' ? 'Beautiful work today!' : 'You are officially checked in!') }}</h3>
-            <p id="attendance-result-description">{{ $attendanceLate ? 'Your arrival was recorded after the approved grace period. Your attendance is saved; no automatic pay deduction is applied.' : (($attendanceResult['kind'] ?? '') === 'out' ? 'Your check-out has been safely recorded. See you next time!' : (($attendanceResult['holiday'] ?? false) ? 'Attendance saved for your scheduled day off.' : 'Great start! Your work session has been saved securely.')) }}</p>
+            <p class="attendance-celebration__eyebrow">{{ $attendanceGrace ? 'LATE WITHIN GRACE · NOT COUNTED' : ($attendanceLate ? ($attendanceHalf ? 'HALF-DAY WARNING · REVIEW ONLY' : 'LATE ARRIVAL RECORDED') : 'ATTENDANCE CONFIRMED') }}</p>
+            <h3 id="attendance-result-title">{{ $attendanceLate ? ($attendanceGrace ? 'Late, but within your grace window.' : 'You are checked in — a little late.') : (($attendanceResult['kind'] ?? '') === 'out' ? 'Beautiful work today!' : 'You are officially checked in!') }}</h3>
+            <p id="attendance-result-description">{{ $attendanceLate ? ($attendanceGrace ? 'Attendance saved. This late arrival is excluded from the three-day payroll review count.' : ($attendanceHalf ? 'Your arrival is beyond the configured half-day warning time. This is a visual alert only; leave and salary decisions require review.' : 'Your arrival was recorded after grace. It may count toward a three-day policy review, but no automatic pay deduction is applied.')) : (($attendanceResult['kind'] ?? '') === 'out' ? 'Your check-out has been safely recorded. See you next time!' : (($attendanceResult['holiday'] ?? false) ? 'Attendance saved for your scheduled day off.' : 'Great start! Your work session has been saved securely.')) }}</p>
             <p class="attendance-celebration__time"><i data-lucide="clock-3" aria-hidden="true"></i> Recorded {{ $attendanceResult['time'] ?? '' }} · {{ $company->timezone }}</p>
             <button type="button" class="attendance-celebration__done" data-attendance-done>Continue to dashboard <i data-lucide="arrow-right" aria-hidden="true"></i></button>
         </section>

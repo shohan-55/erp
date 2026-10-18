@@ -67,6 +67,21 @@ try {
     const attendance = page.locator('.attendance-spotlight');
     await attendance.waitFor({state:'visible'});
     assert.equal(await attendance.evaluate(el => getComputedStyle(el).backgroundImage.includes('gradient')), true, 'Premium attendance gradients must be applied, not unstyled HTML');
+    const liveClock = page.locator('[data-attendance-clock]');
+    await liveClock.waitFor();
+    await page.waitForFunction(() => {
+        const clock = document.querySelector('[data-attendance-clock]');
+        const status = clock?.querySelector('[data-attendance-clock-status]')?.textContent;
+        return clock?.dataset.attendanceStage && status && status !== 'Schedule loading';
+    });
+    const initialTime = await page.locator('[data-attendance-clock-time]').textContent();
+    assert.match(initialTime, /^\d{2}:\d{2}:\d{2}$/);
+    await page.waitForTimeout(1100);
+    assert.notEqual(await page.locator('[data-attendance-clock-time]').textContent(),initialTime,'Digital clock should tick');
+    const clockResponse = await page.request.get(baseUrl+'/c/rac/app/attendance/clock');
+    assert.equal(clockResponse.status(),200,'Authenticated clock sync must return the server schedule');
+    assert.equal((await clockResponse.json()).clock.timezone,'Asia/Dhaka');
+
     assert.equal(await page.evaluate(() =>
         document.querySelector('.attendance-spotlight').getBoundingClientRect().top <
         document.querySelector('section[aria-label="Quick management actions"]').getBoundingClientRect().top
@@ -179,6 +194,8 @@ try {
     }, null, {timeout:5000});
     await page.screenshot({path:output+'/09-student-mobile.png',fullPage:true});
     assert.equal(await page.locator('.attendance-spotlight').evaluate(el => getComputedStyle(el).borderRadius !== '0px'), true, 'Premium card must retain mobile styling');
+    await page.locator('[data-attendance-clock-time]').waitFor();
+    assert.equal(await page.locator('[data-attendance-clock]').evaluate(el=>el.getBoundingClientRect().width <= window.innerWidth),true,'Mobile digital clock must not overflow');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2),false,'390px should not overflow');
 
     await page.getByRole('button',{name:'Open navigation'}).click();

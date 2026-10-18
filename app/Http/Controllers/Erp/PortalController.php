@@ -7,6 +7,7 @@ use App\Support\TenantOps;
 use App\Support\PolicyResolver;
 use App\Support\DashboardOverview;
 use App\Support\WorkCalendar;
+use App\Support\AttendanceClock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -47,6 +48,13 @@ class PortalController extends Controller
                 ->first()
             : null;
 
+        // Server-authoritative schedule for the clock UI; no client clock
+        // or frontend status is accepted for actual attendance records.
+        $attendanceClock = in_array($actor->role, ['student', 'manager'], true)
+            ? AttendanceClock::schedule($company, $workspace, $actor) : null;
+        $qualifyingLateDays = $attendanceClock
+            ? AttendanceClock::qualifyingLateDays($company, $workspace, $actor, $today) : 0;
+
         $stats = [
             'members' => $ids->count(),
             'checked_in_today' => DB::table('attendance_sessions')
@@ -79,6 +87,7 @@ class PortalController extends Controller
         return view('erp.dashboard', compact(
             'company', 'workspace', 'actor', 'firmSlug',
             'stats', 'recent', 'effectivePolicy', 'activeAttendance',
+            'attendanceClock', 'qualifyingLateDays',
             'queues', 'quickActions'
         ));
     }

@@ -76,3 +76,50 @@
 @media(min-width:1100px){.attendance-spotlight__content{grid-template-columns:minmax(0,1.15fr) minmax(285px,.85fr);padding:36px}.attendance-spotlight__control{padding:24px}}
 @media(max-width:600px){.attendance-spotlight{border-radius:22px}.attendance-spotlight__content{padding:22px 18px;gap:22px}.attendance-spotlight__control{padding:16px}.attendance-spotlight__footnote{padding:13px 18px;align-items:flex-start}.attendance-dialog__panel,.attendance-celebration__panel{padding:28px 20px}.attendance-celebration__panel{padding-top:40px}}
 @media(prefers-reduced-motion:reduce){.attendance-spotlight__sparkle,.attendance-spotlight__status-dot,.attendance-celebration__halo,.attendance-celebration__confetti span,.attendance-dialog__panel,.attendance-celebration__panel{animation:none!important}.attendance-spotlight__action{transition:none!important}.attendance-spotlight__action:hover{transform:none}}
+
+
+/* Smart Attendance v2: server-synchronized luxury clock, not a client clock policy. */
+.attendance-clock {
+  --clock-accent:#22c55e;
+  --clock-glow:rgba(34,197,94,.25);
+  --clock-grad-a:#122d24;
+  --clock-grad-b:#133c2c;
+  --clock-transition-progress:0;
+  position:relative;isolation:isolate;overflow:hidden;
+  margin-top:22px;padding:24px 22px 18px;border-radius:25px;
+  background:radial-gradient(ellipse at 86% 18%,var(--clock-glow),transparent 64%),linear-gradient(115deg,var(--clock-grad-a),var(--clock-grad-b));
+  border:1px solid var(--clock-accent);
+  box-shadow:0 15px 35px rgba(0,0,0,.16),0 0 20px var(--clock-glow),inset 0 1px rgba(255,255,255,.1);
+  transition:border-color 1s ease,box-shadow 1s ease,background 1s linear;
+}
+.attendance-clock__shine{position:absolute;inset:-50% -60%;opacity:.22;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.19) 50%,transparent 59%);animation:attClockShimmer 9s ease-in-out infinite}
+.attendance-clock__main{position:relative;display:flex;align-items:center;gap:22px;min-width:0}
+.attendance-clock__dial{flex:0 0 88px;height:88px;width:88px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--clock-accent);background:conic-gradient(from 25deg,var(--clock-accent),transparent 45%,var(--clock-accent));box-shadow:0 0 0 5px rgba(255,255,255,.035),0 0 24px var(--clock-glow);animation:attClockBreathe 3.5s ease-in-out infinite}
+.attendance-clock__dial-core{width:70px;height:70px;display:grid;place-items:center;border-radius:50%;background:linear-gradient(145deg,#0d1014,#23262c);color:var(--clock-accent);box-shadow:inset 0 2px 10px #000}
+.attendance-clock__dial-core svg{width:36px;height:36px;stroke-width:2.2}
+.attendance-clock__readout{min-width:0;flex:1;border-left:1px solid rgba(255,255,255,.21);padding-left:20px}
+.attendance-clock__caption{display:flex;align-items:center;gap:8px;color:#f1f5f9;font-size:10px;font-weight:900;letter-spacing:.15em}
+.attendance-clock__live-dot{width:7px;height:7px;border-radius:100%;background:var(--clock-accent);box-shadow:0 0 8px var(--clock-accent);animation:attPulse 2s infinite}
+.attendance-clock__digits{display:flex;align-items:baseline;gap:8px;min-width:0;margin-top:7px;line-height:1.06;font-variant-numeric:tabular-nums}
+.attendance-clock__digits time{color:#fff;font-size:clamp(26px,5.25vw,47px);letter-spacing:-.045em;font-weight:900;white-space:nowrap;text-shadow:0 3px 15px rgba(0,0,0,.22)}
+.attendance-clock__digits>span{color:var(--clock-accent);font-weight:900;font-size:clamp(14px,2.5vw,23px)}
+.attendance-clock__zone{margin-top:7px;font-size:11px;color:#cbd5e1}
+.attendance-clock__timeline{position:relative;height:5px;margin-top:22px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.18)}
+.attendance-clock__timeline-fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--clock-accent);box-shadow:0 0 12px var(--clock-accent);border-radius:99px;transition:width .4s linear}
+.attendance-clock__status{position:relative;display:flex;align-items:center;gap:9px;width:max-content;max-width:100%;margin:16px auto 0;padding:9px 15px;border-radius:99px;border:1px solid rgba(255,255,255,.24);background:rgba(0,0,0,.24);font-size:12px;color:#fff}
+.attendance-clock__status-dot{width:9px;height:9px;border-radius:50%;background:var(--clock-accent);box-shadow:0 0 13px var(--clock-accent)}
+.attendance-clock__context{min-height:24px;margin-top:11px;color:#e2e8f0;text-align:center;font-size:12px;line-height:1.6}
+.attendance-clock__fineprint{margin-top:9px;color:#cbd5e1;text-align:center;font-size:10px;line-height:1.5}
+.attendance-clock__fineprint strong{color:#fff}
+.attendance-clock--grace{--clock-accent:#eab308;--clock-glow:rgba(234,179,8,.23);--clock-grad-a:#2b311c;--clock-grad-b:#665119}
+.attendance-clock--late{--clock-accent:#ef7040;--clock-glow:rgba(239,112,64,.26);--clock-grad-a:#39221c;--clock-grad-b:#71301d}
+.attendance-clock--half{--clock-accent:#ef4444;--clock-glow:rgba(239,68,68,.36);--clock-grad-a:#4a090e;--clock-grad-b:#980e17}
+.attendance-clock--active{--clock-accent:#3de3ab;--clock-glow:rgba(61,227,171,.2);--clock-grad-a:#122a25;--clock-grad-b:#1a3931}
+.attendance-clock--holiday{--clock-accent:#a6aebe;--clock-glow:rgba(166,174,190,.14);--clock-grad-a:#222833;--clock-grad-b:#343b47}
+.attendance-clock--stale .attendance-clock__live-dot{animation:none;background:#94a3b8}
+@keyframes attClockBreathe{50%{filter:brightness(1.22);transform:scale(1.035)}}
+@keyframes attClockShimmer{0%,35%{transform:translateX(-30%)}70%,100%{transform:translateX(35%)}}
+@media(min-width:1100px){.attendance-clock{padding:26px 24px 19px}.attendance-clock__digits time{font-size:clamp(29px,2.7vw,47px)}.attendance-clock__dial{width:74px;height:74px;flex-basis:74px}.attendance-clock__dial-core{width:58px;height:58px}}
+@media(max-width:540px){.attendance-clock{margin-top:20px;padding:18px 13px 15px;border-radius:20px}.attendance-clock__main{gap:12px}.attendance-clock__dial{width:62px;height:62px;flex-basis:62px}.attendance-clock__dial-core{width:49px;height:49px}.attendance-clock__dial-core svg{width:27px;height:27px}.attendance-clock__readout{padding-left:13px}.attendance-clock__caption{font-size:8px;letter-spacing:.09em}.attendance-clock__digits{gap:5px}.attendance-clock__digits time{font-size:clamp(24px,7.3vw,37px)}.attendance-clock__digits>span{font-size:14px}.attendance-clock__zone{font-size:10px}.attendance-clock__fineprint{font-size:9px}}
+@media(max-width:360px){.attendance-clock__dial{width:50px;height:50px;flex-basis:50px}.attendance-clock__dial-core{width:40px;height:40px}.attendance-clock__digits time{font-size:23px}.attendance-clock__readout{padding-left:9px}}
+@media(prefers-reduced-motion:reduce){.attendance-clock__shine,.attendance-clock__dial,.attendance-clock__live-dot{animation:none!important}.attendance-clock,.attendance-clock__timeline-fill{transition:none!important}}
