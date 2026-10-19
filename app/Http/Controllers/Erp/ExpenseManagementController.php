@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\ExpenseRules;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,7 @@ class ExpenseManagementController extends Controller
     public function savePolicy(Request $request,string $firmSlug)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'claims.policy'),403);
         $input=$request->validate([
             'expense_year'=>['required','integer','between:2025,2100'],
             'max_single_claim'=>['required','numeric','between:1,50000','decimal:0,2'],
@@ -102,7 +103,7 @@ class ExpenseManagementController extends Controller
     public function export(Request $request,string $firmSlug)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'claims.policy'),403);
         $input=$request->validate(['month'=>['required','date_format:Y-m']]);
         $from=$input['month'].'-01';
         $to=CarbonImmutable::parse($from)->endOfMonth()->toDateString();
