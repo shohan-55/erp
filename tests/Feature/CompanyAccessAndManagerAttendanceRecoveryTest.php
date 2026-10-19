@@ -81,7 +81,7 @@ final class CompanyAccessAndManagerAttendanceRecoveryTest extends TestCase
             ->post('/c/guarded-practice/app/attendance/reviews/team',$fields);
     }
 
-    private function session(int $company,object $student,string $start='2026-10-19 04:15:00'):int
+    private function seedSession(int $company,object $student,string $start='2026-10-19 04:15:00'):int
     {
         return DB::table('attendance_sessions')->insertGetId([
             'company_id'=>$company,'workspace_id'=>$student->workspace,
@@ -202,7 +202,7 @@ final class CompanyAccessAndManagerAttendanceRecoveryTest extends TestCase
         $this->setupClock();
         try {
             [$company,$t]=$this->fixture();$a=$t['unit-a'];
-            $id=$this->session($company,$a['student']);
+            $id=$this->seedSession($company,$a['student']);
             $this->givePermission($a['partner'],$a['manager']);
             $this->propose($a['manager'],$a['student'],'incorrect_checkin',[
                 'attendance_session_id'=>$id,'start_time'=>'10:05',
