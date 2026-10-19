@@ -38,7 +38,9 @@
 ['label'=>'Notifications','name'=>'erp.notifications','icon'=>'bell'],
 ['label'=>'Settings / Security','name'=>'erp.security','icon'=>'settings-2'],
 ] as $item)
-@if($actor->role === 'manager' && in_array($item['name'],['erp.payroll','erp.staff_certificates.index'],true))
+@if($actor->role === 'manager' && in_array($item['name'],['erp.payroll','erp.staff_certificates.index'],true)
+  && !($item['name']==='erp.payroll' && \App\Support\WorkspaceAccess::allows($actor,'payroll.manage')
+   && \App\Support\WorkspaceAccess::allows($actor,'scope.workspace')))
 @continue
 @endif
 @if($actor->role === 'student' && in_array($item['name'],['erp.hr_policies.index','erp.annual_holidays.index','erp.brand.index','erp.official_templates.index'],true))
