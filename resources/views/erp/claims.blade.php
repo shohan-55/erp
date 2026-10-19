@@ -1,7 +1,7 @@
 @extends('layouts.erp')
 @section('title','Conveyance Claims')
 @section('content')
-<section><h2 class="text-2xl font-extrabold">Conveyance & Travel Claims</h2><p class="mt-2 text-sm text-slate-500">Receipts are stored privately; reimbursement is included in payroll only after Partner-authorized approval.</p></section>
+<section><h2 class="text-2xl font-extrabold">Conveyance & Travel Claims</h2><p class="mt-2 text-sm text-slate-500">Receipts are stored privately; reimbursement is included in payroll only after two independent approvals.</p></section>
 @include('erp.partials.module-guide',['module'=>'claims'])
 <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 @foreach([
@@ -49,11 +49,32 @@
 <label class="text-xs font-bold text-slate-700 md:col-span-2">Purpose<textarea name="purpose" minlength="10" maxlength="2000" rows="3" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></textarea></label>
 <label class="text-xs font-bold text-slate-700 md:col-span-2">Receipt (PDF/JPG/PNG, max 2 MB)<input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png" required class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-xs"></label>
 <button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-extrabold md:col-span-2">Submit Claim</button></form></section>@endif
+@if($canSubmitForStudent)
+<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"><h3 class="text-base font-extrabold">Submit Student Conveyance on Behalf (Audited)</h3>
+<form data-corporate-confirm="Submit this conveyance claim on behalf of the student? A separate first reviewer and final approver will verify it." action="{{ route('erp.claims.submit',['firmSlug'=>$firmSlug]) }}" method="POST" enctype="multipart/form-data" class="mt-5 grid gap-4 md:grid-cols-2">@csrf
+<label class="text-xs font-bold text-slate-700 md:col-span-2">Assigned / authorized Student
+<select name="membership_id" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm">
+<option value="">Select a student</option>
+@foreach($members as $member)<option value="{{ $member->id }}">{{ $member->name }}</option>@endforeach
+</select></label>
+<label class="text-xs font-bold text-slate-700">Expense Category
+<select name="expense_category" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm">
+@foreach(\App\Support\ExpenseRules::CATEGORIES as $code=>$label)
+<option value="{{ $code }}">{{ $label }}</option>
+@endforeach
+</select></label>
+<label class="text-xs font-bold text-slate-700">Journey Date<input type="date" name="journey_date" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
+<label class="text-xs font-bold text-slate-700">Amount (BDT)<input type="number" name="amount" min="0.01" max="50000" step="0.01" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
+<label class="text-xs font-bold text-slate-700 md:col-span-2">Journey Route<input type="text" name="journey_route" maxlength="200" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm" placeholder="Office → Client Site"></label>
+<label class="text-xs font-bold text-slate-700 md:col-span-2">Purpose<textarea name="purpose" minlength="10" maxlength="2000" rows="3" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></textarea></label>
+<label class="text-xs font-bold text-slate-700 md:col-span-2">Receipt (PDF/JPG/PNG, max 2 MB)<input type="file" name="receipt" accept=".pdf,.jpg,.jpeg,.png" required class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-xs"></label>
+<button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-extrabold md:col-span-2">Submit on Student Behalf · Two Approvals</button></form></section>
+@endif
 <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b border-slate-100 p-5"><h3 class="text-sm font-extrabold">Claims & Reviews</h3></div>
 @include('erp.partials.history-filter',['historyKey'=>'claims','historyTitle'=>'Conveyance claims','historyStatuses'=>['pending'=>'Pending','manager_reviewed'=>'Manager reviewed','approved'=>'Approved','rejected'=>'Rejected','paid'=>'Paid','withdrawn'=>'Withdrawn']])
 <div class="divide-y divide-slate-100" data-corporate-history-group="claims">@forelse($rows as $row)<article data-corporate-history-item data-history-status="{{ $row->status }}" class="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between"><div><p class="text-sm font-bold">{{ $row->member_name }} · Claimed ৳ {{ number_format((float)$row->amount,2) }}</p>
 @if($row->manager_recommended_amount !== null)<p class="mt-1 text-xs text-slate-600">Manager recommended: ৳ {{ number_format((float)$row->manager_recommended_amount, 2) }}</p>@endif
-@if($row->approved_amount !== null)<p class="mt-1 text-xs font-bold text-emerald-800">Partner approved: ৳ {{ number_format((float)$row->approved_amount, 2) }} · Payroll uses approved amount</p>@endif<p class="mt-1 text-xs text-slate-500">{{ $row->journey_date }} · {{ $row->journey_route }} · {{ \App\Support\ExpenseRules::CATEGORIES[$row->expense_category] ?? 'Transport' }}</p><p class="mt-2 text-xs text-slate-600">{{ $row->purpose }}</p><a class="mt-2 inline-flex text-xs font-bold text-amber-800 hover:underline" href="{{ route('erp.claims.receipt',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}">Download private receipt</a></div><div class="space-y-2"><span class="inline-flex rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{{ ucfirst($row->status) }}</span>
+@if($row->approved_amount !== null)<p class="mt-1 text-xs font-bold text-emerald-800">Final approved: ৳ {{ number_format((float)$row->approved_amount, 2) }} · Payroll uses approved amount</p>@endif<p class="mt-1 text-xs text-slate-500">{{ $row->journey_date }} · {{ $row->journey_route }} · {{ \App\Support\ExpenseRules::CATEGORIES[$row->expense_category] ?? 'Transport' }}</p><p class="mt-2 text-xs text-slate-600">{{ $row->purpose }}</p><a class="mt-2 inline-flex text-xs font-bold text-amber-800 hover:underline" href="{{ route('erp.claims.receipt',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}">Download private receipt</a></div><div class="space-y-2"><span class="inline-flex rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{{ ucfirst($row->status) }}</span>
 @if($row->status === 'paid')
 <p class="mt-1 text-xs font-bold text-emerald-900">Paid via Payroll #{{ $row->paid_payroll_run_id }}</p>
 @elseif($row->reserved_payroll_run_id)
@@ -61,12 +82,13 @@
 @elseif($row->status === 'approved')
 <p class="mt-1 text-xs font-bold text-amber-900">Approved — awaiting Payroll settlement</p>
 @endif
-@if(in_array($actor->role,['partner','manager']) && ($row->status==='pending' || ($actor->role==='partner' && $row->status==='manager_reviewed')))
+@if(($row->status==='pending' && (\App\Support\WorkspaceAccess::allows($actor,'claims.review') || ($actor->role==='manager' && !\App\Support\WorkspaceAccess::grant($actor))))
+|| ($row->status==='manager_reviewed' && \App\Support\WorkspaceAccess::allows($actor,'claims.final')))
 <form data-corporate-confirm="Confirm this expense-claim review? Approved amounts may flow into a future payroll after final Partner approval." action="{{ route('erp.claims.decide',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
 <label class="text-xs font-bold text-slate-600">Reviewed amount (৳)
-<input type="number" name="approved_amount" min="0.01" max="{{ $row->amount }}" step="0.01" value="{{ $actor->role==='partner' ? ($row->manager_recommended_amount ?? $row->amount) : $row->amount }}" class="mt-1 w-36 rounded-lg border border-slate-300 p-2 text-xs"></label>
+<input type="number" name="approved_amount" min="0.01" max="{{ $row->amount }}" step="0.01" value="{{ $row->status==='manager_reviewed' ? ($row->manager_recommended_amount ?? $row->amount) : $row->amount }}" class="mt-1 w-36 rounded-lg border border-slate-300 p-2 text-xs"></label>
 <input type="text" name="decision_note" maxlength="1000" placeholder="Review note" class="min-w-44 flex-1 rounded-lg border border-slate-300 p-2 text-xs">
-<button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">{{ $actor->role==='manager' ? 'Review' : 'Approve' }}</button><button name="decision" value="reject" class="rounded-lg bg-rose-700 px-3 py-2 text-xs font-bold text-white">Reject</button></form>
+<button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">{{ $row->status==='pending' ? 'First Review' : 'Final Approve' }}</button><button name="decision" value="reject" class="rounded-lg bg-rose-700 px-3 py-2 text-xs font-bold text-white">Reject</button></form>
 @endif
 @if($actor->role === 'student' && in_array($row->status,['pending','manager_reviewed']) && !$row->reserved_payroll_run_id && !$row->paid_payroll_run_id)
 <form method="POST" action="{{ route('erp.claims.withdraw',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" class="mt-2">@csrf
