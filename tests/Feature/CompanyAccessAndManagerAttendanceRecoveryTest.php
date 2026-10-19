@@ -150,7 +150,7 @@ final class CompanyAccessAndManagerAttendanceRecoveryTest extends TestCase
             $this->assertDatabaseCount('attendance_sessions',0);
             $url="/c/guarded-practice/app/attendance/reviews/{$row->id}/decision";
             $this->actingAs($a['manager']->user)
-                ->post($url,['decision'=>'approve'])->assertSessionHasErrors('decision');
+                ->post($url,['decision'=>'approve'])->assertForbidden();
             $this->actingAs($t['unit-b']['partner']->user)
                 ->post($url,['decision'=>'approve'])->assertNotFound();
             $this->actingAs($a['partner']->user)
