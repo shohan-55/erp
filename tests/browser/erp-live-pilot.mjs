@@ -221,6 +221,22 @@ try {
     await page.locator('[data-corporate-confirm-go]').click();
     await page.getByText('Leave review recorded.').waitFor();
 
+    // Confirm that Partner-approved future student leave is highlighted on the
+    // actual selected month and contains the authorized letter link.
+    await page.goto(baseUrl+'/c/rac/app/calendar?month=2026-11',{waitUntil:'networkidle'});
+    await page.locator('.erp-month-calendar__title').getByText('November 2026').waitFor();
+    assert.equal(await page.locator('[data-calendar-day]').count(),30,
+        'November must show 30 days, not the current October month length');
+    const approvedTeamDay=page.locator('[data-calendar-day][data-date="2026-11-18"]');
+    assert.match(await approvedTeamDay.getAttribute('class'),/team_leave/,
+        'Final Partner approval must show approved team leave on future date');
+    await approvedTeamDay.click();
+    await page.locator('[data-calendar-dialog][open]').waitFor();
+    await page.locator('[data-calendar-modal-leaves]').getByText('Approved',{exact:true}).waitFor();
+    await page.locator('[data-calendar-modal-leaves]').getByRole('link',{name:/View approved letter/}).waitFor();
+    await page.getByRole('button',{name:'Done',exact:true}).click();
+    await page.goto(baseUrl+'/c/rac/app',{waitUntil:'networkidle'});
+
     await nav('Team & Accounts');
     await page.getByText('QA Manager', {exact:true}).first().waitFor();
     await page.screenshot({path:output+'/05-team-management.png',fullPage:true});

@@ -6,7 +6,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Bounded, read-only current-month projection of actual server records.
+ * Bounded, read-only month projection of actual server records.
  * Lack of a punch is REVIEW NEEDED, never automatically "absent".
  */
 final class DashboardMonthCalendar
@@ -15,7 +15,7 @@ final class DashboardMonthCalendar
     {
         $now = CarbonImmutable::now($company->timezone);
         $start = ($month ?? $now)->setTimezone($company->timezone)->startOfMonth();
-        $end = $now->endOfMonth();
+        $end = $start->endOfMonth();
         $today = $now->toDateString();
 
         $personal = $showPersonal && in_array($actor->role,['student','manager'],true);
@@ -25,13 +25,50 @@ final class DashboardMonthCalendar
             ->whereBetween('work_date',[$start->toDateString(),$end->toDateString()])
             ->orderBy('started_at')->get()->groupBy('work_date') : collect();
 
+        // Students see their own pending/approved requests; only APPROVED
+        // leave changes the calendar's day status to leave.
         $leaves = $personal && $actor->role === 'student'
-            ? DB::table('leave_requests')
-                ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
-                ->where('membership_id',$actor->id)->where('status','approved')
-                ->where('date_from','<=',$end->toDateString())
-                ->where('date_to','>=',$start->toDateString())
-                ->get(['date_from','date_to','day_portion','leave_type'])
+            ? DB::table('leave_requests as r')
+                ->leftJoin('memberships as reviewer',function ($join)use($company,$workspace) {
+                    $join->on('reviewer.id','=','r.reviewed_by')
+                        ->where('reviewer.company_id',$company->id)
+                        ->where('reviewer.workspace_id',$workspace->id);
+                })
+                ->leftJoin('users as approver','approver.id','=','reviewer.user_id')
+                ->where('r.company_id',$company->id)->where('r.workspace_id',$workspace->id)
+                ->where('r.membership_id',$actor->id)
+                ->whereIn('r.status',['pending','manager_reviewed','approved'])
+                ->where('r.date_from','<=',$end->toDateString())
+                ->where('r.date_to','>=',$start->toDateString())
+                ->get(['r.id','r.date_from','r.date_to','r.day_portion','r.leave_type',
+                    'r.status','approver.name as reviewer_name'])
+            : collect();
+
+        // Strict tenant + assigned-manager scoping; no team leave data to students.
+        $teamLeaves = in_array($actor->role,['partner','manager'],true)
+            ? DB::table('leave_requests as r')
+                ->join('memberships as m',function ($join)use($company,$workspace) {
+                    $join->on('m.id','=','r.membership_id')
+                        ->where('m.company_id',$company->id)
+                        ->where('m.workspace_id',$workspace->id);
+                })
+                ->join('users as u','u.id','=','m.user_id')
+                ->leftJoin('memberships as reviewer',function ($join)use($company,$workspace) {
+                    $join->on('reviewer.id','=','r.reviewed_by')
+                        ->where('reviewer.company_id',$company->id)
+                        ->where('reviewer.workspace_id',$workspace->id);
+                })
+                ->leftJoin('users as approver','approver.id','=','reviewer.user_id')
+                ->where('r.company_id',$company->id)->where('r.workspace_id',$workspace->id)
+                ->where('m.role','student')->where('m.active',true)
+                ->when($actor->role==='manager',fn($q)=>$q->where('m.manager_membership_id',$actor->id))
+                ->whereIn('r.status',['pending','manager_reviewed','approved'])
+                ->where('r.date_from','<=',$end->toDateString())
+                ->where('r.date_to','>=',$start->toDateString())
+                ->orderBy('u.name')->orderBy('r.id')
+                ->get(['r.id','r.date_from','r.date_to','r.day_portion',
+                    'r.leave_type','r.status','u.name as member_name',
+                    'approver.name as reviewer_name'])
             : collect();
 
         $teamCounts = collect();
@@ -48,8 +85,8 @@ final class DashboardMonthCalendar
         }
 
         $days = [];
-        for ($i=1;$i<=$end->day;$i++) {
-            $date = $start->day($i)->toDateString();
+        for ($i=1;$i<=$start->daysInMonth;$i++) {
+            $date = $start->addDays($i-1)->toDateString();
             $base = PolicyResolver::forDate($company,$workspace,$date);
             $rule = $personal && $actor->role === 'student'
                 ? WorkCalendar::forMemberDate($company,$workspace,$actor,$date)
@@ -57,7 +94,21 @@ final class DashboardMonthCalendar
                     is_array($base['weekly_holidays'])?$base['weekly_holidays']:[], $base);
 
             $sessions = $sessionRows->get($date,collect());
-            $approved = $leaves->filter(fn($l)=>$l->date_from <= $date && $l->date_to >= $date);
+            $visibleLeaves = $leaves->filter(fn($l)=>$l->date_from <= $date && $l->date_to >= $date);
+            $approved = $visibleLeaves->filter(fn($l)=>$l->status==='approved');
+            $visibleTeamLeaves = $teamLeaves->filter(fn($l)=>$l->date_from <= $date && $l->date_to >= $date);
+            $teamApproved = $visibleTeamLeaves->filter(fn($l)=>$l->status==='approved');
+            $teamAwaiting = $visibleTeamLeaves->filter(fn($l)=>$l->status!=='approved');
+            // Scoped, presentation-only fields; no private reasons or pay.
+            $leaveItems = $visibleLeaves->map(fn($l)=>[
+                'id'=>(int)$l->id,'member_name'=>null,
+                'leave_type'=>$l->leave_type,'day_portion'=>$l->day_portion,
+                'status'=>$l->status,'reviewer_name'=>$l->reviewer_name,
+            ])->concat($visibleTeamLeaves->map(fn($l)=>[
+                'id'=>(int)$l->id,'member_name'=>$l->member_name,
+                'leave_type'=>$l->leave_type,'day_portion'=>$l->day_portion,
+                'status'=>$l->status,'reviewer_name'=>$l->reviewer_name,
+            ]))->values()->all();
             $fullLeave = $approved->contains(fn($l)=>$l->day_portion==='full')
                 || ($approved->contains(fn($l)=>$l->day_portion==='morning')
                     && $approved->contains(fn($l)=>$l->day_portion==='afternoon'));
@@ -70,6 +121,10 @@ final class DashboardMonthCalendar
                 $stage='leave'; $label='Approved leave';
             } elseif ($halfLeave && $sessions->isEmpty()) {
                 $stage='half'; $label='Half-day leave · verify other half';
+            } elseif ($teamApproved->isNotEmpty()) {
+                $stage='team_leave'; $label=$teamApproved->count().' team on leave';
+            } elseif ($teamAwaiting->isNotEmpty()) {
+                $stage='team_pending'; $label=$teamAwaiting->count().' requests in review';
             } elseif ($personal && $sessions->isNotEmpty()) {
                 $first=$sessions->first();
                 $open = $sessions->contains(fn($s)=>$s->ended_at===null);
@@ -99,6 +154,9 @@ final class DashboardMonthCalendar
             $details=[];
             if ($rule['holiday']) $details[]='Holiday: '.($rule['holiday_title'] ?? 'Weekly or approved');
             if ($approved->isNotEmpty()) $details[]='Approved leave: '.$approved->pluck('leave_type')->unique()->implode(', ');
+            if ($teamApproved->isNotEmpty()) $details[]='Team approved leave: '.$teamApproved->count();
+            if ($teamAwaiting->isNotEmpty()) $details[]='Team requests awaiting final approval: '.$teamAwaiting->count();
+            if ($visibleLeaves->where('status','!=','approved')->isNotEmpty()) $details[]='Your leave request is under review, not approved';
             if ($personal && $sessions->isNotEmpty()) {
                 $first=$sessions->first();
                 $last=$sessions->last();
@@ -118,6 +176,9 @@ final class DashboardMonthCalendar
                 'date'=>$date, 'number'=>$i, 'stage'=>$stage, 'label'=>$label,
                 'today'=>$date===$today, 'future'=>$date>$today, 'details'=>implode(' · ',$details),
                 'team_count'=>$count,
+                'leave_items'=>$leaveItems,
+                'team_approved_count'=>$teamApproved->count(),
+                'team_pending_count'=>$teamAwaiting->count(),
             ];
         }
 
