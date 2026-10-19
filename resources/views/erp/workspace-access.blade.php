@@ -4,7 +4,7 @@
 <section class="space-y-2">
 <p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">COMPANY SECURITY · HOME PARTNER BOUNDARIES</p>
 <h2 class="text-2xl font-extrabold">Company Access Control Center</h2>
-<p class="max-w-3xl text-sm text-slate-600">Assign a Company Admin or Moderator to an existing, verified Manager in <strong>{{ $workspace->name }}</strong>. Company Admins can add and revoke delegates within this Partner workspace; they cannot grant DhakaWala Platform Admin access or see another Partner's private files.</p>
+<p class="max-w-3xl text-sm text-slate-600">Assign a Company Admin or Moderator to an existing, verified Manager in <strong>{{ $workspace->name }}</strong>. Partner-approved Admins/Moderators may perform every individually enabled module action. All access is scoped to this Partner workspace, and no one can grant DhakaWala Platform Admin status. Leave and claims still require two independent approvals.</p>
 </section>
 @if(session('success'))<p role="status" class="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-900">{{ session('success') }}</p>@endif
 @if($errors->any())<p role="alert" class="rounded-xl bg-rose-50 p-4 text-sm text-rose-900">{{ $errors->first() }}</p>@endif
@@ -24,17 +24,25 @@
 <label class="block text-xs font-bold text-slate-700">Delegated Role
 <select name="access_role" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm">
 <option value="moderator">Moderator</option>
-<option value="company_admin">Company Admin — can manage other delegates</option>
+<option value="company_admin">Company Admin — requires explicit grant rights to manage delegates</option>
 </select></label>
 <fieldset class="space-y-3 rounded-xl border border-slate-200 p-4">
+<div class="flex flex-wrap items-center justify-between gap-2">
+<p class="text-xs font-semibold text-slate-500">Every capability is independently ON/OFF. Financial and company-wide access requires Workspace Scope.</p>
+<div class="flex flex-wrap gap-2">
+<button type="button" class="rounded-lg bg-[#FCDF02] px-3 py-2 text-xs font-extrabold text-slate-950" x-on:click="$el.closest('form').querySelectorAll('input[name=\'permissions[]\']').forEach(input=>input.checked=true)">Select All Available</button>
+<button type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold" x-on:click="$el.closest('form').querySelectorAll('input[name=\'permissions[]\']').forEach(input=>input.checked=false)">Turn All Off</button>
+</div></div>
 <legend class="px-2 text-xs font-extrabold text-slate-700">Granular Permissions</legend>
 @foreach(\App\Support\WorkspaceAccess::PERMISSIONS as $key=>$label)
+@if($actor->role==='partner' || \App\Support\WorkspaceAccess::allows($actor,$key))
 <label class="flex items-start gap-3 text-xs text-slate-700">
 <input type="checkbox" name="permissions[]" value="{{ $key }}" class="mt-0.5 rounded border-slate-300" @checked(in_array($key,old('permissions',[])))>
 <span>{{ $label }}</span></label>
+@endif
 @endforeach
 </fieldset>
-<p class="text-xs text-slate-500">Permissions are checked server-side. No cross-tenant escalation, payroll modification or impersonated student punch is permitted.</p>
+<p class="text-xs text-slate-500">Permissions are enforced on every request. Authorized proxy attendance records the actual server time, the operator and reason. Salary access needs <code>payroll.manage</code> + <code>scope.workspace</code>. No cross-Partner access, Platform Admin escalation, self-approval or silent alteration of historic punches is permitted.</p>
 <button class="w-full rounded-xl bg-[#FCDF02] px-4 py-3 text-sm font-extrabold">Save Delegation</button>
 </form>
 </div>
