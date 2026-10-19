@@ -250,4 +250,131 @@ final class CompanyAccessAndManagerAttendanceRecoveryTest extends TestCase
                 ])->assertNotFound();
         } finally {$this->clearClock();}
     }
+    public function test_explicit_proxy_attendance_uses_server_time_and_can_be_revoked(): void
+    {
+        $this->setupClock();
+        try {
+            [$company,$t]=$this->fixture();$a=$t['unit-a'];
+            $this->givePermission($a['partner'],$a['manager'],'moderator',['attendance.proxy']);
+            $fields=['membership_id'=>$a['student']->id,'action'=>'check_in',
+                'work_mode'=>'office','reason'=>'Office internet offline; supervisor confirmed student presence at current time.'];
+            $this->actingAs($a['manager']->user)->post('/c/guarded-practice/app/attendance/proxy',$fields)
+                ->assertRedirect()->assertSessionHasNoErrors();
+            $session=DB::table('attendance_sessions')->first();
+            $this->assertSame($a['student']->id,$session->membership_id);
+            $this->assertSame($a['manager']->id,$session->proxy_checked_in_by);
+            $this->assertSame('2026-10-20 10:00:00',$session->started_at);
+            $this->assertDatabaseHas('tenant_audit_events',[
+                'action'=>'attendance.proxy_check_in','entity_id'=>$session->id,
+            ]);
+            $this->actingAs($a['manager']->user)->post('/c/guarded-practice/app/attendance/proxy',$fields)
+                ->assertSessionHasErrors('action');
+            $this->actingAs($a['manager']->user)->post('/c/guarded-practice/app/attendance/proxy',[
+                ...$fields,'membership_id'=>$a['student2']->id,
+            ])->assertNotFound();
+            $grant=DB::table('workspace_access_grants')->where('membership_id',$a['manager']->id)->first();
+            $this->actingAs($a['partner']->user)
+                ->post("/c/guarded-practice/app/settings/company-access/{$grant->id}/revoke",[
+                    'reason'=>'Temporary emergency permission has been discontinued.',
+                ])->assertRedirect();
+            $this->actingAs($a['manager']->user)
+                ->post('/c/guarded-practice/app/attendance/proxy',[
+                    ...$fields,'action'=>'check_out',
+                ])->assertForbidden();
+            $this->assertDatabaseCount('attendance_sessions',1);
+            $this->assertNull(DB::table('attendance_sessions')->first()->ended_at);
+            $this->assertDatabaseCount('payroll_line_adjustments',0);
+        } finally {$this->clearClock();}
+    }
+
+    public function test_delegated_leave_submission_requires_two_distinct_approvers(): void
+    {
+        $this->setupClock();
+        try {
+            [, $t]=$this->fixture();$a=$t['unit-a'];
+            $this->givePermission($a['partner'],$a['manager'],'moderator',['leave.submit_for_student','leave.final']);
+            $this->givePermission($a['partner'],$a['manager2'],'moderator',['leave.review','scope.workspace']);
+            $this->actingAs($a['manager']->user)->post('/c/guarded-practice/app/leave',[
+                'membership_id'=>$a['student']->id,'leave_type'=>'sick',
+                'date_from'=>'2026-10-21','date_to'=>'2026-10-21',
+                'reason'=>'Student requested an emergency doctor visit and authorized submission.',
+            ])->assertRedirect()->assertSessionHasNoErrors();
+            $row=DB::table('leave_requests')->first();
+            $this->assertSame($a['manager']->id,$row->initiated_by);
+            $this->assertSame('pending',$row->status);
+            $url="/c/guarded-practice/app/leave/{$row->id}/decision";
+            $this->actingAs($a['manager']->user)->post($url,['decision'=>'approve'])->assertForbidden();
+            $this->actingAs($a['partner']->user)->post($url,['decision'=>'approve'])
+                ->assertSessionHasErrors('decision');
+            $this->actingAs($a['manager2']->user)->post($url,['decision'=>'approve'])
+                ->assertRedirect()->assertSessionHasNoErrors();
+            $this->assertDatabaseHas('leave_requests',[
+                'id'=>$row->id,'status'=>'manager_reviewed','first_reviewed_by'=>$a['manager2']->id,
+            ]);
+            $this->actingAs($a['manager2']->user)->post($url,['decision'=>'approve'])->assertForbidden();
+            $this->actingAs($a['manager']->user)->post($url,['decision'=>'approve'])
+                ->assertRedirect()->assertSessionHasNoErrors();
+            $this->assertDatabaseHas('leave_requests',['id'=>$row->id,'status'=>'approved',
+                'first_reviewed_by'=>$a['manager2']->id,'reviewed_by'=>$a['manager']->id]);
+            $this->assertDatabaseCount('payroll_line_adjustments',0);
+        } finally {$this->clearClock();}
+    }
+
+    public function test_delegated_payroll_requires_workspace_scope_and_explicit_financial_grant():void
+    {
+        $this->setupClock();
+        try {
+            [, $t]=$this->fixture();$a=$t['unit-a'];
+            $this->givePermission($a['partner'],$a['manager'],'moderator',['payroll.manage']);
+            $this->actingAs($a['manager']->user)
+                ->get('/c/guarded-practice/app/payroll')->assertForbidden();
+            $this->givePermission($a['partner'],$a['manager'],'moderator',['payroll.manage','scope.workspace']);
+            $this->actingAs($a['manager']->user)->get('/c/guarded-practice/app/payroll')->assertOk();
+            $this->actingAs($t['unit-b']['manager']->user)->get('/c/guarded-practice/app/payroll')->assertForbidden();
+        } finally {$this->clearClock();}
+    }
+
+    public function test_delegated_expense_requires_separate_first_and_final_approval(): void
+    {
+        $this->setupClock();
+        try {
+            [$company,$t]=$this->fixture();$a=$t['unit-a'];
+            DB::table('workspace_expense_policies')->insert([
+                'company_id'=>$company,'workspace_id'=>$a['partner']->workspace,
+                'expense_year'=>2026,'max_single_claim'=>50000,'monthly_student_limit'=>100000,
+                'submission_window_days'=>90,'created_at'=>now(),'updated_at'=>now(),
+            ]);
+            $this->givePermission($a['partner'],$a['manager'],'moderator',['claims.submit_for_student','claims.final']);
+            $this->givePermission($a['partner'],$a['manager2'],'moderator',['claims.review','scope.workspace']);
+            $this->actingAs($a['manager']->user)->post('/c/guarded-practice/app/claims',[
+                'membership_id'=>$a['student']->id,'journey_date'=>'2026-10-19',
+                'expense_category'=>'transport','journey_route'=>'Office to audit client',
+                'purpose'=>'Client site stock verification on authorized official duty.',
+                'amount'=>'150.00',
+                'receipt'=>\Illuminate\Http\UploadedFile::fake()->create('receipt.pdf',25,'application/pdf'),
+            ])->assertRedirect()->assertSessionHasNoErrors();
+            $row=DB::table('conveyance_claims')->first();
+            $this->assertSame($a['student']->id,$row->membership_id);
+            $this->assertSame($a['manager']->id,$row->initiated_by);
+            $this->assertNotNull($row->receipt_path);
+            $url="/c/guarded-practice/app/claims/{$row->id}/decision";
+            $this->actingAs($a['manager2']->user)->post($url,[
+                'decision'=>'approve','approved_amount'=>'150',
+            ])->assertRedirect()->assertSessionHasNoErrors();
+            $this->assertDatabaseHas('conveyance_claims',[
+                'id'=>$row->id,'status'=>'manager_reviewed','first_reviewed_by'=>$a['manager2']->id,
+            ]);
+            $this->actingAs($a['manager2']->user)->post($url,['decision'=>'approve'])
+                ->assertForbidden();
+            $this->actingAs($a['manager']->user)->post($url,[
+                'decision'=>'approve','approved_amount'=>'150',
+            ])->assertRedirect()->assertSessionHasNoErrors();
+            $this->assertDatabaseHas('conveyance_claims',[
+                'id'=>$row->id,'status'=>'approved','reviewed_by'=>$a['manager']->id,
+                'approved_amount'=>150,
+            ]);
+            $this->assertDatabaseCount('payroll_line_adjustments',0);
+        } finally {$this->clearClock();}
+    }
+
 }
