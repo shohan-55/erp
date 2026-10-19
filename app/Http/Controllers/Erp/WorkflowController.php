@@ -254,7 +254,16 @@ class WorkflowController extends Controller
             ->where('company_id', $actor->company_id)
             ->where('workspace_id', $actor->workspace_id)->first();
         abort_unless($claim, 404);
-        TenantOps::subject($actor, $claim->membership_id);
+        if ($actor->role==='manager' && WorkspaceAccess::allows($actor,'scope.workspace')
+            && (WorkspaceAccess::allows($actor,'claims.review')
+                || WorkspaceAccess::allows($actor,'claims.final')
+                || WorkspaceAccess::allows($actor,'claims.submit_for_student'))) {
+            $perm=WorkspaceAccess::allows($actor,'claims.review') ? 'claims.review'
+                : (WorkspaceAccess::allows($actor,'claims.final') ? 'claims.final' : 'claims.submit_for_student');
+            WorkspaceAccess::subject($actor,(int)$claim->membership_id,$perm);
+        } else {
+            TenantOps::subject($actor,(int)$claim->membership_id);
+        }
 
         abort_unless($claim->receipt_path && Storage::disk('local')->exists($claim->receipt_path), 404);
 
