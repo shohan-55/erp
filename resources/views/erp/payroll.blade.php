@@ -3,10 +3,10 @@
 @section('content')
 <section><h2 class="text-2xl font-extrabold">Allowance & Payroll</h2><p class="mt-2 max-w-3xl text-sm text-slate-500">Monthly allowance snapshots and approved claims for your Home Partner. <strong>Payment must actually occur outside this app before selecting Record Paid.</strong> Automatic attendance or late/half-day salary penalties are not calculated. Drafts require manual Partner review.</p></section>
 @include('erp.partials.module-guide',['module'=>'payroll'])
-@if($actor->role==='partner')
+@if($canManage)
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 class="text-sm font-extrabold">Create Monthly Payroll Draft</h3><form action="{{ route('erp.payroll.generate',['firmSlug'=>$firmSlug]) }}" method="POST" class="mt-4 flex flex-wrap items-end gap-3">@csrf<label class="text-xs font-bold">Month<input type="month" name="month" required class="mt-2 block rounded-xl border border-slate-300 p-3 text-sm"></label><button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-extrabold">Generate Draft</button></form><p class="mt-3 text-xs text-slate-500">Each Partner workspace has one run per period. Review freezes approved claims and allowance snapshots.</p></section>
 @endif
-@if($actor->role==='partner' && $run && $overview)
+@if($canManage && $run && $overview)
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 <h3 class="text-sm font-extrabold">Partner Payroll Review — Attendance, Leave & Claims</h3>
 <p class="mt-2 text-xs text-slate-600">Read-only reconciliation flags for this payroll period. Verify unresolved items with the assigned staff/Manager. Missing punches, leave or late arrivals never create automatic deductions. Counts are informational, not payroll penalties.</p>
@@ -74,12 +74,12 @@
 @if($run)<p class="mt-1 text-xs text-slate-500">{{ $run->period_month }} · Status: <strong>{{ strtoupper($run->status) }}</strong></p>@endif</div>
 <div class="overflow-x-auto"><table class="w-full min-w-[580px] text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="p-4">Student</th><th class="p-4">Allowance</th><th class="p-4">Approved Claims</th><th class="p-4">Adjustment</th><th class="p-4">Total BDT</th></tr></thead><tbody class="divide-y divide-slate-100">
 @forelse($lines as $line)<tr><td class="p-4 font-bold">{{ $line->member_name }}
-@if($run && ($actor->role==='partner' || $run->status==='locked'))
+@if($run && ($canManage || $run->status==='locked'))
 <a href="{{ route('erp.payroll.payslip',['firmSlug'=>$firmSlug,'runId'=>$run->id,'memberId'=>$line->membership_id]) }}" class="mt-2 block text-xs font-bold text-amber-900 hover:underline">{{ $run->status==='locked' ? 'View Final Payslip' : 'Preview Payslip' }}</a>
 @endif
 </td><td class="p-4">{{ number_format((float)$line->base_allowance,2) }}</td><td class="p-4">{{ number_format((float)$line->approved_claims,2) }}</td><td class="p-4">{{ number_format((float)$line->adjustment,2) }}</td><td class="p-4 font-extrabold">{{ number_format((float)$line->total_amount,2) }}</td></tr>
 @empty<tr><td colspan="5" class="p-8 text-center text-slate-500">No payroll statement for your scope.</td></tr>@endforelse</tbody></table></div>
-@if($actor->role==='partner' && $run)
+@if($canManage && $run)
 <div class="border-t border-slate-100 p-5">
 <p class="mb-3 text-xs text-slate-500">Current state: <strong>{{ strtoupper($run->status) }}</strong>. Transitions are audited and cannot be repeated.</p>
 @if(in_array($run->status,['paid','locked']) && $run->payment_evidence_path)
