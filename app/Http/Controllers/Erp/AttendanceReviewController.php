@@ -347,8 +347,8 @@ class AttendanceReviewController extends Controller
             ->where('workspace_id',$workspace->id)->where('id',$row->membership_id)->first();
         abort_unless($student && $student->active && $student->role==='student',404);
         $rule=WorkCalendar::forMemberDate($company,$workspace,$student,$row->work_date);
-        $cutoff=CarbonImmutable::parse($row->work_date.' '.$rule['office_start'],$company->timezone)
-            ->addMinutes($rule['grace_minutes'])->endOfMinute();
+        $officeStart=CarbonImmutable::parse($row->work_date.' '.$rule['office_start'],$company->timezone);
+        $cutoff=$officeStart->addMinutes((int)$rule['grace_minutes'])->endOfMinute();
         $previous=DB::table('attendance_sessions')->where('company_id',$company->id)
             ->where('workspace_id',$workspace->id)->where('membership_id',$row->membership_id)
             ->where('work_date',$row->work_date)->exists();
@@ -358,7 +358,10 @@ class AttendanceReviewController extends Controller
             'work_mode'=>'office','started_at'=>$start->toDateTimeString(),
             'ended_at'=>$end->toDateTimeString(),
             'late'=>!$previous && !$rule['holiday']
-                && $start->setTimezone($company->timezone)->gt($cutoff),
+                && $start->setTimezone($company->timezone)->gt($officeStart),
+            'late_within_grace'=>!$previous && !$rule['holiday']
+                && $start->setTimezone($company->timezone)->gt($officeStart)
+                && $start->setTimezone($company->timezone)->lte($cutoff),
             'holiday'=>$rule['holiday'],
             'correction_reason'=>trim($row->reason),'corrected_by'=>$actor->id,
             'created_at'=>now(),'updated_at'=>now(),
