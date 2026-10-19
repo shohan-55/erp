@@ -149,7 +149,13 @@ class RealErpOperationsTest extends TestCase
         $companyId = $this->company();
         $w1 = $this->workspace($companyId, 'partner-1');
         $partner = $this->member($companyId, $w1, 'partner');
+        $manager = $this->member($companyId, $w1, 'manager');
         $student = $this->member($companyId, $w1, 'student');
+
+        $this->actingAs($partner->user)->post('/c/rac/app/settings/company-access',[
+            'membership_id'=>$manager->id,'access_role'=>'moderator',
+            'permissions'=>['scope.workspace','leave.final'],
+        ])->assertRedirect()->assertSessionHasNoErrors();
 
         $this->actingAs($student->user)->post('/c/rac/app/leave', [
             'leave_type'=>'annual', 'date_from'=>'2026-11-01',
@@ -163,6 +169,10 @@ class RealErpOperationsTest extends TestCase
         $this->actingAs($partner->user)->post("/c/rac/app/leave/{$row->id}/decision", [
             'decision'=>'approve',
         ])->assertRedirect();
+        $this->assertDatabaseHas('leave_requests',['id'=>$row->id,'status'=>'manager_reviewed']);
+        $this->actingAs($manager->user)->post("/c/rac/app/leave/{$row->id}/decision",[
+            'decision'=>'approve',
+        ])->assertRedirect()->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('leave_requests', ['id'=>$row->id, 'status'=>'approved']);
         $this->assertDatabaseHas('tenant_notifications', ['recipient_membership_id'=>$student->id]);

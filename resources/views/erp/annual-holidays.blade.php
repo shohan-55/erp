@@ -29,7 +29,7 @@
             <textarea name="source_note" required rows="3" minlength="12" maxlength="1200" placeholder="Identify the government circular/gazette, publication date, or your firm's authorized source. Government labels are not automatically verified." class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-sm">{{ old('source_note') }}</textarea>
         </label>
         <p class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900"><strong>Important:</strong> Importing a government holiday list does not verify it against an official gazette. The firm must check applicable national/optional holiday dates (including moon-sighting changes). This annual submission is a complete replacement snapshot for future dates in that year; explicit approved one-day decisions remain higher priority.</p>
-        <button class="min-h-12 w-full rounded-xl bg-gradient-to-r from-[#FCDF02] to-amber-400 px-6 py-3 text-sm font-extrabold text-[#17191F] shadow-md">{{ $actor->role === 'partner' ? 'Approve & Publish Annual Plan' : 'Submit Annual Plan for Partner Approval' }} →</button>
+        <button class="min-h-12 w-full rounded-xl bg-gradient-to-r from-[#FCDF02] to-amber-400 px-6 py-3 text-sm font-extrabold text-[#17191F] shadow-md">{{ \App\Support\WorkspaceAccess::partnerAction($actor,'holidays.manage') ? 'Approve & Publish Annual Plan' : 'Submit Annual Plan for Partner Approval' }} →</button>
     </form>
 </section>
 
@@ -52,7 +52,7 @@
     <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h3 class="text-base font-extrabold">Company Watermark</h3>
         <p class="mt-2 text-xs leading-relaxed text-slate-600">Brand the Monthly Calendar with your actual company name or logo. Opacity remains subtle so dates and attendance statuses are readable.</p>
-        @if($actor->role === 'partner')
+        @if(\App\Support\WorkspaceAccess::partnerAction($actor,'holidays.manage'))
         <form method="POST" action="{{ route('erp.annual_holidays.branding',['firmSlug'=>$firmSlug]) }}" class="mt-4 space-y-3">
             @csrf
             <label class="block text-xs font-bold text-slate-700">Watermark type
@@ -83,7 +83,7 @@
             <div class="flex flex-wrap items-center justify-between gap-2"><strong class="text-sm">Plan #{{ $plan->id }} · {{ $plan->calendar_year }}</strong><span class="rounded-full px-3 py-1 text-xs font-bold {{ $plan->status==='approved' ? 'bg-emerald-100 text-emerald-800' : ($plan->status==='pending' ? 'bg-amber-100 text-amber-900' : 'bg-rose-100 text-rose-800') }}">{{ ucfirst($plan->status) }}</span></div>
             <p class="mt-2 text-xs text-slate-600">By {{ $plan->submitter_name }} · {{ count(json_decode($plan->holiday_dates,true)) }} holidays</p>
             <p class="mt-2 text-xs leading-relaxed text-slate-600">{{ $plan->source_note }}</p>
-            @if($actor->role==='partner' && $plan->status==='pending')
+            @if(\App\Support\WorkspaceAccess::partnerAction($actor,'holidays.manage') && $plan->status==='pending')
             <div class="mt-3 flex gap-2">
                 <form data-corporate-confirm="Approve or reject this annual holiday plan? Approved future dates affect leave and work schedules across this workspace." method="POST" action="{{ route('erp.annual_holidays.decide',['firmSlug'=>$firmSlug,'planId'=>$plan->id]) }}">@csrf<input type="hidden" name="decision" value="approve"><button class="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-bold text-white">Approve</button></form>
                 <form data-corporate-confirm="Approve or reject this annual holiday plan? Approved future dates affect leave and work schedules across this workspace." method="POST" action="{{ route('erp.annual_holidays.decide',['firmSlug'=>$firmSlug,'planId'=>$plan->id]) }}">@csrf<input type="hidden" name="decision" value="reject"><button class="rounded-lg bg-rose-700 px-4 py-2 text-xs font-bold text-white">Reject</button></form>

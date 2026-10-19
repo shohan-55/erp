@@ -13,7 +13,7 @@
 </section>
 @include('erp.partials.module-guide',['module'=>'policies'])
 
-@if($actor->role === 'partner')
+@if(\App\Support\WorkspaceAccess::partnerAction($actor,'hr.manage'))
 <section class="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm sm:p-6">
   <h3 class="text-lg font-extrabold">Flexible Manager Permission</h3>
   <p class="mt-2 text-sm text-slate-600">You decide whether Managers can directly schedule future hours. Sensitive settings (weekly holidays, half-day warning, late review count and grace exemption) always require a Partner decision. Manager changes never override firm-wide Company approval rules.</p>
@@ -116,7 +116,7 @@
       </div>
       <p class="mt-2 text-xs text-slate-600">Start {{ substr($snapshot['office_start'],0,5) }} · End {{ substr($snapshot['office_end'],0,5) }} · Grace {{ $snapshot['grace_minutes'] }}m · Review after {{ $snapshot['late_review_days'] }} qualifying days · {{ $version->sensitive ? 'Sensitive rule change' : 'Schedule change' }}</p>
       <p class="mt-2 text-xs text-slate-700">{{ $version->reason }}</p>
-      @if($actor->role === 'partner' && $version->status === 'pending')
+      @if(\App\Support\WorkspaceAccess::partnerAction($actor,'hr.manage') && $version->status === 'pending')
       <div class="mt-3 flex flex-wrap gap-2">
         <form data-corporate-confirm="Approve or reject this future policy proposal? The decision is audited; approved rules become active only from the effective date." method="POST" action="{{ route('erp.hr_policies.decide',['firmSlug'=>$firmSlug,'revisionId'=>$version->id]) }}">@csrf<input type="hidden" name="decision" value="approve"><button class="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-extrabold text-white">Approve</button></form>
         <form data-corporate-confirm="Approve or reject this future policy proposal? The decision is audited; approved rules become active only from the effective date." method="POST" action="{{ route('erp.hr_policies.decide',['firmSlug'=>$firmSlug,'revisionId'=>$version->id]) }}">@csrf<input type="hidden" name="decision" value="reject"><button class="rounded-lg bg-rose-700 px-4 py-2 text-xs font-extrabold text-white">Reject</button></form>

@@ -81,6 +81,30 @@
 </section>
 @endif
 
+@if(\App\Support\WorkspaceAccess::allows($actor,'attendance.proxy'))
+<section class="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
+<h3 class="text-base font-extrabold">Authorized Proxy Attendance — Server Time Only</h3>
+<p class="mt-2 text-xs text-slate-600">For verified internet outages or inability to punch. This records the real server time, not an invented earlier time. The original student remains the owner; your identity, reason and action are permanently audited. For historical corrections, use the separate reviewed exception workflow.</p>
+<form method="POST" action="{{ route('erp.attendance.proxy',['firmSlug'=>$firmSlug]) }}" data-corporate-confirm="Record an audited proxy attendance at the current SERVER time? This is not a Student login or GPS proof." class="mt-4 grid gap-3 sm:grid-cols-2">@csrf
+<label class="text-xs font-bold">Student<select required name="membership_id" class="mt-2 block w-full rounded-lg border p-3">
+<option value="">Choose authorized student</option>
+@foreach(\Illuminate\Support\Facades\DB::table('memberships as m')->join('users as u','u.id','=','m.user_id')->where('m.company_id',$company->id)->where('m.workspace_id',$workspace->id)->where('m.role','student')->where('m.active',true)->whereNull('m.platform_suspended_at')->when($actor->role==='manager' && !\App\Support\WorkspaceAccess::allows($actor,'scope.workspace'),fn($q)=>$q->where('m.manager_membership_id',$actor->id))->orderBy('u.name')->get(['m.id','u.name']) as $student)
+<option value="{{ $student->id }}">{{ $student->name }}</option>
+@endforeach
+</select></label>
+<label class="text-xs font-bold">Action<select name="action" required class="mt-2 block w-full rounded-lg border p-3">
+<option value="check_in">Proxy Check-in</option><option value="check_out">Proxy Check-out</option>
+</select></label>
+<label class="text-xs font-bold">Location Type<select name="work_mode" class="mt-2 block w-full rounded-lg border p-3">
+<option value="office">Office</option><option value="client">Client Duty</option>
+</select></label>
+<label class="text-xs font-bold">Client Site (if required)<input name="client_site" maxlength="180" class="mt-2 block w-full rounded-lg border p-3"></label>
+<label class="text-xs font-bold sm:col-span-2">Reason & verification evidence<textarea required name="reason" minlength="20" maxlength="1000" rows="3" class="mt-2 block w-full rounded-lg border p-3" placeholder="Who verified presence? What went wrong with the student's connection?"></textarea></label>
+<button class="rounded-xl bg-amber-400 p-3 text-xs font-extrabold sm:col-span-2">Record Proxy Attendance (Audited)</button>
+</form>
+</section>
+@endif
+
 <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 <div class="border-b border-slate-100 p-5"><h3 class="text-base font-extrabold">{{ $actor->role === 'student' ? 'My Requests' : 'Authorized Attendance Approval Inbox' }}</h3></div>
 <div class="space-y-3 p-4">

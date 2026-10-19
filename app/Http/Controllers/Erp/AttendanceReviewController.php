@@ -22,13 +22,14 @@ class AttendanceReviewController extends Controller
             ->where('r.company_id',$company->id)->where('r.workspace_id',$workspace->id)
             ->where('m.company_id',$company->id)->where('m.workspace_id',$workspace->id)
             ->when($actor->role === 'student', fn($q)=>$q->where('m.id',$actor->id))
-            ->when($actor->role === 'manager', fn($q)=>$q->where('m.manager_membership_id',$actor->id))
+            ->when($actor->role === 'manager' && !WorkspaceAccess::allows($actor,'scope.workspace'),
+                fn($q)=>$q->where('m.manager_membership_id',$actor->id))
             ->select('r.*','u.name as student_name')->orderByDesc('r.id')->limit(100)->get();
         $canInitiateTeam = $actor->role === 'manager' && WorkspaceAccess::allows($actor,'attendance.propose');
         $students = $canInitiateTeam
             ? DB::table('memberships as m')->join('users as u','u.id','=','m.user_id')
                 ->where('m.company_id',$company->id)->where('m.workspace_id',$workspace->id)
-                ->where('m.manager_membership_id',$actor->id)->where('m.active',true)
+                ->when(!WorkspaceAccess::allows($actor,'scope.workspace'),fn($q)=>$q->where('m.manager_membership_id',$actor->id))->where('m.active',true)
                 ->whereNull('m.platform_suspended_at')->where('m.role','student')
                 ->select('m.id','u.name')->orderBy('u.name')->get()
             : collect();
@@ -42,7 +43,7 @@ class AttendanceReviewController extends Controller
                     ->join('memberships as m','m.id','=','s.membership_id')
                     ->where('s.company_id',$company->id)->where('s.workspace_id',$workspace->id)
                     ->where('m.company_id',$company->id)->where('m.workspace_id',$workspace->id)
-                    ->where('m.manager_membership_id',$actor->id)->where('m.role','student')
+                    ->when(!WorkspaceAccess::allows($actor,'scope.workspace'),fn($q)=>$q->where('m.manager_membership_id',$actor->id))->where('m.role','student')
                     ->where('m.active',true)->whereNull('m.platform_suspended_at')
                     ->where('s.started_at','>=',now()->subDays(60)->utc()->toDateTimeString())
                     ->select('s.*')->orderByDesc('s.id')->limit(100)->get()
@@ -118,7 +119,7 @@ class AttendanceReviewController extends Controller
             $this->workspaceLock($company,$workspace);
             $this->assertPayrollEditable($company,$workspace,$date);
             $student=$teamInitiated
-                ? TenantOps::subject($actor,(int)$input['membership_id'])
+                ? WorkspaceAccess::subject($actor,(int)$input['membership_id'],'attendance.propose')
                 : DB::table('memberships')->where('id',$actor->id)
                     ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
                     ->where('active',true)->whereNull('platform_suspended_at')->first();
@@ -207,14 +208,18 @@ class AttendanceReviewController extends Controller
             $row = DB::table('attendance_review_requests')->where('company_id',$company->id)
                 ->where('workspace_id',$workspace->id)->where('id',$id)->lockForUpdate()->first();
             abort_unless($row,404);
-            $student = TenantOps::subject($actor,(int)$row->membership_id);
-            abort_unless($student->role === 'student',404);
+            $student=DB::table('memberships')->where('id',$row->membership_id)
+                ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+                ->where('role','student')->where('active',true)->whereNull('platform_suspended_at')->first();
+            abort_unless($student,404);
+            if ($actor->role==='manager' && !WorkspaceAccess::allows($actor,'scope.workspace')
+                && $student->manager_membership_id!==$actor->id) abort(404);
             if (! in_array($row->status,['pending','manager_reviewed'],true)) {
                 throw ValidationException::withMessages(['decision'=>'This request is already resolved.']);
             }
             $this->assertPayrollEditable($company,$workspace,$row->work_date);
 
-            if ($actor->role === 'manager') {
+            if ($actor->role==='manager' && $row->status==='pending') {
                 if ($row->status !== 'pending') {
                     throw ValidationException::withMessages(['decision'=>'A Manager has already reviewed the request.']);
                 }
@@ -236,6 +241,14 @@ class AttendanceReviewController extends Controller
                 return;
             }
 
+            if ($actor->role==='manager') {
+                abort_unless(WorkspaceAccess::allows($actor,'attendance.final'),403);
+                if ($row->status!=='manager_reviewed'
+                    || (int)$row->manager_reviewed_by===(int)$actor->id
+                    || (int)($row->initiated_by??0)===(int)$actor->id) {
+                    throw ValidationException::withMessages(['decision'=>'An independent reviewer must recommend first; initiator cannot final-approve.']);
+                }
+            }
             if ($input['decision']==='approve' && $row->status==='pending'
                 && $this->activeAssignedManager($student)) {
                 throw ValidationException::withMessages(['decision'=>'Assigned Manager recommendation is required before Partner approval.']);

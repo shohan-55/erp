@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use App\Support\OutboundMailGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,7 @@ class TeamController extends Controller
     public function index(Request $request, string $firmSlug)
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'team.manage'),403);
 
         $members = DB::table('memberships as m')
             ->join('users as u', 'u.id', '=', 'm.user_id')
@@ -37,7 +38,7 @@ class TeamController extends Controller
     public function invite(Request $request, string $firmSlug)
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'team.manage'),403);
 
         $input = $request->validate([
             'name' => ['required', 'string', 'min:3', 'max:255'],
@@ -87,7 +88,7 @@ class TeamController extends Controller
     public function resend(Request $request, string $firmSlug, int $id)
     {
         [$company, , $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'team.manage'),403);
         $member = DB::table('memberships')->where('id', $id)
             ->where('company_id', $actor->company_id)
             ->where('workspace_id', $actor->workspace_id)->where('active', false)
@@ -104,7 +105,7 @@ class TeamController extends Controller
     public function updateStudent(Request $request, string $firmSlug, int $id)
     {
         [, , $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'team.manage'),403);
 
         $data = $request->validate([
             'manager_membership_id' => ['nullable', 'integer'],

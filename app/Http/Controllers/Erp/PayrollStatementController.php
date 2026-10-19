@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -12,7 +13,9 @@ class PayrollStatementController extends Controller
     public function payslip(Request $request,string $firmSlug,int $runId,int $memberId)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner','student']);
+        abort_unless($actor->role==='student'
+            || (WorkspaceAccess::allows($actor,'payroll.manage')
+                && ($actor->role==='partner' || WorkspaceAccess::allows($actor,'scope.workspace'))),403);
         if ($actor->role==='student' && $actor->id!==$memberId){
             abort(404);
         }
@@ -40,7 +43,8 @@ class PayrollStatementController extends Controller
     public function register(Request $request,string $firmSlug,int $runId)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::allows($actor,'payroll.manage')
+            && ($actor->role==='partner' || WorkspaceAccess::allows($actor,'scope.workspace')),403);
         $run=DB::table('payroll_runs')->where('id',$runId)
             ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
             ->first();

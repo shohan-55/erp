@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\LeaveBalance;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,7 @@ class LeavePolicyController extends Controller
     public function save(Request $request, string $firmSlug)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'leave.policy'),403);
 
         $input=$request->validate([
             'leave_year'=>['required','integer','between:2025,2100'],
@@ -97,7 +98,7 @@ class LeavePolicyController extends Controller
     public function credit(Request $request,string $firmSlug)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'leave.policy'),403);
         $input=$request->validate([
             'membership_id'=>['required','integer','min:1'],
             'leave_year'=>['required','integer','between:2025,2100'],
@@ -118,7 +119,7 @@ class LeavePolicyController extends Controller
         DB::transaction(function()use($company,$workspace,$actor,$input,$year) {
             DB::table('workspaces')->where('company_id',$company->id)
                 ->where('id',$workspace->id)->lockForUpdate()->first();
-            $student=TenantOps::subject($actor,(int)$input['membership_id']);
+            $student=WorkspaceAccess::subject($actor,(int)$input['membership_id'],'leave.policy');
             abort_unless($student->role==='student',404);
             if (!LeaveBalance::policy($actor,$year)) {
                 throw ValidationException::withMessages(['leave_year'=>'Save this Partner year leave policy before granting extra days.']);

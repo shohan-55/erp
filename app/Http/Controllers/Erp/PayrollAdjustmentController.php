@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\PayrollCalculator;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -14,7 +15,8 @@ class PayrollAdjustmentController extends Controller
     public function create(Request $request,string $firmSlug,int $runId)
     {
         [, $workspace, $actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::allows($actor,'payroll.manage')
+            && ($actor->role==='partner' || WorkspaceAccess::allows($actor,'scope.workspace')),403);
         $input=$request->validate([
             'membership_id'=>['required','integer','min:1'],
             'kind'=>['required','in:bonus,deduction'],
@@ -63,7 +65,8 @@ class PayrollAdjustmentController extends Controller
     public function voidAdjustment(Request $request,string $firmSlug,int $runId,int $adjustmentId)
     {
         [, $workspace, $actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::allows($actor,'payroll.manage')
+            && ($actor->role==='partner' || WorkspaceAccess::allows($actor,'scope.workspace')),403);
         $input=$request->validate([
             'reason'=>['required','string','min:15','max:1000'],
         ]);

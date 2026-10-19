@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -13,7 +14,7 @@ class PracticeDocumentController extends Controller
 {
     private function visible(object $actor,object $doc): bool
     {
-        if($actor->role==='partner')return true;
+        if(WorkspaceAccess::partnerAction($actor,'documents.manage'))return true;
         if($doc->archived_at || $doc->visibility==='partner' || !$doc->subject_membership_id)return false;
         if($actor->id===$doc->subject_membership_id || (int)$actor->id===(int)$doc->subject_membership_id)return true;
         if($actor->role!=='manager' || $doc->visibility!=='team')return false;
@@ -38,7 +39,7 @@ class PracticeDocumentController extends Controller
                             ->where('m.workspace_id',$workspace->id);
                     });
             })
-            ->when($actor->role!=='partner',fn($q)=>$q->whereNull('d.archived_at')
+            ->when(!WorkspaceAccess::partnerAction($actor,'documents.manage'),fn($q)=>$q->whereNull('d.archived_at')
                 ->where('d.visibility','!=','partner')
                 ->where(function($z)use($actor){
                     $z->where('d.subject_membership_id',$actor->id);
@@ -51,7 +52,7 @@ class PracticeDocumentController extends Controller
                     }
                 }))
             ->select('d.*','u.name as subject_name')->orderByDesc('d.id')->limit(100)->get();
-        $members=$actor->role==='partner'
+        $members=WorkspaceAccess::partnerAction($actor,'documents.manage')
             ? DB::table('memberships as m')->join('users as u','u.id','=','m.user_id')
                 ->where('m.company_id',$company->id)->where('m.workspace_id',$workspace->id)
                 ->whereIn('m.role',['student','manager'])->where('m.active',true)
@@ -64,7 +65,7 @@ class PracticeDocumentController extends Controller
     public function upload(Request $request,string $firmSlug)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'documents.manage'),403);
         $input=$request->validate([
             'title'=>['required','string','min:4','max:180'],
             'category'=>['required','in:policy,audit,hr,notice,other'],
@@ -79,8 +80,11 @@ class PracticeDocumentController extends Controller
                 'Choose a recipient for a personal/team document; Partner-only documents have no recipient.']);
         }
         if($subjectId){
-            $member=TenantOps::subject($actor,(int)$subjectId);
-            abort_unless(in_array($member->role,['student','manager'],true),404);
+            $member=DB::table('memberships')->where('company_id',$actor->company_id)
+                ->where('workspace_id',$actor->workspace_id)->where('id',(int)$subjectId)
+                ->whereIn('role',['student','manager'])->where('active',true)
+                ->whereNull('platform_suspended_at')->first();
+            abort_unless($member && in_array($member->role,['student','manager'],true),404);
         }
         $file=$request->file('document');
         $hash=hash_file('sha256',$file->getRealPath());
@@ -134,7 +138,7 @@ class PracticeDocumentController extends Controller
     public function archive(Request $request,string $firmSlug,int $id)
     {
         [,,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'documents.manage'),403);
         DB::transaction(function()use($actor,$id){
             DB::table('workspaces')->where('id',$actor->workspace_id)
                 ->where('company_id',$actor->company_id)->lockForUpdate()->first();

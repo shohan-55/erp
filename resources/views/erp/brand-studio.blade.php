@@ -9,7 +9,7 @@
   </p>
   <div class="mt-5 flex flex-wrap gap-2 text-xs font-bold">
     <span class="rounded-full border border-amber-300/40 px-3 py-2 text-[#FCDF02]">{{ $workspace->name }}</span>
-    <span class="rounded-full border border-white/20 px-3 py-2">{{ ucfirst($actor->role) }} {{ $actor->role==='partner'?'· Can edit':'· Read-only' }}</span>
+    <span class="rounded-full border border-white/20 px-3 py-2">{{ ucfirst($actor->role) }} {{ \App\Support\WorkspaceAccess::partnerAction($actor,'brand.manage')?'· Can edit':'· Read-only' }}</span>
   </div>
 </section>
 
@@ -58,7 +58,7 @@
         </label>
       </div>
     </div>
-    @if($actor->role==='partner')
+    @if(\App\Support\WorkspaceAccess::partnerAction($actor,'brand.manage'))
     <button type="submit" class="min-h-12 rounded-xl bg-[#17191F] px-6 py-3 text-sm font-extrabold text-[#FCDF02]">Save Workspace Brand Profile →</button>
     @endif
   </form>
@@ -93,7 +93,7 @@
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
   <h3 class="text-base font-extrabold">Official Asset Library</h3>
   <p class="mt-2 text-xs leading-relaxed text-slate-600">Logo and seal: PNG/JPEG. Letterhead: PDF/DOCX/PNG/JPEG. Maximum 4 MB each. Updating an asset never destroys the earlier audited version.</p>
-  @if($actor->role==='partner')
+  @if(\App\Support\WorkspaceAccess::partnerAction($actor,'brand.manage'))
   <form method="POST" action="{{ route('erp.brand.upload',['firmSlug'=>$firmSlug]) }}" enctype="multipart/form-data" class="mt-4 space-y-3">
     @csrf
     <label class="block text-xs font-bold">Asset Type
@@ -113,7 +113,7 @@
     @forelse($assets as $asset)
       <div class="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3 text-xs">
         <div class="min-w-0"><p class="truncate font-extrabold">{{ ucfirst($asset->kind) }} · #{{ $asset->id }}</p><p class="mt-1 truncate text-slate-500">{{ $asset->original_name }}</p></div>
-        @if($actor->role==='partner')
+        @if(\App\Support\WorkspaceAccess::partnerAction($actor,'brand.manage'))
         <a href="{{ route('erp.brand.asset',['firmSlug'=>$firmSlug,'id'=>$asset->id]) }}" class="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold">View</a>
         @elseif($asset->kind==='logo' && (int)$asset->id===(int)$profile->logo_asset_id)
         <span class="text-xs font-bold text-emerald-700">Active</span>
@@ -131,7 +131,7 @@
  <p class="mt-2 text-xs text-slate-500">After final Partner approval, Students can print or download their approved Leave Letter in Word format from Leave History. Official PDF is available via the browser's Save as PDF action.</p>
  <div class="mt-4 flex flex-wrap gap-2">
    <a href="{{ route('erp.leaves',['firmSlug'=>$firmSlug]) }}" class="rounded-xl bg-[#17191F] px-4 py-3 text-xs font-bold text-[#FCDF02]">Leave Applications →</a>
-   @if($actor->role==='partner')
+   @if(\App\Support\WorkspaceAccess::partnerAction($actor,'brand.manage'))
    <a href="{{ route('erp.official.register.excel',['firmSlug'=>$firmSlug]) }}" class="rounded-xl border border-slate-300 px-4 py-3 text-xs font-bold">Download Excel (.xlsx) ↓</a>
    <a href="{{ route('erp.official.register.export',['firmSlug'=>$firmSlug]) }}" class="rounded-xl border border-slate-300 px-4 py-3 text-xs font-bold">Export Official Register (Excel CSV) ↓</a>
    @endif

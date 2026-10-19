@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\BrandIdentity;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -29,7 +30,7 @@ final class BrandStudioController extends Controller
     public function save(Request $request,string $firmSlug)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'brand.manage'),403);
 
         $fields=$request->validate([
             'public_name'=>['required','string','min:3','max:160'],
@@ -78,7 +79,7 @@ final class BrandStudioController extends Controller
     public function upload(Request $request,string $firmSlug)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'brand.manage'),403);
         $input=$request->validate([
             'kind'=>['required','in:logo,letterhead,seal'],
             'file'=>['required','file','max:4096'],
@@ -136,7 +137,7 @@ final class BrandStudioController extends Controller
         $currentId=$profile->{$asset->kind.'_asset_id'} ?? null;
         // Ordinary users can view only the active corporate logo; raw
         // letterhead, seal and historical evidence remain Partner-only.
-        if($actor->role!=='partner'){
+        if(!WorkspaceAccess::partnerAction($actor,'brand.manage')){
             abort_unless($asset->kind==='logo' && (int)$currentId === (int)$asset->id,404);
         }
         $disk=Storage::disk('local');

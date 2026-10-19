@@ -189,14 +189,14 @@ try {
     await nav('Leave Requests');
     let leaveDecisionSubmissions=0;
     page.on('request',r=>{if(r.method()==='POST'&&/\/leave\/\d+\/decision$/.test(new URL(r.url()).pathname))leaveDecisionSubmissions++;});
-    await page.getByRole('button',{name:'Review',exact:true}).first().click();
+    await page.getByRole('button',{name:'First Review',exact:true}).first().click();
     await page.locator('[data-corporate-confirm-dialog][open]').waitFor();
     assert.equal(leaveDecisionSubmissions,0,'Manager review must await explicit confirmation');
     await page.locator('[data-corporate-cancel]').click();
     assert.equal(leaveDecisionSubmissions,0,'Cancelling review sends no approval POST');
-    await page.getByRole('button',{name:'Review',exact:true}).first().click();
+    await page.getByRole('button',{name:'First Review',exact:true}).first().click();
     await page.locator('[data-corporate-confirm-go]').click();
-    await page.getByText('Leave review recorded.').waitFor();
+    await page.getByText('Leave approval stage recorded; independent two-level workflow enforced.').waitFor();
     assert.equal(leaveDecisionSubmissions,1,'Manager review submits exactly once after confirmation');
     await page.getByRole('button',{name:'Sign Out'}).click();
 
@@ -219,7 +219,7 @@ try {
     await page.locator('button[name=decision][value=approve]').first().click();
     await page.locator('[data-corporate-confirm-dialog][open]').waitFor();
     await page.locator('[data-corporate-confirm-go]').click();
-    await page.getByText('Leave review recorded.').waitFor();
+    await page.getByText('Leave approval stage recorded; independent two-level workflow enforced.').waitFor();
 
     // Confirm that Partner-approved future student leave is highlighted on the
     // actual selected month and contains the authorized letter link.

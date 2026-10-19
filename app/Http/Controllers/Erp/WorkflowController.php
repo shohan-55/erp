@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use App\Support\ExpenseRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -144,16 +145,27 @@ class WorkflowController extends Controller
             'paid_bdt' => $rows->where('status','paid')
                 ->sum(fn($c) => (float)($c->approved_amount??$c->amount)),
         ];
+        $canSubmitForStudent=WorkspaceAccess::allows($actor,'claims.submit_for_student') && $actor->role!=='student';
+        $members=$canSubmitForStudent
+            ? DB::table('memberships as m')->join('users as u','u.id','=','m.user_id')
+                ->where('m.company_id',$company->id)->where('m.workspace_id',$workspace->id)
+                ->where('m.role','student')->where('m.active',true)->whereNull('m.platform_suspended_at')
+                ->when($actor->role==='manager' && !WorkspaceAccess::allows($actor,'scope.workspace'),
+                    fn($q)=>$q->where('m.manager_membership_id',$actor->id))
+                ->select('m.id','u.name')->orderBy('u.name')->get()
+            : collect();
         return view('erp.claims', compact('company', 'workspace', 'actor', 'firmSlug',
-            'rows', 'policy', 'year', 'summary'));
+            'rows', 'policy', 'year', 'summary','members','canSubmitForStudent'));
     }
 
     public function submitClaim(Request $request, string $firmSlug)
     {
         [, , $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['student']);
+        $onBehalf=$actor->role!=='student';
+        if ($onBehalf) abort_unless(WorkspaceAccess::allows($actor,'claims.submit_for_student'),403);
 
         $input = $request->validate([
+            'membership_id'=>$onBehalf ? ['required','integer','min:1'] : ['prohibited'],
             'journey_date' => ['required', 'date_format:Y-m-d'],
             'expense_category' => ['nullable', 'in:transport,client_duty,meals,lodging,other'],
             'journey_route' => ['required', 'string', 'min:3', 'max:200'],
@@ -168,38 +180,48 @@ class WorkflowController extends Controller
                 'journey_date' => 'Claims cannot be submitted for a future journey.',
             ]);
         }
+        $student=$onBehalf ? WorkspaceAccess::subject($actor,(int)$input['membership_id'],'claims.submit_for_student') : $actor;
         $hash = hash_file('sha256', $request->file('receipt')->getRealPath());
         $period = substr($input['journey_date'], 0, 7).'-01';
-        if (DB::table('payroll_runs')->where('company_id', $actor->company_id)
-            ->where('workspace_id', $actor->workspace_id)
+        if (DB::table('payroll_runs')->where('company_id', $student->company_id)
+            ->where('workspace_id', $student->workspace_id)
             ->where('period_month', $period)
             ->whereIn('status', ['reviewed', 'approved', 'paid', 'locked'])->exists()) {
             throw ValidationException::withMessages(['journey_date' => 'The payroll for this journey month is frozen; contact your Partner.']);
         }
 
-        $filePath = $request->file('receipt')->store('claim-evidence/'.$actor->company_id.'/'.$actor->id, 'local');
+        $filePath = $request->file('receipt')->store('claim-evidence/'.$student->company_id.'/'.$student->id, 'local');
 
         try {
-            DB::transaction(function () use ($actor, $input, $filePath, $period, $hash) {
+            DB::transaction(function () use ($actor, $student, $input, $filePath, $period, $hash, $onBehalf) {
                 // Use the same workspace lock as payroll review: a claim cannot
                 // slip into a month while its payroll snapshot is being frozen.
-                DB::table('workspaces')->where('id', $actor->workspace_id)->lockForUpdate()->first();
-                if (DB::table('payroll_runs')->where('company_id', $actor->company_id)
-                    ->where('workspace_id', $actor->workspace_id)
+                DB::table('workspaces')->where('id', $student->workspace_id)->lockForUpdate()->first();
+                if (DB::table('payroll_runs')->where('company_id', $student->company_id)
+                    ->where('workspace_id', $student->workspace_id)
                     ->where('period_month', $period)
                     ->whereIn('status', ['reviewed', 'approved', 'paid', 'locked'])->exists()) {
                     throw ValidationException::withMessages(['journey_date' => 'This payroll month is already frozen.']);
                 }
-                if (ExpenseRules::receiptDuplicate($actor, $hash)) {
+                if ($onBehalf) {
+                    $fresh=DB::table('memberships')->where('id',$actor->id)
+                        ->where('company_id',$student->company_id)->where('workspace_id',$student->workspace_id)
+                        ->where('active',true)->whereNull('platform_suspended_at')->first();
+                    abort_unless($fresh,403);
+                    WorkspaceAccess::subject($fresh,$student->id,'claims.submit_for_student');
+                }
+                DB::table('memberships')->where('id',$student->id)->lockForUpdate()->first();
+                if (ExpenseRules::receiptDuplicate($student, $hash)) {
                     throw ValidationException::withMessages([
                         'receipt' => 'This receipt was already submitted in an active or approved claim.',
                     ]);
                 }
-                ExpenseRules::enforce($actor, $input['journey_date'], $input['amount'],
+                ExpenseRules::enforce($student, $input['journey_date'], $input['amount'],
                     $input['expense_category'], $hash);
                 $id = DB::table('conveyance_claims')->insertGetId([
-                    'company_id' => $actor->company_id, 'workspace_id' => $actor->workspace_id,
-                    'membership_id' => $actor->id,
+                    'company_id' => $student->company_id, 'workspace_id' => $student->workspace_id,
+                    'membership_id' => $student->id,
+                    'initiated_by'=>$actor->id,
                     'journey_date' => $input['journey_date'], 'journey_route' => $input['journey_route'],
                     'purpose' => $input['purpose'], 'amount' => $input['amount'],
                     'receipt_path' => $filePath,
@@ -208,8 +230,12 @@ class WorkflowController extends Controller
                     'status' => 'pending',
                     'created_at' => now(), 'updated_at' => now(),
                 ]);
-                TenantOps::audit($actor, 'claim.submit', 'conveyance_claim', $id);
-                foreach (TenantOps::teamRecipients($actor, $actor) as $recipientId) {
+                TenantOps::audit($actor,$onBehalf?'claim.submitted_on_behalf':'claim.submit','conveyance_claim',$id,[
+                    'student_membership_id'=>$student->id,
+                ]);
+                if ($onBehalf) TenantOps::notify($actor,$student->id,'Conveyance claim submitted on your behalf',
+                    'An authorized staff member submitted a claim for you. Two independent approvals are required.');
+                foreach (TenantOps::teamRecipients($actor, $student) as $recipientId) {
                     TenantOps::notify($actor, $recipientId, 'New conveyance claim', 'A team member submitted a travel expense claim.');
                 }
             }, 3);
@@ -228,7 +254,16 @@ class WorkflowController extends Controller
             ->where('company_id', $actor->company_id)
             ->where('workspace_id', $actor->workspace_id)->first();
         abort_unless($claim, 404);
-        TenantOps::subject($actor, $claim->membership_id);
+        if ($actor->role==='manager' && WorkspaceAccess::allows($actor,'scope.workspace')
+            && (WorkspaceAccess::allows($actor,'claims.review')
+                || WorkspaceAccess::allows($actor,'claims.final')
+                || WorkspaceAccess::allows($actor,'claims.submit_for_student'))) {
+            $perm=WorkspaceAccess::allows($actor,'claims.review') ? 'claims.review'
+                : (WorkspaceAccess::allows($actor,'claims.final') ? 'claims.final' : 'claims.submit_for_student');
+            WorkspaceAccess::subject($actor,(int)$claim->membership_id,$perm);
+        } else {
+            TenantOps::subject($actor,(int)$claim->membership_id);
+        }
 
         abort_unless($claim->receipt_path && Storage::disk('local')->exists($claim->receipt_path), 404);
 
@@ -238,7 +273,7 @@ class WorkflowController extends Controller
     public function decideClaim(Request $request, string $firmSlug, int $id)
     {
         [, , $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['partner', 'manager']);
+        abort_unless(in_array($actor->role,['partner','manager'],true),403);
 
         $input = $request->validate([
             'decision' => ['required', 'in:approve,reject'],
@@ -253,11 +288,19 @@ class WorkflowController extends Controller
                 ->where('id', $id)->where('company_id', $actor->company_id)
                 ->where('workspace_id', $actor->workspace_id)->lockForUpdate()->first();
             abort_unless($claim, 404);
-            $subject = TenantOps::subject($actor, $claim->membership_id);
-            abort_unless(TenantOps::actorCanReview($actor, $subject), 403);
+            $subject=DB::table('memberships')->where('company_id',$actor->company_id)
+                ->where('workspace_id',$actor->workspace_id)->where('id',$claim->membership_id)
+                ->where('role','student')->where('active',true)
+                ->whereNull('platform_suspended_at')->first();
+            abort_unless($subject,404);
+            if ($actor->role==='manager' && !WorkspaceAccess::allows($actor,'scope.workspace')
+                && $subject->manager_membership_id!==$actor->id) abort(404);
+            $first=$claim->status==='pending';
+            abort_unless($first
+                ? WorkspaceAccess::reviewer($actor,$subject,'claims')
+                : WorkspaceAccess::finalApprover($actor,$subject,'claims'),403);
 
             if (! in_array($claim->status, ['pending', 'manager_reviewed'], true)
-                || ($actor->role === 'manager' && $claim->status !== 'pending')
                 || $claim->reserved_payroll_run_id || $claim->paid_payroll_run_id) {
                 throw ValidationException::withMessages(['decision' => 'This claim cannot be reviewed again.']);
             }
@@ -270,18 +313,21 @@ class WorkflowController extends Controller
                 throw ValidationException::withMessages(['decision' => 'The payroll for this claim month is already frozen.']);
             }
 
-            if ($actor->role === 'partner' && $input['decision'] === 'approve'
-                && $claim->status === 'pending' && $this->activeManagerAssigned($subject)) {
-                throw ValidationException::withMessages([
-                    'decision' => 'The assigned Manager must review this claim before final Partner approval.',
-                ]);
+            if ($actor->role==='partner' && $first && $input['decision']==='approve'
+                && $this->activeManagerAssigned($subject)) {
+                throw ValidationException::withMessages(['decision'=>'Assigned Manager must perform first review.']);
             }
-
+            if ($first && (int)($claim->initiated_by??0)===(int)$actor->id) {
+                throw ValidationException::withMessages(['decision'=>'A claim initiator cannot perform its first approval.']);
+            }
+            if (!$first && (int)($claim->first_reviewed_by ?: $claim->reviewed_by)===(int)$actor->id) {
+                throw ValidationException::withMessages(['decision'=>'First and final approver must be different people.']);
+            }
             // Do all monetary comparison in integer cents. Claim originals
             // are immutable; only accepted/recommended amounts are separate.
             $requestedCents = (int) round(((float) $claim->amount) * 100);
             $chosenAmount = $input['approved_amount']
-                ?? ($actor->role === 'partner' ? $claim->manager_recommended_amount : null)
+                ?? (!$first ? $claim->manager_recommended_amount : null)
                 ?? $claim->amount;
             $chosenCents = (int) round(((float) $chosenAmount) * 100);
             if ($input['decision'] === 'approve' && ($chosenCents <= 0 || $chosenCents > $requestedCents)) {
@@ -299,22 +345,23 @@ class WorkflowController extends Controller
             // Managers perform preliminary review only; final amount is
             // committed only by the owning Partner and locked into payroll.
             $status = $input['decision'] === 'reject' ? 'rejected'
-                : ($actor->role === 'partner' ? 'approved' : 'manager_reviewed');
+                : ($first ? 'manager_reviewed' : 'approved');
             $changes = [
                 'status' => $status, 'reviewed_by' => $actor->id,
+                'first_reviewed_by'=>$first?$actor->id:($claim->first_reviewed_by?:$claim->reviewed_by),
                 'reviewed_at' => now(), 'decision_note' => $input['decision_note'] ?? null,
                 'updated_at' => now(),
             ];
-            if ($input['decision'] === 'approve' && $actor->role === 'manager') {
+            if ($input['decision'] === 'approve' && $first) {
                 $changes['manager_recommended_amount'] = sprintf('%.2f', $chosenCents / 100);
-            } elseif ($input['decision'] === 'approve' && $actor->role === 'partner') {
+            } elseif ($input['decision'] === 'approve' && !$first) {
                 $changes['approved_amount'] = sprintf('%.2f', $chosenCents / 100);
             }
             DB::table('conveyance_claims')->where('id', $id)->update($changes);
             TenantOps::audit($actor, 'claim.'.$status, 'conveyance_claim', $id, [
                 'original_amount' => $claim->amount,
-                'reviewed_amount' => $input['decision'] === 'approve' ? $changes[$actor->role === 'partner'
-                    ? 'approved_amount' : 'manager_recommended_amount'] : null,
+                'reviewed_amount' => $input['decision'] === 'approve' ? ($changes[$first
+                    ? 'manager_recommended_amount' : 'approved_amount'] ?? null) : null,
             ]);
             TenantOps::notify($actor, $subject->id, 'Conveyance claim update', 'Your conveyance claim status is '.$status.'.');
             if ($status === 'manager_reviewed') {
@@ -370,7 +417,8 @@ class WorkflowController extends Controller
             ->where('r.workspace_id', $actor->workspace_id)
             ->where('m.company_id', $actor->company_id)
             ->where('m.workspace_id', $actor->workspace_id)
-            ->when($actor->role === 'manager', fn ($q) => $q->where('m.manager_membership_id', $actor->id))
+            ->when($actor->role === 'manager' && !WorkspaceAccess::allows($actor,'scope.workspace'),
+                fn ($q) => $q->where('m.manager_membership_id', $actor->id))
             ->when($actor->role === 'student', fn ($q) => $q->where('m.id', $actor->id))
             ->select('r.*', 'u.name as member_name')
             ->orderByDesc('r.created_at')->limit(100)->get();
