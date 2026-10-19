@@ -10,6 +10,12 @@
         modal.querySelector('[data-calendar-modal-date]').textContent = day.dataset.date;
         modal.querySelector('[data-calendar-modal-status]').textContent = day.dataset.title;
         modal.querySelector('[data-calendar-modal-detail]').textContent = day.dataset.detail;
+        // Pre-rendered Blade template is role-scoped on the server. Clone real
+        // DOM nodes; never parse untrusted JSON/HTML from a data attribute.
+        const details = modal.querySelector('[data-calendar-modal-leaves]');
+        const template = document.getElementById(day.dataset.leaveTemplate);
+        if (details) details.replaceChildren(...(template ? template.content.cloneNode(true).childNodes : []));
+
         if (typeof modal.showModal === 'function') modal.showModal();
         else modal.setAttribute('open','');
       });
