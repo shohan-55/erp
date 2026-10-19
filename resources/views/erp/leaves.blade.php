@@ -172,7 +172,7 @@
 <button class="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-900">Withdraw Pending Request</button>
 </form>
 @endif
-@if(\App\Support\WorkspaceAccess::partnerAction($actor,'leave.policy') && $row->status==='approved' && $row->date_from > now($company->timezone)->toDateString())
+@if(\App\Support\WorkspaceAccess::allows($actor,'leave.final') && $row->status==='approved' && $row->date_from > now($company->timezone)->toDateString())
 <form data-corporate-confirm="Cancel this previously approved future leave? The authorized change will be audited and leave entitlement recalculated." action="{{ route('erp.leaves.cancel',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
 <input name="reason" required minlength="15" maxlength="1000" placeholder="Cancellation reason (mandatory)" class="min-w-44 rounded-lg border border-slate-300 p-2 text-xs">
 <button class="rounded-lg bg-rose-100 px-3 py-2 text-xs font-bold text-rose-950">Cancel Approved Future Leave</button>
