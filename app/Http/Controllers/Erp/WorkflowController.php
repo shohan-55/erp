@@ -284,6 +284,8 @@ class WorkflowController extends Controller
                 ->where('role','student')->where('active',true)
                 ->whereNull('platform_suspended_at')->first();
             abort_unless($subject,404);
+            if ($actor->role==='manager' && !WorkspaceAccess::allows($actor,'scope.workspace')
+                && $subject->manager_membership_id!==$actor->id) abort(404);
             $first=$claim->status==='pending';
             abort_unless($first
                 ? WorkspaceAccess::reviewer($actor,$subject,'claims')
@@ -302,6 +304,10 @@ class WorkflowController extends Controller
                 throw ValidationException::withMessages(['decision' => 'The payroll for this claim month is already frozen.']);
             }
 
+            if ($actor->role==='partner' && $first && $input['decision']==='approve'
+                && $this->activeManagerAssigned($subject)) {
+                throw ValidationException::withMessages(['decision'=>'Assigned Manager must perform first review.']);
+            }
             if ($first && (int)($claim->initiated_by??0)===(int)$actor->id) {
                 throw ValidationException::withMessages(['decision'=>'A claim initiator cannot perform its first approval.']);
             }
@@ -345,8 +351,8 @@ class WorkflowController extends Controller
             DB::table('conveyance_claims')->where('id', $id)->update($changes);
             TenantOps::audit($actor, 'claim.'.$status, 'conveyance_claim', $id, [
                 'original_amount' => $claim->amount,
-                'reviewed_amount' => $input['decision'] === 'approve' ? $changes[$actor->role === 'partner'
-                    ? 'approved_amount' : 'manager_recommended_amount'] : null,
+                'reviewed_amount' => $input['decision'] === 'approve' ? ($changes[$first
+                    ? 'manager_recommended_amount' : 'approved_amount'] ?? null) : null,
             ]);
             TenantOps::notify($actor, $subject->id, 'Conveyance claim update', 'Your conveyance claim status is '.$status.'.');
             if ($status === 'manager_reviewed') {
