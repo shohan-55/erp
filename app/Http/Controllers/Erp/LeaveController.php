@@ -39,7 +39,7 @@ class LeaveController extends Controller
             ? DB::table('memberships as m')->join('users as u','u.id','=','m.user_id')
                 ->where('m.company_id',$company->id)->where('m.workspace_id',$workspace->id)
                 ->where('m.role','student')->where('m.active',true)
-                ->select('m.id','u.name')->orderBy('u.name')->get()
+                ->select('m.id','u.name','m.manager_membership_id')->orderBy('u.name')->get()
             : collect();
 
         $calendar=$rows->filter(fn($r)=>$r->status==='approved'
