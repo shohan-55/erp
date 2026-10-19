@@ -25,7 +25,7 @@ class LeavePolicyController extends Controller
             'emergency_days'=>['required','numeric','between:0,365','multiple_of:0.5'],
             'carry_forward_limit'=>['required','numeric','between:0,365','multiple_of:0.5'],
             'annual_notice_days'=>['required','integer','between:0,90'],
-            'count_holidays'=>['required','boolean'],
+            'count_holidays'=>['sometimes','required','boolean'],
         ]);
         $now=(int)CarbonImmutable::now($company->timezone)->year;
         if (!in_array((int)$input['leave_year'],[$now,$now+1],true)) {
@@ -66,7 +66,11 @@ class LeavePolicyController extends Controller
                 'casual_days'=>$input['casual_days'],'emergency_days'=>$input['emergency_days'],
                 'carry_forward_limit'=>$input['carry_forward_limit'],
                 'annual_notice_days'=>$input['annual_notice_days'],
-                'count_holidays'=>(bool)$input['count_holidays'],
+                // New policies default to working-day leave; if a client omits the
+                // field while editing, preserve any existing explicit Yes.
+                'count_holidays'=>array_key_exists('count_holidays',$input)
+                    ? (bool)$input['count_holidays']
+                    : ($old ? (bool)$old->count_holidays : LeaveBalance::COUNT_HOLIDAYS_DEFAULT),
                 'set_by'=>$actor->id,'updated_at'=>now(),
             ];
             if ($old) {
@@ -83,6 +87,7 @@ class LeavePolicyController extends Controller
                 'annual_days'=>$input['annual_days'],'sick_days'=>$input['sick_days'],
                 'casual_days'=>$input['casual_days'],'emergency_days'=>$input['emergency_days'],
                 'carry_forward_limit'=>$input['carry_forward_limit'],
+                'count_holidays'=>$values['count_holidays'],
             ]);
         },3);
 
