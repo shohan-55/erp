@@ -11,6 +11,8 @@ final class LeaveBalance
     public const TYPES = ['annual','sick','casual','emergency','compensatory','unpaid'];
     public const PORTIONS = ['full','morning','afternoon'];
     public const CREDIT_TYPES = ['annual','sick','casual','emergency','compensatory'];
+    // Safe default for unconfigured workspaces: charge approved working days only.
+    public const COUNT_HOLIDAYS_DEFAULT = false;
 
     public static function policy(object $actor, int $year): ?object
     {
@@ -35,10 +37,13 @@ final class LeaveBalance
             throw ValidationException::withMessages(['date_to'=>'Submit separate leave requests for each calendar year.']);
         }
 
+        // Honor an explicitly configured Partner override, but never assume
+        // that no yearly policy means holiday days should be charged.
+        $countHolidays = $policy ? (bool)$policy->count_holidays : self::COUNT_HOLIDAYS_DEFAULT;
         $count=0.0;
         for ($day=$start;$day->lte($end);$day=$day->addDay()) {
             $rule=WorkCalendar::forMemberDate($company,$workspace,$student,$day->toDateString());
-            if (! $policy || $policy->count_holidays || ! $rule['holiday']) {
+            if ($countHolidays || ! $rule['holiday']) {
                 $count += $portion === 'full' ? 1.0 : 0.5;
             }
         }
