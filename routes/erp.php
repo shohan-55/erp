@@ -8,6 +8,7 @@ use App\Http\Controllers\Erp\AttendanceController;
 use App\Http\Controllers\Erp\AttendanceReportController;
 use App\Http\Controllers\Erp\AttendanceReconciliationController;
 use App\Http\Controllers\Erp\AttendanceReviewController;
+use App\Http\Controllers\Erp\ProxyAttendanceController;
 use App\Http\Controllers\Erp\WorkspaceAccessController;
 use App\Http\Controllers\Erp\WorkflowController;
 use App\Http\Controllers\Erp\ExpenseManagementController;
@@ -94,6 +95,7 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::get('/attendance/reviews', [AttendanceReviewController::class, 'index'])->name('attendance.reviews');
         Route::post('/attendance/reviews', [AttendanceReviewController::class, 'submit'])->middleware('throttle:10,1')->name('attendance.reviews.submit');
         Route::post('/attendance/reviews/team', [AttendanceReviewController::class, 'submitForStudent'])->middleware('throttle:8,1')->name('attendance.reviews.team_submit');
+        Route::post('/attendance/proxy', [ProxyAttendanceController::class,'save'])->middleware('throttle:6,1')->name('attendance.proxy');
         Route::get('/settings/company-access', [WorkspaceAccessController::class,'index'])->name('workspace_access.index');
         Route::post('/settings/company-access', [WorkspaceAccessController::class,'save'])->middleware('throttle:6,1')->name('workspace_access.save');
         Route::post('/settings/company-access/{id}/revoke', [WorkspaceAccessController::class,'revoke'])->middleware('throttle:6,1')->name('workspace_access.revoke');
