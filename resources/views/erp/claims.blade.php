@@ -13,7 +13,7 @@
 <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p class="text-xs font-bold text-slate-500">{{ $item['label'] }}</p><p class="mt-3 text-2xl font-extrabold">{{ $item['value'] }}</p></div>
 @endforeach
 </section>
-@if($actor->role === 'partner')
+@if(\App\Support\WorkspaceAccess::partnerAction($actor,'claims.policy'))
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 <h3 class="text-base font-extrabold">Partner Expense Policy — {{ $year }}</h3>
 <p class="mt-2 text-xs text-slate-600">Only your Partner workspace is affected. Once claims exist under the current year's policy, it cannot be retroactively revised. Every change is audited. Payment still occurs only through the approved Payroll flow.</p>
