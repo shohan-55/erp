@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use App\Support\PolicyResolver;
 use App\Support\PayrollCalculator;
 use Carbon\CarbonImmutable;
@@ -22,7 +23,9 @@ class PayrollController extends Controller
         // implicit salary permission; students may only view their own
         // FINALIZED, LOCKED statement. Partners may review all run stages
         // within their own Home Partner workspace.
-        TenantOps::requireRole($actor, ['partner', 'student']);
+        $canManage=WorkspaceAccess::allows($actor,'payroll.manage')
+            && ($actor->role==='partner' || WorkspaceAccess::allows($actor,'scope.workspace'));
+        abort_unless($canManage || $actor->role==='student',403);
 
         $runs = DB::table('payroll_runs')->where('company_id', $company->id)
             ->where('workspace_id', $workspace->id)
@@ -44,7 +47,7 @@ class PayrollController extends Controller
                 ->select('p.*', 'u.name as member_name')->orderBy('u.name')->get();
         }
 
-        $adjustments = $run && $actor->role === 'partner'
+        $adjustments = $run && $canManage
             ? DB::table('payroll_line_adjustments as a')
                 ->join('memberships as m','m.id','=','a.membership_id')
                 ->join('users as u','u.id','=','m.user_id')
@@ -53,16 +56,17 @@ class PayrollController extends Controller
                 ->select('a.*','u.name as student_name')
                 ->orderByDesc('a.id')->get() : collect();
 
-        $overview = $run && $actor->role === 'partner'
+        $overview = $run && $canManage
             ? \App\Support\PayrollReview::overview($company,$workspace,$run->period_month) : null;
         return view('erp.payroll', compact('company', 'workspace', 'actor', 'firmSlug',
-            'runs', 'run', 'lines', 'adjustments', 'overview'));
+            'runs', 'run', 'lines', 'adjustments', 'overview','canManage'));
     }
 
     public function generate(Request $request, string $firmSlug)
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['partner']);
+        abort_unless(WorkspaceAccess::allows($actor,'payroll.manage')
+            && ($actor->role==='partner' || WorkspaceAccess::allows($actor,'scope.workspace')),403);
         $input = $request->validate(['month' => ['required', 'date_format:Y-m']]);
         $period = $input['month'].'-01';
 
