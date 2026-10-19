@@ -40,7 +40,7 @@ final class WorkspaceAccessController extends Controller
         $input=$request->validate([
             'membership_id'=>['required','integer','min:1'],
             'access_role'=>['required',Rule::in(['company_admin','moderator'])],
-            'permissions'=>['sometimes','array','max:10'],
+            'permissions'=>['sometimes','array','max:30'],
             'permissions.*'=>['string',Rule::in(array_keys(WorkspaceAccess::PERMISSIONS))],
         ]);
         $permissions=array_values(array_unique($input['permissions']??[]));
@@ -56,6 +56,18 @@ final class WorkspaceAccessController extends Controller
                 ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
                 ->where('role','manager')->where('active',true)->whereNull('platform_suspended_at')->first();
             abort_unless($target && $target->id!==$actor->id,404);
+            if ($actor->role!=='partner') {
+                // Delegated staff cannot grant a privilege they themselves lack,
+                // nor mint Company Admin titles without explicit authorization.
+                foreach($permissions as $permission) {
+                    abort_unless(WorkspaceAccess::allows($current,$permission),403);
+                }
+                if ($input['access_role']==='company_admin') {
+                    abort_unless(WorkspaceAccess::allows($current,'access.delegate_admins'),403);
+                }
+                $actingGrant=WorkspaceAccess::grant($current);
+                abort_unless($actingGrant && $actingGrant->access_role==='company_admin',403);
+            }
             $previous=DB::table('workspace_access_grants')
                 ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
                 ->where('membership_id',$target->id)->first();
@@ -98,6 +110,16 @@ final class WorkspaceAccessController extends Controller
                 ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
                 ->where('id',$id)->whereNull('revoked_at')->first();
             abort_unless($grant && $grant->membership_id!==$actor->id,404);
+            if ($actor->role!=='partner') {
+                $actingGrant=WorkspaceAccess::grant($current);
+                abort_unless($actingGrant && $actingGrant->access_role==='company_admin',403);
+                foreach(json_decode($grant->permissions,true)?:[] as $permission) {
+                    abort_unless(WorkspaceAccess::allows($current,$permission),403);
+                }
+                if ($grant->access_role==='company_admin') {
+                    abort_unless(WorkspaceAccess::allows($current,'access.delegate_admins'),403);
+                }
+            }
             DB::table('workspace_access_grants')->where('id',$id)->update([
                 'revoked_at'=>now(),'revoked_by'=>$actor->id,'updated_at'=>now(),
             ]);
