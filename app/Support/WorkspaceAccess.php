@@ -67,7 +67,10 @@ final class WorkspaceAccess
     public static function reviewer(object $actor,object $subject,string $module): bool
     {
         if (!in_array($module,['leave','claims'],true)) return false;
-        if (!self::allows($actor,$module.'.review')) return false;
+        // Existing assigned Managers keep normal first review until their
+        // Partner explicitly configures a delegated permission record.
+        if (!self::allows($actor,$module.'.review')
+            && !($actor->role==='manager' && self::grant($actor)===null)) return false;
         if ($subject->company_id !== $actor->company_id
             || $subject->workspace_id !== $actor->workspace_id) return false;
         if ($actor->role==='partner') return true;
