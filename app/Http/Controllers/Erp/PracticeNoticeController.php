@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -13,7 +14,7 @@ class PracticeNoticeController extends Controller
     public function index(Request $request,string $firmSlug)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'notices.manage'),403);
         $notices=DB::table('practice_notices')->where('company_id',$company->id)
             ->where('workspace_id',$workspace->id)->orderByDesc('id')->limit(100)->get();
         return response()->view('erp.practice-notices',compact(
@@ -24,7 +25,7 @@ class PracticeNoticeController extends Controller
     public function publish(Request $request,string $firmSlug)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'notices.manage'),403);
         $data=$request->validate([
             'title'=>['required','string','min:5','max:160'],
             'body'=>['required','string','min:20','max:5000'],
