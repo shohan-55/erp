@@ -62,7 +62,7 @@
 <select required name="membership_id" class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm">
 <option value="">Select authorized Student</option>
 @foreach($members as $member)
-@if($actor->role==='partner' || \App\Support\WorkspaceAccess::allows($actor,'scope.workspace') || $member->manager_membership_id===$actor->id)
+@if(\App\Support\WorkspaceAccess::partnerAction($actor,'leave.policy') || \App\Support\WorkspaceAccess::allows($actor,'scope.workspace') || $member->manager_membership_id===$actor->id)
 <option value="{{ $member->id }}">{{ $member->name }}</option>
 @endif
 @endforeach
@@ -89,7 +89,7 @@
 </section>
 @endif
 
-@if($actor->role==='partner')
+@if(\App\Support\WorkspaceAccess::partnerAction($actor,'leave.policy'))
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
 <h3 class="text-base font-extrabold">Configure Partner Leave Policy — {{ $year }}</h3>
 <p class="mt-2 text-xs text-slate-600">Set day allowances for this Partner workspace only. There are no universal RA&C defaults. Policies with leave/credit activity or frozen payroll cannot be rewritten retroactively. Prior-year unused Annual Leave carries forward only when both years have a policy, subject to the new year's cap.</p>
@@ -172,7 +172,7 @@
 <button class="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-900">Withdraw Pending Request</button>
 </form>
 @endif
-@if($actor->role==='partner' && $row->status==='approved' && $row->date_from > now($company->timezone)->toDateString())
+@if(\App\Support\WorkspaceAccess::partnerAction($actor,'leave.policy') && $row->status==='approved' && $row->date_from > now($company->timezone)->toDateString())
 <form data-corporate-confirm="Cancel this previously approved future leave? The authorized change will be audited and leave entitlement recalculated." action="{{ route('erp.leaves.cancel',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
 <input name="reason" required minlength="15" maxlength="1000" placeholder="Cancellation reason (mandatory)" class="min-w-44 rounded-lg border border-slate-300 p-2 text-xs">
 <button class="rounded-lg bg-rose-100 px-3 py-2 text-xs font-bold text-rose-950">Cancel Approved Future Leave</button>
