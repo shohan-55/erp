@@ -148,6 +148,12 @@ class LeaveController extends Controller
                 ->where('role','student')->where('active',true)
                 ->whereNull('platform_suspended_at')->first();
             abort_unless($subject,404);
+            if ($actor->role==='manager' && !WorkspaceAccess::allows($actor,'scope.workspace')
+                && $subject->manager_membership_id!==$actor->id) abort(404);
+            if ($actor->role==='partner' && $row->status==='pending'
+                && $input['decision']==='approve' && $this->assignedManagerActive($subject)) {
+                throw ValidationException::withMessages(['decision'=>'Assigned Manager first review is required.']);
+            }
             if (!in_array($row->status,['pending','manager_reviewed'],true)) {
                 throw ValidationException::withMessages(['decision'=>'Leave request already decided.']);
             }
