@@ -50,3 +50,26 @@
 .erp-calendar-dialog__done{margin-top:23px;width:100%;min-height:45px;border-radius:12px;background:#17191f;color:#fcdf02;font-size:13px;font-weight:900}
 @media(max-width:600px){.erp-month-calendar{border-radius:20px}.erp-month-calendar__head{padding:19px 16px}.erp-month-calendar__badge{padding:8px;font-size:8px}.erp-month-calendar__surface{padding:12px 9px 15px}.erp-month-calendar__weekdays,.erp-month-calendar__grid{gap:3px}.erp-month-calendar__weekdays span{font-size:8px}.erp-month-calendar__day,.erp-month-calendar__empty{min-height:55px;border-radius:8px}.erp-month-calendar__day{gap:5px;padding:7px 4px}.erp-month-calendar__number{font-size:12px}.erp-month-calendar__day-title{font-size:7px;line-height:1.13;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.erp-month-calendar__indicator{height:5px;width:5px;top:8px;right:6px}.erp-month-calendar__legend{padding:13px 12px}.erp-month-calendar__watermark span{font-size:clamp(23px,8vw,40px)}}
 @media(prefers-reduced-motion:reduce){.erp-month-calendar__day{transition:none}.erp-month-calendar__day:hover{transform:none}}
+
+/* Team-scoped calendar: approved leave is blue; review queues are amber. */
+.erp-month-calendar__day--team_leave{background:rgba(31,72,119,.45);border-color:#548bcc}
+.erp-month-calendar__day--team_pending{background:rgba(117,75,22,.42);border-color:#b28846}
+.erp-month-calendar__day--team_leave .erp-month-calendar__indicator{background:#60a5fa;box-shadow:0 0 9px #60a5fa}
+.erp-month-calendar__day--team_pending .erp-month-calendar__indicator{background:#fbbf24;box-shadow:0 0 9px #fbbf24}
+.erp-month-calendar__legend-dot--team_leave{background:#60a5fa}
+.erp-month-calendar__legend-dot--team_pending{background:#fbbf24}
+.erp-calendar-dialog__leaves{margin-top:20px;border-top:1px solid #e2e8f0;padding-top:14px;display:grid;gap:12px}
+.erp-calendar-dialog__leave-heading{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:900;color:#1e293b}
+.erp-calendar-dialog__leave-heading svg{height:16px;width:16px;color:#2563eb}
+.erp-calendar-dialog__leave-heading span{margin-left:auto;border-radius:999px;background:#e0edff;padding:3px 8px;color:#1d4ed8}
+.erp-calendar-dialog__leave-row{border-radius:13px;border:1px solid #dbe4ef;background:#f8fafc;padding:12px;display:flex;flex-direction:column;gap:7px}
+.erp-calendar-dialog__member{font-size:12px;font-weight:900;color:#1e293b}
+.erp-calendar-dialog__leave-meta{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:7px;font-size:11px;color:#334155}
+.erp-calendar-dialog__status-pill{padding:5px 9px;border-radius:999px;font-size:10px;font-weight:900;background:#fef3c7;color:#92400e}
+.erp-calendar-dialog__status-pill--approved{background:#dbeafe;color:#1d4ed8}
+.erp-calendar-dialog__status-pill--manager_reviewed{background:#fef3c7;color:#78350f}
+.erp-calendar-dialog__reviewer{font-size:11px;color:#475569}
+.erp-calendar-dialog__leave-link{align-self:start;min-height:36px;display:inline-flex;align-items:center;padding:8px 11px;border:1px solid #93c5fd;background:#eff6ff;color:#1d4ed8;border-radius:10px;font-size:11px;font-weight:800;text-decoration:none}
+.erp-calendar-dialog__leave-link:focus-visible{outline:3px solid #2563eb;outline-offset:2px}
+.erp-calendar-dialog__no-leaves{font-size:11px;line-height:1.6;color:#64748b}
+.erp-calendar-dialog{overflow-y:auto;overscroll-behavior:contain}
