@@ -53,13 +53,16 @@
 @endif
 @endforeach
 </nav>
+@if(\App\Support\WorkspaceAccess::partnerAction($actor,'notices.manage'))
+<a href="{{ route('erp.notices',['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-2 flex gap-3 rounded-xl px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-white/10"> <i data-lucide="megaphone" class="h-4 w-4"></i>Manage Notices</a>
+@endif
 @if($actor->role === 'partner' || ($actor->role === 'manager' && $actor->can_manage_student_features))
 <a href="{{ route('erp.permissions.index', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-[#FCDF02] hover:bg-white/10"><i data-lucide="shield-check" class="h-4 w-4"></i>Student Permissions</a>
 @endif
 @if(\App\Support\WorkspaceAccess::canManage($actor))
 <a href="{{ route('erp.workspace_access.index', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-[#FCDF02] hover:bg-white/10"><i data-lucide="shield-user" class="h-4 w-4"></i>Company Access Control</a>
 @endif
-@if($actor->role === 'partner')
+@if(\App\Support\WorkspaceAccess::partnerAction($actor,'team.manage'))
 <a href="{{ route('erp.team', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"><i data-lucide="users-round" class="h-4 w-4"></i>Team & Accounts</a>
 @endif
 @if(request()->attributes->get('tenant.workspace_count', 1) > 1)
