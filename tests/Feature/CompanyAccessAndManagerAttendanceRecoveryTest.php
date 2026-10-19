@@ -99,7 +99,7 @@ final class CompanyAccessAndManagerAttendanceRecoveryTest extends TestCase
             $a=$t['unit-a'];
             $this->actingAs($a['manager']->user)
                 ->get('/c/guarded-practice/app/settings/company-access')->assertForbidden();
-            $this->givePermission($a['partner'],$a['manager'],'company_admin',[]);
+            $this->givePermission($a['partner'],$a['manager'],'company_admin',['attendance.propose','access.manage','access.delegate_admins']);
             $this->actingAs($a['manager']->user)
                 ->get('/c/guarded-practice/app/settings/company-access')->assertOk()
                 ->assertSeeText('Company Access Control Center')
