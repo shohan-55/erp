@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -14,7 +15,7 @@ class StaffTransferController extends Controller
     public function request(Request $request,string $firmSlug,int $memberId)
     {
         [,,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'staff.manage'),403);
         $data=$request->validate([
             'target_workspace_id'=>['required','integer','min:1'],
             'reason'=>['required','string','min:15','max:1000'],
@@ -53,7 +54,7 @@ class StaffTransferController extends Controller
     public function decide(Request $request,string $firmSlug,int $id)
     {
         [,,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'staff.manage'),403);
         $data=$request->validate(['decision'=>['required','in:approve,reject']]);
         DB::transaction(function()use($actor,$id,$data){
             $this->lockFirm($actor);
