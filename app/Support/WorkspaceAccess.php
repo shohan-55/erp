@@ -37,7 +37,9 @@ final class WorkspaceAccess
 
     public static function canManage(object $actor): bool
     {
-        return self::allows($actor,'access.manage');
+        $grant=self::grant($actor);
+        return $actor->role==='partner' || ($grant && ($grant->access_role==='company_admin'
+            || self::allows($actor,'access.manage')));
     }
 
     public static function allows(object $actor,string $permission): bool
