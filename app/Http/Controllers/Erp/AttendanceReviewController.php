@@ -207,14 +207,18 @@ class AttendanceReviewController extends Controller
             $row = DB::table('attendance_review_requests')->where('company_id',$company->id)
                 ->where('workspace_id',$workspace->id)->where('id',$id)->lockForUpdate()->first();
             abort_unless($row,404);
-            $student = TenantOps::subject($actor,(int)$row->membership_id);
-            abort_unless($student->role === 'student',404);
+            $student=DB::table('memberships')->where('id',$row->membership_id)
+                ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+                ->where('role','student')->where('active',true)->whereNull('platform_suspended_at')->first();
+            abort_unless($student,404);
+            if ($actor->role==='manager' && !WorkspaceAccess::allows($actor,'scope.workspace')
+                && $student->manager_membership_id!==$actor->id) abort(404);
             if (! in_array($row->status,['pending','manager_reviewed'],true)) {
                 throw ValidationException::withMessages(['decision'=>'This request is already resolved.']);
             }
             $this->assertPayrollEditable($company,$workspace,$row->work_date);
 
-            if ($actor->role === 'manager') {
+            if ($actor->role==='manager' && $row->status==='pending') {
                 if ($row->status !== 'pending') {
                     throw ValidationException::withMessages(['decision'=>'A Manager has already reviewed the request.']);
                 }
@@ -236,6 +240,14 @@ class AttendanceReviewController extends Controller
                 return;
             }
 
+            if ($actor->role==='manager') {
+                abort_unless(WorkspaceAccess::allows($actor,'attendance.final'),403);
+                if ($row->status!=='manager_reviewed'
+                    || (int)$row->manager_reviewed_by===(int)$actor->id
+                    || (int)($row->initiated_by??0)===(int)$actor->id) {
+                    throw ValidationException::withMessages(['decision'=>'An independent reviewer must recommend first; initiator cannot final-approve.']);
+                }
+            }
             if ($input['decision']==='approve' && $row->status==='pending'
                 && $this->activeAssignedManager($student)) {
                 throw ValidationException::withMessages(['decision'=>'Assigned Manager recommendation is required before Partner approval.']);
