@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -101,7 +102,7 @@ class AnnualHolidayController extends Controller
     public function decide(Request $request, string $firmSlug, int $planId)
     {
         [$company,$workspace,$actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'holidays.manage'),403);
         $data = $request->validate(['decision'=>['required','in:approve,reject']]);
 
         DB::transaction(function () use ($company,$workspace,$actor,$planId,$data) {
@@ -111,6 +112,9 @@ class AnnualHolidayController extends Controller
                 ->where('company_id',$company->id)
                 ->where('workspace_id',$workspace->id)->lockForUpdate()->first();
             abort_unless($plan,404);
+            if ((int)$plan->submitted_by===(int)$actor->id) {
+                throw ValidationException::withMessages(['decision'=>'Submitted and final-reviewed holiday plans require different people.']);
+            }
             if ($plan->status !== 'pending') {
                 throw ValidationException::withMessages(['decision'=>'This annual plan has already been reviewed.']);
             }
@@ -146,7 +150,7 @@ class AnnualHolidayController extends Controller
     public function branding(Request $request, string $firmSlug)
     {
         [$company,$workspace,$actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'holidays.manage'),403);
         $input = $request->validate([
             'mode'=>['required','in:off,name,logo'],
             'opacity'=>['required','integer','between:3,12'],
