@@ -21,6 +21,12 @@ final class WorkspaceAccess
         'claims.final' => 'Second-level conveyance claim approval or rejection',
         'claims.submit_for_student' => 'Submit a conveyance claim for a student',
         'payroll.manage' => 'Manage Partner-workspace payroll and settlement',
+        'team.manage' => 'Invite and manage Partner workspace staff',
+        'leave.policy' => 'Manage leave allowances and authorized credits',
+        'claims.policy' => 'Manage conveyance limits and private exports',
+        'notices.manage' => 'Publish Partner workspace notices',
+        'brand.manage' => 'Edit company branding assets and templates',
+        'holidays.manage' => 'Approve yearly Partner holiday calendars',
         'access.manage' => 'Manage moderator grants within allowed scope',
         'access.delegate_admins' => 'Allow granting company administrator title',
         'scope.workspace' => 'Access all students within this Partner workspace',
@@ -48,6 +54,16 @@ final class WorkspaceAccess
         if ($actor->role === 'partner' && $actor->active && !$actor->platform_suspended_at) return true;
         $grant=self::grant($actor);
         return $grant && in_array($permission,json_decode($grant->permissions,true) ?: [],true);
+    }
+
+    /**
+     * Financial, policy and company-wide operations expose the entire Partner
+     * workspace, so manager delegates need BOTH action and workspace scope.
+     */
+    public static function partnerAction(object $actor,string $permission): bool
+    {
+        return self::allows($actor,$permission)
+            && ($actor->role==='partner' || self::allows($actor,'scope.workspace'));
     }
 
     public static function subject(object $actor,int $memberId,string $permission): object
