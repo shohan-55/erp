@@ -148,12 +148,12 @@ final class TeamLeaveCalendarAndMonthNavigationTest extends TestCase
     {
         [$company,$workspace,$p]=$this->fixture();
         $pending=$this->leave($company,$p,'studentA','2026-11-19','pending');
-        $review=$this->leave($company,$p,'studentA','2026-11-20','manager_reviewed');
+        $review=$this->leave($company,$p,'studentA','2026-11-23','manager_reviewed');
         $manager=$this->month($company,$workspace,$p['managerA']);
         $this->assertSame('team_pending',collect($manager['days'])->firstWhere('date','2026-11-19')['stage']);
-        $this->assertSame('team_pending',collect($manager['days'])->firstWhere('date','2026-11-20')['stage']);
+        $this->assertSame('team_pending',collect($manager['days'])->firstWhere('date','2026-11-23')['stage']);
         $student=$this->month($company,$workspace,$p['studentA']);
-        foreach(['2026-11-19','2026-11-20'] as $date) {
+        foreach(['2026-11-19','2026-11-23'] as $date) {
             $this->assertSame('planned',collect($student['days'])->firstWhere('date',$date)['stage']);
         }
         $this->actingAs($p['studentA']['user'])->get('/c/team-cal/app/calendar?month=2026-11')
@@ -162,7 +162,7 @@ final class TeamLeaveCalendarAndMonthNavigationTest extends TestCase
             ->update(['status'=>'approved','reviewed_by'=>$p['partner']['id'],'reviewed_at'=>now()]);
         $student=$this->month($company,$workspace,$p['studentA']);
         $this->assertSame('leave',collect($student['days'])->firstWhere('date','2026-11-19')['stage']);
-        $this->assertSame('planned',collect($student['days'])->firstWhere('date','2026-11-20')['stage']);
+        $this->assertSame('planned',collect($student['days'])->firstWhere('date','2026-11-23')['stage']);
         $this->assertDatabaseHas('leave_requests',['id'=>$review,'status'=>'manager_reviewed']);
         $this->assertDatabaseCount('payroll_line_adjustments',0);
     }
