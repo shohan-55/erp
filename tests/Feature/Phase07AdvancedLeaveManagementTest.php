@@ -384,4 +384,71 @@ class Phase07AdvancedLeaveManagementTest extends TestCase
             ]);
         } finally { $this->restoreClock(); }
     }
+    public function test_unconfigured_policy_defaults_to_three_working_days_for_october_22_to_26(): void
+    {
+        $this->frozenClock();
+        try {
+            [, $m]=$this->setupFirm();
+            // Thu–Mon: Fri+Sat are already approved weekly holidays.
+            $this->assertDatabaseCount('workspace_leave_policies',0);
+            $this->request($m['a']['student'],'2026-10-22','2026-10-26','annual')
+                ->assertRedirect()->assertSessionHasNoErrors();
+            $this->assertDatabaseHas('leave_requests',[
+                'membership_id'=>$m['a']['student']->id,
+                'date_from'=>'2026-10-22','date_to'=>'2026-10-26',
+                'charge_days'=>3.0,'policy_id'=>null,
+            ]);
+            $this->assertDatabaseCount('payroll_line_adjustments',0);
+        } finally { $this->restoreClock(); }
+    }
+
+    public function test_new_partner_policy_omitting_holiday_rule_defaults_no_and_excludes_approved_holiday(): void
+    {
+        $this->frozenClock();
+        try {
+            [$company,$m]=$this->setupFirm();
+            $input=$this->policyPayload();
+            unset($input['count_holidays']);
+            $this->actingAs($m['a']['partner']->user)
+                ->post('/c/practice/app/leave/policies',$input)
+                ->assertRedirect()->assertSessionHasNoErrors();
+            $this->assertDatabaseHas('workspace_leave_policies',[
+                'workspace_id'=>$m['a']['partner']->workspace,
+                'leave_year'=>2026,'count_holidays'=>0,
+            ]);
+            $this->actingAs($m['a']['partner']->user)->get('/c/practice/app/leave')
+                ->assertOk()->assertSee('No — Working Days Only (Default)');
+            $this->request($m['a']['student'],'2026-10-22','2026-10-26','annual')
+                ->assertRedirect()->assertSessionHasNoErrors();
+            $this->assertDatabaseHas('leave_requests',[
+                'membership_id'=>$m['a']['student']->id,'charge_days'=>3.0,
+            ]);
+        } finally { $this->restoreClock(); }
+    }
+
+    public function test_explicit_partner_yes_still_counts_five_days_and_survives_omitted_update(): void
+    {
+        $this->frozenClock();
+        try {
+            [, $m]=$this->setupFirm();
+            $this->addPolicy($m['a']['partner'],2026,[
+                'count_holidays'=>1,'annual_days'=>10,
+            ]);
+            $editing=$this->policyPayload(2026,['annual_days'=>10]);
+            unset($editing['count_holidays']);
+            $this->actingAs($m['a']['partner']->user)
+                ->post('/c/practice/app/leave/policies',$editing)
+                ->assertRedirect()->assertSessionHasNoErrors();
+            $this->assertDatabaseHas('workspace_leave_policies',[
+                'workspace_id'=>$m['a']['partner']->workspace,
+                'leave_year'=>2026,'count_holidays'=>1,
+            ]);
+            $this->request($m['a']['student'],'2026-10-22','2026-10-26','annual')
+                ->assertRedirect()->assertSessionHasNoErrors();
+            $this->assertDatabaseHas('leave_requests',[
+                'membership_id'=>$m['a']['student']->id,'charge_days'=>5.0,
+            ]);
+        } finally { $this->restoreClock(); }
+    }
+
 }

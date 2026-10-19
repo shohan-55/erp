@@ -64,11 +64,13 @@
 <label class="text-xs font-bold text-slate-700">{{ $label }}<input name="{{ $key }}" type="number" min="0" max="365" step="0.5" value="{{ $policy?->{$key} ?? 0 }}" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
 @endforeach
 <label class="text-xs font-bold text-slate-700">Annual Leave Notice (days)<input name="annual_notice_days" type="number" min="0" max="90" value="{{ $policy?->annual_notice_days ?? 0 }}" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
-<label class="text-xs font-bold text-slate-700">Holiday Charging Rule
-<select name="count_holidays" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm">
-<option value="0" @selected(!$policy?->count_holidays)>Working Days Only</option>
-<option value="1" @selected((bool)$policy?->count_holidays)>Count Calendar Days</option>
-</select></label>
+<label class="text-xs font-bold text-slate-700">Holiday Charging Rule — Default: No
+<select name="count_holidays" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm">
+<option value="0" @selected((int)old('count_holidays', $policy?->count_holidays ?? \App\Support\LeaveBalance::COUNT_HOLIDAYS_DEFAULT) === 0)>No — Working Days Only (Default)</option>
+<option value="1" @selected((int)old('count_holidays', $policy?->count_holidays ?? \App\Support\LeaveBalance::COUNT_HOLIDAYS_DEFAULT) === 1)>Yes — Count Calendar Days</option>
+</select>
+<span class="mt-1 block font-normal text-slate-500">Weekly and Partner-approved holidays are not deducted by default. Partners can explicitly choose Yes for this workspace.</span>
+</label>
 <button class="rounded-xl bg-[#FCDF02] px-4 py-3 text-sm font-extrabold sm:col-span-2 lg:col-span-4">Save Partner Leave Policy</button>
 </form>
 </section>
