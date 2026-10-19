@@ -4,7 +4,7 @@
 <section><p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">SECURE DOCUMENT CENTER · PARTNER ISOLATED</p>
 <h2 class="mt-2 text-2xl font-extrabold">Private Document Center</h2>
 <p class="mt-2 text-sm text-slate-600">Documents are kept in private storage and served only after checking your authorized workspace membership. Partner-only documents are confidential to the Partner; personal documents are visible only to their subject, and Team documents also to the assigned Manager.</p></section>
-@if($actor->role==='partner')
+@if(\App\Support\WorkspaceAccess::partnerAction($actor,'documents.manage'))
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 <h3 class="text-sm font-extrabold">Upload Private Practice Document</h3>
 <form method="POST" action="{{ route('erp.documents.upload',['firmSlug'=>$firmSlug]) }}" enctype="multipart/form-data" class="mt-4 grid gap-3 md:grid-cols-2">@csrf
@@ -42,7 +42,7 @@
 </div>
 <div class="flex flex-wrap items-center gap-2">
 <a href="{{ route('erp.documents.download',['firmSlug'=>$firmSlug,'id'=>$document->id]) }}" class="rounded-lg border border-slate-300 px-4 py-2 text-xs font-bold">Secure Download</a>
-@if($actor->role==='partner' && !$document->archived_at)
+@if(\App\Support\WorkspaceAccess::partnerAction($actor,'documents.manage') && !$document->archived_at)
 <form method="POST" action="{{ route('erp.documents.archive',['firmSlug'=>$firmSlug,'id'=>$document->id]) }}">@csrf
 <button class="rounded-lg border border-rose-200 px-4 py-2 text-xs font-bold text-rose-900">Archive</button>
 </form>
