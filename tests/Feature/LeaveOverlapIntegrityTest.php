@@ -46,10 +46,11 @@ class LeaveOverlapIntegrityTest extends TestCase
 
         $this->post('/c/rac/app/leave', [
             'leave_type' => 'annual',
-            'date_from' => '2026-11-13', 'date_to' => '2026-11-14',
+            'date_from' => '2026-11-16', 'date_to' => '2026-11-17',
             'reason' => 'Separate planned personal leave trip',
         ])->assertRedirect();
 
+        // Working-day-only is the default; separate Mon–Tue leave is valid.
         $this->assertDatabaseCount('leave_requests', 2);
     }
 }
