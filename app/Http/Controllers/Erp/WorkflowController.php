@@ -145,8 +145,17 @@ class WorkflowController extends Controller
             'paid_bdt' => $rows->where('status','paid')
                 ->sum(fn($c) => (float)($c->approved_amount??$c->amount)),
         ];
+        $canSubmitForStudent=WorkspaceAccess::allows($actor,'claims.submit_for_student') && $actor->role!=='student';
+        $members=$canSubmitForStudent
+            ? DB::table('memberships as m')->join('users as u','u.id','=','m.user_id')
+                ->where('m.company_id',$company->id)->where('m.workspace_id',$workspace->id)
+                ->where('m.role','student')->where('m.active',true)->whereNull('m.platform_suspended_at')
+                ->when($actor->role==='manager' && !WorkspaceAccess::allows($actor,'scope.workspace'),
+                    fn($q)=>$q->where('m.manager_membership_id',$actor->id))
+                ->select('m.id','u.name')->orderBy('u.name')->get()
+            : collect();
         return view('erp.claims', compact('company', 'workspace', 'actor', 'firmSlug',
-            'rows', 'policy', 'year', 'summary'));
+            'rows', 'policy', 'year', 'summary','members','canSubmitForStudent'));
     }
 
     public function submitClaim(Request $request, string $firmSlug)
