@@ -231,7 +231,7 @@ class LeaveController extends Controller
     public function cancel(Request $request,string $firmSlug,int $id)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::allows($actor,'leave.final'),403);
         $input=$request->validate([
             'reason'=>['required','string','min:15','max:1000'],
         ]);
@@ -242,8 +242,7 @@ class LeaveController extends Controller
                 ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
                 ->where('id',$id)->lockForUpdate()->first();
             abort_unless($row,404);
-            $subject=TenantOps::subject($actor,(int)$row->membership_id);
-            abort_unless($subject->role==='student',404);
+            $subject=WorkspaceAccess::subject($actor,(int)$row->membership_id,'leave.final');
             if ($row->status!=='approved') {
                 throw ValidationException::withMessages(['reason'=>'Only final approved leave can be cancelled by a Partner.']);
             }
