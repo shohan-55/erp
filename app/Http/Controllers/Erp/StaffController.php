@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,7 +45,7 @@ class StaffController extends Controller
     public function index(Request $request,string $firmSlug)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'staff.manage') || WorkspaceAccess::partnerAction($actor,'staff.compensation'),403);
         $members=DB::table('memberships as m')->join('users as u','u.id','=','m.user_id')
             ->leftJoin('staff_profiles as p',function($j){
                 $j->on('p.membership_id','=','m.id')->on('p.company_id','=','m.company_id')
@@ -99,7 +100,7 @@ class StaffController extends Controller
     public function profile(Request $request,string $firmSlug,int $id)
     {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'staff.manage'),403);
         $data=$request->validate([
             'staff_code'=>['nullable','string','max:50'],
             'joined_on'=>['required','date_format:Y-m-d'],
@@ -147,7 +148,7 @@ class StaffController extends Controller
     public function compensation(Request $request,string $firmSlug,int $id)
     {
         [,,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'staff.compensation'),403);
         $data=$request->validate([
             'effective_month'=>['required','date_format:Y-m'],
             'new_amount'=>['required','numeric','between:0,500000','decimal:0,2'],
@@ -194,7 +195,7 @@ class StaffController extends Controller
     public function lifecycle(Request $request,string $firmSlug,int $id)
     {
         [,,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'staff.manage'),403);
         $data=$request->validate([
             'action'=>['required','in:exit,rejoin'],
             'reason'=>['required','string','min:15','max:1000'],
@@ -270,7 +271,7 @@ class StaffController extends Controller
     public function upload(Request $request,string $firmSlug,int $id)
     {
         [,,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'staff.manage'),403);
         $data=$request->validate([
             'document_type'=>['required','in:appointment,articleship,certificate,identity,other'],
             'title'=>['required','string','min:3','max:160'],
@@ -307,7 +308,9 @@ class StaffController extends Controller
         $doc=DB::table('staff_documents')->where('id',$documentId)
             ->where('company_id',$actor->company_id)->where('workspace_id',$actor->workspace_id)->first();
         abort_unless($doc,404);
-        $subject=TenantOps::subject($actor,(int)$doc->membership_id);
+        $subject=($actor->role==='manager' && WorkspaceAccess::partnerAction($actor,'staff.manage')
+                ? WorkspaceAccess::subject($actor,(int)$doc->membership_id,'staff.manage')
+                : TenantOps::subject($actor,(int)$doc->membership_id));
         abort_unless($subject->id===$doc->membership_id || (int)$subject->id===(int)$doc->membership_id,404);
         abort_unless(Storage::disk('local')->exists($doc->storage_path),404);
         return Storage::disk('local')->download($doc->storage_path,basename($doc->original_filename),[
