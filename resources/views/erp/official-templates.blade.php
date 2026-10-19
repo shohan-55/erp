@@ -39,7 +39,7 @@
     <label class="block text-xs font-bold">Footer Note
       <textarea name="footer_note" maxlength="500" rows="2" @disabled($actor->role!=='partner') class="mt-1 block w-full rounded-xl border border-slate-300 p-3 text-xs">{{ $template['footer'] }}</textarea>
     </label>
-    @if($actor->role==='partner')
+    @if(\App\Support\WorkspaceAccess::partnerAction($actor,'brand.manage'))
     <button class="w-full rounded-xl bg-[#17191F] px-5 py-3 text-sm font-extrabold text-[#FCDF02]">Publish New Version →</button>
     @else<p class="rounded-lg bg-slate-50 p-3 text-xs font-semibold text-slate-600">Read-only. Only the Partner can publish official templates.</p>@endif
   </form>
