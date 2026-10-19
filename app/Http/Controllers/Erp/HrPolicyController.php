@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\PolicyResolver;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -50,7 +51,7 @@ class HrPolicyController extends Controller
     public function delegate(Request $request, string $firmSlug)
     {
         [, $workspace, $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'hr.manage'),403);
         $data = $request->validate(['manager_mode' => ['required', 'in:approval_required,direct']]);
 
         DB::transaction(function () use ($workspace, $actor, $data) {
@@ -150,7 +151,7 @@ class HrPolicyController extends Controller
             $permission = DB::table('workspace_hr_policy_permissions')
                 ->where('company_id', $company->id)->where('workspace_id', $workspace->id)->first();
             $mode = $permission?->manager_mode ?? 'approval_required';
-            $status = $actor->role === 'partner' || ($actor->role === 'manager'
+            $status = WorkspaceAccess::partnerAction($actor,'hr.manage') || ($actor->role === 'manager'
                 && $mode === 'direct' && ! $sensitive) ? 'approved' : 'pending';
             $id = DB::table('workspace_hr_policy_revisions')->insertGetId([
                 'company_id' => $company->id,
@@ -191,7 +192,7 @@ class HrPolicyController extends Controller
     public function decide(Request $request, string $firmSlug, int $revisionId)
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['partner']);
+        abort_unless(WorkspaceAccess::partnerAction($actor,'hr.manage'),403);
         $data = $request->validate(['decision' => ['required', 'in:approve,reject']]);
 
         DB::transaction(function () use ($company, $workspace, $actor, $revisionId, $data) {
@@ -201,6 +202,9 @@ class HrPolicyController extends Controller
                 ->where('id', $revisionId)->where('company_id', $company->id)
                 ->where('workspace_id', $workspace->id)->lockForUpdate()->first();
             abort_unless($revision, 404);
+            if ((int)$revision->requested_by===(int)$actor->id) {
+                throw ValidationException::withMessages(['decision'=>'Your own pending HR proposal must be reviewed by another authorized person.']);
+            }
             if ($revision->status !== 'pending') {
                 throw ValidationException::withMessages(['decision' => 'This proposal is no longer pending.']);
             }
