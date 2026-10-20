@@ -100,8 +100,15 @@ final class TenantExitController extends Controller
                     'membership_id'=>$member->id,
                     'decision'=>'pending','created_at'=>now(),'updated_at'=>now(),
                 ]);
-                TenantOps::notify($actor,$member->id,'Company exit export consent',
-                    'A company-wide data export requires every Partner to approve explicitly.');
+                // Cross-workspace Partner alerts must not call TenantOps::notify:
+                // that helper deliberately enforces the actor's Home Partner.
+                DB::table('tenant_notifications')->insert([
+                    'company_id'=>$company->id,'workspace_id'=>$member->workspace_id,
+                    'recipient_membership_id'=>$member->id,
+                    'title'=>'Company exit export consent',
+                    'message'=>'A company-wide data export requires every Partner to approve explicitly.',
+                    'created_at'=>now(),'updated_at'=>now(),
+                ]);
             }
             TenantOps::audit($actor,'exit.requested','tenant_exit_case',$id,[
                 'retention_until'=>$input['retention_until'],
