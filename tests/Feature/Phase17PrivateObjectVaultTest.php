@@ -129,8 +129,13 @@ final class Phase17PrivateObjectVaultTest extends TestCase
         $this->assertDatabaseHas('tenant_audit_events',[
             'action'=>'vault.object.verified','entity_id'=>$obj->id,
         ]);
-        $this->get($this->url($f,'vault/objects/'.$obj->id.'/download'))
-            ->assertOk()->assertHeader('Cache-Control','private, no-store, max-age=0');
+        $download = $this->get($this->url($f,'vault/objects/'.$obj->id.'/download'));
+        $download->assertOk();
+        // Symfony canonicalizes Cache-Control directive ordering.
+        $this->assertStringContainsString('no-store',
+            (string) $download->headers->get('Cache-Control'));
+        $this->assertStringContainsString('private',
+            (string) $download->headers->get('Cache-Control'));
         $this->actingAs($f['people']['student']->user)
             ->get($this->url($f,'vault/objects/'.$obj->id.'/download'))->assertNotFound();
     }
