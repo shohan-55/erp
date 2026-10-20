@@ -123,7 +123,7 @@ class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-xs"></textarea>
 <label class="text-xs font-bold">Reconciled Total (BDT)<input type="number" name="reconciled_total" required min="0" step=".01" value="{{ number_format((float) $lines->sum('total_amount'), 2, '.', '') }}" class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
 <label class="w-full text-xs font-bold">Private Evidence (PDF/JPG/PNG up to 5 MB)<input type="file" name="payment_evidence" accept="application/pdf,image/jpeg,image/png" required class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
 @endif
-@php $action=['draft'=>'review','reviewed'=>'approve','approved'=>'record_paid','paid'=>'lock'][$run->status]; @endphp
+@php($action = ['draft'=>'review','reviewed'=>'approve','approved'=>'record_paid','paid'=>'lock'][$run->status])
 <button type="submit" name="action" value="{{ $action }}" class="rounded-xl bg-[#17191F] px-5 py-3 text-sm font-extrabold text-white">{{ ['review'=>'Review & Freeze Snapshot','approve'=>'Approve Payroll','record_paid'=>'Record Externally Paid','lock'=>'Lock Finalized Period'][$action] }}</button>
 </form>
 @endif
