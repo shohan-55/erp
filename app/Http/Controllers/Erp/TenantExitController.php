@@ -32,7 +32,14 @@ final class TenantExitController extends Controller
     {
         $votes=DB::table('tenant_exit_votes')->where('case_id',$case->id)
             ->where('company_id',$case->company_id)->get();
-        return $votes->isNotEmpty() && $votes->every(fn($v)=>$v->decision==='approve');
+        if($votes->isEmpty() || !$votes->every(fn($v)=>$v->decision==='approve'))return false;
+        $voters=$votes->pluck('membership_id')->map(fn($id)=>(int)$id)->sort()->values()->all();
+        $partners=DB::table('memberships')->where('company_id',$case->company_id)
+            ->where('role','partner')->where('active',true)
+            ->whereNull('platform_suspended_at')->pluck('id')
+            ->map(fn($id)=>(int)$id)->sort()->values()->all();
+        // Fail closed when company Partner governance changes after approval.
+        return $voters===$partners;
     }
 
     public function index(Request $request,string $firmSlug)
@@ -47,17 +54,21 @@ final class TenantExitController extends Controller
             ->where('v.case_id',$current->id)->where('v.company_id',$company->id)
             ->select('v.*','u.name','m.role')->orderBy('v.id')->get():collect();
         // Do not expose other Partners' source content, even on inventory screens.
-        $artifacts=$current && $this->consented($current)
+        $artifactPage=max(1,min(100000,(int)$request->query('export_page',1)));
+        $artifactCount=$current && $this->consented($current)
             && in_array($current->state,['prepared','integrity_verified','acknowledged','restore_attested'],true)
-            ? DB::table('tenant_exit_artifacts')
-                ->where('company_id',$company->id)->where('case_id',$current->id)
-                ->orderBy('id')->limit(150)->get():collect();
+            ?DB::table('tenant_exit_artifacts')->where('company_id',$company->id)
+                ->where('case_id',$current->id)->count():0;
+        $artifacts=$artifactCount
+            ?DB::table('tenant_exit_artifacts')->where('company_id',$company->id)
+                ->where('case_id',$current->id)->orderBy('id')
+                ->offset(($artifactPage-1)*100)->limit(100)->get():collect();
         $holds=$current?DB::table('tenant_exit_holds')
             ->where('company_id',$company->id)->where('case_id',$current->id)
             ->orderByDesc('id')->limit(25)->get():collect();
         $inventory=TenantExitPackage::inventory((int)$company->id);
         return response()->view('erp.tenant-exit',compact(
-            'company','workspace','actor','firmSlug','cases','current','votes','artifacts','holds','inventory'
+            'company','workspace','actor','firmSlug','cases','current','votes','artifacts','artifactPage','artifactCount','holds','inventory'
         ))->header('Cache-Control','private, no-store, max-age=0');
     }
 
