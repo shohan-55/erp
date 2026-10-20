@@ -128,9 +128,9 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         // Phase 05: Partner-only custom role definitions and scoped manager assignments.
         Route::get('/settings/roles', [CustomRoleController::class, 'index'])->name('custom_roles.index');
         Route::post('/settings/roles', [CustomRoleController::class, 'store'])->middleware('throttle:10,1')->name('custom_roles.store');
+        Route::post('/settings/roles/assign', [CustomRoleController::class, 'assign'])->middleware('throttle:15,1')->name('custom_roles.assign');
         Route::post('/settings/roles/{roleId}', [CustomRoleController::class, 'update'])->middleware('throttle:10,1')->name('custom_roles.update');
         Route::post('/settings/roles/{roleId}/status', [CustomRoleController::class, 'status'])->middleware('throttle:10,1')->name('custom_roles.status');
-        Route::post('/settings/roles/assign', [CustomRoleController::class, 'assign'])->middleware('throttle:15,1')->name('custom_roles.assign');
         Route::get('/settings/company-access', [WorkspaceAccessController::class,'index'])->name('workspace_access.index');
         Route::post('/settings/company-access', [WorkspaceAccessController::class,'save'])->middleware('throttle:6,1')->name('workspace_access.save');
         Route::post('/settings/company-access/{id}/revoke', [WorkspaceAccessController::class,'revoke'])->middleware('throttle:6,1')->name('workspace_access.revoke');
