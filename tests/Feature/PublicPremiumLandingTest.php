@@ -35,13 +35,18 @@ final class PublicPremiumLandingTest extends TestCase
 
         $this->assertSame(1,substr_count($markup,'<h1'));
         $this->assertSame(6,substr_count($markup,'class="feature-card"'));
-        $this->assertSame(5,substr_count($markup,'<details'));
+        $this->assertSame(7,substr_count($markup,'<details'));
         $this->assertStringContainsString('name="viewport"',$markup);
         $this->assertStringContainsString('class="skip"',$markup);
         $this->assertStringContainsString('prefers-reduced-motion',$markup);
         $this->assertStringContainsString('@media(max-width:600px)',$markup);
         $this->assertStringContainsString('Illustrative interface preview',$markup);
         $this->assertStringContainsString('mailto:support@dhakawala.com',$markup);
+        $this->assertStringContainsString('--brand:#13ac9d',$markup);
+        $this->assertStringContainsString('independent SaaS platform',$markup);
+        $this->assertStringContainsString('monthly or annual billing',$markup);
+        $this->assertStringNotContainsString('#fcdf02',$markup);
+        $this->assertStringNotContainsString('RA&amp;C yellow',$markup);
         $this->assertStringNotContainsString('APP_KEY',$markup);
         $this->assertStringNotContainsString('dashboard-preview',$markup);
         $this->assertStringNotContainsString('/api/v1/',$markup);
