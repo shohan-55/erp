@@ -35,3 +35,8 @@ Schedule::command('erp:milestone-reminders')
 Schedule::command('erp:vault:expire-staging')
     ->hourly()
     ->withoutOverlapping();
+
+ 
+// Phase 18: only approved unanimous-Partner cases; bounded encrypted package.
+// Never deletes tenants, database rows, completed objects or provider backups.
+Schedule::command('erp:exit:prepare')->hourly()->withoutOverlapping();
