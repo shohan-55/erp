@@ -226,6 +226,14 @@ final class TenantExitPackage
             if($all->isEmpty() || $all->contains(fn($v)=>$v->decision!=='approve')){
                 throw new RuntimeException('Every original Partner must explicitly approve.');
             }
+            $voters=$all->pluck('membership_id')->map(fn($id)=>(int)$id)->sort()->values()->all();
+            $currentPartners=DB::table('memberships')->where('company_id',$case->company_id)
+                ->where('role','partner')->where('active',true)
+                ->whereNull('platform_suspended_at')->pluck('id')
+                ->map(fn($id)=>(int)$id)->sort()->values()->all();
+            if($voters!==$currentPartners) {
+                throw new RuntimeException('Company Partner roster changed; re-authorization is required.');
+            }
             DB::table('tenant_exit_cases')->where('id',$caseId)->update([
                 'state'=>'preparing','updated_at'=>now(),
             ]);
