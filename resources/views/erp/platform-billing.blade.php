@@ -19,6 +19,10 @@
 <label class="text-xs font-bold">Maximum Memberships<input required name="max_members" type="number" value="500" min="1" max="100000" class="mt-1 block w-full rounded-lg border p-3 text-sm"></label>
 <label class="text-xs font-bold">Custom Domain Included?
 <select name="custom_domain_enabled" class="mt-1 block w-full rounded-lg border p-3 text-sm"><option value="0">Not included</option><option value="1">Included (after DNS/HTTPS checks)</option></select></label>
+<label class="text-xs font-bold">Annual Discount (%)<input name="annual_discount_percent" type="number" min="0" max="40" value="0" required class="mt-1 block w-full rounded-lg border p-3 text-sm"></label>
+<label class="text-xs font-bold">Free Trial (days, optional)<input name="trial_days" type="number" min="0" max="30" value="0" required class="mt-1 block w-full rounded-lg border p-3 text-sm"></label>
+<label class="text-xs font-bold">Storage Add-on Size (MiB)<input name="storage_addon_mib" type="number" min="100" max="4096" value="100" required class="mt-1 block w-full rounded-lg border p-3 text-sm"></label>
+<label class="text-xs font-bold">Storage Add-on Price (৳ / unit / month)<input name="storage_addon_monthly_bdt" type="number" min="0" max="999999" step=".01" value="0" required class="mt-1 block w-full rounded-lg border p-3 text-sm"></label>
 <button class="rounded-xl bg-[#FCDF02] px-4 py-3 text-sm font-extrabold sm:col-span-2 lg:col-span-3">Create New Plan</button>
 </form>
 </section>
@@ -26,7 +30,7 @@
 <div class="mt-4 grid gap-3 lg:grid-cols-2">
 @forelse($plans as $plan)
 <div class="rounded-xl border p-4"><div class="flex justify-between gap-3"><h3 class="text-sm font-extrabold">{{ $plan->name }} · {{ $plan->code }}</h3><span class="text-xs">{{ $plan->available ? 'Available' : 'Retired' }}</span></div>
-<p class="mt-2 text-xs text-slate-500">৳ {{ number_format((float)$plan->monthly_bdt,2) }} / month · {{ $plan->max_partner_workspaces }} Partner Units · {{ $plan->max_members }} members · Custom Domain {{ $plan->custom_domain_enabled ? 'Included':'Not included' }}</p>
+<p class="mt-2 text-xs text-slate-500">৳ {{ number_format((float)$plan->monthly_bdt,2) }} / month · {{ $plan->max_partner_workspaces }} Partner Units · {{ $plan->max_members }} members · Custom Domain {{ $plan->custom_domain_enabled ? 'Included':'Not included' }} · Annual discount {{ $plan->annual_discount_percent }}% · Trial {{ $plan->trial_days }} days · Add-on {{ $plan->storage_addon_mib }} MiB for ৳{{ number_format((float)$plan->storage_addon_monthly_bdt,2) }}/mo</p>
 <form method="POST" action="{{ route('erp.platform.billing.plans.availability',['planId'=>$plan->id]) }}" class="mt-3">@csrf
 <input type="hidden" name="available" value="{{ $plan->available ? 0 : 1 }}">
 <button class="rounded-lg border px-3 py-2 text-xs font-bold">{{ $plan->available?'Retire Plan for New Billing':'Restore Plan' }}</button></form>
