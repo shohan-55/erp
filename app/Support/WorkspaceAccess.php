@@ -35,6 +35,9 @@ final class WorkspaceAccess
         if (!array_key_exists($permission,self::PERMISSIONS)) return false;
         if ($actor->role === 'partner') return true;
         $grant=self::grant($actor);
-        return $grant && in_array($permission,json_decode($grant->permissions,true) ?: [],true);
+        if ($grant && in_array($permission,json_decode($grant->permissions,true) ?: [],true)) return true;
+        // The Phase 05 custom-role matrix is an additional tightly scoped
+        // source of the already-existing attendance.propose capability.
+        return WorkspaceRoles::allows($actor, $permission);
     }
 }
