@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\OrganizationTemplate;
+use App\Support\WorkspaceRoles;
 use App\Support\TenantOps;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,17 +18,17 @@ use Illuminate\Validation\ValidationException;
  */
 final class OrganizationUnitController extends Controller
 {
-    private function authorize(Request $request): array
+    private function authorize(Request $request, string $permission): array
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
-        TenantOps::requireRole($actor, ['partner']);
+        abort_unless(WorkspaceRoles::allows($actor, $permission), 403);
 
         return [$company, $workspace, $actor];
     }
 
     public function index(Request $request, string $firmSlug)
     {
-        [$company, $workspace, $actor] = $this->authorize($request);
+        [$company, $workspace, $actor] = $this->authorize($request, 'organization.view');
 
         $units = DB::table('organization_units')
             ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
@@ -62,7 +63,7 @@ final class OrganizationUnitController extends Controller
 
     public function store(Request $request, string $firmSlug)
     {
-        [$company, $workspace, $actor] = $this->authorize($request);
+        [$company, $workspace, $actor] = $this->authorize($request, 'organization.manage');
         $data = $request->validate([
             'slug' => ['required', 'regex:/^[a-z0-9][a-z0-9-]{0,78}[a-z0-9]$/', 'max:80'],
             'name' => ['required', 'string', 'min:2', 'max:160'],
@@ -136,7 +137,7 @@ final class OrganizationUnitController extends Controller
 
     public function rename(Request $request, string $firmSlug, int $unitId)
     {
-        [$company, $workspace, $actor] = $this->authorize($request);
+        [$company, $workspace, $actor] = $this->authorize($request, 'organization.manage');
         $data = $request->validate(['name' => ['required', 'string', 'min:2', 'max:160']]);
         DB::transaction(function () use ($company, $workspace, $actor, $unitId, $data) {
             $unit = $this->unit($company, $workspace, $unitId, true);
@@ -154,7 +155,7 @@ final class OrganizationUnitController extends Controller
 
     public function toggle(Request $request, string $firmSlug, int $unitId)
     {
-        [$company, $workspace, $actor] = $this->authorize($request);
+        [$company, $workspace, $actor] = $this->authorize($request, 'organization.manage');
         $data = $request->validate([
             'action' => ['required', Rule::in(['deactivate', 'reactivate'])],
             'reason' => ['required', 'string', 'min:10', 'max:500'],
@@ -194,7 +195,7 @@ final class OrganizationUnitController extends Controller
 
     public function assign(Request $request, string $firmSlug, int $unitId)
     {
-        [$company, $workspace, $actor] = $this->authorize($request);
+        [$company, $workspace, $actor] = $this->authorize($request, 'organization.manage');
         $input = $request->validate(['membership_id' => ['required', 'integer', 'min:1']]);
         DB::transaction(function () use ($company, $workspace, $actor, $unitId, $input) {
             DB::table('workspaces')->where('id', $workspace->id)
@@ -225,7 +226,7 @@ final class OrganizationUnitController extends Controller
 
     public function unassign(Request $request, string $firmSlug, int $unitId, int $membershipId)
     {
-        [$company, $workspace, $actor] = $this->authorize($request);
+        [$company, $workspace, $actor] = $this->authorize($request, 'organization.manage');
         DB::transaction(function () use ($company, $workspace, $actor, $unitId, $membershipId) {
             DB::table('workspaces')->where('id', $workspace->id)
                 ->where('company_id', $company->id)->lockForUpdate()->first();
