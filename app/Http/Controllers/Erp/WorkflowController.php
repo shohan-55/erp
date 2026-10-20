@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
 use App\Support\ExpenseRules;
+use App\Support\ApprovalFlow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -206,6 +207,7 @@ class WorkflowController extends Controller
                     'receipt_sha256' => $hash,
                     'expense_category' => $input['expense_category'],
                     'status' => 'pending',
+                    'approval_mode' => ApprovalFlow::forSubmission($actor, 'conveyance'),
                     'created_at' => now(), 'updated_at' => now(),
                 ]);
                 TenantOps::audit($actor, 'claim.submit', 'conveyance_claim', $id);
@@ -257,7 +259,6 @@ class WorkflowController extends Controller
             abort_unless(TenantOps::actorCanReview($actor, $subject), 403);
 
             if (! in_array($claim->status, ['pending', 'manager_reviewed'], true)
-                || ($actor->role === 'manager' && $claim->status !== 'pending')
                 || $claim->reserved_payroll_run_id || $claim->paid_payroll_run_id) {
                 throw ValidationException::withMessages(['decision' => 'This claim cannot be reviewed again.']);
             }
@@ -270,18 +271,13 @@ class WorkflowController extends Controller
                 throw ValidationException::withMessages(['decision' => 'The payroll for this claim month is already frozen.']);
             }
 
-            if ($actor->role === 'partner' && $input['decision'] === 'approve'
-                && $claim->status === 'pending' && $this->activeManagerAssigned($subject)) {
-                throw ValidationException::withMessages([
-                    'decision' => 'The assigned Manager must review this claim before final Partner approval.',
-                ]);
-            }
+            $next = ApprovalFlow::next($claim, $actor, $subject, $input['decision']);
 
             // Do all monetary comparison in integer cents. Claim originals
             // are immutable; only accepted/recommended amounts are separate.
             $requestedCents = (int) round(((float) $claim->amount) * 100);
             $chosenAmount = $input['approved_amount']
-                ?? ($actor->role === 'partner' ? $claim->manager_recommended_amount : null)
+                ?? ($next['final'] ? $claim->manager_recommended_amount : null)
                 ?? $claim->amount;
             $chosenCents = (int) round(((float) $chosenAmount) * 100);
             if ($input['decision'] === 'approve' && ($chosenCents <= 0 || $chosenCents > $requestedCents)) {
@@ -296,24 +292,25 @@ class WorkflowController extends Controller
                 ]);
             }
 
-            // Managers perform preliminary review only; final amount is
-            // committed only by the owning Partner and locked into payroll.
-            $status = $input['decision'] === 'reject' ? 'rejected'
-                : ($actor->role === 'partner' ? 'approved' : 'manager_reviewed');
+            // For manager_final, the Partner explicitly authorized the
+            // assigned Manager to make a final decision on NEW claims only.
+            // Legacy claims continue Manager review -> Partner final.
+            $status = $next['status'];
             $changes = [
                 'status' => $status, 'reviewed_by' => $actor->id,
                 'reviewed_at' => now(), 'decision_note' => $input['decision_note'] ?? null,
                 'updated_at' => now(),
             ];
-            if ($input['decision'] === 'approve' && $actor->role === 'manager') {
+            if ($input['decision'] === 'approve' && !$next['final']) {
                 $changes['manager_recommended_amount'] = sprintf('%.2f', $chosenCents / 100);
-            } elseif ($input['decision'] === 'approve' && $actor->role === 'partner') {
+            } elseif ($input['decision'] === 'approve' && $next['final']) {
                 $changes['approved_amount'] = sprintf('%.2f', $chosenCents / 100);
             }
             DB::table('conveyance_claims')->where('id', $id)->update($changes);
+            ApprovalFlow::event($actor,'conveyance',$claim,$input['decision'],$next,$input['decision_note']??null);
             TenantOps::audit($actor, 'claim.'.$status, 'conveyance_claim', $id, [
                 'original_amount' => $claim->amount,
-                'reviewed_amount' => $input['decision'] === 'approve' ? $changes[$actor->role === 'partner'
+                'reviewed_amount' => $input['decision'] === 'approve' ? $changes[$next['final']
                     ? 'approved_amount' : 'manager_recommended_amount'] : null,
             ]);
             TenantOps::notify($actor, $subject->id, 'Conveyance claim update', 'Your conveyance claim status is '.$status.'.');

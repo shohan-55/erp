@@ -58,6 +58,7 @@
 <a href="{{ route('erp.workspace_access.index', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-[#FCDF02] hover:bg-white/10"><i data-lucide="shield-user" class="h-4 w-4"></i>Company Access Control</a>
 @endif
 @if($actor->role === 'partner')
+<a href="{{ route('erp.approval_settings.index', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-[#FCDF02] hover:bg-white/10"><i data-lucide="list-checks" class="h-4 w-4"></i>Approval Workflows</a>
 <a href="{{ route('erp.feature_studio.index', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-[#FCDF02] hover:bg-white/10"><i data-lucide="sliders-horizontal" class="h-4 w-4"></i>Feature Settings Studio</a>
 @endif
 @if($actor->role === 'partner')

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\LeaveBalance;
+use App\Support\ApprovalFlow;
 use App\Support\TenantOps;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -105,6 +106,7 @@ class LeaveController extends Controller
                 'policy_id'=>$policy?->id,
                 'date_from'=>$input['date_from'],'date_to'=>$input['date_to'],
                 'reason'=>trim($input['reason']),'status'=>'pending',
+                'approval_mode'=>ApprovalFlow::forSubmission($student, 'leave'),
                 'created_at'=>now(),'updated_at'=>now(),
             ]);
             TenantOps::audit($actor,'leave.submit','leave_request',$id,[
@@ -135,17 +137,8 @@ class LeaveController extends Controller
             abort_unless($row,404);
             $subject=TenantOps::subject($actor,(int)$row->membership_id);
             abort_unless(TenantOps::actorCanReview($actor,$subject),403);
-            if (!in_array($row->status,['pending','manager_reviewed'],true)) {
-                throw ValidationException::withMessages(['decision'=>'Leave request has already received a decision.']);
-            }
-            if ($actor->role==='manager' && $row->status!=='pending') {
-                throw ValidationException::withMessages(['decision'=>'Manager review already completed.']);
-            }
-            if ($actor->role==='partner' && $input['decision']==='approve'
-                && $row->status==='pending' && $this->assignedManagerActive($subject)) {
-                throw ValidationException::withMessages(['decision'=>'Assigned Manager review is required before Partner approval.']);
-            }
-            if ($input['decision']==='approve' && $actor->role==='partner') {
+            $next = ApprovalFlow::next($row, $actor, $subject, $input['decision']);
+            if ($input['decision']==='approve' && $next['final']) {
                 $this->assertPayrollEditable($subject,$row->date_from,$row->date_to);
                 LeaveBalance::assertAffordable($subject,$row->leave_type,$row->date_to,
                     (float)$row->charge_days,$row->id);
@@ -154,13 +147,13 @@ class LeaveController extends Controller
                     throw ValidationException::withMessages(['decision'=>'Another approved or pending leave overlaps these dates.']);
                 }
             }
-            $status=$input['decision']==='reject'?'rejected'
-                :($actor->role==='partner'?'approved':'manager_reviewed');
+            $status=$next['status'];
             DB::table('leave_requests')->where('id',$row->id)->update([
                 'status'=>$status,'reviewed_by'=>$actor->id,
                 'reviewed_at'=>now(),'decision_note'=>$input['decision_note']??null,
                 'updated_at'=>now(),
             ]);
+            ApprovalFlow::event($actor,'leave',$row,$input['decision'],$next,$input['decision_note']??null);
             TenantOps::audit($actor,'leave.'.$status,'leave_request',$id,[
                 'charge_days'=>$row->charge_days,
                 'portion'=>$row->day_portion,
