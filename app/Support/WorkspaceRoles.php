@@ -18,6 +18,8 @@ final class WorkspaceRoles
         'attendance.proxy' => 'Attendance — proxy punch assigned students, Partner verification required',
         'leave.submit_for' => 'Submit assigned students leave requests',
         'leave.withdraw_for' => 'Withdraw submitted delegated requests',
+        'claim.submit_for' => 'Expense: submit for assigned students without approval authority',
+        'claim.withdraw_for' => 'Expense: withdraw owned pending delegated claims',
         'organization.view' => 'Organization — view offices, teams, hierarchy and workspace assignments',
         'organization.manage' => 'Organization — create, rename, activate and assign people within this workspace',
     ];
