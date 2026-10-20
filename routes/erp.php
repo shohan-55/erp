@@ -38,6 +38,7 @@ use App\Http\Controllers\Erp\WorkspaceReminderRuleController;
 use App\Http\Controllers\Erp\PracticeNoticeController;
 use App\Http\Controllers\Erp\PracticeDocumentController;
 use App\Http\Controllers\Erp\TenantVaultController;
+use App\Http\Controllers\Erp\TenantExitController;
 use App\Http\Controllers\Erp\BrandStudioController;
 use App\Http\Controllers\Erp\OfficialDocumentController;
 use App\Http\Controllers\Erp\OfficialTemplateController;
@@ -274,6 +275,27 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::get('/documents/official-register/export', [OfficialDocumentController::class,'register'])->middleware('throttle:10,1')->name('official.register.export');
         Route::get('/documents/official-register/excel', [OfficialDocumentController::class,'registerExcel'])->middleware('throttle:10,1')->name('official.register.excel');
         // Phase 17: private, quota-reserved, chunked document vault. Never public.
+        // Phase 18 — unanimous company Partner consent and private export review.
+        // This system has NO permanent DELETE or destructive purge route.
+        Route::get('/company-exit', [TenantExitController::class,'index'])->name('exit.index');
+        Route::post('/company-exit/request', [TenantExitController::class,'requestExport'])
+            ->middleware('throttle:3,1')->name('exit.request');
+        Route::post('/company-exit/{id}/vote', [TenantExitController::class,'vote'])
+            ->middleware('throttle:5,1')->name('exit.vote');
+        Route::post('/company-exit/{id}/verify', [TenantExitController::class,'verify'])
+            ->middleware('throttle:5,1')->name('exit.verify');
+        Route::get('/company-exit/{id}/parts/{artifactId}', [TenantExitController::class,'download'])
+            ->middleware('throttle:30,1')->name('exit.download');
+        Route::post('/company-exit/{id}/acknowledge', [TenantExitController::class,'acknowledge'])
+            ->middleware('throttle:4,1')->name('exit.acknowledge');
+        Route::post('/company-exit/{id}/restore-attestation', [TenantExitController::class,'attestRestore'])
+            ->middleware('throttle:4,1')->name('exit.attest');
+        Route::post('/company-exit/{id}/holds', [TenantExitController::class,'placeHold'])
+            ->middleware('throttle:6,1')->name('exit.hold');
+        Route::post('/company-exit/{id}/holds/{holdId}/release', [TenantExitController::class,'releaseHold'])
+            ->middleware('throttle:6,1')->name('exit.hold.release');
+        Route::get('/company-exit/{id}/purge-preflight', [TenantExitController::class,'preflight'])
+            ->middleware('throttle:10,1')->name('exit.preflight');
         Route::get('/vault', [TenantVaultController::class,'index'])->name('vault.index');
         Route::post('/vault/uploads', [TenantVaultController::class,'start'])
             ->middleware('throttle:10,1')->name('vault.start');
