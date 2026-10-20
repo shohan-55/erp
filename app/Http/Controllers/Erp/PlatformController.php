@@ -121,6 +121,11 @@ class PlatformController extends Controller
         }
         OutboundMailGuard::ensureConfigured();
         $email = strtolower(trim($data['partner_email']));
+        if (User::where('email', $email)->where('is_platform_admin', true)->exists()) {
+            throw ValidationException::withMessages([
+                'partner_email' => 'Platform administrator accounts cannot be invited into private customer workspaces.',
+            ]);
+        }
 
         if (DB::table('companies')->where('slug', $data['company_slug'])->exists()) {
             throw ValidationException::withMessages(['company_slug' => 'Company slug already exists.']);
