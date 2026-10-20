@@ -55,12 +55,14 @@ final class AccountInvitationController extends Controller
         $companySlug = DB::transaction(function () use ($request, $token) {
             $invitation = $this->invitation($request, $token, true);
             abort_unless($invitation, 404);
-            DB::table('memberships')->where('id', $invitation->membership_id)
+            $updated = DB::table('memberships')->where('id', $invitation->membership_id)
                 ->where('company_id', $invitation->company_id)
                 ->where('workspace_id', $invitation->workspace_id)
                 ->where('user_id', $request->user()->id)
                 ->where('active', false)
+                ->whereNull('platform_suspended_at')
                 ->update(['active' => true, 'activated_at' => now(), 'updated_at' => now()]);
+            abort_unless($updated === 1, 409);
             DB::table('erp_identity_link_invitations')
                 ->where('id', $invitation->id)->update(['accepted_at' => now(), 'updated_at' => now()]);
             DB::table('tenant_audit_events')->insert([
