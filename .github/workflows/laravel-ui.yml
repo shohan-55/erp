@@ -129,8 +129,22 @@ jobs:
       - name: Browser test all practice design phases and capture screenshots
         run: node tests/browser/practice-phases.mjs
 
+      - name: Render and visually verify premium public landing on desktop/mobile
+        run: |
+          php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); echo view("erp.welcome")->render();' > /tmp/erp-public-landing-preview.html
+          node tests/browser/public-landing.mjs
+
       - name: Browser test actual authenticated ERP operations
         run: node tests/browser/erp-live-pilot.mjs
+
+      - name: Upload premium public landing screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-public-landing-desktop-mobile
+          path: screenshots/public-landing/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload authenticated ERP pilot screenshots
         if: always()
