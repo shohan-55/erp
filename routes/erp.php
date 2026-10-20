@@ -13,6 +13,7 @@ use App\Http\Controllers\Erp\AttendanceReviewController;
 use App\Http\Controllers\Erp\WorkspaceAccessController;
 use App\Http\Controllers\Erp\CustomRoleController;
 use App\Http\Controllers\Erp\FeatureStudioController;
+use App\Http\Controllers\Erp\CompanyFeatureGovernanceController;
 use App\Http\Controllers\Erp\OrganizationUnitController;
 use App\Http\Controllers\Erp\WorkflowController;
 use App\Http\Controllers\Erp\ExpenseManagementController;
@@ -130,6 +131,10 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         // Phase 07: module controls are never toggled by navigation alone.
         Route::get('/settings/features', [FeatureStudioController::class, 'index'])
             ->name('feature_studio.index');
+        Route::post('/settings/features/company/proposals', [CompanyFeatureGovernanceController::class, 'propose'])
+            ->middleware('throttle:6,1')->name('feature_policy.propose');
+        Route::post('/settings/features/company/proposals/{proposalId}/vote', [CompanyFeatureGovernanceController::class, 'vote'])
+            ->middleware('throttle:12,1')->name('feature_policy.vote');
         Route::post('/settings/features', [FeatureStudioController::class, 'update'])
             ->middleware('throttle:12,1')->name('feature_studio.update');
         Route::get('/settings/roles', [CustomRoleController::class, 'index'])->name('custom_roles.index');
