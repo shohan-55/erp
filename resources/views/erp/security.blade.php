@@ -45,4 +45,18 @@
     <p class="mt-5 border-t border-slate-100 pt-4 text-xs text-slate-500">Security settings apply to your user account across any companies where you are a member. Platform administrators are required to keep MFA enabled.</p>
   </div>
 </section>
+<section class="mt-5 max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+  <h3 class="text-lg font-extrabold">Recent Account Security Activity</h3>
+  <p class="mt-2 text-xs text-slate-600">Private, limited to your own account and this company (plus global sign-ins). No e-mail, passwords, tokens or raw network addresses are displayed.</p>
+  <div class="mt-4 divide-y divide-slate-100">
+    @forelse($recentEvents as $event)
+    <div class="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+      <span class="font-semibold">{{ str_replace('.',' · ',$event->kind) }}</span>
+      <span class="text-xs text-slate-500">{{ $event->created_at }} UTC · {{ ucfirst($event->severity) }}</span>
+    </div>
+    @empty
+    <p class="py-3 text-sm text-slate-500">No recent security events for this account.</p>
+    @endforelse
+  </div>
+</section>
 @endsection
