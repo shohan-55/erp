@@ -220,4 +220,31 @@ final class Phase20IntegrationsPwaLocalizationTest extends TestCase
         $this->withToken($token)->getJson($this->api($f,'notifications').'?limit=1000')
             ->assertUnprocessable();
     }
+    public function test_secret_is_exposed_only_once_and_five_active_tokens_is_maximum():void
+    {
+        $f=$this->firm();
+        $this->actingAs($f['people']['student']->user);
+        $url="/c/{$f['slug']}/app/settings/integrations";
+        for($i=0;$i<5;$i++) {
+            $r=$this->post("$url/tokens",[
+                'name'=>"My private sync token #$i",
+                'password'=>'StrongIntegrationPassword42!','days'=>7,
+                'scopes'=>['attendance:read'],
+            ]);
+            $r->assertRedirect()->assertSessionHasNoErrors();
+        }
+        $this->assertDatabaseCount('erp_integration_tokens',5);
+        $this->post("$url/tokens",[
+            'name'=>'Token beyond personal limit',
+            'password'=>'StrongIntegrationPassword42!','days'=>7,
+            'scopes'=>['attendance:read'],
+        ])->assertSessionHasErrors('name');
+        $this->post("$url/tokens",[
+            'name'=>'Invalid wildcard token',
+            'password'=>'StrongIntegrationPassword42!','days'=>7,
+            'scopes'=>['*'],
+        ])->assertSessionHasErrors('scopes.0');
+        $this->assertDatabaseCount('erp_integration_tokens',5);
+    }
+
 }
