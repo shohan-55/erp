@@ -44,7 +44,8 @@ class AttendanceReportController extends Controller
             ->selectRaw('COUNT(DISTINCT CASE WHEN s.holiday = 1 THEN s.work_date ELSE NULL END) as holiday_days')
             ->groupBy('m.id', 'u.name')
             ->orderBy('u.name')
-            ->get();
+            ->orderBy('m.id')
+            ->paginate(100)->withQueryString();
 
         return response()->view('erp.attendance-report', compact(
             'company', 'workspace', 'actor', 'firmSlug', 'month', 'rows'

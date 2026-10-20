@@ -33,6 +33,10 @@
             @endforelse
         </tbody>
     </table></div>
+    <div class="border-t border-slate-100 p-5">
+        <p class="mb-3 text-xs text-slate-500">Page {{ $rows->currentPage() }} of {{ $rows->lastPage() }} · {{ number_format($rows->total()) }} matching staff · 100 staff per page.</p>
+        {{ $rows->links() }}
+    </div>
     <p class="border-t border-slate-100 p-5 text-xs leading-relaxed text-slate-500">These are historical session counts, not an absence or payable-day determination. Approved leave, missing check-ins, and exceptional workdays require review. GPS coordinates and payroll amounts are excluded.</p>
 </section>
 @endsection

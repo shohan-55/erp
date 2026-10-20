@@ -30,12 +30,17 @@ final class PracticeReport
         $attendance=$scoped('attendance_sessions')->whereBetween('work_date',[$first,$last])
             ->selectRaw('membership_id, COUNT(*) as sessions, SUM(CASE WHEN late = 1 THEN 1 ELSE 0 END) as late_count, SUM(CASE WHEN ended_at IS NULL THEN 1 ELSE 0 END) as open_count')
             ->groupBy('membership_id')->get()->keyBy('membership_id');
+        // Phase 21: aggregate in SQL. Never load every historical claim or
+        // leave row into PHP just to count/sum a month's practice dashboard.
         $leave=$scoped('leave_requests')
             ->where('status','approved')->where('date_from','<=',$last)
-            ->where('date_to','>=',$first)->get()->groupBy('membership_id');
+            ->where('date_to','>=',$first)
+            ->selectRaw('membership_id, COUNT(*) as request_count')
+            ->groupBy('membership_id')->get()->keyBy('membership_id');
         $claims=$scoped('conveyance_claims')->whereBetween('journey_date',[$first,$last])
             ->whereIn('status',['approved','paid'])
-            ->get()->groupBy('membership_id');
+            ->selectRaw('membership_id, SUM(COALESCE(approved_amount, amount)) as approved_total')
+            ->groupBy('membership_id')->get()->keyBy('membership_id');
         $timesheets=$scoped('audit_timesheets')->whereBetween('work_date',[$first,$last])
             ->where('status','approved')
             ->selectRaw('membership_id, SUM(hours) as hours, SUM(CASE WHEN billable = 1 THEN hours ELSE 0 END) as billable_hours')
@@ -50,8 +55,8 @@ final class PracticeReport
         $rows=$members->map(function($member)use($first,$last,$attendance,$leave,$claims,$timesheets,$paylines){
             $a=$attendance->get($member->id);
             $t=$timesheets->get($member->id);
-            $l=$leave->get($member->id,collect());
-            $c=$claims->get($member->id,collect());
+            $l=$leave->get($member->id);
+            $c=$claims->get($member->id);
             // Leave is a count of approved requests overlapping this report
             // period; never infer absent days or salary deductions.
             return (object)[
@@ -59,8 +64,8 @@ final class PracticeReport
                 'sessions'=>(int)($a?->sessions??0),
                 'late'=>(int)($a?->late_count??0),
                 'open'=>(int)($a?->open_count??0),
-                'leave_requests'=>$l->count(),
-                'approved_claim_bdt'=>round((float)$c->sum(fn($r)=>(float)($r->approved_amount??$r->amount)),2),
+                'leave_requests'=>(int)($l?->request_count??0),
+                'approved_claim_bdt'=>round((float)($c?->approved_total??0),2),
                 'approved_hours'=>round((float)($t?->hours??0),2),
                 'billable_hours'=>round((float)($t?->billable_hours??0),2),
                 'locked_payroll_bdt'=>$paylines->has($member->id)
