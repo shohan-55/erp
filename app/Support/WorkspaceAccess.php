@@ -24,6 +24,8 @@ final class WorkspaceAccess
         'attendance.proxy' => 'Proxy attendance: manager may punch for assigned students, pending Partner verification',
         'leave.submit_for' => 'Leave: submit reasoned requests on behalf of assigned students (Partner final approval)',
         'leave.withdraw_for' => 'Leave: withdraw own pending delegated student requests with a reason',
+        'claim.submit_for' => 'Expense: submit evidence-backed claims for assigned students (Partner final approval)',
+        'claim.withdraw_for' => 'Expense: withdraw own pending delegated claims with a reason',
     ];
 
     private static function live(object $grant): bool

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\ExpenseRules;
 use App\Support\TenantOps;
+use App\Support\WorkspaceAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -97,6 +98,61 @@ class ExpenseManagementController extends Controller
             }
         },3);
         return back()->with('success','Unapproved expense request withdrawn.');
+    }
+
+    /**
+     * A delegated submitter can withdraw only their own unreviewed, unreserved
+     * claim. The student's direct withdrawal route remains independent.
+     */
+    public function withdrawDelegated(Request $request,string $firmSlug,int $id)
+    {
+        [$company,$workspace,$actor]=TenantOps::context($request);
+        abort_unless($actor->role==='manager'
+            && WorkspaceAccess::allows($actor,'claim.withdraw_for'),403);
+        $input=$request->validate([
+            'reason'=>['required','string','min:15','max:1000'],
+        ]);
+        DB::transaction(function()use($company,$workspace,$actor,$id,$input){
+            DB::table('workspaces')->where('company_id',$company->id)
+                ->where('id',$workspace->id)->lockForUpdate()->first();
+            $fresh=DB::table('memberships')->where('id',$actor->id)
+                ->where('company_id',$company->id)
+                ->where('workspace_id',$workspace->id)
+                ->where('role','manager')->where('active',true)
+                ->whereNull('platform_suspended_at')->first();
+            abort_unless($fresh && WorkspaceAccess::allows($fresh,'claim.withdraw_for'),403);
+            $row=DB::table('conveyance_claims')
+                ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+                ->where('id',$id)->lockForUpdate()->first();
+            abort_unless($row && (int)$row->initiated_by===(int)$fresh->id
+                && $row->delegation_reason!==null,404);
+            $student=TenantOps::subject($fresh,(int)$row->membership_id);
+            abort_unless($student->role==='student',404);
+            if($row->status!=='pending'
+                || $row->reserved_payroll_run_id || $row->paid_payroll_run_id) {
+                throw ValidationException::withMessages([
+                    'reason'=>'Only your own pending, unreserved delegated claim can be withdrawn.',
+                ]);
+            }
+            DB::table('conveyance_claims')->where('id',$id)->where('status','pending')->update([
+                'status'=>'withdrawn','withdrawn_by'=>$fresh->id,
+                'withdrawal_reason'=>trim($input['reason']),
+                'withdrawn_at'=>now(),'updated_at'=>now(),
+            ]);
+            TenantOps::audit($fresh,'claim.withdrawn_for','conveyance_claim',$id,[
+                'student_membership_id'=>$student->id,
+                'initiator_membership_id'=>$fresh->id,
+                'prior_status'=>'pending','reason'=>trim($input['reason']),
+                'claimed_amount'=>$row->amount,
+            ]);
+            TenantOps::notify($fresh,$student->id,'Delegated expense claim withdrawn',
+                'Your Manager withdrew a pending claim. The original receipt remains in the private audit trail.');
+            foreach(TenantOps::teamRecipients($fresh,$student) as $recipient) {
+                TenantOps::notify($fresh,(int)$recipient,'Delegated expense claim withdrawn',
+                    'A pending student expense claim was withdrawn by its original Manager.');
+            }
+        },3);
+        return back()->with('success','Pending delegated expense withdrawn with audit evidence.');
     }
 
     public function export(Request $request,string $firmSlug)
