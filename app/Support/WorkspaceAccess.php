@@ -20,6 +20,8 @@ final class WorkspaceAccess
     public const PERMISSIONS = [
         ...self::OPERATIONS,
         'access.delegate' => 'Delegation: limited Moderator grants within own authorized scope',
+        // Requires explicit checkbox: legacy full grants do not silently gain proxy rights.
+        'attendance.proxy' => 'Proxy attendance: manager may punch for assigned students, pending Partner verification',
     ];
 
     private static function live(object $grant): bool
