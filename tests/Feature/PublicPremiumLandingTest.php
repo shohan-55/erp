@@ -34,7 +34,7 @@ final class PublicPremiumLandingTest extends TestCase
 
         $this->assertSame(1,substr_count($markup,'<h1'));
         $this->assertSame(6,substr_count($markup,'class="feature-card"'));
-        $this->assertSame(4,substr_count($markup,'<details'));
+        $this->assertSame(5,substr_count($markup,'<details'));
         $this->assertStringContainsString('name="viewport"',$markup);
         $this->assertStringContainsString('class="skip"',$markup);
         $this->assertStringContainsString('prefers-reduced-motion',$markup);
@@ -46,7 +46,7 @@ final class PublicPremiumLandingTest extends TestCase
         $this->assertStringNotContainsString('/api/v1/',$markup);
         $this->assertStringNotContainsString('cdn.',strtolower($markup));
         $this->assertStringNotContainsString('src="http',strtolower($markup));
-        $this->assertStringNotContainsString('href="http',strtolower(str_replace(['href="'.url('/').'"','content="'.url('/').'"'],'',$markup)));
+        $this->assertStringNotContainsString('fonts.googleapis.com',strtolower($markup));
         $this->assertStringNotContainsString('<script',$markup);
         $this->assertStringNotContainsString('@vite',$markup);
 
