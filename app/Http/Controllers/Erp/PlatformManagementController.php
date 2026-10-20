@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
+use App\Support\IdentityLink;
 use App\Support\OrganizationTemplate;
 use App\Models\User;
 use App\Mail\PlatformStaffInvitation;
@@ -236,16 +237,7 @@ class PlatformManagementController extends Controller
         OutboundMailGuard::ensureConfigured();
         $email = strtolower(trim($data['email']));
 
-        // An existing account may belong to other companies and have MFA.
-        // Reusing it through a new-password invitation would reset its shared
-        // credentials; refuse and require a separately reviewed linking flow.
-        if (User::where('email', $email)->exists()) {
-            throw ValidationException::withMessages([
-                'email' => 'This email already has an ERP account. Its shared credentials cannot be reset by invitation.',
-            ]);
-        }
-
-        [$company, $user] = DB::transaction(function () use ($companyId, $data, $email) {
+        [$company, $user, $memberId, $existing] = DB::transaction(function () use ($companyId, $data, $email) {
             $company = DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
             abort_unless($company && $company->active && $company->archived_at === null, 404);
 
@@ -257,15 +249,19 @@ class PlatformManagementController extends Controller
                 $companyId, (int) $workspace->id, $data['manager_membership_id'] ?? null
             );
 
-            if (User::where('email', $email)->exists()) {
-                throw ValidationException::withMessages(['email' => 'Account already exists.']);
-            }
-
             \App\Support\SaasBilling::assertCapacity($companyId,0,1);
-            $user = User::create([
+            $user = User::where('email', $email)->first();
+            $existing = (bool) $user;
+            $user ??= User::create([
                 'name' => trim($data['name']), 'email' => $email,
                 'password' => Hash::make(Str::random(64)),
             ]);
+            if (DB::table('memberships')->where('company_id', $companyId)
+                ->where('workspace_id', $workspace->id)->where('user_id', $user->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'email' => 'This person has already been invited to the selected workspace.',
+                ]);
+            }
 
             $id = DB::table('memberships')->insertGetId([
                 'company_id' => $companyId, 'workspace_id' => $workspace->id,
@@ -278,14 +274,18 @@ class PlatformManagementController extends Controller
                 'role' => $data['role'], 'workspace_id' => (int) $workspace->id,
             ]);
 
-            return [$company, $user];
+            return [$company, $user, $id, $existing];
         }, 3);
 
-        $token = Password::broker()->createToken($user);
-        $url = route('erp.activate.form', [
-            'firmSlug' => $company->slug, 'token' => $token, 'email' => $user->email,
-        ]);
-        Mail::to($user->email)->send(new PlatformStaffInvitation($company->name, $url));
+        if ($existing) {
+            IdentityLink::issue($user, $memberId, $company->name);
+        } else {
+            $token = Password::broker()->createToken($user);
+            $url = route('erp.activate.form', [
+                'firmSlug' => $company->slug, 'token' => $token, 'email' => $user->email,
+            ]);
+            Mail::to($user->email)->send(new PlatformStaffInvitation($company->name, $url));
+        }
 
         return back()->with('success', 'Account invitation saved; email delivery requested.');
     }
