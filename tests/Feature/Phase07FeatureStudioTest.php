@@ -69,7 +69,7 @@ final class Phase07FeatureStudioTest extends TestCase
         ]);
         $this->actingAs($student->user)->get("$base/attendance")->assertForbidden();
         $this->post("$base/attendance/check-in", [])->assertForbidden();
-        $this->get("$base/attendance/report")->assertForbidden();
+        $this->get("$base/attendance/report")->assertOk(); // Independent legacy report entitlement.
         $this->actingAs($partner->user)->get("$base/attendance")->assertForbidden();
         $this->get("$base/settings/features")->assertOk();
 
