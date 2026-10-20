@@ -51,8 +51,11 @@ final class AuthenticateWorkspaceApi
                 'm.id as membership_id','m.role','m.manager_membership_id','m.user_id')
             ->first();
         if(!$entry) return response()->json(['message'=>'Token expired, revoked, or access unavailable.'],401);
-        $scope=self::SCOPES[$request->route()?->getName()]??false;
-        if($scope===false)return response()->json(['message'=>'API endpoint unavailable.'],404);
+        $routeName=(string)$request->route()?->getName();
+        if(!array_key_exists($routeName,self::SCOPES)) {
+            return response()->json(['message'=>'API endpoint unavailable.'],404);
+        }
+        $scope=self::SCOPES[$routeName];
         $allowed=json_decode($entry->scopes,true);
         if(!is_array($allowed))return response()->json(['message'=>'Invalid token scopes.'],403);
         if($scope!==null) {
