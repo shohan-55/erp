@@ -286,6 +286,8 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
             ->middleware('throttle:10,1')->name('staff.profile');
         Route::post('/staff/{id}/compensation', [StaffController::class, 'compensation'])
             ->middleware('throttle:5,1')->name('staff.compensation');
+        Route::get('/staff/{id}/exit-clearance', [StaffController::class, 'exitClearance'])
+            ->middleware('throttle:20,1')->name('staff.exit_clearance');
         Route::post('/staff/{id}/lifecycle', [StaffController::class, 'lifecycle'])
             ->middleware('throttle:5,1')->name('staff.lifecycle');
         Route::post('/staff/{id}/documents', [StaffController::class, 'upload'])
