@@ -27,6 +27,10 @@ final class PrepareTenantExitPackages extends Command
         foreach($ids as $id) {
             try{
                 TenantExitPackage::prepare((int)$id);
+                $state=DB::table('tenant_exit_cases')->where('id',$id)->value('state');
+                if($state!=='prepared') {
+                    throw new \RuntimeException('Case was not prepared; current state: '.$state);
+                }
                 $this->info('Encrypted export staged for case #'.$id.'; manual integrity and independent restore still required.');
             }catch(Throwable $e){
                 $errors++;
