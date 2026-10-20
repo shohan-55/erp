@@ -59,6 +59,13 @@ Route::prefix('security/mfa')->middleware(['auth', 'mfa.host'])->name('erp.mfa.'
 
 // The global account selector is deliberately canonical-host-only, never a
 // customer-controlled domain. Credentials, MFA and tenant scopes are unchanged.
+Route::get('/account/login', [AccountCompanyController::class, 'login'])
+    ->middleware(['platform.host'])->name('login');
+Route::post('/account/login', [AccountCompanyController::class, 'signIn'])
+    ->middleware(['platform.host', 'throttle:5,1'])->name('erp.account.login.attempt');
+Route::post('/account/logout', [AccountCompanyController::class, 'logout'])
+    ->middleware(['platform.host', 'auth'])->name('erp.account.logout');
+
 Route::prefix('account')->middleware(['platform.host', 'auth', 'mfa.verified'])
     ->name('erp.account.')->group(function () {
         Route::get('/companies', [AccountCompanyController::class, 'index'])->name('companies');
