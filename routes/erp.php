@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Erp\AuthController;
 use App\Http\Controllers\Erp\WorkspaceSwitchController;
+use App\Http\Controllers\Erp\AccountCompanyController;
+use App\Http\Controllers\Erp\AccountInvitationController;
 use App\Http\Controllers\Erp\PortalController;
 use App\Http\Controllers\Erp\CorporateCalendarController;
 use App\Http\Controllers\Erp\AttendanceController;
@@ -54,6 +56,19 @@ Route::prefix('security/mfa')->middleware(['auth', 'mfa.host'])->name('erp.mfa.'
     Route::post('/challenge', [MfaController::class, 'verify'])->middleware('throttle:5,1')->name('verify');
     Route::get('/recovery', [MfaController::class, 'recovery'])->name('recovery');
 });
+
+// The global account selector is deliberately canonical-host-only, never a
+// customer-controlled domain. Credentials, MFA and tenant scopes are unchanged.
+Route::prefix('account')->middleware(['platform.host', 'auth', 'mfa.verified'])
+    ->name('erp.account.')->group(function () {
+        Route::get('/companies', [AccountCompanyController::class, 'index'])->name('companies');
+        Route::post('/companies/select', [AccountCompanyController::class, 'select'])
+            ->middleware('throttle:10,1')->name('companies.select');
+        Route::get('/invitations/{token}', [AccountInvitationController::class, 'show'])
+            ->middleware('throttle:20,1')->name('invitations.show');
+        Route::post('/invitations/{token}', [AccountInvitationController::class, 'accept'])
+            ->middleware('throttle:5,1')->name('invitations.accept');
+    });
 
 // Client-owned hostnames are allowed only after DNS + HTTPS approval and tenant matching.
 Route::get('/login', [CustomDomainEntryController::class, 'login'])->name('erp.custom-domain.login');
