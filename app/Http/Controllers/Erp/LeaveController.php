@@ -35,10 +35,17 @@ class LeaveController extends Controller
                 $balances[$type]=LeaveBalance::allowance($actor,$year,$type,$today);
             }
         }
-        $members=$actor->role==='partner'
+        $canSubmitFor=$actor->role==='manager'
+            && WorkspaceAccess::allows($actor,'leave.submit_for');
+        $canWithdrawFor=$actor->role==='manager'
+            && WorkspaceAccess::allows($actor,'leave.withdraw_for');
+        $members=($actor->role==='partner' || $canSubmitFor)
             ? DB::table('memberships as m')->join('users as u','u.id','=','m.user_id')
                 ->where('m.company_id',$company->id)->where('m.workspace_id',$workspace->id)
                 ->where('m.role','student')->where('m.active',true)
+                ->whereNull('m.platform_suspended_at')
+                ->when($actor->role==='manager',
+                    fn($q)=>$q->where('m.manager_membership_id',$actor->id))
                 ->select('m.id','u.name')->orderBy('u.name')->get()
             : collect();
 
@@ -48,7 +55,7 @@ class LeaveController extends Controller
 
         return response()->view('erp.leaves',compact(
             'company','workspace','actor','firmSlug','rows','year',
-            'policy','balances','members','calendar'
+            'policy','balances','members','calendar','canSubmitFor','canWithdrawFor'
         ))->header('Cache-Control','private, no-store, max-age=0');
     }
 
@@ -227,6 +234,56 @@ class LeaveController extends Controller
             }
         },3);
         return back()->with('success','Pending leave withdrawn; its reserved days were released.');
+    }
+
+    /** Optional delegated withdrawal; never an employee-impersonation operation. */
+    public function withdrawForStudent(Request $request,string $firmSlug,int $id)
+    {
+        [$company,$workspace,$actor]=TenantOps::context($request);
+        abort_unless($actor->role==='manager'
+            && WorkspaceAccess::allows($actor,'leave.withdraw_for'),403);
+        $input=$request->validate([
+            'reason'=>['required','string','min:15','max:1000'],
+        ]);
+        DB::transaction(function () use ($company,$workspace,$actor,$id,$input) {
+            DB::table('workspaces')->where('company_id',$company->id)
+                ->where('id',$workspace->id)->lockForUpdate()->first();
+            $fresh=DB::table('memberships')->where('id',$actor->id)
+                ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+                ->where('role','manager')->where('active',true)
+                ->whereNull('platform_suspended_at')->first();
+            abort_unless($fresh && WorkspaceAccess::allows($fresh,'leave.withdraw_for'),403);
+            $row=DB::table('leave_requests')->where('company_id',$company->id)
+                ->where('workspace_id',$workspace->id)->where('id',$id)
+                ->lockForUpdate()->first();
+            abort_unless($row && (int)$row->initiated_by===(int)$fresh->id
+                && $row->delegation_reason!==null,404);
+            $student=TenantOps::subject($fresh,(int)$row->membership_id);
+            abort_unless($student->role==='student',404);
+            if ($row->status!=='pending') {
+                throw ValidationException::withMessages([
+                    'reason'=>'Only pending leave submitted by you may be withdrawn.',
+                ]);
+            }
+            DB::table('leave_requests')->where('id',$row->id)
+                ->where('status','pending')->update([
+                    'status'=>'withdrawn','withdrawn_by'=>$fresh->id,
+                    'withdrawn_at'=>now(),'withdrawal_reason'=>trim($input['reason']),
+                    'updated_at'=>now(),
+                ]);
+            TenantOps::audit($fresh,'leave.withdrawn_for','leave_request',$id,[
+                'student_membership_id'=>$student->id,
+                'initiator_membership_id'=>$fresh->id,'prior_status'=>'pending',
+                'reason'=>trim($input['reason']),
+            ]);
+            TenantOps::notify($fresh,$student->id,'Delegated leave withdrawn',
+                'Your Manager withdrew a pending delegated leave request.');
+            foreach (TenantOps::teamRecipients($fresh,$student) as $recipient) {
+                TenantOps::notify($fresh,(int)$recipient,'Delegated leave withdrawn',
+                    'A Manager withdrew a pending delegated leave application.');
+            }
+        },3);
+        return back()->with('success','Delegated pending leave withdrawn with a recorded reason.');
     }
 
     /** The owning Partner may void a future approved leave, never erase it. */
