@@ -37,6 +37,7 @@ use App\Http\Controllers\Erp\WorkspaceFormController;
 use App\Http\Controllers\Erp\WorkspaceReminderRuleController;
 use App\Http\Controllers\Erp\PracticeNoticeController;
 use App\Http\Controllers\Erp\PracticeDocumentController;
+use App\Http\Controllers\Erp\TenantVaultController;
 use App\Http\Controllers\Erp\BrandStudioController;
 use App\Http\Controllers\Erp\OfficialDocumentController;
 use App\Http\Controllers\Erp\OfficialTemplateController;
@@ -272,6 +273,22 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::get('/documents/approved-leave/{id}/word', [OfficialDocumentController::class,'word'])->middleware('throttle:30,1')->name('official.leave.word');
         Route::get('/documents/official-register/export', [OfficialDocumentController::class,'register'])->middleware('throttle:10,1')->name('official.register.export');
         Route::get('/documents/official-register/excel', [OfficialDocumentController::class,'registerExcel'])->middleware('throttle:10,1')->name('official.register.excel');
+        // Phase 17: private, quota-reserved, chunked document vault. Never public.
+        Route::get('/vault', [TenantVaultController::class,'index'])->name('vault.index');
+        Route::post('/vault/uploads', [TenantVaultController::class,'start'])
+            ->middleware('throttle:10,1')->name('vault.start');
+        Route::post('/vault/uploads/{uploadId}/parts/{partNumber}', [TenantVaultController::class,'part'])
+            ->middleware('throttle:60,1')->name('vault.part');
+        Route::post('/vault/uploads/{uploadId}/complete', [TenantVaultController::class,'complete'])
+            ->middleware('throttle:6,1')->name('vault.complete');
+        Route::post('/vault/uploads/{uploadId}/cancel', [TenantVaultController::class,'abortUpload'])
+            ->middleware('throttle:10,1')->name('vault.cancel');
+        Route::get('/vault/objects/{id}/download', [TenantVaultController::class,'download'])
+            ->middleware('throttle:30,1')->name('vault.download');
+        Route::post('/vault/objects/{id}/archive', [TenantVaultController::class,'archive'])
+            ->middleware('throttle:10,1')->name('vault.archive');
+        Route::post('/vault/objects/{id}/hold', [TenantVaultController::class,'hold'])
+            ->middleware('throttle:10,1')->name('vault.hold');
         Route::get('/documents', [PracticeDocumentController::class, 'index'])->name('documents');
         Route::post('/documents', [PracticeDocumentController::class, 'upload'])
             ->middleware('throttle:10,1')->name('documents.upload');
