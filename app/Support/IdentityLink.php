@@ -13,6 +13,9 @@ final class IdentityLink
     public static function issue(User $user, int $membershipId, string $companyName): void
     {
         OutboundMailGuard::ensureConfigured();
+        // Platform-owner identity must never be self-enrolled into private
+        // customer data by a platform invitation.
+        abort_if($user->is_platform_admin, 403, 'Platform owner accounts cannot receive tenant links.');
         $member = DB::table('memberships')->where('id', $membershipId)->first();
         abort_unless($member && (int) $member->user_id === (int) $user->id
             && !$member->active && $member->platform_suspended_at === null, 422);
