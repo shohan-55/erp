@@ -54,6 +54,40 @@
 </section>
 @endif
 
+@if($canSubmitFor && $members->isNotEmpty())
+<section class="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm sm:p-7">
+<h3 class="text-base font-extrabold">Submit Leave for an Assigned Student</h3>
+<p class="mt-2 text-xs text-slate-600">This does not impersonate the Student. The original request, your identity and a separate delegation reason are audited. A different Partner must approve; Managers cannot approve their own delegated applications.</p>
+<form action="{{ route('erp.leaves.delegated.submit',['firmSlug'=>$firmSlug]) }}" method="POST" class="mt-5 grid gap-4 md:grid-cols-2">@csrf
+<label class="text-xs font-bold">Assigned Student
+<select name="membership_id" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm">
+<option value="">Select assigned student</option>
+@foreach($members as $member)
+<option value="{{ $member->id }}">{{ $member->name }}</option>
+@endforeach
+</select></label>
+<label class="text-xs font-bold">Leave Type
+<select name="leave_type" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm">
+@foreach(['annual'=>'Annual','sick'=>'Sick','casual'=>'Casual','emergency'=>'Emergency','compensatory'=>'Compensatory','unpaid'=>'Unpaid'] as $key=>$label)
+<option value="{{ $key }}">{{ $label }}</option>
+@endforeach</select></label>
+<label class="text-xs font-bold">Day Portion
+<select name="day_portion" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm">
+<option value="full">Full day</option><option value="morning">Morning half-day</option><option value="afternoon">Afternoon half-day</option></select></label>
+<div class="hidden md:block"></div>
+<label class="text-xs font-bold">From
+<input type="date" name="date_from" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
+<label class="text-xs font-bold">To
+<input type="date" name="date_to" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
+<label class="text-xs font-bold md:col-span-2">Student's Leave Reason
+<textarea name="reason" rows="2" required minlength="10" maxlength="2000" class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></textarea></label>
+<label class="text-xs font-bold md:col-span-2">Why are you submitting for the Student?
+<textarea name="delegation_reason" rows="2" required minlength="15" maxlength="1000" class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm" placeholder="Provide your justification and any supporting confirmation"></textarea></label>
+<button class="rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-extrabold md:col-span-2">Submit for Independent Partner Review</button>
+</form>
+</section>
+@endif
+
 @if($actor->role==='partner')
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
 <h3 class="text-base font-extrabold">Configure Partner Leave Policy — {{ $year }}</h3>
@@ -116,7 +150,14 @@
 <article data-corporate-history-item data-history-status="{{ $row->status }}" class="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between">
 <div><p class="text-sm font-bold">{{ $row->member_name }} <span class="text-xs font-normal text-slate-400">#{{ $row->id }}</span></p>
 <p class="mt-1 text-xs text-slate-600">{{ ucfirst($row->leave_type) }} · {{ $row->date_from }} → {{ $row->date_to }} · {{ ucfirst($row->day_portion) }} @if($row->charge_days !== null)· {{ number_format($row->charge_days,1) }} days @endif</p>
-<p class="mt-2 max-w-xl text-xs text-slate-500">{{ $row->reason }}</p></div>
+<p class="mt-2 max-w-xl text-xs text-slate-500">{{ $row->reason }}</p>
+@if($row->delegation_reason)
+<p class="mt-2 text-xs font-semibold text-amber-800">Delegated by Manager Membership #{{ $row->initiated_by }} · {{ $row->delegation_reason }}</p>
+@endif
+@if($row->withdrawal_reason)
+<p class="mt-2 text-xs text-rose-700">Withdrawal by #{{ $row->withdrawn_by }}: {{ $row->withdrawal_reason }}</p>
+@endif
+</div>
 <div class="space-y-2">
 <span class="inline-flex rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{{ str_replace('_',' ',ucfirst($row->status)) }}</span>
 @php($approvalMode=\App\Support\ApprovalFlow::mode($row))
@@ -125,6 +166,16 @@
 <input type="text" name="decision_note" maxlength="1000" placeholder="Decision note (optional)" class="min-w-44 flex-1 rounded-lg border border-slate-300 p-2 text-xs">
 <button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">{{ $actor->role==='manager' && $approvalMode==='manager_partner' ? 'Review' : 'Approve' }}</button>
 <button name="decision" value="reject" class="rounded-lg bg-rose-700 px-3 py-2 text-xs font-bold text-white">Reject</button></form>
+@endif
+@if($canWithdrawFor && $row->status==='pending'
+    && (int)$row->initiated_by===(int)$actor->id && $row->delegation_reason)
+<form action="{{ route('erp.leaves.delegated.withdraw',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}"
+method="POST" data-corporate-confirm="Withdraw this pending delegated request? The Student and Partner will be notified."
+class="mt-2 flex flex-wrap gap-2">@csrf
+<input name="reason" required minlength="15" maxlength="1000" placeholder="Reason for withdrawal"
+class="min-w-40 flex-1 rounded-lg border border-slate-300 p-2 text-xs">
+<button class="rounded-lg bg-rose-100 px-3 py-2 text-xs font-bold text-rose-900">Withdraw My Delegated Request</button>
+</form>
 @endif
 @if($row->status==='approved')
 <div class="flex flex-wrap gap-2" aria-label="Approved leave letter downloads">

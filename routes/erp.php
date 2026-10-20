@@ -167,6 +167,10 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/attendance/{sessionId}/correct', [AttendanceController::class, 'correction'])->name('attendance.correct');
         Route::get('/leave', [LeaveController::class, 'index'])->name('leaves');
         Route::post('/leave', [LeaveController::class, 'submit'])->middleware('throttle:10,1')->name('leaves.submit');
+        Route::post('/leave/delegated', [LeaveController::class, 'submitForStudent'])
+            ->middleware('throttle:10,1')->name('leaves.delegated.submit');
+        Route::post('/leave/{id}/delegated-withdraw', [LeaveController::class, 'withdrawForStudent'])
+            ->middleware('throttle:10,1')->name('leaves.delegated.withdraw');
         Route::post('/leave/{id}/decision', [LeaveController::class, 'decide'])->middleware('throttle:20,1')->name('leaves.decide');
         Route::post('/leave/{id}/withdraw', [LeaveController::class, 'withdraw'])->middleware('throttle:10,1')->name('leaves.withdraw');
         Route::post('/leave/{id}/cancel', [LeaveController::class, 'cancel'])->middleware('throttle:10,1')->name('leaves.cancel');
