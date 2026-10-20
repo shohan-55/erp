@@ -269,4 +269,49 @@ final class Phase18CompanyExitSafeguardsTest extends TestCase
         ])->assertNotFound();
         $this->assertDatabaseHas('tenant_exit_cases',['id'=>$id,'state'=>'awaiting_consent']);
     }
+    public function test_new_partner_invalidates_prior_approvals_and_blocks_export():void
+    {
+        $f=$this->firm();
+        $id=$this->requestCase($f);
+        $this->consent($f,$id);
+        $newWorkspace=DB::table('workspaces')->insertGetId([
+            'company_id'=>$f['company'],'slug'=>'new-partner','name'=>'New Partner',
+            'active'=>true,'created_at'=>now(),'updated_at'=>now(),
+        ]);
+        $newUser=User::factory()->create();
+        DB::table('memberships')->insert([
+            'company_id'=>$f['company'],'workspace_id'=>$newWorkspace,
+            'user_id'=>$newUser->id,'role'=>'partner','active'=>true,
+            'monthly_allowance'=>'0.00','created_at'=>now(),'updated_at'=>now(),
+        ]);
+        $this->assertSame(1,Artisan::call('erp:exit:prepare',['--case'=>$id]));
+        $this->assertDatabaseHas('tenant_exit_cases',['id'=>$id,'state'=>'blocked']);
+        $this->assertDatabaseCount('tenant_exit_artifacts',0);
+        $this->actingAs($f['people'][0]->user)->get($this->base($f))->assertOk()
+            ->assertDontSeeText('Private Download');
+    }
+
+    public function test_foreign_company_storage_reference_cannot_be_exported_from_owned_metadata():void
+    {
+        $a=$this->firm();
+        $b=$this->firm('other-file-tenant');
+        $path='practice-documents/'.$b['company'].'/'.$b['people'][0]->workspace.'/private.pdf';
+        $bytes="%PDF-1.4\nForeign accounting evidence.\n%%EOF\n";
+        Storage::disk('local')->put($path,$bytes);
+        DB::table('practice_documents')->insert([
+            'company_id'=>$a['company'],'workspace_id'=>$a['people'][0]->workspace,
+            'uploaded_by'=>$a['people'][0]->id,'title'=>'Corrupted Reference',
+            'category'=>'audit','visibility'=>'partner','storage_path'=>$path,
+            'original_filename'=>'private.pdf','sha256'=>hash('sha256',$bytes),
+            'byte_size'=>strlen($bytes),'created_at'=>now(),'updated_at'=>now(),
+        ]);
+        $id=$this->requestCase($a);
+        $this->consent($a,$id);
+        $this->assertSame(1,Artisan::call('erp:exit:prepare',['--case'=>$id]));
+        $this->assertDatabaseHas('tenant_exit_cases',['id'=>$id,'state'=>'blocked']);
+        $this->assertDatabaseCount('tenant_exit_artifacts',0);
+        Storage::disk('local')->assertExists($path);
+        $this->assertDatabaseHas('leave_requests',['company_id'=>$a['company']]);
+    }
+
 }
