@@ -144,11 +144,11 @@ final class TenantVaultController extends Controller
         [,,$actor]=TenantOps::context($request);
         TenantOps::requireRole($actor,['partner']);
         $data=$request->validate([
-            'chunk'=>['required','file','min:1',
+            'chunk'=>['required','file',
                 'max:'.(int)(config('erp_vault.chunk_bytes')/1024)],
         ]);
         $upload=$this->upload($actor,$uploadId);
-        abort_unless($upload->status==='pending' && $upload->expires_at>now(),409);
+        abort_unless($upload->status==='pending' && \Carbon\Carbon::parse($upload->expires_at)->isFuture(),409);
         abort_unless($partNumber>=1 && $partNumber<=(int)$upload->expected_parts,404);
         $size=$data['chunk']->getSize();
         $chunkSize=(int)config('erp_vault.chunk_bytes');
