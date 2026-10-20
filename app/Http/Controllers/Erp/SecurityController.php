@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\ErpSecurityEvents;
 use App\Support\Totp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -17,12 +18,20 @@ class SecurityController extends Controller
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
 
+        $recentEvents = DB::table('erp_security_events')
+            ->where('user_id',$request->user()->id)
+            ->where(function($q)use($company){
+                $q->where('company_id',$company->id)->orWhereNull('company_id');
+            })->orderByDesc('id')->limit(20)
+            ->get(['kind','severity','created_at']);
+
         return response()->view('erp.security', [
             'company' => $company,
             'workspace' => $workspace,
             'actor' => $actor,
             'firmSlug' => $firmSlug,
             'mfaEnabled' => (bool) $request->user()->refresh()->mfa_confirmed_at,
+            'recentEvents' => $recentEvents,
         ])->header('Cache-Control', 'private, no-store, max-age=0');
     }
 
@@ -45,7 +54,7 @@ class SecurityController extends Controller
             throw ValidationException::withMessages(['code' => 'Invalid account password or verification code.']);
         }
 
-        DB::transaction(function () use ($user, $code, $actor): void {
+        DB::transaction(function () use ($user, $code, $actor, $request): void {
             $record = DB::table('users')->where('id', $user->id)->lockForUpdate()->first();
             abort_unless($record && $record->mfa_confirmed_at && $record->mfa_secret, 409);
 
@@ -82,6 +91,8 @@ class SecurityController extends Controller
                 'updated_at' => now(),
             ]);
 
+            ErpSecurityEvents::revokeUserTokens($user->id,$request,$actor->company_id);
+            ErpSecurityEvents::record('account.mfa.disabled',$request,$actor->company_id,$user->id);
             TenantOps::audit($actor, 'account.mfa.disabled', 'user', $user->id);
         }, 3);
 
