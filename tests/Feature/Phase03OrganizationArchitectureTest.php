@@ -195,6 +195,79 @@ class Phase03OrganizationArchitectureTest extends TestCase
         $this->get($base)->assertOk()->assertDontSee('Private Division');
     }
 
+    public function test_two_partner_workspaces_in_one_company_remain_private(): void
+    {
+        $t = $this->tenant('one-firm');
+        $otherWorkspace = DB::table('workspaces')->insertGetId([
+            'company_id' => $t['company'], 'slug' => 'partner-b',
+            'name' => 'Private Partner B', 'active' => true,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $otherPartner = User::factory()->create();
+        DB::table('memberships')->insert([
+            'company_id' => $t['company'], 'workspace_id' => $otherWorkspace,
+            'user_id' => $otherPartner->id, 'role' => 'partner',
+            'active' => true, 'monthly_allowance' => '0.00',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $otherStudent = User::factory()->create();
+        $otherStudentId = DB::table('memberships')->insertGetId([
+            'company_id' => $t['company'], 'workspace_id' => $otherWorkspace,
+            'user_id' => $otherStudent->id, 'role' => 'student',
+            'active' => true, 'monthly_allowance' => '0.00',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $base = '/c/one-firm/app/organization/units';
+        $this->actingAs($t['partner'])->post($base, [
+            'name' => 'Partner A Private Office', 'slug' => 'partner-a-private',
+            'kind' => 'office',
+        ])->assertRedirect();
+        $unit = DB::table('organization_units')->where('slug', 'partner-a-private')->firstOrFail();
+        $this->post("$base/{$unit->id}/members", [
+            'membership_id' => $otherStudentId,
+        ])->assertNotFound();
+
+        $this->actingAs($otherPartner)->get($base)->assertOk()
+            ->assertDontSee('Partner A Private Office');
+        $this->post("$base/{$unit->id}/members", [
+            'membership_id' => $otherStudentId,
+        ])->assertNotFound();
+        $this->post($base, [
+            'name' => 'Partner B Office', 'slug' => 'partner-b-office',
+            'kind' => 'office', 'parent_id' => $unit->id,
+        ])->assertNotFound();
+        $this->assertDatabaseMissing('organization_units', [
+            'company_id' => $t['company'], 'workspace_id' => $otherWorkspace,
+            'slug' => 'partner-b-office',
+        ]);
+    }
+
+    public function test_hierarchy_max_depth_and_duplicate_slug_are_enforced(): void
+    {
+        $t = $this->tenant('depth-firm');
+        $this->actingAs($t['partner']);
+        $base = '/c/depth-firm/app/organization/units';
+        $parent = null;
+        for ($i = 1; $i <= 5; $i++) {
+            $this->post($base, [
+                'name' => 'Department '.$i, 'slug' => 'department-'.$i,
+                'kind' => 'department', 'parent_id' => $parent,
+            ])->assertRedirect();
+            $parent = DB::table('organization_units')->where('company_id', $t['company'])
+                ->where('slug', 'department-'.$i)->value('id');
+        }
+        $this->post($base, [
+            'name' => 'One Too Deep', 'slug' => 'department-six',
+            'kind' => 'department', 'parent_id' => $parent,
+        ])->assertSessionHasErrors('parent_id');
+        $this->post($base, [
+            'name' => 'Duplicate Unit', 'slug' => 'department-1',
+            'kind' => 'department',
+        ])->assertSessionHasErrors('slug');
+        $this->assertDatabaseCount('organization_units', 5);
+    }
+
     public function test_students_managers_and_unrelated_platform_owner_cannot_manage_units(): void
     {
         $t = $this->tenant('client-firm');
