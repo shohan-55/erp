@@ -271,6 +271,7 @@ Route::prefix('platform/app')->middleware('platform.host')->name('erp.platform.'
         Route::get('/companies/{companyId}', [PlatformManagementController::class, 'showCompany'])->name('companies.show');
         Route::patch('/companies/{companyId}', [PlatformManagementController::class, 'updateCompany'])->name('companies.update');
         Route::post('/companies/{companyId}/lifecycle', [PlatformManagementController::class, 'transitionCompany'])->name('companies.lifecycle');
+        Route::post('/companies/{companyId}/classification', [PlatformManagementController::class, 'classifyCompany'])->middleware('throttle:5,1')->name('companies.classify');
         Route::post('/companies/{companyId}/members', [PlatformManagementController::class, 'inviteMember'])->middleware('throttle:10,1')->name('members.invite');
         Route::patch('/companies/{companyId}/members/{memberId}', [PlatformManagementController::class, 'updateMember'])->name('members.update');
         Route::post('/companies/{companyId}/members/{memberId}/lifecycle', [PlatformManagementController::class, 'transitionMember'])->name('members.lifecycle');
