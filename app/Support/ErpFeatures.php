@@ -52,6 +52,7 @@ final class ErpFeatures
         if (str_starts_with($name, 'erp.timesheets')) return 'timesheets';
         if (str_starts_with($name, 'erp.notifications') || str_starts_with($name, 'erp.notices')) return 'notifications';
         if (str_starts_with($name, 'erp.documents')) return 'documents';
+        if (str_starts_with($name, 'erp.vault.')) return 'documents';
         // Phase 16 form builder and exports share the existing Document Center gate.
         if (str_starts_with($name, 'erp.forms.')) return 'documents';
         if (str_starts_with($name, 'erp.staff.') || $name === 'erp.staff') return 'staff';
