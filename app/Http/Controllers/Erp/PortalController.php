@@ -11,6 +11,7 @@ use App\Support\WorkCalendar;
 use App\Support\AttendanceClock;
 use App\Support\DashboardMonthCalendar;
 use App\Support\StudentFeatureAccess;
+use App\Support\ErpFeatures;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -58,8 +59,7 @@ class PortalController extends Controller
         $qualifyingLateDays = $attendanceClock
             ? AttendanceClock::qualifyingLateDays($company, $workspace, $actor, $today) : 0;
 
-        $showPersonalCalendar = $actor->role !== 'student'
-            || (StudentFeatureAccess::enabledMap($actor)['attendance'] ?? false);
+        $showPersonalCalendar = ErpFeatures::enabled($actor, 'attendance');
         $monthCalendar = DashboardMonthCalendar::forActor(
             $company,$workspace,$actor,$showPersonalCalendar
         );
@@ -92,6 +92,13 @@ class PortalController extends Controller
 
         $queues = DashboardOverview::queues($actor);
         $quickActions = DashboardOverview::actions($actor, $queues);
+        // Dashboard action links are filtered by the same backend gate that
+        // protects GET/POST/download routes, not by role label alone.
+        $featureMap = ErpFeatures::enabledMap($actor);
+        $quickActions = array_values(array_filter($quickActions, static function (array $item) use ($featureMap): bool {
+            $module = ErpFeatures::forRoute($item['route']);
+            return $module === null || ($featureMap[$module] ?? false);
+        }));
         $workPulse = WorkspacePulse::forActor($actor, $queues, $activeAttendance);
 
         return view('erp.dashboard', compact(

@@ -48,42 +48,13 @@ final class StudentFeatureAccess
 
     public static function enabled(object $actor, string $feature): bool
     {
-        if (! array_key_exists($feature, self::FEATURES)) {
-            return false;
-        }
-        if ($actor->role !== 'student') {
-            return true; // Role restrictions on manager/partner still apply.
-        }
-
-        $record = DB::table('student_feature_controls')
-            ->where('company_id', $actor->company_id)
-            ->where('workspace_id', $actor->workspace_id)
-            ->where('membership_id', $actor->id)
-            ->where('feature_key', $feature)
-            ->first();
-
-        // Backwards compatible: previous active students retain their existing
-        // default access until their Partner explicitly narrows it.
-        return ! $record || (bool) $record->partner_enabled && (bool) $record->manager_enabled;
+        return array_key_exists($feature, self::FEATURES)
+            && ErpFeatures::enabled($actor, $feature);
     }
 
     public static function enabledMap(object $actor): array
     {
-        if ($actor->role !== 'student') {
-            return array_fill_keys(array_keys(self::FEATURES), true);
-        }
-
-        $records = DB::table('student_feature_controls')
-            ->where('company_id', $actor->company_id)
-            ->where('workspace_id', $actor->workspace_id)
-            ->where('membership_id', $actor->id)
-            ->get()->keyBy('feature_key');
-
-        $map = [];
-        foreach (self::FEATURES as $key => $label) {
-            $row = $records->get($key);
-            $map[$key] = ! $row || ((bool) $row->partner_enabled && (bool) $row->manager_enabled);
-        }
-        return $map;
+        $resolved = ErpFeatures::enabledMap($actor);
+        return array_intersect_key($resolved, self::FEATURES);
     }
 }

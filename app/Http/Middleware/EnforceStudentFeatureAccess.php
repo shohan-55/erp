@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Support\StudentFeatureAccess;
+use App\Support\ErpFeatures;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,11 +14,9 @@ class EnforceStudentFeatureAccess
         $actor = $request->attributes->get('tenant.membership');
         abort_unless($actor, 403);
 
-        if ($actor->role === 'student') {
-            $feature = StudentFeatureAccess::featureForRoute($request->route()?->getName());
-            if ($feature !== null && ! StudentFeatureAccess::enabled($actor, $feature)) {
-                abort(403, 'Your Partner has disabled this feature for your account.');
-            }
+        $feature = ErpFeatures::forRoute($request->route()?->getName());
+        if ($feature !== null && ! ErpFeatures::enabled($actor, $feature)) {
+            abort(403, 'This module is disabled by your organization or workspace policy.');
         }
 
         return $next($request);
