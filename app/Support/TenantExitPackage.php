@@ -178,8 +178,11 @@ final class TenantExitPackage
                 $key=(string)$row->{$column};
                 if($key==='') continue;
                 $disk=$diskConfig==='disk'?(string)$row->disk:$diskConfig;
+                // Database metadata cannot grant a private path from another
+                // company. All recognized storage layouts start with company_id.
+                $ownedPrefix=$prefix.$case->company_id.'/';
                 if(!in_array($disk,['local','erp_vault'],true)
-                    || !str_starts_with($key,$prefix)
+                    || !str_starts_with($key,$ownedPrefix)
                     || str_contains($key,'..')
                     || str_starts_with($key,'/')) {
                     throw new RuntimeException('Unsafe or unsupported private file reference in '.$table.' #'.$row->id);
@@ -232,7 +235,12 @@ final class TenantExitPackage
                 ->whereNull('platform_suspended_at')->pluck('id')
                 ->map(fn($id)=>(int)$id)->sort()->values()->all();
             if($voters!==$currentPartners) {
-                throw new RuntimeException('Company Partner roster changed; re-authorization is required.');
+                DB::table('tenant_exit_cases')->where('id',$caseId)->update([
+                    'state'=>'blocked',
+                    'block_reason'=>'Partner roster changed; open a new case with fresh unanimous consent.',
+                    'updated_at'=>now(),
+                ]);
+                return null;
             }
             DB::table('tenant_exit_cases')->where('id',$caseId)->update([
                 'state'=>'preparing','updated_at'=>now(),
