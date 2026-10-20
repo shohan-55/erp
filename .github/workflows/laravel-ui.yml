@@ -63,6 +63,24 @@ jobs:
       - name: Run full Laravel feature and unit tests
         run: php artisan test
 
+      # Phase 23: test-only synthetic backup/restore with random ephemeral
+      # encryption key, mock DB and private file. It never reads ERP .env/DB.
+      - name: Rehearse isolated synthetic encrypted restore and tamper rejection
+        env:
+          APP_ENV: testing
+          PHASE23_SYNTHETIC_RESTORE: '1'
+        run: php scripts/phase23-synthetic-restore.php
+
+      # Fail closed until external restore/UAT/reviewer evidence is collected.
+      # CI must NEVER mint a 'production authorized' record.
+      - name: Verify production release gate refuses absent human evidence
+        run: |
+          if php artisan erp:release:evidence --sha="$GITHUB_SHA" --json > /tmp/phase23-review-result.json; then
+            echo "SECURITY FAILURE: release gate accepted absent restoration evidence"
+            exit 1
+          fi
+          php -r '$j=json_decode(file_get_contents("/tmp/phase23-review-result.json"),true,512,JSON_THROW_ON_ERROR); if (($j["decision"]??"")!=="NO_GO"||($j["deployment_authorized"]??true)!==false) exit(1); echo "PASS: release gate fail-closed, no production authorization\n";'
+
       - name: Check production routes expose no public UI prototypes
         run: |
           APP_ENV=production php artisan route:list --json > /tmp/erp-production-routes.json

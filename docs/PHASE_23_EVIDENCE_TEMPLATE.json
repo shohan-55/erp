@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "target_environment": "isolated-staging",
+  "reviewed_sha": "REPLACE_WITH_EXACT_REVIEWED_40_CHARACTER_COMMIT_SHA",
+  "operator_alias": "operator-example",
+  "independent_reviewer_alias": "reviewer-example",
+  "snapshot_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP",
+  "restored_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP",
+  "encrypted_backup_sha256": "REPLACE_WITH_SHA256_OF_REAL_ENCRYPTED_ARCHIVE",
+  "staging_received_sha256": "REPLACE_WITH_INDEPENDENT_RETRIEVAL_SHA256",
+  "witnesses": {
+    "encrypted_offsite_backup": {
+      "status": "pending",
+      "evidence_sha256": "REPLACE_WITH_REAL_EXTERNAL_EVIDENCE_SHA256",
+      "observed_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP"
+    },
+    "isolated_database_restore": {
+      "status": "pending",
+      "evidence_sha256": "REPLACE_WITH_REAL_EXTERNAL_EVIDENCE_SHA256",
+      "observed_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP"
+    },
+    "private_files_restore": {
+      "status": "pending",
+      "evidence_sha256": "REPLACE_WITH_REAL_EXTERNAL_EVIDENCE_SHA256",
+      "observed_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP"
+    },
+    "app_key_recovery": {
+      "status": "pending",
+      "evidence_sha256": "REPLACE_WITH_REAL_EXTERNAL_EVIDENCE_SHA256",
+      "observed_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP"
+    },
+    "tenant_isolation_negative_test": {
+      "status": "pending",
+      "evidence_sha256": "REPLACE_WITH_REAL_EXTERNAL_EVIDENCE_SHA256",
+      "observed_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP"
+    },
+    "smtp_delivery_test": {
+      "status": "pending",
+      "evidence_sha256": "REPLACE_WITH_REAL_EXTERNAL_EVIDENCE_SHA256",
+      "observed_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP"
+    },
+    "queue_scheduler_observation": {
+      "status": "pending",
+      "evidence_sha256": "REPLACE_WITH_REAL_EXTERNAL_EVIDENCE_SHA256",
+      "observed_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP"
+    },
+    "financial_policy_signoff": {
+      "status": "pending",
+      "evidence_sha256": "REPLACE_WITH_REAL_EXTERNAL_EVIDENCE_SHA256",
+      "observed_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP"
+    },
+    "partner_user_acceptance": {
+      "status": "pending",
+      "evidence_sha256": "REPLACE_WITH_REAL_EXTERNAL_EVIDENCE_SHA256",
+      "observed_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP"
+    },
+    "rollback_rehearsal": {
+      "status": "pending",
+      "evidence_sha256": "REPLACE_WITH_REAL_EXTERNAL_EVIDENCE_SHA256",
+      "observed_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP"
+    },
+    "independent_security_review": {
+      "status": "pending",
+      "evidence_sha256": "REPLACE_WITH_REAL_EXTERNAL_EVIDENCE_SHA256",
+      "observed_utc": "REPLACE_WITH_REAL_UTC_ISO_TIMESTAMP"
+    }
+  }
+}
