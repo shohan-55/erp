@@ -251,6 +251,21 @@ class PlatformBillingController extends Controller
             if($newPaid>$total){
                 throw ValidationException::withMessages(['decision'=>'Payment exceeds the remaining invoice balance.']);
             }
+            // A downgrade cannot strip entitlement from storage that is
+            // already allocated. Reject the settlement transaction intact
+            // until all workspaces are safely brought within the paid cap.
+            if($newPaid===$total) {
+                $plan=DB::table('saas_plans')->where('id',$invoice->plan_id)->firstOrFail();
+                $base=(int)config('erp_vault.workspace_limit_bytes',104857600);
+                $allocated=DB::table('erp_vault_quotas')->where('company_id',$companyId)
+                    ->get()->sum(fn($row)=>max(0,(int)$row->limit_bytes-$base));
+                $entitled=(int)$invoice->storage_addon_units_snapshot
+                    *(int)$plan->storage_addon_mib*1048576;
+                if($allocated>$entitled) {
+                    throw ValidationException::withMessages(['decision'=>
+                        'Cannot settle a reduced storage allowance while workspaces exceed that quota.']);
+                }
+            }
             DB::table('saas_payments')->where('id',$paymentId)->update([
                 'status'=>'approved','operator_note'=>$d['operator_note'],
                 'decided_by'=>auth()->id(),'decided_at'=>now(),'updated_at'=>now(),
