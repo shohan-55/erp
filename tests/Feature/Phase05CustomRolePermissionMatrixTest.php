@@ -72,7 +72,7 @@ final class Phase05CustomRolePermissionMatrixTest extends TestCase
         $manager = $t['members']['manager'];
 
         $this->actingAs($partner->user)->get("$prefix/settings/roles")->assertOk()
-            ->assertSee('Custom Role & Permission Studio');
+            ->assertSeeText('Custom Role & Permission Studio');
         $this->post("$prefix/settings/roles", $this->createRole('operations', [
             'organization.view', 'attendance.propose',
         ]))->assertRedirect()->assertSessionHasNoErrors();
