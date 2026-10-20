@@ -23,7 +23,8 @@ class TenantSubscriptionController extends Controller
         $status=$subscription?SaasBilling::effectiveStatus($subscription):'unbilled';
         $invoices=DB::table('saas_invoices')->where('company_id',$company->id)
             ->select('invoice_number','plan_name_snapshot','period_start','period_end',
-                'total_amount','paid_amount','currency','status','due_on')
+                'total_amount','paid_amount','currency','status','due_on',
+                'discount_total_bdt','storage_addon_units_snapshot','storage_addon_total_bdt')
             ->orderByDesc('id')->limit(30)->get();
         return response()->view('erp.subscription',compact(
             'company','workspace','actor','firmSlug','subscription','status','invoices'
