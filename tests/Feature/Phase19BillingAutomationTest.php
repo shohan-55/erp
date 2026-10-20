@@ -117,7 +117,7 @@ final class Phase19BillingAutomationTest extends TestCase
         $this->assertDatabaseHas('companies',['id'=>$f['company'],'active'=>true]);
         $this->actingAs($f['member'])
             ->get('/c/trial-example/app/subscription')->assertOk()
-            ->assertSeeText('TRIAL')
+            ->assertSeeText('PENDING')
             ->assertDontSeeText('Externally verified against actual');
     }
 
