@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="{{ csrf_token() }}">
 <meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="{{ route('erp.integrations.manifest',['firmSlug'=>$firmSlug]) }}">
+<meta name="theme-color" content="#17191F">
 <title>@yield('title', 'ERP Workspace') · {{ $company->brand_name ?: $company->name }}</title>
 @php($brandProfile = \App\Support\BrandIdentity::profile($company,$workspace))
 @vite(['resources/css/app.css','resources/js/app.js'])
@@ -41,6 +43,7 @@
 ['label'=>'Notifications','name'=>'erp.notifications','icon'=>'bell'],
 ['label'=>'Reminder Rules','name'=>'erp.reminder_rules.index','icon'=>'alarm-clock'],
 ['label'=>'Settings / Security','name'=>'erp.security','icon'=>'settings-2'],
+['label'=>'Integrations & Mobile','name'=>'erp.integrations.index','icon'=>'smartphone'],
 ] as $item)
 @if($actor->role === 'manager' && in_array($item['name'],['erp.payroll','erp.staff_certificates.index','erp.reminder_rules.index','erp.exit.index'],true))
 @continue
@@ -101,4 +104,12 @@
   <p id="erp-ux-confirm-description" data-corporate-confirm-label>Are you sure you want to proceed?</p>
   <div class="erp-ux-confirm__buttons"><button type="button" data-corporate-cancel>Cancel</button><button type="button" data-corporate-confirm-go>Yes, proceed →</button></div>
 </dialog>
+<script>
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  window.addEventListener('load', () => {
+    const scope = @json('/c/'.$firmSlug.'/app/');
+    navigator.serviceWorker.register('/sw-erp.js', {scope}).catch(() => {});
+  }, {once:true});
+}
+</script>
 </body></html>
