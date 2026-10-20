@@ -8,17 +8,27 @@ use Illuminate\Support\Facades\Storage;
 
 final class ExpireTenantVaultUploads extends Command
 {
-    protected $signature = 'erp:vault:expire-staging {--dry-run : Display eligible sessions without releasing reservations}';
+    protected $signature = 'erp:vault:expire-staging
+        {--dry-run : Display eligible sessions without releasing reservations}
+        {--max=200 : Maximum expired sessions to reclaim during one bounded execution}';
     protected $description = 'Reclaim only expired temporary upload chunks, never customer object files or audit metadata.';
 
     public function handle(): int
     {
         $expired=0;
-        // Idempotent and bounded: no object is physically deleted by this command.
-        DB::table('erp_vault_uploads')->where('status','pending')
+        $max=filter_var($this->option('max'),FILTER_VALIDATE_INT,[
+            'options'=>['min_range'=>1,'max_range'=>1000]
+        ]);
+        if($max===false){
+            $this->error('--max must be between 1 and 1000.');
+            return self::FAILURE;
+        }
+        // Maximum per-run processing is bounded; the next scheduled run
+        // resumes remaining expired IDs without rewinding completed objects.
+        $sessions=DB::table('erp_vault_uploads')->where('status','pending')
             ->where('expires_at','<=',now())->orderBy('id')
-            ->chunkById(50,function($sessions)use(&$expired){
-                foreach($sessions as $session){
+            ->limit($max)->get(['id','company_id','workspace_id']);
+        foreach($sessions as $session){
                     if($this->option('dry-run')){$expired++;continue;}
                     $paths=DB::transaction(function()use($session,&$expired){
                         DB::table('workspaces')->where('company_id',$session->company_id)
@@ -45,8 +55,7 @@ final class ExpireTenantVaultUploads extends Command
                             ->pluck('private_path')->all();
                     },3);
                     if($paths)Storage::disk('local')->delete($paths);
-                }
-            });
+        }
         $this->info($this->option('dry-run')
             ?'Expired pending sessions eligible for cleanup: '.$expired
             :'Expired upload reservations reclaimed: '.$expired);
