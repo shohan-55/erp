@@ -232,6 +232,9 @@ final class Phase15EngagementMilestonesTest extends TestCase
         $this->post("/c/project-test/app/engagements/{$eng}/assign",[
             'membership_id'=>$student,'active'=>0,
         ])->assertRedirect()->assertSessionHasNoErrors();
+        // Multiple requests in the same frozen minute exhaust shared
+        // testing throttle buckets. Preserve production throttling unchanged.
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
         $this->post("/c/project-test/app/staff/{$student}/lifecycle",[
             'action'=>'exit','reason'=>'All engagement assignments and obligations are cleared.',
         ])->assertRedirect()->assertSessionHasNoErrors();
