@@ -80,7 +80,7 @@
 @if($artifacts->isNotEmpty())
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 <h3 class="font-extrabold">Encrypted Private Export Artifacts</h3>
-<p class="mt-1 text-xs text-slate-600">Downloads are decrypted after each access check. Save the manifest and every relevant table/file part in numeric order. Only the first 150 artifacts are displayed in this pilot interface; a large package is NOT certified complete until all parts have been retrieved and independently restored.</p>
+<p class="mt-1 text-xs text-slate-600">Downloads are decrypted after each access check. Save the manifest and every relevant table/file part in numeric order. Artifacts are paginated in sets of 100; download ALL pages and independently restore each numbered part before attesting completion.</p>
 <div class="mt-3 space-y-2">
 @foreach($artifacts as $part)
 <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-2"><div class="text-xs"><strong>#{{ $part->id }} · {{ $part->kind }} · {{ $part->source_name }}</strong>
@@ -88,6 +88,16 @@
  · Part {{ $part->part_number }} · {{ number_format($part->byte_size) }} bytes
 </div><a href="{{ route('erp.exit.download',['firmSlug'=>$firmSlug,'id'=>$current->id,'artifactId'=>$part->id]) }}" class="rounded-lg border px-3 py-2 text-xs font-bold">Private Download</a></div>
 @endforeach</div>
+<div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+<p>Page {{ $artifactPage }} · {{ number_format($artifactCount) }} encrypted artifacts</p>
+<div class="flex gap-2">
+@if($artifactPage>1)
+<a class="rounded-lg border px-3 py-2 font-bold" href="{{ route('erp.exit.index',['firmSlug'=>$firmSlug,'export_page'=>$artifactPage-1]) }}">Previous 100</a>
+@endif
+@if($artifactPage*100<$artifactCount)
+<a class="rounded-lg border px-3 py-2 font-bold" href="{{ route('erp.exit.index',['firmSlug'=>$firmSlug,'export_page'=>$artifactPage+1]) }}">Next 100</a>
+@endif
+</div></div>
 </section>
 @endif
 <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
