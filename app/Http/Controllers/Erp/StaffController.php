@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\StaffExitClearance;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -191,6 +192,28 @@ class StaffController extends Controller
         return back()->with('success','Salary increment scheduled for a future payroll month.');
     }
 
+    public function exitClearance(Request $request,string $firmSlug,int $id)
+    {
+        [$company,$workspace,$actor]=TenantOps::context($request);
+        TenantOps::requireRole($actor,['partner']);
+        $member=$this->member($actor,$id);
+        $profile=DB::table('staff_profiles')
+            ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+            ->where('membership_id',$id)->first();
+        $issues=StaffExitClearance::issues($actor,$member);
+        $transferred=StaffExitClearance::wasTransferred($actor,$member);
+        $grantCount=DB::table('workspace_access_grants')
+            ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+            ->where('membership_id',$id)->whereNull('revoked_at')->count();
+        $hasCustomRole=DB::table('workspace_role_assignments')
+            ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+            ->where('membership_id',$id)->exists();
+        return response()->view('erp.staff-exit-clearance',compact(
+            'company','workspace','actor','firmSlug','member','profile',
+            'issues','transferred','grantCount','hasCustomRole'
+        ))->header('Cache-Control','private, no-store, max-age=0');
+    }
+
     public function lifecycle(Request $request,string $firmSlug,int $id)
     {
         [,,$actor]=TenantOps::context($request);
@@ -200,69 +223,96 @@ class StaffController extends Controller
             'reason'=>['required','string','min:15','max:1000'],
         ]);
         DB::transaction(function()use($actor,$id,$data){
+            // Serialize against StaffTransferController::lockFirm to prevent
+            // concurrent transfer approval and Partner exit/rejoin decisions.
+            DB::table('companies')->where('id',$actor->company_id)->lockForUpdate()->first();
             DB::table('workspaces')->where('id',$actor->workspace_id)
                 ->where('company_id',$actor->company_id)->lockForUpdate()->first();
             $member=$this->member($actor,$id,true);
             if($data['action']==='exit'){
-                if (!$member->active) {
-                    throw ValidationException::withMessages(['action'=>'Staff member is not active.']);
+                if (!$member->active || $member->platform_suspended_at) {
+                    throw ValidationException::withMessages(['action'=>'Only active, unsuspended staff can exit.']);
                 }
-                if ($member->role==='manager' && DB::table('memberships')
+                $issues=StaffExitClearance::issues($actor,$member);
+                if ($issues) {
+                    throw ValidationException::withMessages([
+                        'action'=>'Staff exit clearance incomplete: '.implode(' ',array_values($issues)),
+                    ]);
+                }
+
+                // Rejoining must require fresh authorization. An old custom
+                // role assignment must NEVER spring back to life automatically.
+                $roleAssignment=DB::table('workspace_role_assignments')
                     ->where('company_id',$actor->company_id)
                     ->where('workspace_id',$actor->workspace_id)
-                    ->where('manager_membership_id',$id)
-                    ->where('role','student')->where('active',true)->exists()) {
-                    throw ValidationException::withMessages(['action'=>'Reassign all active Students before this Manager exits.']);
-                }
-                if (DB::table('attendance_review_requests')->where('company_id',$actor->company_id)
-                    ->where('workspace_id',$actor->workspace_id)->where('membership_id',$id)
-                    ->whereIn('status',['pending','manager_reviewed'])->exists()) {
-                    throw ValidationException::withMessages(['action'=>'Resolve outstanding attendance reviews before exit.']);
-                }
-                if (DB::table('attendance_sessions')->where('company_id',$actor->company_id)
-                    ->where('workspace_id',$actor->workspace_id)->where('membership_id',$id)
-                    ->whereNull('ended_at')->exists()) {
-                    throw ValidationException::withMessages(['action'=>'Resolve active attendance before exit.']);
-                }
-                $pending=DB::table('conveyance_claims')->where('company_id',$actor->company_id)
-                    ->where('workspace_id',$actor->workspace_id)->where('membership_id',$id)
-                    ->whereIn('status',['pending','manager_reviewed','approved'])->exists()
-                    || DB::table('leave_requests')->where('company_id',$actor->company_id)
-                        ->where('workspace_id',$actor->workspace_id)->where('membership_id',$id)
-                        ->where(function($q){
-                            $q->whereIn('status',['pending','manager_reviewed'])
-                              ->orWhere(function($sub){
-                                  $sub->where('status','approved')->where('date_to','>=',
-                                      now('Asia/Dhaka')->toDateString());
-                              });
-                        })->exists();
-                if ($pending) {
-                    throw ValidationException::withMessages(['action'=>'Resolve outstanding leave and reimbursement before exit.']);
-                }
-                if (DB::table('payroll_runs')->where('company_id',$actor->company_id)
+                    ->where('membership_id',$id)->first();
+                $grantIds=DB::table('workspace_access_grants')
+                    ->where('company_id',$actor->company_id)
                     ->where('workspace_id',$actor->workspace_id)
-                    ->where('period_month',now('Asia/Dhaka')->startOfMonth()->toDateString())->exists()) {
-                    throw ValidationException::withMessages(['action'=>'Resolve current-month payroll before exit.']);
+                    ->where('membership_id',$id)->pluck('id')->all();
+                $revokedGrants=DB::table('workspace_access_grants')
+                    ->where('company_id',$actor->company_id)
+                    ->where('workspace_id',$actor->workspace_id)
+                    ->whereNull('revoked_at')
+                    ->where(function($q)use($id,$grantIds){
+                        $q->where('membership_id',$id);
+                        if($grantIds) $q->orWhereIn('parent_grant_id',$grantIds);
+                    })
+                    ->update(['revoked_at'=>now(),'revoked_by'=>$actor->id,'updated_at'=>now()]);
+                if ($roleAssignment) {
+                    // Original assignment identity is referenced in immutable
+                    // audit history; delete the live permission edge only.
+                    DB::table('workspace_role_assignments')
+                        ->where('id',$roleAssignment->id)->delete();
                 }
-                DB::table('memberships')->where('id',$id)->update(['active'=>false,'updated_at'=>now()]);
+
+                DB::table('memberships')->where('id',$id)
+                    ->where('company_id',$actor->company_id)
+                    ->where('workspace_id',$actor->workspace_id)
+                    ->update(['active'=>false,'updated_at'=>now()]);
                 DB::table('staff_profiles')->updateOrInsert([
                     'company_id'=>$actor->company_id,'workspace_id'=>$actor->workspace_id,'membership_id'=>$id,
                 ],[
-                    'employment_status'=>'exited','employment_ended_on'=>now('Asia/Dhaka')->toDateString(),
+                    'employment_status'=>'exited',
+                    'employment_ended_on'=>now('Asia/Dhaka')->toDateString(),
                     'updated_at'=>now(),
                 ]);
-                // Do not edit or cascade-delete historical payroll, leave or receipt evidence.
+                $this->history($actor,$id,'exit',[
+                    'reason'=>trim($data['reason']),
+                    'clearance'=>'all_checks_passed',
+                    'clearance_checks'=>array_keys(StaffExitClearance::issues($actor,$member)),
+                    'revoked_workspace_grants'=>$revokedGrants,
+                    'removed_custom_role_assignment_id'=>$roleAssignment?->id,
+                    'removed_custom_role_id'=>$roleAssignment?->role_id,
+                ]);
             }else{
+                $profile=DB::table('staff_profiles')->where('company_id',$actor->company_id)
+                    ->where('workspace_id',$actor->workspace_id)
+                    ->where('membership_id',$id)->first();
                 if($member->active || $member->platform_suspended_at ||
-                    (!$member->activated_at && $member->invited_at)) {
-                    throw ValidationException::withMessages(['action'=>'Only exited, previously activated, unsuspended staff may rejoin.']);
+                    (!$member->activated_at && $member->invited_at)
+                    || !$profile || $profile->employment_status!=='exited'
+                    || StaffExitClearance::wasTransferred($actor,$member)) {
+                    throw ValidationException::withMessages([
+                        'action'=>'Only previously exited, unsuspended, activated staff without a completed transfer may rejoin.',
+                    ]);
                 }
-                DB::table('memberships')->where('id',$id)->update(['active'=>true,'updated_at'=>now()]);
+                DB::table('memberships')->where('id',$id)->update([
+                    'active'=>true,'updated_at'=>now(),
+                ]);
                 DB::table('staff_profiles')->where('membership_id',$id)
                     ->where('company_id',$actor->company_id)->where('workspace_id',$actor->workspace_id)
-                    ->update(['employment_status'=>'active','employment_ended_on'=>null,'updated_at'=>now()]);
+                    ->update([
+                        'employment_status'=>'active','employment_ended_on'=>null,
+                        'updated_at'=>now(),
+                    ]);
+                $this->history($actor,$id,'rejoin',[
+                    'reason'=>trim($data['reason']),
+                    'delegation_reset'=>true,
+                    'new_access_requires_partner_reauthorization'=>true,
+                ]);
             }
-            $this->history($actor,$id,$data['action'],['reason'=>trim($data['reason'])]);
+
         },3);
         return back()->with('success','Staff lifecycle decision saved.');
     }
