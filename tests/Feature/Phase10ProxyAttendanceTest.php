@@ -85,7 +85,7 @@ final class Phase10ProxyAttendanceTest extends TestCase
         $company=DB::table('companies')->find($f['company']);
         $workspace=DB::table('workspaces')->find($f['ws']);
         $student=DB::table('memberships')->find($f['users']['student']->id);
-        $preview=\\App\\Support\\AttendanceReconciliation::forDate(
+        $preview=\App\Support\AttendanceReconciliation::forDate(
             $company,$workspace,$student,$s->work_date
         );
         $this->assertSame('proxy_pending',$preview['rows']->first()->status_key);
@@ -112,7 +112,7 @@ final class Phase10ProxyAttendanceTest extends TestCase
         $this->assertDatabaseHas('tenant_audit_events',[
             'entity_id'=>$s->id,'action'=>'attendance.proxy.verified',
         ]);
-        $accepted=\\App\\Support\\AttendanceReconciliation::forDate(
+        $accepted=\App\Support\AttendanceReconciliation::forDate(
             $company,$workspace,$student,$s->work_date
         );
         $this->assertSame(1,$accepted['rows']->first()->session_count);
