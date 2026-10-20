@@ -309,7 +309,7 @@ final class TenantExitPackage
     public static function verify(int $caseId): bool
     {
         $case=DB::table('tenant_exit_cases')->where('id',$caseId)->first();
-        if(!$case || !in_array($case->state,['prepared','acknowledged','restore_attested'],true))return false;
+        if(!$case || !in_array($case->state,['prepared','integrity_verified','acknowledged','restore_attested'],true))return false;
         $artifacts=DB::table('tenant_exit_artifacts')->where('case_id',$caseId)
             ->where('company_id',$case->company_id)->orderBy('id')->get();
         if(!$artifacts->contains('kind','manifest')) return false;
