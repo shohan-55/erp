@@ -65,6 +65,7 @@ final class CompanyAccessAndManagerAttendanceRecoveryTest extends TestCase
                 'membership_id'=>$manager->id,
                 'access_role'=>$role,
                 'permissions'=>$permissions,
+                'reason'=>'Authorized for a temporary workspace delegation.',
             ])->assertRedirect()->assertSessionHasNoErrors();
     }
 
@@ -99,7 +100,9 @@ final class CompanyAccessAndManagerAttendanceRecoveryTest extends TestCase
             $a=$t['unit-a'];
             $this->actingAs($a['manager']->user)
                 ->get('/c/guarded-practice/app/settings/company-access')->assertForbidden();
-            $this->givePermission($a['partner'],$a['manager'],'company_admin',[]);
+            $this->givePermission($a['partner'],$a['manager'],'company_admin',[
+                'access.delegate', 'attendance.propose'
+            ]);
             $this->actingAs($a['manager']->user)
                 ->get('/c/guarded-practice/app/settings/company-access')->assertOk()
                 ->assertSeeText('Company Access Control Center')
@@ -108,6 +111,8 @@ final class CompanyAccessAndManagerAttendanceRecoveryTest extends TestCase
                 ->post('/c/guarded-practice/app/settings/company-access',[
                     'membership_id'=>$a['manager2']->id,'access_role'=>'moderator',
                     'permissions'=>['attendance.propose'],
+                    'expires_at'=>now()->addDays(3)->format('Y-m-d\\TH:i'),
+                    'reason'=>'Authorized for a short assignment within the workspace.',
                 ])->assertRedirect()->assertSessionHasNoErrors();
             $grant=DB::table('workspace_access_grants')
                 ->where('membership_id',$a['manager2']->id)->first();
