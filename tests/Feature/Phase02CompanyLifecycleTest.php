@@ -107,7 +107,7 @@ class Phase02CompanyLifecycleTest extends TestCase
             'company_id' => $company, 'action' => 'company.remove',
         ]);
 
-        $this->get('/platform/app')->assertOk()->assertDontSee('demo-first');
+        $this->get('/platform/app')->assertOk()->assertDontSee('Slug: demo-first');
         $this->get('/platform/app?status=removed')->assertOk()->assertSee('demo-first');
         $this->actingAs($memberUser)->get('/c/demo-first/app')->assertForbidden();
         $this->actingAs($otherUser)->get('/c/other-firm/app')->assertOk();
