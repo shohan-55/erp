@@ -27,7 +27,7 @@ final class ExpireTenantVaultUploads extends Command
                             ->where('company_id',$session->company_id)
                             ->where('workspace_id',$session->workspace_id)
                             ->lockForUpdate()->first();
-                        if(!$upload || $upload->status!=='pending' || $upload->expires_at>now())return [];
+                        if(!$upload || $upload->status!=='pending' || \Carbon\Carbon::parse($upload->expires_at)->isFuture())return [];
                         $quota=DB::table('erp_vault_quotas')->where('company_id',$session->company_id)
                             ->where('workspace_id',$session->workspace_id)->lockForUpdate()->firstOrFail();
                         // A ledger discrepancy is a stop condition, never underflow quota.
