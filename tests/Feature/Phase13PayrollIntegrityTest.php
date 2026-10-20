@@ -176,6 +176,37 @@ final class Phase13PayrollIntegrityTest extends TestCase
         ]);
     }
 
+    public function test_review_digest_preserves_negative_fractional_adjustments(): void
+    {
+        $this->assertSame(-50, \App\Support\PayrollCalculator::cents('-0.50'));
+        $this->assertSame(-101, \App\Support\PayrollCalculator::cents('-1.01'));
+        $this->assertSame(50, \App\Support\PayrollCalculator::cents('0.50'));
+        $f=$this->firm();
+        $run=$this->draft($f);
+        $partner=$f['users']['partner']->user;
+        $student=$f['users']['student']->id;
+        $this->actingAs($partner)->post("/c/phase13/app/payroll/{$run}/adjustments",[
+            'membership_id'=>$student,'kind'=>'bonus','amount'=>'25.75',
+            'reason'=>'Approved balancing correction to this staff payroll.',
+            'confirm_authorized'=>'1',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->post("/c/phase13/app/payroll/{$run}/adjustments",[
+            'membership_id'=>$student,'kind'=>'deduction','amount'=>'26.25',
+            'reason'=>'Authorized explicit deduction with supporting evidence.',
+            'confirm_authorized'=>'1',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('payroll_lines',[
+            'payroll_run_id'=>$run,'adjustment'=>'-0.50',
+            'total_amount'=>'7999.50',
+        ]);
+        $this->transition($f,$run,'review')->assertRedirect()->assertSessionHasNoErrors();
+        $snapshot=json_decode(DB::table('payroll_runs')->where('id',$run)
+            ->value('review_snapshot'),true);
+        $this->assertSame(-50,$snapshot['adjustment_cents']);
+        $this->assertSame(799950,$snapshot['net_cents']);
+        $this->transition($f,$run,'approve')->assertRedirect()->assertSessionHasNoErrors();
+    }
+
     public function test_cross_workspace_manager_and_student_never_read_financial_snapshots(): void
     {
         $a=$this->firm('firm-a');
