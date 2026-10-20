@@ -28,3 +28,10 @@ Schedule::command('erp:milestone-reminders')
     ->dailyAt('08:00')
     ->timezone('Asia/Dhaka')
     ->withoutOverlapping();
+
+ 
+// Phase 17: release expired upload reservations and clean staging parts only.
+// Never deletes completed/archived/held customer objects.
+Schedule::command('erp:vault:expire-staging')
+    ->hourly()
+    ->withoutOverlapping();
