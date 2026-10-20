@@ -19,6 +19,9 @@ final class Phase17PrivateObjectVaultTest extends TestCase
         parent::setUp();
         Storage::fake('local');
         Storage::fake('erp_vault');
+        // Multiple assertions reuse the same synthetic clock and URI: isolate
+        // production rate limiting without changing the live middleware.
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
     }
 
     private function firm(string $slug='private-vault'): array
