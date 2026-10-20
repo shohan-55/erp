@@ -79,7 +79,7 @@
 </div>
 <div class="rounded-2xl bg-[#17191F] p-5 text-white">
 <h3 class="font-bold">Safe No-Code Settings</h3>
-<p class="mt-2 text-xs leading-relaxed text-slate-300">Disabling a module blocks future requests. It does not delete existing leave, attendance, payroll, claims or historical records. Important access can be restored through this Studio. Disabling Attendance also blocks its reports; disabling Engagements also blocks Timesheets.</p>
+<p class="mt-2 text-xs leading-relaxed text-slate-300">Disabling a module blocks future requests. It does not delete existing leave, attendance, payroll, claims or historical records. Important access can be restored through this Studio. Attendance Reports remain independently configurable even if Check-in/out is disabled; disabling Engagements also blocks Timesheets.</p>
 </div>
 </aside>
 </section>
