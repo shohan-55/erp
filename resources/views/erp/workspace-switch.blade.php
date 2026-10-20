@@ -31,5 +31,6 @@
 @endforeach
 </section>
 <p class="border-t border-slate-200 pt-5 text-xs text-slate-500">Only your current, active memberships appear above. Changing workspaces never combines private data or payroll.</p>
+<a href="{{ rtrim(config('app.url'), '/') . '/account/companies' }}" class="inline-block rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-900">Switch Company →</a>
 </main>
 </body></html>

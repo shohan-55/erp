@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\OrganizationTemplate;
+use App\Support\IdentityLink;
 use App\Models\User;
 use App\Support\OutboundMailGuard;
 use Illuminate\Http\Request;
@@ -120,17 +121,20 @@ class PlatformController extends Controller
         }
         OutboundMailGuard::ensureConfigured();
         $email = strtolower(trim($data['partner_email']));
-
-        if (User::where('email', $email)->exists()) {
-            throw ValidationException::withMessages(['partner_email' =>
-                'An ERP account already uses this address; use a separately reviewed account-linking workflow.']);
+        if (User::where('email', $email)->where('is_platform_admin', true)->exists()) {
+            throw ValidationException::withMessages([
+                'partner_email' => 'Platform administrator accounts cannot be invited into private customer workspaces.',
+            ]);
         }
+
         if (DB::table('companies')->where('slug', $data['company_slug'])->exists()) {
             throw ValidationException::withMessages(['company_slug' => 'Company slug already exists.']);
         }
 
-        [$user, $companyName, $slug] = DB::transaction(function () use ($data, $email) {
-            $user = $this->invitedUser($email, $data['partner_name']);
+        [$user, $companyName, $slug, $membershipId, $existing] = DB::transaction(function () use ($data, $email) {
+            $user = User::where('email', $email)->first();
+            $existing = (bool) $user;
+            $user ??= $this->invitedUser($email, $data['partner_name']);
             $companyId = DB::table('companies')->insertGetId([
                 'slug' => $data['company_slug'], 'name' => trim($data['company_name']),
                 'organization_type' => $data['organization_type'] ?? 'ca_firm',
@@ -147,7 +151,7 @@ class PlatformController extends Controller
                 'name' => OrganizationTemplate::workspaceName($data['organization_type'] ?? 'ca_firm'), 'active' => true,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
-            $this->insertPartnerInvitation($companyId, $workspaceId, $user->id);
+            $membershipId = $this->insertPartnerInvitation($companyId, $workspaceId, $user->id);
             DB::table('platform_control_events')->insert([
                 'company_id' => $companyId,
                 'actor_user_id' => Auth::id(),
@@ -160,10 +164,14 @@ class PlatformController extends Controller
                 ], JSON_THROW_ON_ERROR),
                 'created_at' => now(),
             ]);
-            return [$user, $data['company_name'], $data['company_slug']];
+            return [$user, $data['company_name'], $data['company_slug'], $membershipId, $existing];
         }, 3);
 
-        $this->emailInvite($user, $companyName, $slug);
+        if ($existing) {
+            IdentityLink::issue($user, $membershipId, $companyName);
+        } else {
+            $this->emailInvite($user, $companyName, $slug);
+        }
         return back()->with('success', 'Organization created from a business template; primary administrator must accept the invitation.');
     }
 
@@ -186,12 +194,13 @@ class PlatformController extends Controller
 
         OutboundMailGuard::ensureConfigured();
         $email = strtolower(trim($data['partner_email']));
-        if (User::where('email', $email)->exists()) {
-            throw ValidationException::withMessages(['partner_email' =>
-                'An existing ERP identity cannot be re-invited across workspaces without an account-linking review.']);
+        if (User::where('email', $email)->where('is_platform_admin', true)->exists()) {
+            throw ValidationException::withMessages([
+                'partner_email' => 'Platform administrator accounts cannot be invited into private customer workspaces.',
+            ]);
         }
 
-        $user = DB::transaction(function () use ($data, $email, $companyId) {
+        [$user, $membershipId, $existing] = DB::transaction(function () use ($data, $email, $companyId) {
             $firm = DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
             abort_unless($firm && $firm->active && $firm->archived_at === null, 404);
             if (DB::table('workspaces')->where('company_id', $companyId)
@@ -200,19 +209,16 @@ class PlatformController extends Controller
             }
 
             \App\Support\SaasBilling::assertCapacity($companyId,1,1);
-            $user = $this->invitedUser($email, $data['partner_name']);
-
-            if (DB::table('memberships')->where('company_id', $companyId)
-                ->where('user_id', $user->id)->exists()) {
-                throw ValidationException::withMessages(['partner_email' => 'That person already belongs to this firm.']);
-            }
+            $user = User::where('email', $email)->first();
+            $existing = (bool) $user;
+            $user ??= $this->invitedUser($email, $data['partner_name']);
 
             $workspaceId = DB::table('workspaces')->insertGetId([
                 'company_id' => $companyId, 'slug' => $data['workspace_slug'],
                 'name' => $data['workspace_name'], 'active' => true,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
-            $this->insertPartnerInvitation($companyId, $workspaceId, $user->id);
+            $membershipId = $this->insertPartnerInvitation($companyId, $workspaceId, $user->id);
             DB::table('platform_control_events')->insert([
                 'company_id' => $companyId,
                 'actor_user_id' => Auth::id(),
@@ -222,10 +228,14 @@ class PlatformController extends Controller
                 'details' => json_encode(['workspace_slug' => $data['workspace_slug']], JSON_THROW_ON_ERROR),
                 'created_at' => now(),
             ]);
-            return $user;
+            return [$user, $membershipId, $existing];
         }, 3);
 
-        $this->emailInvite($user, $company->name, $company->slug);
+        if ($existing) {
+            IdentityLink::issue($user, $membershipId, $company->name);
+        } else {
+            $this->emailInvite($user, $company->name, $company->slug);
+        }
         return back()->with('success', 'Partner workspace created and invitation email requested.');
     }
 
@@ -243,9 +253,9 @@ class PlatformController extends Controller
         ]);
     }
 
-    private function insertPartnerInvitation(int $companyId, int $workspaceId, int $userId): void
+    private function insertPartnerInvitation(int $companyId, int $workspaceId, int $userId): int
     {
-        DB::table('memberships')->insert([
+        return DB::table('memberships')->insertGetId([
             'company_id' => $companyId, 'workspace_id' => $workspaceId,
             'user_id' => $userId, 'role' => 'partner', 'active' => false,
             'monthly_allowance' => '0.00', 'invited_at' => now(),
