@@ -198,6 +198,7 @@ final class CompanyAccessAndManagerAttendanceRecoveryTest extends TestCase
                     'membership_id'=>$t['unit-b']['manager']->id,
                     'access_role'=>'company_admin',
                     'permissions'=>['attendance.propose'],
+                    'reason'=>'Cross partner privilege attempt must be rejected.',
                 ])->assertForbidden();
         } finally {$this->clearClock();}
     }
@@ -252,6 +253,7 @@ final class CompanyAccessAndManagerAttendanceRecoveryTest extends TestCase
                 ->post('/c/guarded-practice/app/settings/company-access',[
                     'membership_id'=>$t['unit-b']['manager']->id,
                     'access_role'=>'company_admin','permissions'=>['attendance.propose'],
+                    'reason'=>'Cross partner privileges must be blocked.',
                 ])->assertNotFound();
         } finally {$this->clearClock();}
     }
