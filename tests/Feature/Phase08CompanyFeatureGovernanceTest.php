@@ -138,4 +138,70 @@ final class Phase08CompanyFeatureGovernanceTest extends TestCase
             $this->assertTrue(ErpFeatures::enabled(DB::table('memberships')->find($f['people'][1]->id), 'leave'));
         });
     }
+    public function test_backdated_midmonth_duplicate_and_invalid_keys_are_refused(): void
+    {
+        $f = $this->firm('date-rac');
+        $this->actingAs($f['people'][0]->user);
+        $this->propose('date-rac', 'leave', 'disable', now('Asia/Dhaka')->toDateString())
+            ->assertSessionHasErrors('effective_date');
+        $mid = CarbonImmutable::parse($this->month(), 'Asia/Dhaka')->addDay()->toDateString();
+        $this->propose('date-rac', 'leave', 'disable', $mid)
+            ->assertSessionHasErrors('effective_date');
+        $this->propose('date-rac', 'platform.admin')->assertSessionHasErrors('feature_key');
+        $this->propose('date-rac')->assertRedirect();
+        $this->propose('date-rac')->assertSessionHasErrors('feature_key');
+        $this->assertDatabaseCount('company_feature_policy_proposals', 1);
+    }
+
+    public function test_future_reset_creates_a_new_immutable_approved_version(): void
+    {
+        $f = $this->firm('version-rac');
+        $this->actingAs($f['people'][0]->user)->propose('version-rac')->assertRedirect();
+        $first = DB::table('company_feature_policy_proposals')->firstOrFail();
+        foreach ($f['people'] as $person) {
+            $this->actingAs($person->user)->vote('version-rac', $first->id)->assertRedirect();
+        }
+
+        $this->actingAs($f['people'][0]->user)
+            ->propose('version-rac', 'leave', 'reset', $this->month(2))->assertRedirect();
+        $second = DB::table('company_feature_policy_proposals')
+            ->where('id', '<>', $first->id)->firstOrFail();
+        foreach ($f['people'] as $person) {
+            $this->actingAs($person->user)->vote('version-rac', $second->id)->assertRedirect();
+        }
+        $this->travel($first->effective_date, function () use ($f) {
+            $actor = DB::table('memberships')->find($f['people'][0]->id);
+            $this->assertFalse(ErpFeatures::enabled($actor, 'leave'));
+        });
+        $this->travel($second->effective_date, function () use ($f) {
+            $actor = DB::table('memberships')->find($f['people'][0]->id);
+            $this->assertTrue(ErpFeatures::enabled($actor, 'leave'));
+        });
+        $this->assertDatabaseHas('company_feature_policy_proposals', [
+            'id' => $first->id, 'operation' => 'disable', 'status' => 'approved',
+        ]);
+        $this->assertDatabaseHas('company_feature_policy_proposals', [
+            'id' => $second->id, 'operation' => 'reset', 'status' => 'approved',
+        ]);
+    }
+
+    public function test_other_firms_and_students_cannot_propose_or_vote(): void
+    {
+        $a = $this->firm('firm-a');
+        $b = $this->firm('firm-b');
+        $this->actingAs($a['people'][0]->user)->propose('firm-a')->assertRedirect();
+        $p = DB::table('company_feature_policy_proposals')->firstOrFail();
+        $this->actingAs($b['people'][0]->user)->vote('firm-b', $p->id)->assertNotFound();
+
+        $student = User::factory()->create();
+        DB::table('memberships')->insert([
+            'company_id' => $a['company'], 'workspace_id' => $a['people'][0]->workspace,
+            'user_id' => $student->id, 'role' => 'student', 'active' => true,
+            'monthly_allowance' => 0, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->actingAs($student)->propose('firm-a')->assertForbidden();
+        $this->vote('firm-a', $p->id)->assertForbidden();
+        $this->assertDatabaseCount('company_feature_policy_votes', 0);
+    }
+
 }
