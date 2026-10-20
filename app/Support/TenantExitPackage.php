@@ -20,6 +20,7 @@ final class TenantExitPackage
         'practice_documents' => ['storage_path', 'local', 'practice-documents/'],
         'staff_documents' => ['storage_path', 'local', 'staff-documents/'],
         'conveyance_claims' => ['receipt_path', 'local', 'claim-evidence/'],
+        'payroll_runs' => ['payment_evidence_path', 'local', 'private-payroll-evidence/'],
         'workspace_brand_assets' => ['storage_path', 'local', 'workspace-branding/'],
     ];
 
