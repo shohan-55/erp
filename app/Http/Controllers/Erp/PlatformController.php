@@ -194,6 +194,11 @@ class PlatformController extends Controller
 
         OutboundMailGuard::ensureConfigured();
         $email = strtolower(trim($data['partner_email']));
+        if (User::where('email', $email)->where('is_platform_admin', true)->exists()) {
+            throw ValidationException::withMessages([
+                'partner_email' => 'Platform administrator accounts cannot be invited into private customer workspaces.',
+            ]);
+        }
 
         [$user, $membershipId, $existing] = DB::transaction(function () use ($data, $email, $companyId) {
             $firm = DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
