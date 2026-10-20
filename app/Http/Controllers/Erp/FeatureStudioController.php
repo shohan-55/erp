@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\ErpFeatures;
+use App\Support\FeatureGovernance;
 use App\Support\TenantOps;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -54,9 +55,26 @@ final class FeatureStudioController extends Controller
             ->orderBy('feature_key')->orderBy('scope_key')->limit(1200)->get();
         $allowedCompany = $this->companyWideEligible($company->id);
         $effective = ErpFeatures::enabledMap($actor);
+        $companyProposals = DB::table('company_feature_policy_proposals as p')
+            ->join('memberships as creator', function ($join) {
+                $join->on('creator.id', '=', 'p.proposed_by')
+                    ->on('creator.company_id', '=', 'p.company_id');
+            })
+            ->join('users as u', 'u.id', '=', 'creator.user_id')
+            ->where('p.company_id', $company->id)
+            ->select('p.*', 'u.name as author_name')
+            ->orderByDesc('p.created_at')->orderByDesc('p.id')->limit(60)->get();
+        $votesByProposal = DB::table('company_feature_policy_votes')
+            ->whereIn('proposal_id', $companyProposals->pluck('id')->all())
+            ->get()->groupBy('proposal_id');
+        $nextFeatureEffectiveDate = FeatureGovernance::nextEffectiveMonth($company->timezone);
+        $activeFeaturePartners = FeatureGovernance::activePartnerIds($company->id);
+        $featureMinimumPartners = (int) ($company->min_active_partners_for_company_policy ?? 1);
         return response()->view('erp.feature-studio', compact(
             'company', 'workspace', 'actor', 'firmSlug', 'modules',
-            'members', 'controls', 'allowedCompany', 'effective'
+            'members', 'controls', 'allowedCompany', 'effective',
+            'companyProposals', 'votesByProposal', 'nextFeatureEffectiveDate',
+            'activeFeaturePartners', 'featureMinimumPartners'
         ))->header('Cache-Control', 'private, no-store');
     }
 
@@ -88,7 +106,7 @@ final class FeatureStudioController extends Controller
 
             if ($input['scope'] === 'company' && !$this->companyWideEligible($company->id)) {
                 throw ValidationException::withMessages([
-                    'scope' => 'This company has multiple Partners/workspaces: company-wide settings require the upcoming firm-wide approval workflow. Use Workspace settings for now.',
+                    'scope' => 'Company-wide changes in multi-Partner firms require unanimous approval through the Company Feature Proposal panel. Use Workspace settings for immediate local restrictions.',
                 ]);
             }
             if ($input['scope'] === 'user') {

@@ -7,11 +7,61 @@
 <p class="max-w-3xl text-sm text-slate-600">Decide which ERP modules are available without modifying code. Changes take effect on the next request, including direct URLs, downloads and form submissions. Existing student Partner/Manager restrictions still apply.</p>
 <p class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">Company → Workspace → Role → Individual: disabling a feature at any level blocks it below. Enabling it at a lower level <strong>cannot</strong> bypass a restriction above. Account security, firm governance, billing, backups and this Settings Studio cannot be disabled through these switches.</p>
 @if(!$allowedCompany)
-<p class="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900"><strong>Multi-Partner Governance:</strong> Company-wide changes require the firm's approval workflow (Phase 08). You can already configure your own isolated Partner Workspace, Roles and Users.</p>
+<p class="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900"><strong>Multi-Partner Governance:</strong> Company-wide changes require a future-dated proposal and every active Partner's independent approval. Workspace, Role and User overrides remain under their own Partner's control. Use the new proposal form below.</p>
 @endif
 </section>
 @if(session('success'))<p role="status" class="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-950">{{ session('success') }}</p>@endif
 @if($errors->any())<p role="alert" class="rounded-xl bg-rose-50 p-4 text-sm text-rose-950">{{ $errors->first() }}</p>@endif
+<section class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,1fr)]">
+<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+<h3 class="text-base font-extrabold">Company-wide Feature Policy Proposals</h3>
+<p class="mt-2 text-xs text-slate-600">Approval is unanimous. A proposed or approved version does not change module access before its future effective month. Workspace/Role/User and student restrictions remain independently enforceable. This history cannot be rewritten.</p>
+<p class="mt-2 text-xs font-bold text-amber-800">Current active Partner electorate: {{ count($activeFeaturePartners) }} · Minimum configured: {{ $featureMinimumPartners }}</p>
+<form method="POST" action="{{ route('erp.feature_policy.propose',['firmSlug'=>$firmSlug]) }}" class="mt-4 grid gap-3 sm:grid-cols-2">@csrf
+<label class="block text-xs font-bold text-slate-700">Module
+<select name="feature_key" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm">
+@foreach($modules as $key=>$label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+</select></label>
+<label class="block text-xs font-bold text-slate-700">Company Decision
+<select name="operation" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm">
+<option value="disable">Disable for the company</option>
+<option value="enable">Enable company default</option>
+<option value="reset">Reset company default</option>
+</select></label>
+<label class="block text-xs font-bold text-slate-700 sm:col-span-2">Future Effective Month (first day only)
+<input type="date" name="effective_date" min="{{ $nextFeatureEffectiveDate }}" value="{{ $nextFeatureEffectiveDate }}" required class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
+<label class="block text-xs font-bold text-slate-700 sm:col-span-2">Business Justification
+<textarea name="reason" rows="2" required minlength="15" maxlength="1000" placeholder="Explain the proposed firm-wide module policy" class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-sm"></textarea></label>
+<button class="rounded-xl bg-[#FCDF02] px-4 py-3 text-sm font-extrabold sm:col-span-2">Submit Company Proposal for All Partners</button></form>
+</div>
+<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+<h3 class="text-sm font-extrabold">Version History & Independent Partner Votes</h3>
+<div class="mt-4 max-h-[600px] space-y-3 overflow-y-auto">
+@forelse($companyProposals as $proposal)
+@php
+$frozen = json_decode($proposal->eligible_partner_ids,true) ?: [];
+$recorded = $votesByProposal->get($proposal->id,collect());
+$alreadyVoted = $recorded->contains('partner_membership_id',$actor->id);
+@endphp
+<article class="rounded-xl border border-slate-200 p-4 text-xs">
+<div class="flex flex-wrap justify-between gap-2">
+<strong>{{ $modules[$proposal->feature_key] ?? $proposal->feature_key }}</strong>
+<span class="rounded-full px-2 py-1 font-bold {{ $proposal->status === 'approved' ? 'bg-emerald-50 text-emerald-900' : ($proposal->status === 'pending' ? 'bg-amber-50 text-amber-900' : 'bg-slate-100 text-slate-700') }}">{{ strtoupper($proposal->status) }}</span></div>
+<p class="mt-2 text-slate-700">{{ strtoupper($proposal->operation) }} · Effective {{ $proposal->effective_date }} · Proposal #{{ $proposal->id }}</p>
+<p class="mt-1 text-slate-500">Proposed by {{ $proposal->author_name }}</p>
+<p class="mt-1 text-slate-500">{{ $recorded->where('decision','approve')->count() }} / {{ count($frozen) }} approvals · {{ $recorded->where('decision','reject')->count() }} rejection(s)</p>
+<p class="mt-2 text-slate-600">{{ $proposal->reason }}</p>
+@if($proposal->status === 'pending' && !$alreadyVoted && in_array((int)$actor->id,$frozen,true))
+<form method="POST" action="{{ route('erp.feature_policy.vote',['firmSlug'=>$firmSlug,'proposalId'=>$proposal->id]) }}" class="mt-3 flex flex-wrap gap-2">@csrf
+<button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 font-bold text-white">Approve</button>
+<button name="decision" value="reject" class="rounded-lg bg-rose-700 px-3 py-2 font-bold text-white">Reject</button></form>
+@endif
+</article>
+@empty<p class="text-xs text-slate-500">No company-wide module proposals yet.</p>
+@endforelse
+</div>
+</div>
+</section>
 <section class="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(300px,1fr)]">
 <div class="space-y-4">
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

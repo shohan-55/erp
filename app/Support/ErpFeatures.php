@@ -80,11 +80,25 @@ final class ErpFeatures
             ->where('company_id', $actor->company_id)
             ->whereIn('scope_key', $keys)->get();
 
+        $timezone = DB::table('companies')->where('id', $actor->company_id)->value('timezone')
+            ?: 'Asia/Dhaka';
+        $ratified = FeatureGovernance::companyDecisions((int) $actor->company_id, $timezone);
         $map = array_fill_keys(array_keys(self::MODULES), true);
         foreach ($rows as $row) {
+            // After its effective date, a ratified immutable company version
+            // supersedes a legacy immediate company toggle for this feature.
+            // Workspace, role and user DENY rules still win as before.
+            if ($row->scope_key === self::companyKey()
+                && isset($ratified[$row->feature_key])) {
+                continue;
+            }
             if (array_key_exists($row->feature_key, $map) && !(bool) $row->enabled) {
                 $map[$row->feature_key] = false;
             }
+        }
+        foreach ($ratified as $key => $version) {
+            if ($version->operation === 'disable') $map[$key] = false;
+            // enable / reset merely remove the company restriction.
         }
 
         // Historical student Partner/Manager controls remain restrictive.
