@@ -40,3 +40,9 @@ Schedule::command('erp:vault:expire-staging')
 // Phase 18: only approved unanimous-Partner cases; bounded encrypted package.
 // Never deletes tenants, database rows, completed objects or provider backups.
 Schedule::command('erp:exit:prepare')->hourly()->withoutOverlapping();
+
+// Phase 19: opt-in unpaid renewal preparation, never payment capture or suspension.
+Schedule::command('erp:billing:renewals')
+    ->dailyAt('07:00')
+    ->timezone('Asia/Dhaka')
+    ->withoutOverlapping();
