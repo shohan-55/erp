@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
+use App\Support\IdentityLink;
 use App\Models\User;
 use App\Support\TenantOps;
 use App\Support\OutboundMailGuard;
@@ -54,6 +55,7 @@ class TeamController extends Controller
         $existingUser = User::where('email', $email)->first();
         if ($existingUser && DB::table('memberships')
             ->where('company_id', $company->id)
+            ->where('workspace_id', $workspace->id)
             ->where('user_id', $existingUser->id)->exists()) {
             throw ValidationException::withMessages(['email' => 'This account already has a membership in the firm.']);
         }
@@ -80,8 +82,12 @@ class TeamController extends Controller
             return [$user, $id];
         }, 3);
 
-        $this->sendActivation($user, $company->name, $firmSlug);
-        return back()->with('success', 'Invitation created. Email delivery depends on your configured SMTP provider.');
+        if ($existingUser) {
+            IdentityLink::issue($user, $membershipId, $company->name);
+        } else {
+            $this->sendActivation($user, $company->name, $firmSlug);
+        }
+        return back()->with('success', 'Invitation created. Existing accounts must explicitly accept the secure account-link request.');
     }
 
     public function resend(Request $request, string $firmSlug, int $id)
@@ -96,7 +102,11 @@ class TeamController extends Controller
 
         OutboundMailGuard::ensureConfigured();
         $user = User::findOrFail($member->user_id);
-        $this->sendActivation($user, $company->name, $firmSlug);
+        if (IdentityLink::pendingFor($id)) {
+            IdentityLink::issue($user, $id, $company->name);
+        } else {
+            $this->sendActivation($user, $company->name, $firmSlug);
+        }
         TenantOps::audit($actor, 'team.resend_invitation', 'membership', $id);
         return back()->with('success', 'Invitation email re-requested.');
     }
