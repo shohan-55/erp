@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
 use App\Support\PolicyResolver;
 use App\Support\PayrollCalculator;
+use App\Support\PayrollIntegrity;
+use App\Support\PayrollReview;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -54,7 +56,7 @@ class PayrollController extends Controller
                 ->orderByDesc('a.id')->get() : collect();
 
         $overview = $run && $actor->role === 'partner'
-            ? \App\Support\PayrollReview::overview($company,$workspace,$run->period_month) : null;
+            ? PayrollReview::overview($company,$workspace,$run->period_month) : null;
         return view('erp.payroll', compact('company', 'workspace', 'actor', 'firmSlug',
             'runs', 'run', 'lines', 'adjustments', 'overview'));
     }
@@ -101,6 +103,7 @@ class PayrollController extends Controller
 
         $input = $request->validate([
             'action' => ['required', 'in:review,approve,record_paid,lock'],
+            'review_note' => ['nullable','string','min:15','max:1000'],
             'payment_reference' => ['nullable', 'string', 'min:5', 'max:120', 'required_if:action,record_paid'],
             'payment_channel' => ['required_if:action,record_paid', 'nullable', 'in:bank_transfer,mobile_financial_service,cash,cheque'],
             'payment_date' => ['required_if:action,record_paid', 'nullable', 'date_format:Y-m-d'],
@@ -145,6 +148,9 @@ class PayrollController extends Controller
             $action = $input['action'];
             if ($run->status !== $expected[$action]) {
                 throw ValidationException::withMessages(['action' => 'Invalid or already completed payroll transition.']);
+            }
+            if ($action !== 'review') {
+                PayrollIntegrity::assertUnchanged($run);
             }
 
             if ($action === 'review') {
@@ -199,6 +205,21 @@ class PayrollController extends Controller
             ][$action];
 
             $change = ['status' => $status, 'last_action_by' => $actor->id, 'updated_at' => now()];
+            if ($action === 'review') {
+                $company = DB::table('companies')->where('id',$actor->company_id)->first();
+                $overview = PayrollReview::overview($company,$workspace,$run->period_month);
+                $snapshot = PayrollIntegrity::capture($run);
+                $snapshot['review_signals'] = $overview;
+                $change['review_snapshot'] = json_encode($snapshot, JSON_THROW_ON_ERROR);
+                $change['reviewed_by'] = $actor->id;
+                $change['reviewed_at'] = now();
+                $change['review_note'] = isset($input['review_note'])
+                    ? trim($input['review_note']) : null;
+            }
+            if ($action === 'approve') {
+                $change['approved_by'] = $actor->id;
+                $change['approved_at'] = now();
+            }
             if ($action === 'record_paid') {
                 $change['paid_at'] = now();
                 $change['payment_reference'] = trim($input['payment_reference']);
@@ -214,6 +235,9 @@ class PayrollController extends Controller
             DB::table('payroll_runs')->where('id', $runId)->update($change);
             TenantOps::audit($actor, 'payroll.'.$status, 'payroll_run', $runId, [
                 'payment_reference' => $action === 'record_paid' ? $change['payment_reference'] : null,
+                'review_digest' => $action === 'review' ? $snapshot['sha256'] : null,
+                'review_net_cents' => $action === 'review' ? $snapshot['net_cents'] : null,
+                'review_signal_counts' => $action === 'review' ? $overview : null,
             ]);
             }, 3);
         } catch (\Throwable $exception) {

@@ -15,6 +15,8 @@
 ['label'=>'Recorded Sessions','value'=>$overview['recorded_sessions']],
 ['label'=>'Late Sessions','value'=>$overview['late_sessions']],
 ['label'=>'Open Sessions · Review','value'=>$overview['open_sessions']],
+['label'=>'Pending Proxy · Verify','value'=>$overview['pending_proxy_sessions']],
+['label'=>'Rejected Proxy · Excluded','value'=>$overview['rejected_proxy_sessions']],
 ['label'=>'Approved Leave','value'=>$overview['approved_leaves']],
 ['label'=>'Pending Leave · Review','value'=>$overview['pending_leave_requests']],
 ['label'=>'Attendance Requests · Review','value'=>$overview['pending_attendance_reviews']],
@@ -86,8 +88,26 @@
 <a class="mb-4 inline-flex rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100" href="{{ route('erp.payroll.evidence',['firmSlug'=>$firmSlug,'runId'=>$run->id]) }}">Download Private Payment Evidence</a>
 <p class="mb-4 text-xs text-slate-500">Recorded {{ $run->payment_channel }} · {{ $run->payment_date }} · Reconciled {{ number_format((float) $run->reconciled_total, 2) }} BDT</p>
 @endif
+@if($run->review_snapshot)
+@php($review = json_decode($run->review_snapshot,true))
+@if(is_array($review) && isset($review['net_cents']))
+<div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-950">
+<p class="font-extrabold">Reviewed Financial Snapshot · {{ $review['line_count'] }} staff lines</p>
+<p class="mt-2">Reviewed Net Total: <strong>৳ {{ number_format($review['net_cents']/100,2) }}</strong> · Recorded {{ $run->reviewed_at }} · SHA-256: <code>{{ substr($review['sha256'],0,16) }}…</code></p>
+@if($run->review_note)<p class="mt-2">Reviewer note: {{ $run->review_note }}</p>@endif
+<p class="mt-2">The system checks that reviewed line totals have not changed before approval, paid recording or locking. This digest is a change-detection record, not a bank confirmation.</p>
+</div>
+@endif
+@endif
 @if(in_array($run->status,['draft','reviewed','approved','paid']))
 <form data-corporate-confirm="Review this payroll transition carefully. Recording Paid is not a money transfer; only confirm it after payment evidence has been verified. Locked payroll cannot be casually edited." action="{{ route('erp.payroll.advance',['firmSlug'=>$firmSlug,'runId'=>$run->id]) }}" method="POST" enctype="multipart/form-data" class="flex flex-wrap items-end gap-3">@csrf
+@if($run->status==='draft')
+<label class="w-full text-xs font-bold">Review Note / Unresolved Exceptions (optional)
+<textarea name="review_note" minlength="15" maxlength="1000" rows="2"
+placeholder="Document any pending attendance, proxy verification or leave exceptions reviewed with the team"
+class="mt-2 w-full rounded-xl border border-slate-300 p-3 text-xs"></textarea>
+</label>
+@endif
 @if($run->status==='approved')
 <div class="w-full rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">
     Mark Paid only after disbursement occurred externally. Upload supporting evidence and reconcile the exact total of every payroll line. Uploading evidence is not verification by a bank or payment provider.
@@ -103,7 +123,7 @@
 <label class="text-xs font-bold">Reconciled Total (BDT)<input type="number" name="reconciled_total" required min="0" step=".01" value="{{ number_format((float) $lines->sum('total_amount'), 2, '.', '') }}" class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
 <label class="w-full text-xs font-bold">Private Evidence (PDF/JPG/PNG up to 5 MB)<input type="file" name="payment_evidence" accept="application/pdf,image/jpeg,image/png" required class="mt-2 block w-full rounded-xl border border-slate-300 p-3 text-sm"></label>
 @endif
-@php $action=['draft'=>'review','reviewed'=>'approve','approved'=>'record_paid','paid'=>'lock'][$run->status]; @endphp
+@php($action = ['draft'=>'review','reviewed'=>'approve','approved'=>'record_paid','paid'=>'lock'][$run->status])
 <button type="submit" name="action" value="{{ $action }}" class="rounded-xl bg-[#17191F] px-5 py-3 text-sm font-extrabold text-white">{{ ['review'=>'Review & Freeze Snapshot','approve'=>'Approve Payroll','record_paid'=>'Record Externally Paid','lock'=>'Lock Finalized Period'][$action] }}</button>
 </form>
 @endif

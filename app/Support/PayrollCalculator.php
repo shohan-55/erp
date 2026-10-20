@@ -15,8 +15,12 @@ final class PayrollCalculator
     public static function cents(string|float|int $amount): int
     {
         $v=number_format((float)$amount,2,'.','');
-        [$units,$minor]=explode('.',$v);
-        return (int)$units*100+(int)$minor;
+        // Keep the sign for negative values smaller than BDT 1.00.
+        // Casting the "-0" whole-unit part would otherwise lose it.
+        $negative=str_starts_with($v,'-');
+        [$units,$minor]=explode('.',ltrim($v,'-'));
+        $cents=(int)$units*100+(int)$minor;
+        return $negative ? -$cents : $cents;
     }
 
     public static function money(int $cents): string
