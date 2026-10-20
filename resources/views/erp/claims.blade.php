@@ -1,7 +1,7 @@
 @extends('layouts.erp')
 @section('title','Conveyance Claims')
 @section('content')
-<section><h2 class="text-2xl font-extrabold">Conveyance & Travel Claims</h2><p class="mt-2 text-sm text-slate-500">Receipts are stored privately; reimbursement is included in payroll only after Partner-authorized approval.</p></section>
+<section><h2 class="text-2xl font-extrabold">Conveyance & Travel Claims</h2><p class="mt-2 text-sm text-slate-500">Receipts remain private; a Partner-defined workflow controls final authorization before approved amounts can enter payroll.</p></section>
 @include('erp.partials.module-guide',['module'=>'claims'])
 <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 @foreach([
@@ -61,12 +61,13 @@
 @elseif($row->status === 'approved')
 <p class="mt-1 text-xs font-bold text-amber-900">Approved — awaiting Payroll settlement</p>
 @endif
-@if(in_array($actor->role,['partner','manager']) && ($row->status==='pending' || ($actor->role==='partner' && $row->status==='manager_reviewed')))
+@php($approvalMode=\App\Support\ApprovalFlow::mode($row))
+@if(in_array($actor->role,['partner','manager']) && ($row->status==='pending' || ($actor->role==='partner' && $row->status==='manager_reviewed')) && !($actor->role==='manager' && $approvalMode==='partner_only'))
 <form data-corporate-confirm="Confirm this expense-claim review? Approved amounts may flow into a future payroll after final Partner approval." action="{{ route('erp.claims.decide',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
 <label class="text-xs font-bold text-slate-600">Reviewed amount (৳)
 <input type="number" name="approved_amount" min="0.01" max="{{ $row->amount }}" step="0.01" value="{{ $actor->role==='partner' ? ($row->manager_recommended_amount ?? $row->amount) : $row->amount }}" class="mt-1 w-36 rounded-lg border border-slate-300 p-2 text-xs"></label>
 <input type="text" name="decision_note" maxlength="1000" placeholder="Review note" class="min-w-44 flex-1 rounded-lg border border-slate-300 p-2 text-xs">
-<button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">{{ $actor->role==='manager' ? 'Review' : 'Approve' }}</button><button name="decision" value="reject" class="rounded-lg bg-rose-700 px-3 py-2 text-xs font-bold text-white">Reject</button></form>
+<button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">{{ $actor->role==='manager' && $approvalMode==='manager_partner' ? 'Review' : 'Approve' }}</button><button name="decision" value="reject" class="rounded-lg bg-rose-700 px-3 py-2 text-xs font-bold text-white">Reject</button></form>
 @endif
 @if($actor->role === 'student' && in_array($row->status,['pending','manager_reviewed']) && !$row->reserved_payroll_run_id && !$row->paid_payroll_run_id)
 <form method="POST" action="{{ route('erp.claims.withdraw',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" class="mt-2">@csrf
