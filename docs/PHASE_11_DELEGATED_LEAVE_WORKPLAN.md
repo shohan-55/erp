@@ -1,24 +1,31 @@
-# Phase 11 — Delegated Leave Management (implementation gate)
+# Phase 11 — Advanced Leave Management & Delegated Operations
 
-**Status: PARTIAL / NOT MERGED / NOT VERIFIED.** Development branch:
-`feature/phase11-delegated-leave-20261020`.
-Last verified baseline: Phase 10 development `3d7d344167c0d5aca047a12855446b6990c9ab31`.
+Base: verified development SHA `3d7d344167c0d5aca047a12855446b6990c9ab31`.
+**Scope:** development branch only; deployment and customer data unchanged.
 
-## Completed in isolated development branch
-- Additive migration recording optional `leave_requests.initiated_by`, mandatory-for-delegation `delegation_reason`, `withdrawn_by`, `withdrawal_reason`, and `withdrawn_at`. Legacy rows remain unchanged/null.
-- Recognized independent, explicit Partner-grant permissions for delegated leave submission and withdrawal in `WorkspaceAccess`. These permissions are **not** in the `OPERATIONS` catalogue; therefore a previous `full` delegation **does not silently receive** them.
-- Existing real backend remains unchanged while this phase is incomplete.
+## Delivered in Phase 11
 
-## Blocker
-The GitHub connector rejected attempted updates of existing application controller and custom-role catalog through its safety checks. No deployment, development merge, application behavior change or CI-pass assertion should follow from the incomplete migration/permission definitions.
+- Explicit partner-controlled, revocable `leave.submit_for` and `leave.withdraw_for` operation grants for Managers / designated Moderators with Manager memberships; supported by the legacy workspace access grant and custom role catalogues. Existing `full` delegation **does not silently include** these new permissions.
+- Dedicated tenant-scoped manager-only `POST /leave/delegated` and `POST /leave/{id}/delegated-withdraw` routes. Student's normal submission endpoint forbids targeting another account; no session/account impersonation.
+- Managers may submit for only their actively assigned, unsuspended students in the same company and Partner workspace. Permission and assignment are checked again **inside a serialized database transaction**.
+- All leave validations share the existing `LeaveController` submission function: annual notice, leave type, year constraints, no unsupported retroactive leave, working-day/half-day calculation, overlap, reserved entitlements, credits and frozen payroll.
+- Every submission stores `initiated_by` and a distinct, mandatory `delegation_reason` separate from the student's leave justification. Historic records retain null initiator and remain valid.
+- **Self-approval prohibited:** every manager-initiated application snapshots `partner_only` regardless of a Manager-Final workspace setting. Assigned Manager cannot approve/reject their own delegated application. Partner makes an independent final decision through the existing ApprovalFlow and balance check.
+- Permission-gated withdrawal of *only pending requests initiated by the exact same Manager*, with an independent minimum-length reason, `withdrawn_by`, `withdrawn_at` and a student/Partner notification. No approved or already withdrawn request can be edited.
+- Restricted UI shows only assigned students to authorized Managers, captures separate leave and delegation reasons, displays actor provenance and offers reasoned owned-pending withdrawal. Partner and student own forms unaffected.
+- Existing tenant-scoped audit events and notifications record the initiating actor and beneficiary without leaking cross-workspace identities.
 
-## Safe completion criteria
-1. Dedicated `POST /leave/delegated` with active explicitly authorized Manager only; target is an active assigned student in same company and Partner workspace, with required distinct business reason, no impersonated student login. Validate again inside the workspace lock.
-2. Reuse **all** original LeaveController validation: prior/future date windows, annual notice, working-day computation, half-day, overlap, available credits and frozen payroll periods.
-3. Stamp initiator separately from student; independently notify student and owning Partner. A Manager-submitted leave must take an independent Partner-only approval route, even if the workspace preset is Manager-final. Existing requests preserve their frozen approval snapshot.
-4. Optional reasoned withdrawal of **only pending** delegated requests that the same Manager initiated, with independent `leave.withdraw_for` permission; separately audit status, actor and reason.
-5. UI only for managers with explicit live permissions, scoped student roster, provenance badge for all authorized staff and accessible approval history.
-6. Unit/Feature/MySQL tests: zero rights by default, explicit grant and revoke/expiry, cross-workspace and unrelated student denied, positive submission, duplicate and overlap, no student impersonation, date/credit rules, frozen payroll denial, independent reviewer requirement, audit/notifications and double-withdrawal denied.
-7. Full PHPUnit/Vite/Browser/MySQL8/cPanel release CI on exact PR HEAD; reviewed merge only to `security/production-readiness-gates`, then exact merge SHA CI. Production never deployed automatically.
+## Backwards compatibility / boundaries
 
-**Note:** Do not create PR or merge until the rejected source updates can be safely completed and tested.
+No company-wide HR policy changes, no salary or payroll history rewrites, no extra approved leaves, no retroactive self-approval. Leave Balance and Phase 09 workflow snapshot logic stay intact. Arbitrary third-party proxy access, impersonation, moderator final financial decisions or cross-tenant grants are not added.
+
+## Verification gates
+
+- [x] Isolated branch, additive schema, permission keys, routes, UI, audit
+- [x] Shared Leave Controller validations for student and delegated workflows
+- [x] Automated tests for delegated permission, revocation, student identity, cross-company target, independent Partner approval, notice/overlap, payroll freeze, withdrawal identity, historical self-service
+- [ ] Latest PR head PHPUnit/Vite and Browser QA
+- [ ] MySQL 8 Integration and cPanel package validation
+- [ ] Reviewed squash merge only into `security/production-readiness-gates`
+- [ ] Post-merge exact-SHA CI check
+- [ ] Staging restoration, live release approval and production migration are separate
