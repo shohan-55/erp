@@ -34,7 +34,9 @@ final class IdentityLink
             );
         }, 3);
 
-        $url = route('erp.account.invitations.show', ['token' => $token]);
+        // Links for global account management must never inherit an active
+        // customer-owned custom domain from the URL generator.
+        $url = rtrim((string) config('app.url'), '/') . '/account/invitations/' . $token;
         Mail::raw(
             "An ERP organization has invited your existing account to join ".$companyName.".\n\n".
             "Your current password, MFA and other company memberships are unchanged.\n".
