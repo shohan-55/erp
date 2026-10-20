@@ -18,7 +18,9 @@ final class ProtectErpResponses
         }
         $response->headers->set('X-Content-Type-Options','nosniff');
         $response->headers->set('X-Frame-Options','DENY');
-        $response->headers->set('Referrer-Policy','no-referrer');
+        // Internal form redirects rely on the same-origin Referer header.
+        // Never send private ERP paths to external origins.
+        $response->headers->set('Referrer-Policy','same-origin');
         $response->headers->set('Permissions-Policy',
             'camera=(), microphone=(), geolocation=(self)');
         if(!$response->headers->has('Content-Security-Policy')){
