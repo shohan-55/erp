@@ -82,6 +82,14 @@ final class Phase10ProxyAttendanceTest extends TestCase
         $this->assertSame((int)$f['users']['student']->id,(int)$s->membership_id);
         $this->assertNotNull($s->proxy_start_reason);
         $this->assertDatabaseCount('attendance_locations',0);
+        $company=DB::table('companies')->find($f['company']);
+        $workspace=DB::table('workspaces')->find($f['ws']);
+        $student=DB::table('memberships')->find($f['users']['student']->id);
+        $preview=\\App\\Support\\AttendanceReconciliation::forDate(
+            $company,$workspace,$student,$s->work_date
+        );
+        $this->assertSame('proxy_pending',$preview['rows']->first()->status_key);
+        $this->assertSame(0,$preview['rows']->first()->session_count);
         $this->assertDatabaseHas('tenant_audit_events',[
             'entity_id'=>$s->id,'action'=>'attendance.proxy.check_in',
         ]);
@@ -104,6 +112,10 @@ final class Phase10ProxyAttendanceTest extends TestCase
         $this->assertDatabaseHas('tenant_audit_events',[
             'entity_id'=>$s->id,'action'=>'attendance.proxy.verified',
         ]);
+        $accepted=\\App\\Support\\AttendanceReconciliation::forDate(
+            $company,$workspace,$student,$s->work_date
+        );
+        $this->assertSame(1,$accepted['rows']->first()->session_count);
         $this->post('/c/proxy-firm/app/attendance/proxy/'.$s->id.'/decision',[
             'decision'=>'reject','reason'=>'Trying to change an already verified session.',
         ])->assertNotFound();
