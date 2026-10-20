@@ -4,11 +4,44 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class AccountCompanyController extends Controller
 {
+    public function login()
+    {
+        return response()->view('erp.account-login')
+            ->header('Cache-Control', 'private, no-store, max-age=0');
+    }
+
+    public function signIn(Request $request)
+    {
+        $input = $request->validate([
+            'email' => ['required', 'email', 'max:254'],
+            'password' => ['required', 'string'],
+        ]);
+        if (!Auth::attempt($input)) {
+            throw ValidationException::withMessages(['email' => 'Invalid credentials.']);
+        }
+        $request->session()->regenerate();
+        $request->session()->forget([
+            'erp_mfa_verified_user_id', 'erp_mfa_pending_secret',
+            'erp_mfa_setup_user_id', 'erp_mfa_firm_slug', 'erp.active_membership',
+        ]);
+        $request->session()->put('erp_mfa_context', 'account');
+        return redirect()->intended(route('erp.account.companies'));
+    }
+
+    public function logout(Request $request)
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect()->route('erp.account.login');
+    }
+
     /** Company labels and role names only: never inspect cross-tenant private data. */
     private function memberships(Request $request)
     {
