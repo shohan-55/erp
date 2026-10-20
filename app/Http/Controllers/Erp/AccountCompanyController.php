@@ -39,7 +39,7 @@ final class AccountCompanyController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        return redirect()->route('erp.account.login');
+        return redirect()->route('login');
     }
 
     /** Company labels and role names only: never inspect cross-tenant private data. */
