@@ -81,6 +81,9 @@
 <div class="mt-4 grid gap-4 lg:grid-cols-2">
 <form method="POST" action="{{ route('erp.staff.lifecycle',['firmSlug'=>$firmSlug,'id'=>$member->id]) }}" class="flex flex-wrap items-end gap-2 rounded-xl bg-slate-50 p-4">@csrf
 <div class="w-full text-sm font-bold">Staff Exit / Rejoin</div>
+<a href="{{ route('erp.staff.exit_clearance',['firmSlug'=>$firmSlug,'id'=>$member->id]) }}"
+class="w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-extrabold text-amber-950 hover:bg-amber-100">Review Exit Clearance & Previous Permissions →</a>
+<p class="w-full text-xs text-slate-600">Exit removes active Manager delegation and custom-role assignment. Historical staff, payroll, attendance and private documents remain archived. Rejoin never restores previous privileges automatically.</p>
 <select name="action" required class="rounded-lg border border-slate-300 p-2 text-xs"><option value="exit">Record Exit</option><option value="rejoin">Rejoin Previously Activated Staff</option></select>
 <input name="reason" required minlength="15" maxlength="1000" placeholder="Reason (required)" class="min-w-48 flex-1 rounded-lg border border-slate-300 p-2 text-xs">
 <button class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">Save Lifecycle</button>
