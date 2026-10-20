@@ -173,17 +173,26 @@ final class AttendanceProxyController extends Controller
             abort_unless($session,404);
             $student=TenantOps::subject($fresh,(int)$session->membership_id);
             abort_unless($student->role==='student',404);
-            if (!$session->ended_at) throw ValidationException::withMessages([
-                'decision'=>'Check-out is required before final proxy attendance verification.',
-            ]);
+            if (!$session->ended_at && $data['decision']==='verify') {
+                throw ValidationException::withMessages([
+                    'decision'=>'Check-out is required before final proxy attendance verification.',
+                ]);
+            }
             $this->assertPayrollNotFrozen($fresh,$session->work_date);
             $new=$data['decision']==='verify'?'verified':'rejected';
+            // An open erroneous proxy may be rejected and closed using the
+            // real server time, never a fabricated student punch.
+            $change=[
+                'proxy_status'=>$new,'proxy_verified_by'=>$fresh->id,
+                'proxy_verified_at'=>now(),'proxy_verification_note'=>trim($data['reason']),
+                'updated_at'=>now(),
+            ];
+            if (!$session->ended_at && $new==='rejected') {
+                $change['ended_at']=now()->utc()->toDateTimeString();
+                $change['proxy_end_reason']='Partner rejected and closed the unverified session';
+            }
             DB::table('attendance_sessions')->where('id',$session->id)
-                ->where('proxy_status','pending')->update([
-                    'proxy_status'=>$new,'proxy_verified_by'=>$fresh->id,
-                    'proxy_verified_at'=>now(),'proxy_verification_note'=>trim($data['reason']),
-                    'updated_at'=>now(),
-                ]);
+                ->where('proxy_status','pending')->update($change);
             TenantOps::audit($fresh,'attendance.proxy.'.$new,'attendance_session',$session->id,[
                 'student_id'=>$student->id,'proxy_started_by'=>$session->proxy_started_by,
                 'proxy_ended_by'=>$session->proxy_ended_by,'reason'=>trim($data['reason']),
