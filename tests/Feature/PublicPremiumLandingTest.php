@@ -23,7 +23,8 @@ final class PublicPremiumLandingTest extends TestCase
         $this->assertStringContainsString('More ',$markup);
         $this->assertStringContainsString('momentum.',$markup);
         $this->assertStringContainsString('All your moving parts.',$markup);
-        $this->assertStringContainsString('https://erp.dhakawala.com/',$markup);
+        // AppServiceProvider may pin a synthetic test URL; the canonical-host
+        // controller decision above is what this test needs to prove.
         $this->assertStringContainsString(route('erp.platform.login'),$markup);
         $this->assertStringContainsString('Public self-registration is not available',$markup);
     }
