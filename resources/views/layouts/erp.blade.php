@@ -60,7 +60,7 @@
 @if($actor->role === 'partner')
 <a href="{{ route('erp.custom_roles.index', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-[#FCDF02] hover:bg-white/10"><i data-lucide="shield" class="h-4 w-4"></i>Custom Role Studio</a>
 @endif
-@if(\App\Support\WorkspaceRoles::allows($actor, 'organization.view'))
+@if(\App\Support\WorkspaceAccess::allows($actor, 'organization.view'))
 <a href="{{ route('erp.organization.index', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"><i data-lucide="network" class="h-4 w-4"></i>Organization Structure</a>
 <a href="{{ route('erp.team', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"><i data-lucide="users-round" class="h-4 w-4"></i>Team & Accounts</a>
 @endif

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\OrganizationTemplate;
-use App\Support\WorkspaceRoles;
+use App\Support\WorkspaceAccess;
 use App\Support\TenantOps;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +21,7 @@ final class OrganizationUnitController extends Controller
     private function authorize(Request $request, string $permission): array
     {
         [$company, $workspace, $actor] = TenantOps::context($request);
-        abort_unless(WorkspaceRoles::allows($actor, $permission), 403);
+        abort_unless(WorkspaceAccess::allows($actor, $permission), 403);
 
         return [$company, $workspace, $actor];
     }
