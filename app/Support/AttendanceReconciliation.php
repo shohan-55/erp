@@ -34,6 +34,11 @@ final class AttendanceReconciliation
             ->where(fn($q)=>$q->whereNull('proxy_status')->orWhere('proxy_status','verified'))
             ->orderBy('started_at')->get()->groupBy('membership_id');
 
+        $pendingProxy = DB::table('attendance_sessions')
+            ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+            ->whereIn('membership_id',$ids)->where('work_date',$day)
+            ->where('proxy_status','pending')->distinct()->pluck('membership_id')->all();
+
         $leaves = DB::table('leave_requests')
             ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
             ->whereIn('membership_id', $ids)
@@ -62,7 +67,7 @@ final class AttendanceReconciliation
         $summary = self::initialSummary();
         $rows = $members->map(function ($member) use (
             $day, $sessions, $leaves, $approvedShifts, $workspaceDay,
-            $company, $today, $approvedClientDuty, &$summary
+            $company, $today, $approvedClientDuty, $pendingProxy, &$summary
         ) {
             $dayRule = $workspaceDay;
             $shift = $approvedShifts->get($member->id);
@@ -104,6 +109,9 @@ final class AttendanceReconciliation
                         $label = 'Late';
                     }
                 }
+            } elseif (in_array($member->id,$pendingProxy,true)) {
+                $flag = 'proxy_pending';
+                $label = 'Proxy Attendance · Awaiting Partner Verification';
             } elseif ($duty) {
                 $flag = 'duty_authorized';
                 $label = 'Client Duty Approved · No Check-in';
@@ -155,6 +163,7 @@ final class AttendanceReconciliation
             'missing_punch' => 0, 'holiday' => 0, 'leave' => 0,
             'not_checked_in' => 0, 'review' => 0, 'half_leave' => 0,
             'duty_authorized' => 0, 'client_duty_review' => 0,
+            'proxy_pending' => 0,
         ];
     }
 }
