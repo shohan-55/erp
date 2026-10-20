@@ -72,7 +72,9 @@ final class AttendanceProxyController extends Controller
             }
             $first=!DB::table('attendance_sessions')->where('company_id',$company->id)
                 ->where('workspace_id',$workspace->id)->where('membership_id',$student->id)
-                ->where('work_date',$date)->where('proxy_status','!=','rejected')->exists();
+                ->where('work_date',$date)
+                ->where(fn($q)=>$q->whereNull('proxy_status')->orWhere('proxy_status','verified')->orWhere('proxy_status','pending'))
+                ->exists();
             $clock=AttendanceClock::schedule($company,$workspace,$student,$instant);
             $arrival=AttendanceClock::arrival($clock,$instant,$first);
             $id=DB::table('attendance_sessions')->insertGetId([
