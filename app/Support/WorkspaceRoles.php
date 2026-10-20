@@ -16,6 +16,8 @@ final class WorkspaceRoles
     public const PERMISSIONS = [
         'attendance.propose' => 'Attendance — propose a correction for assigned students (Partner final decision still required)',
         'attendance.proxy' => 'Attendance — proxy punch assigned students, Partner verification required',
+        'leave.submit_for' => 'Submit assigned students leave requests',
+        'leave.withdraw_for' => 'Withdraw submitted delegated requests',
         'organization.view' => 'Organization — view offices, teams, hierarchy and workspace assignments',
         'organization.manage' => 'Organization — create, rename, activate and assign people within this workspace',
     ];
