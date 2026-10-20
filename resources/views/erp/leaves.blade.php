@@ -4,7 +4,7 @@
 <section>
 <p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">PARTNER-WISE LEAVE GOVERNANCE</p>
 <h2 class="mt-1 text-2xl font-extrabold">Leave, Balances & Approvals</h2>
-<p class="mt-2 max-w-3xl text-sm text-slate-600">Students apply and can withdraw pending leave. Managers review assigned students; the Partner gives final approval. Each Partner's entitlements, working-day policy and decision records remain independent. Leave does not automatically reduce payroll.</p>
+<p class="mt-2 max-w-3xl text-sm text-slate-600">Students can apply and withdraw pending leave. Your Partner chooses a one-step or two-step workflow for new applications. Older requests retain their original approval route. Leave does not automatically reduce payroll.</p>
 </section>
 @include('erp.partials.module-guide',['module'=>'leave'])
 
@@ -119,10 +119,11 @@
 <p class="mt-2 max-w-xl text-xs text-slate-500">{{ $row->reason }}</p></div>
 <div class="space-y-2">
 <span class="inline-flex rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{{ str_replace('_',' ',ucfirst($row->status)) }}</span>
-@if(in_array($actor->role,['partner','manager']) && ($row->status==='pending' || ($actor->role==='partner' && $row->status==='manager_reviewed')))
+@php($approvalMode=\App\Support\ApprovalFlow::mode($row))
+@if(in_array($actor->role,['partner','manager']) && ($row->status==='pending' || ($actor->role==='partner' && $row->status==='manager_reviewed')) && !($actor->role==='manager' && $approvalMode==='partner_only'))
 <form data-corporate-confirm="Review this leave decision? The student's request will advance or be rejected, and the action will be audited." action="{{ route('erp.leaves.decide',['firmSlug'=>$firmSlug,'id'=>$row->id]) }}" method="POST" class="flex flex-wrap gap-2">@csrf
 <input type="text" name="decision_note" maxlength="1000" placeholder="Decision note (optional)" class="min-w-44 flex-1 rounded-lg border border-slate-300 p-2 text-xs">
-<button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">{{ $actor->role==='manager' ? 'Review' : 'Approve' }}</button>
+<button name="decision" value="approve" class="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-bold text-white">{{ $actor->role==='manager' && $approvalMode==='manager_partner' ? 'Review' : 'Approve' }}</button>
 <button name="decision" value="reject" class="rounded-lg bg-rose-700 px-3 py-2 text-xs font-bold text-white">Reject</button></form>
 @endif
 @if($row->status==='approved')
