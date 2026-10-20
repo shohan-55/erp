@@ -51,7 +51,11 @@ final class StaffExitClearance
                 $issues['delegated_attendance']='Resolve Manager-initiated pending attendance corrections.';
             }
         }
-        if($scope(DB::table('attendance_sessions'))->whereNull('ended_at')->exists()){
+        if($scope(DB::table('audit_engagement_milestones'))
+            ->where('status','!=','completed')->exists()){
+            $issues['engagement_milestones']='Complete or reassign open audit engagement milestones before staff exit.';
+        }
+        if($scope(DB::table('attendance_sessions'))->whereNull('ended_at')->exists(){
             $issues['open_attendance']='Close active attendance before staff exit.';
         }
         if($scope(DB::table('attendance_review_requests'))
