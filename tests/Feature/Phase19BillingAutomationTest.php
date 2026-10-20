@@ -215,7 +215,7 @@ final class Phase19BillingAutomationTest extends TestCase
         $next=DB::table('saas_invoices')->orderByDesc('id')->firstOrFail();
         $this->assertSame($sub->current_period_end,$next->period_start);
         $this->assertSame(12,(int)$next->months);
-        $this->assertSame('9600.00',$next->total_amount);
+        $this->assertSame(960000,SaasBilling::cents($next->total_amount));
         $this->assertSame('pending',$next->status);
         $this->assertDatabaseCount('saas_payments',1);
         $this->assertDatabaseCount('saas_billing_automation_events',1);
