@@ -31,6 +31,7 @@ final class AttendanceReconciliation
         $sessions = DB::table('attendance_sessions')
             ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
             ->whereIn('membership_id', $ids)->where('work_date', $day)
+            ->where(fn($q)=>$q->whereNull('proxy_status')->orWhere('proxy_status','verified'))
             ->orderBy('started_at')->get()->groupBy('membership_id');
 
         $leaves = DB::table('leave_requests')
