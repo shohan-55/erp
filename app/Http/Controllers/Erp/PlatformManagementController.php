@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
+use App\Support\OrganizationTemplate;
 use App\Models\User;
 use App\Mail\PlatformStaffInvitation;
 use App\Support\OutboundMailGuard;
@@ -47,6 +48,7 @@ class PlatformManagementController extends Controller
             ->get(['action', 'subject_type', 'subject_id', 'created_at']);
 
         $customDomain = DB::table('company_custom_domains')->where('company_id', $companyId)->first();
+        $organizationTypeLabel = OrganizationTemplate::TYPES[OrganizationTemplate::type($company->organization_type)];
 
         // Platform-safe deletion preview: only account/billing metadata.
         // File contents, student attendance and payroll are never queried.
@@ -59,7 +61,7 @@ class PlatformManagementController extends Controller
             'storage_bytes' => null, // Phase 17/18 needs a verified tenant file inventory.
         ];
 
-        return view('erp.platform-company', compact('company', 'workspaces', 'members', 'events', 'customDomain', 'lifecyclePreview'));
+        return view('erp.platform-company', compact('company', 'workspaces', 'members', 'events', 'customDomain', 'lifecyclePreview', 'organizationTypeLabel'));
     }
 
     public function updateCompany(Request $request, int $companyId)

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
+use App\Support\OrganizationTemplate;
 use App\Models\User;
 use App\Support\OutboundMailGuard;
 use Illuminate\Http\Request;
@@ -98,6 +99,7 @@ class PlatformController extends Controller
         $data = $request->validate([
             'company_name' => ['required', 'string', 'min:3', 'max:255'],
             'company_slug' => ['required', 'regex:/^[a-z0-9][a-z0-9-]{1,68}[a-z0-9]$/'],
+            'organization_type' => ['nullable', \Illuminate\Validation\Rule::in(array_keys(OrganizationTemplate::TYPES))],
             'partner_name' => ['required', 'string', 'min:3', 'max:255'],
             'partner_email' => ['required', 'email', 'max:254'],
             'timezone' => ['nullable', 'timezone'],
@@ -106,8 +108,8 @@ class PlatformController extends Controller
             'min_active_partners_for_company_policy' => ['nullable', 'integer', 'between:1,200'],
         ]);
         // The product is owned by DhakaWala, never by an individual tenant.
-        // Initial commercial market is CA firms; future firm types are added
-        // through an explicit migration and product-level review.
+        // Industry presets share the same secure membership and billing engine.
+        // Legacy onboarding without a type continues to create a CA firm.
         if (in_array($data['company_slug'], [
             'platform', 'login', 'logout', 'admin', 'api', 'c', 'dashboard',
             'security', 'storage', 'support', 'register', 'forgot-password',
@@ -131,7 +133,7 @@ class PlatformController extends Controller
             $user = $this->invitedUser($email, $data['partner_name']);
             $companyId = DB::table('companies')->insertGetId([
                 'slug' => $data['company_slug'], 'name' => trim($data['company_name']),
-                'organization_type' => 'ca_firm',
+                'organization_type' => $data['organization_type'] ?? 'ca_firm',
                 'brand_name' => trim($data['brand_name'] ?? '') ?: null,
                 'brand_accent_color' => $data['brand_accent_color'] ?? '#FCDF02',
                 'min_active_partners_for_company_policy' => (int) ($data['min_active_partners_for_company_policy'] ?? 1),
@@ -142,7 +144,7 @@ class PlatformController extends Controller
             ]);
             $workspaceId = DB::table('workspaces')->insertGetId([
                 'company_id' => $companyId, 'slug' => 'partner-01',
-                'name' => 'Partner Unit 01', 'active' => true,
+                'name' => OrganizationTemplate::workspaceName($data['organization_type'] ?? 'ca_firm'), 'active' => true,
                 'created_at' => now(), 'updated_at' => now(),
             ]);
             $this->insertPartnerInvitation($companyId, $workspaceId, $user->id);
@@ -153,7 +155,7 @@ class PlatformController extends Controller
                 'subject_type' => 'company',
                 'subject_id' => $companyId,
                 'details' => json_encode([
-                    'organization_type' => 'ca_firm',
+                    'organization_type' => $data['organization_type'] ?? 'ca_firm',
                     'initial_workspace_id' => $workspaceId,
                 ], JSON_THROW_ON_ERROR),
                 'created_at' => now(),
@@ -162,7 +164,7 @@ class PlatformController extends Controller
         }, 3);
 
         $this->emailInvite($user, $companyName, $slug);
-        return back()->with('success', 'Company created with an inactive Partner invitation. Verify email delivery.');
+        return back()->with('success', 'Organization created from a business template; primary administrator must accept the invitation.');
     }
 
     public function addPartner(Request $request, int $companyId)

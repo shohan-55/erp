@@ -65,11 +65,17 @@
 @empty<p class="p-7 text-sm text-slate-500">No company registered yet.</p>@endforelse
 </div></section>
 <aside class="space-y-5">
-<section id="create-firm" class="scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 class="text-sm font-extrabold">Create New Firm</h2><p class="mt-2 text-xs leading-relaxed text-slate-500">A new company gets one isolated Partner workspace with an inactive email invitation, not automatic tenant access.</p>
+<section id="create-firm" class="scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 class="text-sm font-extrabold">Create New Organization</h2><p class="mt-2 text-xs leading-relaxed text-slate-500">A new organization gets one secure primary workspace and an inactive email invitation. Templates only change business defaults, never security boundaries.</p>
 <form action="{{ route('erp.platform.companies.create') }}" method="POST" class="mt-5 space-y-3">@csrf
 <label class="block text-xs font-bold text-slate-700">Company Name<input name="company_name" required placeholder="Chartered Accountants Firm" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
 <label class="block text-xs font-bold text-slate-700">Company Slug<input name="company_slug" required placeholder="my-firm" pattern="[a-z0-9-]+" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
-<div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><strong>CA Firm (Phase 01)</strong> · Each firm has one shared login and isolated Partner workspaces. DhakaWala remains the SaaS operator.</div>
+<label class="block text-xs font-bold text-slate-700">Business Type
+<select name="organization_type" required class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm">
+@foreach(\App\Support\OrganizationTemplate::TYPES as $type=>$label)
+<option value="{{ $type }}" @selected($type==='ca_firm')>{{ $label }}</option>
+@endforeach
+</select></label>
+<div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><strong>Business Profile Templates</strong> · Each creates a protected primary workspace and invitation. Legacy Partner role remains the primary workspace owner while later phases add custom business roles. Existing CA workspaces remain isolated.</div>
 <label class="block text-xs font-bold text-slate-700">Firm Display / Brand Name (optional)<input name="brand_name" maxlength="100" placeholder="Brand shown inside the client portal" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
 <label class="block text-xs font-bold text-slate-700">Brand Accent Color<input type="color" name="brand_accent_color" value="#FCDF02" class="mt-2 h-11 w-full rounded-lg border border-slate-300 bg-white p-1"></label>
 <label class="block text-xs font-bold text-slate-700">Firm Timezone<select name="timezone" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"><option value="Asia/Dhaka">Asia/Dhaka</option><option value="UTC">UTC</option></select></label>

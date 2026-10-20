@@ -9,6 +9,7 @@ use App\Http\Controllers\Erp\AttendanceReportController;
 use App\Http\Controllers\Erp\AttendanceReconciliationController;
 use App\Http\Controllers\Erp\AttendanceReviewController;
 use App\Http\Controllers\Erp\WorkspaceAccessController;
+use App\Http\Controllers\Erp\OrganizationUnitController;
 use App\Http\Controllers\Erp\WorkflowController;
 use App\Http\Controllers\Erp\ExpenseManagementController;
 use App\Http\Controllers\Erp\LeaveController;
@@ -83,6 +84,13 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
     });
     Route::middleware(['auth', 'tenant.member', 'mfa.verified', 'student.features'])->group(function () {
         Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
+        // Partner-managed organizational units: scoped to the selected workspace.
+        Route::get('/organization/units', [OrganizationUnitController::class, 'index'])->name('organization.index');
+        Route::post('/organization/units', [OrganizationUnitController::class, 'store'])->middleware('throttle:12,1')->name('organization.store');
+        Route::post('/organization/units/{unitId}/rename', [OrganizationUnitController::class, 'rename'])->middleware('throttle:12,1')->name('organization.rename');
+        Route::post('/organization/units/{unitId}/status', [OrganizationUnitController::class, 'toggle'])->middleware('throttle:12,1')->name('organization.toggle');
+        Route::post('/organization/units/{unitId}/members', [OrganizationUnitController::class, 'assign'])->middleware('throttle:20,1')->name('organization.assign');
+        Route::post('/organization/units/{unitId}/members/{membershipId}/remove', [OrganizationUnitController::class, 'unassign'])->middleware('throttle:20,1')->name('organization.unassign');
         Route::get('/calendar', [CorporateCalendarController::class, 'index'])->name('calendar.index');
         Route::get('/calendar/export', [CorporateCalendarController::class, 'export'])->middleware('throttle:20,1')->name('calendar.export');
         Route::get('/settings/security', [SecurityController::class, 'index'])->name('security');
