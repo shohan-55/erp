@@ -8,6 +8,7 @@ use App\Support\PolicyResolver;
 use App\Support\AttendanceClock;
 use App\Support\WorkCalendar;
 use App\Support\AttendanceLocation;
+use App\Support\WorkspaceAccess;
 use Illuminate\Support\Facades\Crypt;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -40,6 +41,16 @@ class AttendanceController extends Controller
             ? DB::table('attendance_sessions')->where('membership_id', $actor->id)
                 ->whereNull('ended_at')->first() : null;
 
+        $canProxy = $actor->role === 'manager'
+            && WorkspaceAccess::allows($actor,'attendance.proxy');
+        $proxyStudents = $canProxy ? DB::table('memberships as m')
+            ->join('users as u','u.id','=','m.user_id')
+            ->where('m.company_id',$company->id)->where('m.workspace_id',$workspace->id)
+            ->where('m.manager_membership_id',$actor->id)
+            ->where('m.role','student')->where('m.active',true)
+            ->whereNull('m.platform_suspended_at')
+            ->select('m.id','u.name')->orderBy('u.name')->get() : collect();
+
         $locationSessionIds = $actor->role === 'student'
             ? collect()
             : DB::table('attendance_locations')
@@ -48,7 +59,7 @@ class AttendanceController extends Controller
                 ->whereIn('attendance_session_id', $records->pluck('id'))
                 ->distinct()->pluck('attendance_session_id');
 
-        return view('erp.attendance', compact('company', 'workspace', 'actor', 'firmSlug', 'records', 'openSession', 'locationSessionIds'));
+        return view('erp.attendance', compact('company', 'workspace', 'actor', 'firmSlug', 'records', 'openSession', 'locationSessionIds', 'canProxy', 'proxyStudents'));
     }
 
     /**
@@ -101,7 +112,9 @@ class AttendanceController extends Controller
             $localNow = CarbonImmutable::now($company->timezone);
             $day = $localNow->toDateString();
             $firstSession = ! DB::table('attendance_sessions')->where('membership_id', $actor->id)
-                ->where('work_date', $day)->exists();
+                ->where('work_date', $day)
+                ->where(fn($q)=>$q->whereNull('proxy_status')->orWhere('proxy_status','verified')->orWhere('proxy_status','pending'))
+                ->exists();
 
             // A visible late arrival begins immediately after the scheduled
             // start; grace arrivals are saved but excluded from qualifying days.

@@ -29,6 +29,7 @@ class AttendanceReportController extends Controller
             ->join('users as u', 'u.id', '=', 'm.user_id')
             ->where('s.company_id', $company->id)
             ->where('s.workspace_id', $workspace->id)
+            ->where(fn($q)=>$q->whereNull('s.proxy_status')->orWhere('s.proxy_status','verified'))
             ->where('m.company_id', $company->id)
             ->where('m.workspace_id', $workspace->id)
             ->where('m.role', 'student')
