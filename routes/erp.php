@@ -14,6 +14,7 @@ use App\Http\Controllers\Erp\WorkspaceAccessController;
 use App\Http\Controllers\Erp\CustomRoleController;
 use App\Http\Controllers\Erp\FeatureStudioController;
 use App\Http\Controllers\Erp\CompanyFeatureGovernanceController;
+use App\Http\Controllers\Erp\ApprovalSettingsController;
 use App\Http\Controllers\Erp\OrganizationUnitController;
 use App\Http\Controllers\Erp\WorkflowController;
 use App\Http\Controllers\Erp\ExpenseManagementController;
@@ -129,6 +130,10 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/attendance/reviews/team', [AttendanceReviewController::class, 'submitForStudent'])->middleware('throttle:8,1')->name('attendance.reviews.team_submit');
         // Phase 05: Partner-only custom role definitions and scoped manager assignments.
         // Phase 07: module controls are never toggled by navigation alone.
+        Route::get('/settings/approval-workflows', [ApprovalSettingsController::class,'index'])
+            ->name('approval_settings.index');
+        Route::post('/settings/approval-workflows', [ApprovalSettingsController::class,'update'])
+            ->middleware('throttle:8,1')->name('approval_settings.update');
         Route::get('/settings/features', [FeatureStudioController::class, 'index'])
             ->name('feature_studio.index');
         Route::post('/settings/features/company/proposals', [CompanyFeatureGovernanceController::class, 'propose'])
