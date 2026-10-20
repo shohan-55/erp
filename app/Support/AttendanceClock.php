@@ -78,6 +78,7 @@ final class AttendanceClock
             ->where('membership_id', $actor->id)
             ->whereBetween('work_date', [$begin, $date])
             ->where('late', true)
+            ->where(fn($q)=>$q->whereNull('proxy_status')->orWhere('proxy_status','verified'))
             ->get(['work_date', 'late_within_grace'])
             ->groupBy('work_date');
 
