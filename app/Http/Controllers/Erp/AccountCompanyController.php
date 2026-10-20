@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
+use App\Support\ErpSecurityEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -23,9 +24,11 @@ final class AccountCompanyController extends Controller
             'password' => ['required', 'string'],
         ]);
         if (!Auth::attempt($input)) {
+            ErpSecurityEvents::record('account.login.denied',$request);
             throw ValidationException::withMessages(['email' => 'Invalid credentials.']);
         }
         $request->session()->regenerate();
+        ErpSecurityEvents::record('account.login.accepted',$request,null,(int)Auth::id());
         $request->session()->forget([
             'erp_mfa_verified_user_id', 'erp_mfa_pending_secret',
             'erp_mfa_setup_user_id', 'erp_mfa_firm_slug', 'erp.active_membership',

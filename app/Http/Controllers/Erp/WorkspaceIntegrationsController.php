@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
 use App\Support\TenantOps;
+use App\Support\ErpSecurityEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -57,6 +58,7 @@ final class WorkspaceIntegrationsController extends Controller
                 'expires_at'=>now()->addDays((int)$d['days']),
                 'created_at'=>now(),'updated_at'=>now(),
             ]);
+            ErpSecurityEvents::record('integration.token.created',$request,$company->id,$request->user()->id);
             TenantOps::audit($actor,'integration.token.created','erp_integration_token',$id,[
                 'scopes'=>$d['scopes'],'days'=>(int)$d['days'],
             ]);
@@ -83,6 +85,7 @@ final class WorkspaceIntegrationsController extends Controller
                 DB::table('erp_integration_tokens')->where('id',$id)->update([
                     'revoked_at'=>now(),'updated_at'=>now(),
                 ]);
+                ErpSecurityEvents::record('integration.token.revoked',$request,$company->id,$request->user()->id);
                 TenantOps::audit($actor,'integration.token.revoked','erp_integration_token',$id);
             }
         },3);

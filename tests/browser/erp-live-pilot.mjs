@@ -76,8 +76,13 @@ try {
     });
     const initialTime = await page.locator('[data-attendance-clock-time]').textContent();
     assert.match(initialTime, /^\d{2}:\d{2}:\d{2}$/);
-    await page.waitForTimeout(1100);
-    assert.notEqual(await page.locator('[data-attendance-clock-time]').textContent(),initialTime,'Digital clock should tick');
+    // Browser CI can be CPU-throttled. Wait for a real time change instead
+    // of assuming one will occur in exactly 1.1 seconds.
+    await page.waitForFunction(previous =>
+        document.querySelector('[data-attendance-clock-time]')?.textContent !== previous,
+        initialTime,{timeout:7000});
+    assert.notEqual(await page.locator('[data-attendance-clock-time]').textContent(),
+        initialTime,'Digital clock should tick');
     const clockResponse = await page.request.get(baseUrl+'/c/rac/app/attendance/clock');
     assert.equal(clockResponse.status(),200,'Authenticated clock sync must return the server schedule');
     assert.equal((await clockResponse.json()).clock.timezone,'Asia/Dhaka');
@@ -143,8 +148,15 @@ try {
     await page.waitForTimeout(80);
     assert.equal(checkInSubmissions, 0, 'Cancelling attendance must not submit a POST');
     await page.getByRole('button',{name:'Check In Now'}).click();
+    const checkInResponse = page.waitForResponse(response =>
+        response.request().method()==='POST'
+        && new URL(response.url()).pathname.endsWith('/attendance/check-in'),
+        {timeout:15000});
     await page.getByRole('button',{name:'OK, Check In →'}).click();
-    await page.getByRole('alertdialog').waitFor();
+    const checkInResult=await checkInResponse;
+    assert.ok(checkInResult.status()<400,
+        'Attendance check-in request must succeed; HTTP '+checkInResult.status());
+    await page.getByRole('alertdialog').waitFor({timeout:15000});
     assert.equal(checkInSubmissions, 1, 'Exactly one check-in POST after OK');
     await page.getByRole('button',{name:/Continue to dashboard/}).click();
     await page.getByRole('button',{name:'Check Out Now'}).click();
