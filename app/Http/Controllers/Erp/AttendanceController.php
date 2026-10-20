@@ -112,7 +112,9 @@ class AttendanceController extends Controller
             $localNow = CarbonImmutable::now($company->timezone);
             $day = $localNow->toDateString();
             $firstSession = ! DB::table('attendance_sessions')->where('membership_id', $actor->id)
-                ->where('work_date', $day)->exists();
+                ->where('work_date', $day)
+                ->where(fn($q)=>$q->whereNull('proxy_status')->orWhere('proxy_status','verified')->orWhere('proxy_status','pending'))
+                ->exists();
 
             // A visible late arrival begins immediately after the scheduled
             // start; grace arrivals are saved but excluded from qualifying days.
