@@ -61,6 +61,7 @@
 <a href="{{ route('erp.organization.index', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"><i data-lucide="network" class="h-4 w-4"></i>Organization Structure</a>
 <a href="{{ route('erp.team', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"><i data-lucide="users-round" class="h-4 w-4"></i>Team & Accounts</a>
 @endif
+<a href="{{ rtrim(config('app.url'), '/') . '/account/companies' }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl border border-white/15 px-4 py-3 text-sm font-semibold text-[#FCDF02] hover:bg-white/10"><i data-lucide="building-2" class="h-4 w-4"></i>My Companies</a>
 @if(request()->attributes->get('tenant.workspace_count', 1) > 1)
 <a href="{{ route('erp.workspaces.index', ['firmSlug'=>$firmSlug]) }}" class="mx-3 mb-3 flex items-center gap-3 rounded-xl border border-white/15 px-4 py-3 text-sm font-semibold text-[#FCDF02] hover:bg-white/10"><i data-lucide="network" class="h-4 w-4"></i>Switch Partner Workspace</a>
 @endif
