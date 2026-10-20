@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Support\LeaveBalance;
 use App\Support\ApprovalFlow;
+use App\Support\WorkspaceAccess;
 use App\Support\TenantOps;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
@@ -51,11 +52,24 @@ class LeaveController extends Controller
         ))->header('Cache-Control','private, no-store, max-age=0');
     }
 
-    public function submit(Request $request,string $firmSlug)
-    {
+    public function submit(Request $request,string $firmSlug) {
+        return $this->submitRequest($request,false);
+    }
+
+    public function submitForStudent(Request $request,string $firmSlug) {
+        return $this->submitRequest($request,true);
+    }
+
+    private function submitRequest(Request $request,bool $delegated) {
         [$company,$workspace,$actor]=TenantOps::context($request);
-        TenantOps::requireRole($actor,['student']);
+        if ($delegated) {
+            abort_unless($actor->role==='manager' && WorkspaceAccess::allows($actor,'leave.submit_for'),403);
+        } else {
+            TenantOps::requireRole($actor,['student']);
+        }
         $input=$request->validate([
+            'membership_id'=>$delegated?['required','integer','min:1']:['prohibited'],
+            'delegation_reason'=>$delegated?['required','string','min:15','max:1000']:['prohibited'],
             'leave_type'=>['required','in:annual,sick,casual,emergency,compensatory,unpaid'],
             'day_portion'=>['nullable','in:full,morning,afternoon'],
             'date_from'=>['required','date_format:Y-m-d'],
@@ -75,15 +89,25 @@ class LeaveController extends Controller
             throw ValidationException::withMessages(['date_from'=>'Historical sickness or emergency leave requests are limited to 30 days.']);
         }
 
-        DB::transaction(function()use($company,$workspace,$actor,$input,$year,$today) {
+        DB::transaction(function()use($company,$workspace,$actor,$input,$year,$today,$delegated) {
             DB::table('workspaces')->where('company_id',$company->id)
                 ->where('id',$workspace->id)->lockForUpdate()->first();
-            $student=DB::table('memberships')->where('company_id',$company->id)
+            $fresh=DB::table('memberships')->where('company_id',$company->id)
                 ->where('workspace_id',$workspace->id)->where('id',$actor->id)
-                ->where('active',true)->lockForUpdate()->first();
-            abort_unless($student && $student->role==='student',403);
-
-            $policy=LeaveBalance::policy($actor,$year);
+                ->where('active',true)->whereNull('platform_suspended_at')->first();
+            abort_unless($fresh,403);
+            if ($delegated) {
+                abort_unless($fresh->role==='manager' && WorkspaceAccess::allows($fresh,'leave.submit_for'),403);
+                $student=TenantOps::subject($fresh,(int)$input['membership_id']);
+            } else {
+                $student=DB::table('memberships')->where('company_id',$company->id)
+                    ->where('workspace_id',$workspace->id)->where('id',$actor->id)
+                    ->where('active',true)->whereNull('platform_suspended_at')->first();
+            }
+            abort_unless($student && $student->role==='student'
+                && $student->platform_suspended_at===null,404);
+            DB::table('memberships')->where('id',$student->id)->lockForUpdate()->first();
+            $policy=LeaveBalance::policy($student,$year);
             if (!$policy && in_array($input['leave_type'],['casual','compensatory','unpaid'],true)) {
                 throw ValidationException::withMessages(['leave_type'=>'Your Partner must configure a yearly leave policy for this category.']);
             }
@@ -106,19 +130,28 @@ class LeaveController extends Controller
                 'policy_id'=>$policy?->id,
                 'date_from'=>$input['date_from'],'date_to'=>$input['date_to'],
                 'reason'=>trim($input['reason']),'status'=>'pending',
-                'approval_mode'=>ApprovalFlow::forSubmission($student, 'leave'),
+                'initiated_by'=>$fresh->id,
+                'delegation_reason'=>$delegated?trim($input['delegation_reason']):null,
+                'approval_mode'=>$delegated?'partner_only':ApprovalFlow::forSubmission($student, 'leave'),
                 'created_at'=>now(),'updated_at'=>now(),
             ]);
-            TenantOps::audit($actor,'leave.submit','leave_request',$id,[
+            TenantOps::audit($fresh,$delegated?'leave.submit_for':'leave.submit','leave_request',$id,[
+                'subject_membership_id'=>$student->id,
+                'delegation_reason'=>$delegated?trim($input['delegation_reason']):null,
                 'type'=>$input['leave_type'],'charge_days'=>$days,
                 'day_portion'=>$input['day_portion'],'policy_id'=>$policy?->id,
             ]);
-            foreach (TenantOps::teamRecipients($actor,$student) as $recipientId) {
-                TenantOps::notify($actor,(int)$recipientId,'New leave request',
+            if ($delegated) TenantOps::notify($fresh,$student->id,
+                'Leave submitted on your behalf',
+                'Your assigned Manager submitted leave; Partner approval is required.');
+            foreach (TenantOps::teamRecipients($fresh,$student) as $recipientId) {
+                TenantOps::notify($fresh,(int)$recipientId,'New leave request',
                     $input['leave_type'].' leave ('.$days.' day(s)) is pending review.');
             }
         },3);
-        return back()->with('success','Leave request submitted for review.');
+        return back()->with('success',$delegated
+            ? 'Delegated leave submitted for independent Partner approval.'
+            : 'Leave request submitted for review.');
     }
 
     public function decide(Request $request,string $firmSlug,int $id)
