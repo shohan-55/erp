@@ -98,12 +98,15 @@ final class ErpFeatures
                 if (array_key_exists($row->feature_key, $map)
                     && (!(bool) $row->partner_enabled || !(bool) $row->manager_enabled)) {
                     $map[$row->feature_key] = false;
+                    // Legacy student Timesheet control historically covered
+                    // BOTH client engagements and timesheets.
+                    if ($row->feature_key === 'timesheets') $map['engagements'] = false;
                 }
             }
         }
-        // Dependencies: a reporting/timesheet UI cannot be enabled when
-        // its prerequisite source module is denied.
-        if (!$map['attendance']) $map['attendance_report'] = false;
+        // Reporting is intentionally independent from attendance check-in:
+        // existing students may view historic reports while punch access is
+        // disabled. Timesheets still require engagement visibility.
         if (!$map['engagements']) $map['timesheets'] = false;
 
         return $map;
