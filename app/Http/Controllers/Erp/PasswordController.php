@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Erp;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\OutboundMailGuard;
+use App\Support\ErpSecurityEvents;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -81,13 +82,16 @@ class PasswordController extends Controller
             throw ValidationException::withMessages(['email' => 'The reset link is invalid or expired.']);
         }
 
-        $status = Password::broker()->reset($input, function (User $account, string $password) {
+        $status = Password::broker()->reset($input, function (User $account, string $password) use ($request, $company) {
             $account->forceFill([
                 'password' => Hash::make($password),
                 'remember_token' => Str::random(60),
             ])->save();
-            // Revoke other database-backed sessions if the deployment uses them.
+            // Password recovery invalidates all previously minted integration
+            // credentials across companies, not only this firm's tokens.
+            ErpSecurityEvents::revokeUserTokens($account->id, $request, $company->id);
             DB::table('sessions')->where('user_id', $account->id)->delete();
+            ErpSecurityEvents::record('account.password.reset',$request,$company->id,$account->id);
             event(new PasswordReset($account));
         });
 
