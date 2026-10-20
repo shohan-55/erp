@@ -64,7 +64,7 @@ final class Phase08CompanyFeatureGovernanceTest extends TestCase
         ]);
     }
 
-    private function travel(string $date, callable $callback): void
+    private function atPolicyDate(string $date, callable $callback): void
     {
         $then = CarbonImmutable::parse($date, 'Asia/Dhaka')->addDay()->setTime(12, 0);
         Carbon::setTestNow($then);
@@ -90,7 +90,7 @@ final class Phase08CompanyFeatureGovernanceTest extends TestCase
         $this->assertDatabaseHas('company_feature_policy_proposals', ['id' => $p->id, 'status' => 'approved']);
         $this->assertDatabaseCount('company_feature_policy_votes', 3);
         $this->get('/c/rac/app/leave')->assertOk();
-        $this->travel($p->effective_date, function () use ($f) {
+        $this->atPolicyDate($p->effective_date, function () use ($f) {
             foreach ($f['people'] as $person) {
                 $this->actingAs($person->user)->get('/c/rac/app/leave')->assertForbidden();
             }
@@ -133,7 +133,7 @@ final class Phase08CompanyFeatureGovernanceTest extends TestCase
         foreach ($f['people'] as $person) {
             $this->actingAs($person->user)->vote('rac', $p->id)->assertRedirect();
         }
-        $this->travel($p->effective_date, function () use ($f) {
+        $this->atPolicyDate($p->effective_date, function () use ($f) {
             $this->assertFalse(ErpFeatures::enabled(DB::table('memberships')->find($f['people'][0]->id), 'leave'));
             $this->assertTrue(ErpFeatures::enabled(DB::table('memberships')->find($f['people'][1]->id), 'leave'));
         });
@@ -169,11 +169,11 @@ final class Phase08CompanyFeatureGovernanceTest extends TestCase
         foreach ($f['people'] as $person) {
             $this->actingAs($person->user)->vote('version-rac', $second->id)->assertRedirect();
         }
-        $this->travel($first->effective_date, function () use ($f) {
+        $this->atPolicyDate($first->effective_date, function () use ($f) {
             $actor = DB::table('memberships')->find($f['people'][0]->id);
             $this->assertFalse(ErpFeatures::enabled($actor, 'leave'));
         });
-        $this->travel($second->effective_date, function () use ($f) {
+        $this->atPolicyDate($second->effective_date, function () use ($f) {
             $actor = DB::table('memberships')->find($f['people'][0]->id);
             $this->assertTrue(ErpFeatures::enabled($actor, 'leave'));
         });
