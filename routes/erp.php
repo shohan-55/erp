@@ -12,6 +12,7 @@ use App\Http\Controllers\Erp\AttendanceReconciliationController;
 use App\Http\Controllers\Erp\AttendanceReviewController;
 use App\Http\Controllers\Erp\WorkspaceAccessController;
 use App\Http\Controllers\Erp\CustomRoleController;
+use App\Http\Controllers\Erp\FeatureStudioController;
 use App\Http\Controllers\Erp\OrganizationUnitController;
 use App\Http\Controllers\Erp\WorkflowController;
 use App\Http\Controllers\Erp\ExpenseManagementController;
@@ -126,6 +127,11 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/attendance/reviews', [AttendanceReviewController::class, 'submit'])->middleware('throttle:10,1')->name('attendance.reviews.submit');
         Route::post('/attendance/reviews/team', [AttendanceReviewController::class, 'submitForStudent'])->middleware('throttle:8,1')->name('attendance.reviews.team_submit');
         // Phase 05: Partner-only custom role definitions and scoped manager assignments.
+        // Phase 07: module controls are never toggled by navigation alone.
+        Route::get('/settings/features', [FeatureStudioController::class, 'index'])
+            ->name('feature_studio.index');
+        Route::post('/settings/features', [FeatureStudioController::class, 'update'])
+            ->middleware('throttle:12,1')->name('feature_studio.update');
         Route::get('/settings/roles', [CustomRoleController::class, 'index'])->name('custom_roles.index');
         Route::post('/settings/roles', [CustomRoleController::class, 'store'])->middleware('throttle:10,1')->name('custom_roles.store');
         Route::post('/settings/roles/assign', [CustomRoleController::class, 'assign'])->middleware('throttle:15,1')->name('custom_roles.assign');
