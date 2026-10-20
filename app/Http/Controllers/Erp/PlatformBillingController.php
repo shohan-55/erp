@@ -37,13 +37,21 @@ class PlatformBillingController extends Controller
             'max_partner_workspaces'=>['required','integer','between:1,500'],
             'max_members'=>['required','integer','between:1,100000'],
             'custom_domain_enabled'=>['required','boolean'],
+            'annual_discount_percent'=>['sometimes','integer','between:0,40'],
+            'trial_days'=>['sometimes','integer','between:0,30'],
+            'storage_addon_mib'=>['sometimes','integer','between:100,4096'],
+            'storage_addon_monthly_bdt'=>['sometimes','numeric','between:0,999999','decimal:0,2'],
         ]);
         DB::transaction(function()use($d){
             if(DB::table('saas_plans')->where('code',$d['code'])->exists()){
                 throw ValidationException::withMessages(['code'=>'Plan code already exists.']);
             }
             $id=DB::table('saas_plans')->insertGetId([
-                ...$d,'available'=>true,'created_at'=>now(),'updated_at'=>now(),
+                ...$d,'annual_discount_percent'=>$d['annual_discount_percent']??0,
+                'trial_days'=>$d['trial_days']??0,
+                'storage_addon_mib'=>$d['storage_addon_mib']??100,
+                'storage_addon_monthly_bdt'=>$d['storage_addon_monthly_bdt']??0,
+                'available'=>true,'created_at'=>now(),'updated_at'=>now(),
             ]);
             // Global metadata event under a reserved platform action:
             // platform_control_events requires company_id; no synthetic
@@ -91,6 +99,7 @@ class PlatformBillingController extends Controller
         $d=$request->validate([
             'plan_id'=>['required','integer','min:1'],
             'grace_days'=>['required','integer','between:1,30'],
+            'start_trial'=>['sometimes','boolean'],
         ]);
         DB::transaction(function()use($companyId,$d){
             $company=DB::table('companies')->where('id',$companyId)->lockForUpdate()->first();
@@ -119,7 +128,11 @@ class PlatformBillingController extends Controller
             }
             $id=DB::table('saas_subscriptions')->insertGetId([
                 'company_id'=>$companyId,'plan_id'=>$plan->id,
-                'status'=>'pending','grace_days'=>$d['grace_days'],
+                'status'=>!empty($d['start_trial']) && (int)$plan->trial_days>0?'trial':'pending',
+                'trial_started_at'=>!empty($d['start_trial']) && (int)$plan->trial_days>0?now():null,
+                'trial_ends_at'=>!empty($d['start_trial']) && (int)$plan->trial_days>0
+                    ?CarbonImmutable::now($company->timezone)->addDays((int)$plan->trial_days)->toDateString():null,
+                'grace_days'=>$d['grace_days'],
                 'created_at'=>now(),'updated_at'=>now(),
             ]);
             SaasBilling::audit($companyId,'subscription.created','saas_subscription',$id,[
@@ -249,7 +262,9 @@ class PlatformBillingController extends Controller
                 DB::table('saas_subscriptions')->where('id',$sub->id)->update([
                     'current_period_start'=>$invoice->period_start,
                     'current_period_end'=>$invoice->period_end,
-                    'status'=>'active','updated_at'=>now(),
+                    'status'=>'active','storage_addon_units'=>$invoice->storage_addon_units_snapshot,
+                    'pending_storage_addon_units'=>null,
+                    'trial_ends_at'=>null,'updated_at'=>now(),
                 ]);
             }
             SaasBilling::audit($companyId,'billing.payment.approved','saas_payment',$paymentId,[
@@ -259,4 +274,82 @@ class PlatformBillingController extends Controller
         },3);
         return back()->with('success','Verified payment approved; subscription extended only if the invoice is fully paid.');
     }
+
+    public function renewalSettings(Request $request,int $companyId)
+    {
+        $d=$request->validate([
+            'auto_invoice'=>['required','boolean'],
+            'renewal_months'=>['required','integer','in:1,3,6,12'],
+            'reason'=>['required','string','min:12','max:400'],
+        ]);
+        DB::transaction(function()use($companyId,$d){
+            $company=DB::table('companies')->where('id',$companyId)->lockForUpdate()->first();
+            abort_unless($company && $company->active && !$company->archived_at,404);
+            $sub=DB::table('saas_subscriptions')->where('company_id',$companyId)->lockForUpdate()->first();
+            abort_unless($sub,404);
+            DB::table('saas_subscriptions')->where('id',$sub->id)->update([
+                'auto_invoice'=>(bool)$d['auto_invoice'],
+                'renewal_months'=>(int)$d['renewal_months'],'updated_at'=>now(),
+            ]);
+            SaasBilling::audit($companyId,'billing.renewal_policy.changed','saas_subscription',$sub->id,[
+                'from_auto'=>(bool)$sub->auto_invoice,'to_auto'=>(bool)$d['auto_invoice'],
+                'months'=>(int)$d['renewal_months'],'reason'=>trim($d['reason']),
+            ]);
+        },3);
+        return back()->with('success','Auto-invoice setting saved. Only an unpaid invoice is issued; payment is never auto-approved.');
+    }
+
+    public function storageQuote(Request $request,int $companyId)
+    {
+        $d=$request->validate([
+            'units'=>['required','integer','between:0,50'],
+            'reason'=>['required','string','min:12','max:400'],
+        ]);
+        DB::transaction(function()use($companyId,$d){
+            $company=DB::table('companies')->where('id',$companyId)->lockForUpdate()->first();
+            abort_unless($company && $company->active && !$company->archived_at,404);
+            $sub=DB::table('saas_subscriptions')->where('company_id',$companyId)
+                ->lockForUpdate()->first();
+            abort_unless($sub,404);
+            $plan=DB::table('saas_plans')->where('id',$sub->plan_id)->firstOrFail();
+            if((int)$d['units']>0 && (float)$plan->storage_addon_monthly_bdt<=0) {
+                throw ValidationException::withMessages(['units'=>'This plan has no billable add-on product.']);
+            }
+            if(DB::table('saas_invoices')->where('subscription_id',$sub->id)
+                ->whereIn('status',['pending','partial'])->exists()){
+                throw ValidationException::withMessages(['units'=>'Settle or reject the current invoice before requoting storage.']);
+            }
+            $baseline=(int)config('erp_vault.workspace_limit_bytes',104857600);
+            $allocated=DB::table('erp_vault_quotas')->where('company_id',$companyId)
+                ->get()->sum(fn($row)=>max(0,(int)$row->limit_bytes-$baseline));
+            if((int)$d['units']*(int)$plan->storage_addon_mib*1048576<$allocated) {
+                throw ValidationException::withMessages(['units'=>'Current allocated storage exceeds the requested paid add-on units.']);
+            }
+            DB::table('saas_subscriptions')->where('id',$sub->id)->update([
+                'pending_storage_addon_units'=>(int)$d['units'],'updated_at'=>now(),
+            ]);
+            SaasBilling::audit($companyId,'billing.storage.quote_changed','saas_subscription',$sub->id,[
+                'units'=>(int)$d['units'],'reason'=>trim($d['reason']),
+                'note'=>'Not activated or provisioned until a future invoice is fully paid.',
+            ]);
+        },3);
+        return back()->with('success','Storage add-on quoted for the next invoice. No capacity is provisioned and no payment recorded yet.');
+    }
+
+    public function allocateVault(Request $request,int $companyId,int $workspaceId)
+    {
+        $d=$request->validate([
+            'target_mib'=>['required','integer','between:100,16384'],
+            'reason'=>['required','string','min:12','max:400'],
+        ]);
+        DB::transaction(function()use($companyId,$workspaceId,$d){
+            SaasBilling::assignVaultQuota($companyId,$workspaceId,(int)$d['target_mib']);
+            SaasBilling::audit($companyId,'billing.storage.allocated','workspace',$workspaceId,[
+                'target_mib'=>(int)$d['target_mib'],'reason'=>trim($d['reason']),
+                'warning'=>'Private vault quota metadata only. Provider physical capacity not certified.',
+            ]);
+        },3);
+        return back()->with('success','Paid workspace Vault allowance allocated within company entitlement.');
+    }
+
 }
