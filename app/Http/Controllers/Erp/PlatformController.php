@@ -56,7 +56,7 @@ class PlatformController extends Controller
             'q' => mb_substr(trim((string) $request->query('q', '')), 0, 80),
             'status' => (string) $request->query('status', 'all'),
         ];
-        if (! in_array($filter['status'], ['all', 'active', 'suspended', 'archived'], true)) {
+        if (! in_array($filter['status'], ['all', 'active', 'suspended', 'archived', 'removed'], true)) {
             $filter['status'] = 'all';
         }
 
@@ -65,9 +65,11 @@ class PlatformController extends Controller
                 $sub->where('name', 'like', '%'.$filter['q'].'%')
                     ->orWhere('slug', 'like', '%'.$filter['q'].'%');
             }))
-            ->when($filter['status'] === 'active', fn ($q) => $q->where('active', true)->whereNull('archived_at'))
-            ->when($filter['status'] === 'suspended', fn ($q) => $q->where('active', false)->whereNull('archived_at'))
-            ->when($filter['status'] === 'archived', fn ($q) => $q->whereNotNull('archived_at'))
+            ->when($filter['status'] === 'all', fn ($q) => $q->whereNull('deleted_at'))
+            ->when($filter['status'] === 'active', fn ($q) => $q->where('active', true)->whereNull('archived_at')->whereNull('deleted_at'))
+            ->when($filter['status'] === 'suspended', fn ($q) => $q->where('active', false)->whereNull('archived_at')->whereNull('deleted_at'))
+            ->when($filter['status'] === 'archived', fn ($q) => $q->whereNotNull('archived_at')->whereNull('deleted_at'))
+            ->when($filter['status'] === 'removed', fn ($q) => $q->whereNotNull('deleted_at'))
             ->orderByDesc('created_at')->get();
         $stats = [
             'companies' => DB::table('companies')->count(),
