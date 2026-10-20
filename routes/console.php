@@ -20,3 +20,11 @@ Schedule::command('erp:attendance:prune-locations')
     ->dailyAt('02:15')
     ->timezone('Asia/Dhaka')
     ->withoutOverlapping();
+
+
+// Phase 16: opt-in workspace-scoped, exactly-once private engagement reminders.
+// Requires the hosting scheduler to invoke php artisan schedule:run.
+Schedule::command('erp:milestone-reminders')
+    ->dailyAt('08:00')
+    ->timezone('Asia/Dhaka')
+    ->withoutOverlapping();

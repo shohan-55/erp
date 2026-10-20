@@ -34,14 +34,16 @@
 ['label'=>'Annual Holiday Planner','name'=>'erp.annual_holidays.index','icon'=>'calendar-range'],
 ['label'=>'Company Brand Studio','name'=>'erp.brand.index','icon'=>'palette'],
 ['label'=>'Document Template Studio','name'=>'erp.official_templates.index','icon'=>'file-pen-line'],
+['label'=>'Smart Forms & Responses','name'=>'erp.forms.index','icon'=>'clipboard-list'],
 ['label'=>'Official Certificates','name'=>'erp.staff_certificates.index','icon'=>'file-badge-2'],
 ['label'=>'Notifications','name'=>'erp.notifications','icon'=>'bell'],
+['label'=>'Reminder Rules','name'=>'erp.reminder_rules.index','icon'=>'alarm-clock'],
 ['label'=>'Settings / Security','name'=>'erp.security','icon'=>'settings-2'],
 ] as $item)
-@if($actor->role === 'manager' && in_array($item['name'],['erp.payroll','erp.staff_certificates.index'],true))
+@if($actor->role === 'manager' && in_array($item['name'],['erp.payroll','erp.staff_certificates.index','erp.reminder_rules.index'],true))
 @continue
 @endif
-@if($actor->role === 'student' && in_array($item['name'],['erp.hr_policies.index','erp.annual_holidays.index','erp.brand.index','erp.official_templates.index'],true))
+@if($actor->role === 'student' && in_array($item['name'],['erp.hr_policies.index','erp.annual_holidays.index','erp.brand.index','erp.official_templates.index','erp.reminder_rules.index'],true))
 @continue
 @endif
 @php($featureKey = \App\Support\ErpFeatures::forRoute($item['name']))

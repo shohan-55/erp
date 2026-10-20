@@ -33,6 +33,8 @@ use App\Http\Controllers\Erp\EngagementController;
 use App\Http\Controllers\Erp\EngagementMilestoneController;
 use App\Http\Controllers\Erp\AuditTimesheetController;
 use App\Http\Controllers\Erp\PracticeReportController;
+use App\Http\Controllers\Erp\WorkspaceFormController;
+use App\Http\Controllers\Erp\WorkspaceReminderRuleController;
 use App\Http\Controllers\Erp\PracticeNoticeController;
 use App\Http\Controllers\Erp\PracticeDocumentController;
 use App\Http\Controllers\Erp\BrandStudioController;
@@ -236,6 +238,18 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::get('/timesheets/export', [AuditTimesheetController::class, 'export'])
             ->middleware('throttle:10,1')->name('timesheets.export');
         Route::get('/subscription', [TenantSubscriptionController::class, 'index'])->name('subscription');
+        // Phase 16: immutable form versions, own/Partner-private responses and scoped CSV export.
+        Route::get('/forms', [WorkspaceFormController::class, 'index'])->name('forms.index');
+        Route::post('/forms', [WorkspaceFormController::class, 'save'])
+            ->middleware('throttle:6,1')->name('forms.save');
+        Route::post('/forms/{id}/submissions', [WorkspaceFormController::class, 'submit'])
+            ->middleware('throttle:10,1')->name('forms.submit');
+        Route::get('/forms/{id}/export', [WorkspaceFormController::class, 'export'])
+            ->middleware('throttle:10,1')->name('forms.export');
+        Route::get('/settings/reminder-rules', [WorkspaceReminderRuleController::class, 'index'])
+            ->name('reminder_rules.index');
+        Route::post('/settings/reminder-rules', [WorkspaceReminderRuleController::class, 'save'])
+            ->middleware('throttle:6,1')->name('reminder_rules.save');
         Route::get('/reports/practice', [PracticeReportController::class, 'index'])->name('reports.practice');
         Route::get('/reports/practice/export', [PracticeReportController::class, 'export'])
             ->middleware('throttle:10,1')->name('reports.practice.export');
