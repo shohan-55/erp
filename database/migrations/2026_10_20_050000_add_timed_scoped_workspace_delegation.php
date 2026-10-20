@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->timestamp('starts_at')->nullable()->index();
             $table->timestamp('expires_at')->nullable()->index();
             $table->foreignId('parent_grant_id')->nullable()
-                ->constrained('workspace_access_grants')->nullOnDelete();
+                ->constrained('workspace_access_grants')->restrictOnDelete();
             $table->text('grant_reason')->nullable();
         });
     }
