@@ -396,6 +396,13 @@ Route::prefix('platform/app')->middleware('platform.host')->name('erp.platform.'
             ->middleware('throttle:10,1')->name('billing.subscribe');
         Route::post('/companies/{companyId}/invoices', [PlatformBillingController::class, 'invoice'])
             ->middleware('throttle:10,1')->name('billing.invoice');
+        Route::post('/companies/{companyId}/renewal-settings', [PlatformBillingController::class, 'renewalSettings'])
+            ->middleware('throttle:6,1')->name('billing.renewal-settings');
+        Route::post('/companies/{companyId}/storage-quote', [PlatformBillingController::class, 'storageQuote'])
+            ->middleware('throttle:6,1')->name('billing.storage-quote');
+        Route::post('/companies/{companyId}/storage-allocate/{workspaceId}', [PlatformBillingController::class, 'allocateVault'])
+            ->middleware('throttle:6,1')->name('billing.storage-allocate');
+
         Route::post('/companies/{companyId}/invoices/{invoiceId}/payments', [PlatformBillingController::class, 'payment'])
             ->middleware('throttle:10,1')->name('billing.payment');
         Route::post('/companies/{companyId}/payments/{paymentId}/decide', [PlatformBillingController::class, 'decide'])
