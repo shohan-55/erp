@@ -20,6 +20,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'mfa.host' => \App\Http\Middleware\EnsureMfaHost::class,
             'platform.admin' => \App\Http\Middleware\EnsurePlatformAdmin::class,
             'mfa.verified' => \App\Http\Middleware\RequireVerifiedMfa::class,
+            'erp.api-token' => \App\Http\Middleware\AuthenticateWorkspaceApi::class,
+            'erp.locale' => \App\Http\Middleware\ApplyErpLocale::class,
         ]);
         $middleware->redirectGuestsTo(function (Request $request): string {
             if ($request->is('platform/app*')) {

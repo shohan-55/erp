@@ -56,6 +56,8 @@ use App\Http\Controllers\Erp\PlatformCustomDomainController;
 use App\Http\Controllers\Erp\CustomDomainEntryController;
 use App\Http\Controllers\Erp\MfaController;
 use App\Http\Controllers\Erp\SecurityController;
+use App\Http\Controllers\Erp\WorkspaceIntegrationsController;
+use App\Http\Controllers\Erp\WorkspaceIntegrationApiController;
 use Illuminate\Support\Facades\Route;
 
 // Authenticated first-factor accounts can enroll or complete a second factor.
@@ -114,7 +116,7 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/workspaces/select', [WorkspaceSwitchController::class, 'select'])
             ->middleware('throttle:10,1')->name('workspaces.select');
     });
-    Route::middleware(['auth', 'tenant.member', 'mfa.verified', 'student.features'])->group(function () {
+    Route::middleware(['auth', 'tenant.member', 'mfa.verified', 'erp.locale', 'student.features'])->group(function () {
         Route::get('/', [PortalController::class, 'dashboard'])->name('dashboard');
         // Partner-managed organizational units: scoped to the selected workspace.
         Route::get('/organization/units', [OrganizationUnitController::class, 'index'])->name('organization.index');
@@ -126,6 +128,17 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::get('/calendar', [CorporateCalendarController::class, 'index'])->name('calendar.index');
         Route::get('/calendar/export', [CorporateCalendarController::class, 'export'])->middleware('throttle:20,1')->name('calendar.export');
         Route::get('/settings/security', [SecurityController::class, 'index'])->name('security');
+        // Phase 20: personal integration key lifecycle and locale selection, web
+        // auth + MFA + CSRF; API bearer credentials never access these routes.
+        Route::get('/settings/integrations', [WorkspaceIntegrationsController::class,'index'])->name('integrations.index');
+        Route::post('/settings/integrations/tokens', [WorkspaceIntegrationsController::class,'create'])
+            ->middleware('throttle:3,1')->name('integrations.create');
+        Route::post('/settings/integrations/tokens/{id}/revoke', [WorkspaceIntegrationsController::class,'revoke'])
+            ->middleware('throttle:8,1')->name('integrations.revoke');
+        Route::post('/settings/integrations/locale', [WorkspaceIntegrationsController::class,'locale'])
+            ->middleware('throttle:8,1')->name('integrations.locale');
+        Route::get('/settings/integrations/manifest.webmanifest', [WorkspaceIntegrationsController::class,'manifest'])
+            ->name('integrations.manifest');
         Route::post('/settings/security/mfa/disable', [SecurityController::class, 'disableMfa'])
             ->middleware('throttle:5,1')->name('security.mfa.disable');
         Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance');
@@ -417,3 +430,16 @@ Route::prefix('platform/app')->middleware('platform.host')->name('erp.platform.'
     });
 });
 
+
+ 
+// Phase 20: externally callable read-only, versioned integration endpoints.
+// Require an expiring hashed bearer token every time. Browser session cookies
+// never grant API access; no mutation, payroll, approval or file download routes.
+Route::prefix('api/v1/companies/{firmSlug}')
+    ->middleware(['tenant.host','erp.api-token','throttle:60,1'])
+    ->name('erp.api.v1.')->group(function () {
+        Route::get('/me',[WorkspaceIntegrationApiController::class,'me'])->name('me');
+        Route::get('/attendance',[WorkspaceIntegrationApiController::class,'attendance'])->name('attendance');
+        Route::get('/leaves',[WorkspaceIntegrationApiController::class,'leaves'])->name('leaves');
+        Route::get('/notifications',[WorkspaceIntegrationApiController::class,'notifications'])->name('notifications');
+    });
