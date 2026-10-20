@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Erp;
 
 use App\Http\Controllers\Controller;
+use App\Support\ErpSecurityEvents;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,7 @@ class AuthController extends Controller
         // Generic failure on missing membership, inactive membership, or bad password.
         // Never let authentication with one firm become access to another.
         if (! Auth::attempt(['email' => $input['email'], 'password' => $input['password']])) {
+            ErpSecurityEvents::record('login.denied',$request,$company->id);
             throw ValidationException::withMessages(['email' => 'The supplied credentials are invalid for this workspace.']);
         }
 
@@ -61,6 +63,7 @@ class AuthController extends Controller
             ->where('w.active', true)->count();
 
         if ($activeMemberships === 0) {
+            ErpSecurityEvents::record('login.denied',$request,$company->id);
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -68,6 +71,7 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+        ErpSecurityEvents::record('login.accepted',$request,$company->id,(int)Auth::id());
         $request->session()->forget([
             'erp_mfa_verified_user_id', 'erp_mfa_pending_secret', 'erp_mfa_setup_user_id',
             'erp.active_membership',
