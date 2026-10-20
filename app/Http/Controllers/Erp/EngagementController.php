@@ -72,8 +72,23 @@ class EngagementController extends Controller
                     ->select('id')))
             ->selectRaw('engagement_id, SUM(hours) as approved_hours')->groupBy('engagement_id')
             ->get()->keyBy('engagement_id');
+        $milestones=empty($ids)?collect():DB::table('audit_engagement_milestones as ms')
+            ->join('memberships as m','m.id','=','ms.membership_id')
+            ->join('users as u','u.id','=','m.user_id')
+            ->where('ms.company_id',$company->id)->where('ms.workspace_id',$workspace->id)
+            ->where('m.company_id',$company->id)->where('m.workspace_id',$workspace->id)
+            ->whereIn('ms.engagement_id',$ids)
+            ->when($actor->role==='student',fn($q)=>$q->where('ms.membership_id',$actor->id))
+            ->when($actor->role==='manager',fn($q)=>$q->where(function($x)use($actor){
+                $x->where('ms.membership_id',$actor->id)
+                    ->orWhere('m.manager_membership_id',$actor->id);
+            }))
+            ->select('ms.*','u.name as assigned_name','m.role as assigned_role',
+                'm.manager_membership_id as assigned_manager_id')
+            ->orderBy('ms.due_on')->orderBy('ms.id')->limit(700)
+            ->get()->groupBy('engagement_id');
         return response()->view('erp.engagements',compact(
-            'company','workspace','actor','firmSlug','engagements','clients','people','assignments','hours'
+            'company','workspace','actor','firmSlug','engagements','clients','people','assignments','hours','milestones'
         ))->header('Cache-Control','private, no-store, max-age=0');
     }
 
@@ -226,6 +241,14 @@ class EngagementController extends Controller
                 ->whereIn('status',['submitted','manager_reviewed'])->exists()){
                 throw ValidationException::withMessages(['engagement'=>'Resolve outstanding timesheets before closing.']);
             }
+            if(DB::table('audit_engagement_milestones')
+                ->where('company_id',$actor->company_id)
+                ->where('workspace_id',$actor->workspace_id)
+                ->where('engagement_id',$id)->where('status','!=','completed')->exists()){
+                throw ValidationException::withMessages([
+                    'engagement'=>'Complete or resolve outstanding milestones before closing the engagement.',
+                ]);
+            }
             DB::table('audit_engagements')->where('id',$id)->update([
                 'status'=>'closed','updated_at'=>now(),
             ]);
@@ -266,6 +289,15 @@ class EngagementController extends Controller
                     ->whereIn('status',['submitted','manager_reviewed'])->exists()){
                     throw ValidationException::withMessages(['membership_id'=>
                         'Resolve submitted timesheets before unassigning a staff member.']);
+                }
+                if(!$active && DB::table('audit_engagement_milestones')
+                    ->where('company_id',$actor->company_id)
+                    ->where('workspace_id',$actor->workspace_id)
+                    ->where('engagement_id',$id)->where('membership_id',$member->id)
+                    ->where('status','!=','completed')->exists()){
+                    throw ValidationException::withMessages([
+                        'membership_id'=>'Reassign or complete active milestones before unassigning staff.',
+                    ]);
                 }
                 DB::table('audit_engagement_assignments')->where('id',$old->id)->update([
                     'active'=>$active,'assigned_by'=>$actor->id,'updated_at'=>now(),

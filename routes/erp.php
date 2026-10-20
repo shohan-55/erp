@@ -30,6 +30,7 @@ use App\Http\Controllers\Erp\TeamController;
 use App\Http\Controllers\Erp\StaffController;
 use App\Http\Controllers\Erp\StaffTransferController;
 use App\Http\Controllers\Erp\EngagementController;
+use App\Http\Controllers\Erp\EngagementMilestoneController;
 use App\Http\Controllers\Erp\AuditTimesheetController;
 use App\Http\Controllers\Erp\PracticeReportController;
 use App\Http\Controllers\Erp\PracticeNoticeController;
@@ -217,6 +218,14 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
             ->middleware('throttle:5,1')->name('engagements.close');
         Route::post('/engagements/{id}/assign', [EngagementController::class, 'assign'])
             ->middleware('throttle:15,1')->name('engagements.assign');
+        Route::post('/engagements/{engagementId}/milestones', [EngagementMilestoneController::class, 'store'])
+            ->middleware('throttle:15,1')->name('engagements.milestones.store');
+        Route::post('/engagements/milestones/{id}/update', [EngagementMilestoneController::class, 'update'])
+            ->middleware('throttle:15,1')->name('engagements.milestones.update');
+        Route::post('/engagements/milestones/{id}/submit', [EngagementMilestoneController::class, 'submit'])
+            ->middleware('throttle:15,1')->name('engagements.milestones.submit');
+        Route::post('/engagements/milestones/{id}/decision', [EngagementMilestoneController::class, 'decide'])
+            ->middleware('throttle:15,1')->name('engagements.milestones.decide');
         Route::get('/timesheets', [AuditTimesheetController::class, 'index'])->name('timesheets');
         Route::post('/timesheets', [AuditTimesheetController::class, 'submit'])
             ->middleware('throttle:20,1')->name('timesheets.submit');

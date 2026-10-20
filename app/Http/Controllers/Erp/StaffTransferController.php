@@ -164,6 +164,15 @@ class StaffTransferController extends Controller
             throw ValidationException::withMessages(['decision'=>
                 'Resolve future-dated salary decisions in the original Partner before transfer.']);
         }
+        if(DB::table('audit_engagement_milestones')
+            ->where('company_id',$actor->company_id)
+            ->where('workspace_id',$member->workspace_id)
+            ->where('membership_id',$member->id)
+            ->where('status','!=','completed')->exists()){
+            throw ValidationException::withMessages([
+                'decision'=>'Complete or reassign source Partner engagement milestones before transfer.',
+            ]);
+        }
         $claims=DB::table('conveyance_claims')
             ->where('company_id',$actor->company_id)
             ->where('workspace_id',$member->workspace_id)
