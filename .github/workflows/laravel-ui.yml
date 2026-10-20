@@ -81,6 +81,16 @@ jobs:
           fi
           php -r '$j=json_decode(file_get_contents("/tmp/phase23-review-result.json"),true,512,JSON_THROW_ON_ERROR); if (($j["decision"]??"")!=="NO_GO"||($j["deployment_authorized"]??true)!==false) exit(1); echo "PASS: release gate fail-closed, no production authorization\n";'
 
+      # Phase 24: this audit MUST fail closed for deployment. The route
+      # inventory itself must pass, and no evidence JSON may grant live access.
+      - name: Assert final route security and production NO-GO without human DR and UAT
+        run: |
+          if php artisan erp:release:final-audit --sha="$GITHUB_SHA" --json > /tmp/erp-final-audit.json; then
+            echo "SECURITY FAILURE: final audit accidentally authorized production"
+            exit 1
+          fi
+          php -r '$v=json_decode(file_get_contents("/tmp/erp-final-audit.json"),true,512,JSON_THROW_ON_ERROR); if(($v["release_candidate_code_review"]??null)!=="ROUTE_GUARDS_PASSED"||($v["production_decision"]??null)!=="NO_GO"||($v["deployment_authorized"]??null)!==false||($v["routes"]["failed"]??["invalid"])!==[])exit(1); echo "PASS: all runtime route guards present and production requires independent authorization\n";'
+
       - name: Check production routes expose no public UI prototypes
         run: |
           APP_ENV=production php artisan route:list --json > /tmp/erp-production-routes.json

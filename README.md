@@ -1,92 +1,57 @@
-# RA&C ERP SaaS — Complete UI/UX Design Prototype (Phases 01–10)
+# DhakaWala ERP — Multi-Tenant CA Firm / Corporate SaaS
 
-A Laravel + Livewire enterprise SaaS **interface prototype** for Chartered Accountants firms.
+> **Release status (20 October 2026):** 24-phase development **release candidate** on `security/production-readiness-gates` following Phase 24 merge and CI. This is **not authorization to deploy to live customers**. The default `main` branch may contain a much older UI preview. Verify the reviewed branch and exact commit before any deployment.
 
-**Status:** All ten *design phases* are implemented and cloud-tested. This is **not a production-ready ERP**. All example users, salaries, attendance and approvals are fictional. Real authentication, role authorization, persistent tenancy, attendance processing, approval voting, payroll accounting and notifications remain future backend work.
+## What the development branch implements
 
-## Technology
+- Company, independent Partner/workspace, Manager/Moderator and Student identity, roles and configurable delegated permissions.
+- Attendance check-in/out, optional location consent, controlled corrections/proxy attendance, schedules, holidays and attendance reports.
+- Leave requests, delegated workflows, partner-controlled approval and audit evidence.
+- Conveyance claims, reviewed amounts, receipts, payroll draft/approval/reconciliation, private evidence and restricted statements.
+- Engagements, timesheets, milestones, notices, smart forms and documents.
+- Subscription plans, manual financial verification, invoices, trials, company/domain administration and scoped software storage allowances.
+- Private Vault pilot, guarded company-exit package pilot, read-only scoped API v1 and bilingual Integration settings.
+- MFA, sensitive action logging, token revocation, tenant-isolation gates, scoped performance optimization and immutable-reviewed release packaging.
 
-Laravel 13 · PHP 8.4 (cloud CI) · Livewire 4 · Blade · Tailwind CSS 4 · Vite 8 · Lucide icons.
+**Scope limits:** Phase 17 private Vault and Phase 18 offboarding package are conservative small-volume pilots; **200GB customer transfer/restore is not certified.** Bilingual coverage does not mean every ERP module is translated. HTTP/API security hardening does not constitute ISO 27001, SOC 2 or independent penetration-test certification.
 
-## What is implemented
+## Technology and environments
 
-| Phase | Deliverable |
-|---|---|
-| 01 | RA&C brand-inspired visual system, responsive application shell, reusable components |
-| 02 | Firm and Platform login, password recovery and invitation screens (UI only) |
-| 03 | Platform Super Admin dashboard, organization directory, privacy-first support access design |
-| 04 | Home Partner / Principal Dashboard |
-| 05 | Manager Dashboard showing only assigned fictional team |
-| 06 | Mobile-friendly personal Student Dashboard |
-| 07 | Office / Client Attendance, history, check-in/out simulation and correction design |
-| 08 | Student Leave Application and Manager/Partner review design |
-| 09 | Conveyance Claims, evidence and approval-preview workflow |
-| 10 | Monthly Allowance & Payroll, Notifications, Policy / Governance and Settings UI |
+Laravel 13, PHP 8.4 development CI, MySQL 8 integration CI, Blade/Livewire, Tailwind/Vite, OAuth-independent authenticator MFA. Production must run with HTTPS, private Laravel storage outside webroot, database sessions, encrypted session payloads, secure host-only cookies, supervised queue/scheduler, real outbound SMTP, audited encrypted offsite backups and independent recovery witnesses.
 
-## Design routes (local server)
+- **Development source:** `security/production-readiness-gates`. Never confuse with `main`.
+- **Production site:** `erp.dhakawala.com` is not modified by GitHub development merges.
+- **Package:** CI builds `erp-cpanel-application.zip`, `erp-cpanel-split-webroot.zip`, `SHA256SUMS.txt` and `release-manifest.json` from an exact reviewed Git SHA. Review artifacts are **not live deployment instructions**.
 
-| Experience | Path |
-|---|---|
-| Phase 01 component library | / |
-| Platform login | /platform/login |
-| Platform Super Admin preview | /platform/dashboard-preview |
-| RA&C firm login | /c/rac/login |
-| Partner dashboard | /c/rac/preview/partner |
-| Manager dashboard | /c/rac/preview/manager |
-| Student dashboard | /c/rac/preview/student |
-| Student attendance | /c/rac/preview/student/attendance |
-| Student leave application | /c/rac/preview/student/leave |
-| Student conveyance claims | /c/rac/preview/student/conveyance |
-| Partner payroll | /c/rac/preview/partner/payroll |
-| Partner notifications | /c/rac/preview/partner/notifications |
-| Partner policy governance | /c/rac/preview/partner/policies |
-| Partner workspace settings | /c/rac/preview/partner/settings |
+## Safe read-only checks after staging is separately configured
 
-All design routes are intentionally **public examples containing fictional records only**. The role switcher is a visual preview, **not real authentication or authorization**. Do not attach real student, firm, attendance, financial or personal information to them.
+```bash
+php artisan erp:release:check --json
+php artisan erp:db:check --json
+php artisan erp:integrity:check --json
+php artisan erp:tenant:check --json
+php artisan erp:billing:check --json
+php artisan erp:scale:diagnose --json
+php artisan erp:security:report --days=7 --json
+php artisan erp:release:final-audit --sha=REVIEWED_40_CHARACTER_SHA --json
+```
 
-## Development setup
+These commands are **diagnostic**, not proof of physical backups or permission to deploy. The final audit intentionally outputs `production_decision=NO_GO` and exits nonzero regardless of how convincing untrusted local metadata appears; separately signed DR/UAT and exact-SHA production release authorization remain necessary.
 
-~~~sh
-composer install
-cp .env.example .env
-php artisan key:generate
-npm ci
-npm run build
-php artisan serve
-~~~
+For a source/host identity check **without updating Git worktree or customer data**, run this in the correct ERP cPanel terminal:
 
-Use npm run dev in a second terminal when working on frontend changes.
+```bash
+pwd && whoami && git rev-parse --show-toplevel && git branch --show-current && git rev-parse HEAD && git status --short
+```
 
-## Automated verification
+Do not run `git pull`, `php artisan migrate --force`, `php artisan key:generate`, `db:wipe`, `migrate:fresh`, or any database restore on a live customer ERP before the independent staging recovery/UAT gates, backup evidence, worktree/branch verification and explicit owner production approval. A successful pull can immediately replace application code and break compatibility with live schema, sessions or encrypted data.
 
-- GitHub Actions workflow: [.github/workflows/laravel-ui.yml](.github/workflows/laravel-ui.yml).
-- PHP regression: php artisan test.
-- Production asset validation: npm run build.
-- Chromium browser workflows: tests/browser/phase03-preview.mjs and tests/browser/practice-phases.mjs.
-- Desktop and mobile screenshots: open **GitHub Actions → Successful workflow → Artifacts**.
-- Design and security boundary report: [docs/PHASES_04_10_REVIEW.md](docs/PHASES_04_10_REVIEW.md).
+## Current handoff documents
 
-## Approved UI policy baseline
+- [Phase 23 — Staging recovery, UAT and independent evidence](docs/PHASE_23_PRODUCTION_READINESS_DR_UAT.md)
+- [Phase 24 — Final candidate audit and release decision](docs/PHASE_24_FINAL_RELEASE_CANDIDATE_HANDOFF.md)
+- [Dedicated cPanel release and packaging](docs/ERP_PILOT_RELEASE_CANDIDATE_CPANEL_HANDOFF.md)
+- [Production and rollback checklist](docs/PRODUCTION_READINESS_GATES.md)
+- [Backup and restore runbook](docs/PHASE_01_BACKUP_RESTORE_RUNBOOK.md)
 
-- Asia/Dhaka; office start 10:00, end 18:00; 10-minute grace; Friday/Saturday holiday.
-- On time through 10:10:59, late from 10:11.
-- No automatic lateness or absence financial penalty until explicit approved policy.
-- Home Partner owns student records, even when the student works at another Partner's client.
-- RA&C company-wide defaults require unanimous approval from all three Partners. Individual permitted workspace overrides require their authorized Partner.
-- Monthly payroll eventually follows Draft → Review → Approve → Paid → Lock, with effective policy snapshots.
-
-## Must be implemented before any production or live-data use
-
-1. Tenant-aware users, memberships, strict company/Partner row isolation and corporate governance variants.
-2. Authentication, secure sessions/2FA, invitations, authorization and password reset delivery.
-3. Server-timestamp attendance, sessions, consolidated daily status, corrections and audit history.
-4. Versioned policy overrides, unanimous voting, approvals and effective date rules.
-5. Leave entitlement and approvals, conveyance receipts, duplicate reimbursement controls.
-6. Real allowance/payroll calculations, immutable approvals and paid/locked snapshots.
-7. Notifications, consented expiring support access, immutable logs, billing, backup recovery, security testing and production hardening.
-
-**Privacy:** A platform role should not grant ambient access to a tenant's private payroll or attendance. Infrastructure administrators may technically still access infrastructure; do not promise cryptographic isolation from a role-based UI.
-
-**Repository safety:** Never push .env secrets, passwords, real salary details, bank accounts, client documents or real student records. No actual tenant changes or live payments exist in this design.
-
-The application project is separate from the MIT-licensed Laravel framework. Its own reuse and redistribution rights are not established merely by the underlying framework license.
+**Release decision:** Development may be marked merged/CI-verified. **Live production rollout remains NO-GO until independently signed evidence and explicit owner authorization.** No customer passwords, bank information, ERP database backups, `.env` or private files belong in issues, logs or chat.
