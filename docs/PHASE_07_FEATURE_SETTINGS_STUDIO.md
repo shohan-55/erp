@@ -8,7 +8,7 @@
 - *Deny takes precedence*. Existing tenants start with existing access, because no rows means enabled. A disabled company/workspace/role/user setting blocks a module for that person. Lower-level `enable` cannot bypass an upper `disable`. Reset removes only that precise override, not history.
 - **Existing student Partner/Manager feature controls remain enforced**. Company/role controls add restrictions; no old consent or membership is rewritten.
 - **Actual backend protection**: same access resolver used by the tenant middleware to block URLs, POST writes, downloads and reports, not merely sidebar links; dashboard Quick Actions and navigation hide disabled modules. Billing, security, feature settings, company governance and auth routes remain deliberately recoverable.
-- Dependencies: reporting unavailable when attendance is disabled; timesheets unavailable when engagements are disabled. No deletions of attendance, payroll, claims, files or employee histories when a module is disabled.
+- Compatibility: Attendance Reports remain independently configurable even when check-in/out is disabled (preserving historical report access). Timesheets remain unavailable when Engagements are denied. Existing student Timesheet restrictions continue to restrict BOTH engagements and timesheets. No deletions of attendance, payroll, claims, files or employee histories when a module is disabled.
 - Every edit requires an authenticated active Partner in the selected workspace, validated scope/target and reason, serialized DB transaction, and tenant-scoped audit event.
 - **Multi-Partner firm-wide governance**: a company with more than one active Partner or more than one active Workspace CANNOT undergo a unilateral company-wide override. Partner can control their own workspace, role and users. Phase 08 will provide approved company-wide policy voting.
 - No arbitrary PHP/SQL/eval customer policies, no direct changes to tenant-private data or platform administrator scope.
@@ -21,7 +21,7 @@
 - Only operational modules in the typed registry are configurable. Critical audit, legal hold, payroll financial integrity, access controls and platform security are non-toggleable.
 
 ## Acceptance scenarios
-1. Partner disables Attendance for company: existing leave/history intact, student/manager/partner route and POST access blocked, attendance reporting also blocked.
+1. Partner disables Attendance for company: existing leave/history intact, student/manager/partner punch route and POST access blocked; separately permitted attendance reporting remains accessible.
 2. Workspace/role/user overrides cannot elevate access above a parent restriction; reset returns to inherited status.
 3. Student's historical Partner restriction remains restrictive even after workspace `enable`.
 4. Multi-partner company-level policy edit refused, while partner-local workspace controls work without affecting other partners.
