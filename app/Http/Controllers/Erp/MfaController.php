@@ -157,6 +157,9 @@ class MfaController extends Controller
 
     private function nextDestination(Request $request)
     {
+        if ($request->session()->get('erp_mfa_context') === 'account') {
+            return redirect()->route('erp.account.companies');
+        }
         if ($request->user()->is_platform_admin && $request->session()->get('erp_mfa_context') === 'platform') {
             return redirect()->route('erp.platform.dashboard');
         }
