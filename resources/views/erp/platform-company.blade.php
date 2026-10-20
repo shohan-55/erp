@@ -18,9 +18,9 @@
 <section class="flex flex-wrap items-start justify-between gap-3">
 <div><p class="text-xs font-extrabold uppercase tracking-widest text-amber-800">COMPANY & ACCOUNT MANAGEMENT</p>
 <h1 class="mt-2 text-3xl font-extrabold">{{ $company->name }}</h1>
-<p class="mt-2 text-sm text-slate-500">Company #{{ $company->id }} · Login: <a class="font-bold text-amber-800 underline" href="{{ url('/'.$company->slug) }}" target="_blank" rel="noopener noreferrer">/{{ $company->slug }}</a> · CA Firm · {{ $workspaces->count() }} isolated Partner workspaces</p></div>
-<span class="rounded-full px-4 py-2 text-xs font-bold {{ $company->archived_at ? 'bg-slate-200 text-slate-700' : ($company->active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800') }}">
-{{ $company->archived_at ? 'Archived' : ($company->active ? 'Active' : 'Suspended') }}</span>
+<p class="mt-2 text-sm text-slate-500">Company #{{ $company->id }} · Login: <a class="font-bold text-amber-800 underline" href="{{ url('/'.$company->slug) }}" target="_blank" rel="noopener noreferrer">/{{ $company->slug }}</a> · {{ $company->environment_kind === 'demo' ? 'Demo tenant' : 'Customer tenant' }} · CA Firm · {{ $workspaces->count() }} isolated Partner workspaces</p></div>
+<span class="rounded-full px-4 py-2 text-xs font-bold {{ $company->deleted_at ? 'bg-slate-300 text-slate-900' : ($company->archived_at ? 'bg-slate-200 text-slate-700' : ($company->active ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800')) }}">
+{{ $company->deleted_at ? 'Removed' : ($company->archived_at ? 'Archived' : ($company->active ? 'Active' : 'Suspended')) }}</span>
 </section>
 
 <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
@@ -108,7 +108,13 @@
 </div>
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 <h2 class="text-sm font-extrabold">Company Lifecycle</h2>
-<p class="mt-2 text-xs leading-relaxed text-slate-500">Suspend first, then archive. No payroll, attendance or other records are permanently deleted. Restored archives remain suspended until reactivated.</p>
+<p class="mt-2 text-xs leading-relaxed text-slate-500">Suspend → Archive → Remove (recoverable). There is NO permanent delete on this screen. Attendance, invoices, payroll and uploaded files are preserved. A removed firm can be restored as suspended before reactivation.</p>
+<div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+<strong>Pre-removal inventory (account and billing metadata only)</strong>
+<p class="mt-1">{{ $lifecyclePreview['workspaces'] }} workspaces · {{ $lifecyclePreview['memberships'] }} memberships · {{ $lifecyclePreview['subscriptions'] }} subscriptions · {{ $lifecyclePreview['invoices'] }} invoices · {{ $lifecyclePreview['payments'] }} recorded payments</p>
+<p class="mt-1">Private file storage size: Not yet verified. Physical deletion requires a future fully verified customer export, legal retention checks and approval.</p>
+@if($customDomain)<p class="mt-1">Custom domain: {{ $customDomain->hostname }}{{ $customDomain->active ? ' (active mapping; tenant access remains blocked on removal)' : '' }}</p>@endif
+</div>
 @if($company->archived_at)
 @php($action='restore')
 @elseif($company->active)
@@ -126,6 +132,41 @@
 <label class="block text-xs font-semibold text-rose-900">Archive suspended company · confirm slug<input name="confirmation_slug" placeholder="{{ $company->slug }}" required autocomplete="off" class="mt-2 w-full rounded-lg border border-rose-300 p-2.5 text-sm"></label>
 <button class="w-full rounded-lg bg-rose-900 p-2.5 text-xs font-bold text-white">Archive (Retain Records)</button></form>
 @endif
+@if($company->archived_at && !$company->deleted_at)
+<details class="mt-3 rounded-xl border border-rose-300 bg-rose-50 p-3">
+<summary class="cursor-pointer text-xs font-extrabold text-rose-950">Remove this archived company from the directory (recoverable)</summary>
+<p class="mt-2 text-xs text-rose-900">This blocks tenant access and hides the company from the default directory. No database records or documents will be deleted. Do not confuse this with cancellation data export/purge.</p>
+<form class="mt-3 space-y-3" action="{{ route('erp.platform.companies.lifecycle',['companyId'=>$company->id]) }}" method="POST">@csrf
+<input type="hidden" name="action" value="remove">
+<label class="block text-xs font-semibold text-rose-900">Reason for removal (minimum 15 characters)
+<textarea name="reason" minlength="15" maxlength="1000" required rows="3" class="mt-2 w-full rounded-lg border border-rose-300 p-2.5 text-sm"></textarea></label>
+<label class="block text-xs font-semibold text-rose-900">Type exact company slug
+<input name="confirmation_slug" required autocomplete="off" placeholder="{{ $company->slug }}" class="mt-2 w-full rounded-lg border border-rose-300 p-2.5 text-sm"></label>
+<label class="block text-xs font-semibold text-rose-900">Type REMOVE to confirm
+<input name="remove_confirmation" required pattern="REMOVE" autocomplete="off" placeholder="REMOVE" class="mt-2 w-full rounded-lg border border-rose-300 p-2.5 text-sm"></label>
+<button class="w-full rounded-lg bg-rose-900 p-3 text-xs font-extrabold text-white">Confirm recoverable removal</button>
+</form>
+</details>
+@endif
+</div>
+<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+<h2 class="text-sm font-extrabold">Customer vs Demo Classification</h2>
+<p class="mt-2 text-xs text-slate-600">Existing firms are Customer by default. Demo classification is only a label for controlled testing, not permission to permanently erase private data.</p>
+<p class="mt-2 text-xs font-extrabold text-slate-800">Current: {{ ucfirst($company->environment_kind) }}</p>
+@if(!$company->archived_at && !$company->deleted_at)
+<form action="{{ route('erp.platform.companies.classify',['companyId'=>$company->id]) }}" method="POST" class="mt-3 space-y-3">@csrf
+<label class="block text-xs font-bold text-slate-700">Environment
+<select name="environment_kind" required class="mt-2 w-full rounded-lg border border-slate-300 p-2.5 text-sm">
+<option value="customer" @selected($company->environment_kind==='customer')>Customer</option>
+<option value="demo" @selected($company->environment_kind==='demo')>Demo (non-paying test firm)</option>
+</select></label>
+<label class="block text-xs font-bold text-slate-700">Reason (minimum 15 characters)
+<textarea name="reason" required minlength="15" maxlength="1000" rows="2" class="mt-2 w-full rounded-lg border border-slate-300 p-2.5 text-sm"></textarea></label>
+<label class="block text-xs font-bold text-slate-700">Type exact company slug
+<input name="confirmation_slug" required autocomplete="off" placeholder="{{ $company->slug }}" class="mt-2 w-full rounded-lg border border-slate-300 p-2.5 text-sm"></label>
+<button class="w-full rounded-xl bg-[#FCDF02] p-3 text-sm font-extrabold">Save Classification & Audit</button>
+</form>
+@else<p class="mt-3 text-xs text-amber-800">Restore this company before changing its classification.</p>@endif
 </div>
 <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 <h2 class="text-sm font-extrabold">Invite Staff Account</h2><p class="mt-2 text-xs leading-relaxed text-slate-500">New Manager/Student accounts start inactive and require email acceptance. Existing ERP user credentials are never reset to add a membership.</p>

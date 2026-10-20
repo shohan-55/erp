@@ -48,7 +48,18 @@ class PlatformManagementController extends Controller
 
         $customDomain = DB::table('company_custom_domains')->where('company_id', $companyId)->first();
 
-        return view('erp.platform-company', compact('company', 'workspaces', 'members', 'events', 'customDomain'));
+        // Platform-safe deletion preview: only account/billing metadata.
+        // File contents, student attendance and payroll are never queried.
+        $lifecyclePreview = [
+            'workspaces' => $workspaces->count(),
+            'memberships' => $members->count(),
+            'subscriptions' => DB::table('saas_subscriptions')->where('company_id', $companyId)->count(),
+            'invoices' => DB::table('saas_invoices')->where('company_id', $companyId)->count(),
+            'payments' => DB::table('saas_payments')->where('company_id', $companyId)->count(),
+            'storage_bytes' => null, // Phase 17/18 needs a verified tenant file inventory.
+        ];
+
+        return view('erp.platform-company', compact('company', 'workspaces', 'members', 'events', 'customDomain', 'lifecyclePreview'));
     }
 
     public function updateCompany(Request $request, int $companyId)
@@ -110,11 +121,55 @@ class PlatformManagementController extends Controller
         return back()->with('success', 'Firm profile updated. The tenant login slug stays unchanged.');
     }
 
+    /**
+     * Administrative label only; it never grants access to private records
+     * or authorizes physical deletion. Existing companies default to customer.
+     */
+    public function classifyCompany(Request $request, int $companyId)
+    {
+        $input = $request->validate([
+            'environment_kind' => ['required', Rule::in(['customer', 'demo'])],
+            'confirmation_slug' => ['required', 'string', 'max:70'],
+            'reason' => ['required', 'string', 'min:15', 'max:1000'],
+        ]);
+
+        DB::transaction(function () use ($companyId, $input) {
+            $company = DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
+            abort_unless($company && $company->archived_at === null && $company->deleted_at === null, 404);
+            if (!hash_equals($company->slug, $input['confirmation_slug'])) {
+                throw ValidationException::withMessages(['confirmation_slug' => 'Type the exact company slug to confirm.']);
+            }
+
+            if ($input['environment_kind'] === 'demo'
+                && DB::table('saas_payments')->where('company_id', $companyId)
+                    ->where('status', 'approved')->exists()) {
+                throw ValidationException::withMessages([
+                    'environment_kind' => 'A company with approved payments cannot be classified as demo.',
+                ]);
+            }
+
+            if ($company->environment_kind !== $input['environment_kind']) {
+                DB::table('companies')->where('id', $companyId)->update([
+                    'environment_kind' => $input['environment_kind'], 'updated_at' => now(),
+                ]);
+                $this->audit($companyId, 'company.environment.changed', 'company', $companyId, [
+                    'old' => $company->environment_kind,
+                    'new' => $input['environment_kind'],
+                    'reason' => trim($input['reason']),
+                ]);
+            }
+        }, 3);
+
+        return back()->with('success', 'Company classification saved; no tenant data was modified.');
+    }
+
     public function transitionCompany(Request $request, int $companyId)
     {
         $data = $request->validate([
-            'action' => ['required', Rule::in(['suspend', 'reactivate', 'archive', 'restore'])],
+            'action' => ['required', Rule::in(['suspend', 'reactivate', 'archive', 'restore', 'remove'])],
             'confirmation_slug' => ['required', 'string', 'max:70'],
+            'remove_confirmation' => ['nullable', 'required_if:action,remove', 'in:REMOVE'],
+            'reason' => ['nullable', 'required_if:action,remove', 'string', 'min:15', 'max:1000'],
         ]);
 
         DB::transaction(function () use ($data, $companyId) {
@@ -129,25 +184,38 @@ class PlatformManagementController extends Controller
 
             $changes = match ($data['action']) {
                 'suspend' => $company->active && $company->archived_at === null
-                    ? ['active' => false] : null,
+                    && $company->deleted_at === null ? ['active' => false] : null,
                 'reactivate' => ! $company->active && $company->archived_at === null
-                    ? ['active' => true] : null,
+                    && $company->deleted_at === null ? ['active' => true] : null,
                 'archive' => ! $company->active && $company->archived_at === null
+                    && $company->deleted_at === null
                     ? ['active' => false, 'archived_at' => now()] : null,
+                // Restoration never reactivates accounts or bypasses admin review.
                 'restore' => ! $company->active && $company->archived_at !== null
-                    ? ['active' => false, 'archived_at' => null] : null,
+                    ? ['active' => false, 'archived_at' => null,
+                       'deleted_at' => null, 'deleted_by' => null, 'deleted_reason' => null] : null,
+                // Remove is strictly a recoverable directory state, not DELETE FROM companies.
+                'remove' => ! $company->active && $company->archived_at !== null
+                    && $company->deleted_at === null
+                    ? ['active' => false, 'deleted_at' => now(),
+                       'deleted_by' => Auth::id(), 'deleted_reason' => trim($data['reason'])] : null,
             };
 
             if ($changes === null) {
                 throw ValidationException::withMessages([
-                    'action' => 'Invalid state transition. Suspend before archiving; restore before reactivating.',
+                    'action' => 'Invalid state transition. Suspend before archive, archive before remove, and restore before reactivation.',
                 ]);
             }
 
             DB::table('companies')->where('id', $companyId)->update([
                 ...$changes, 'updated_at' => now(),
             ]);
-            $this->audit($companyId, 'company.'.$data['action'], 'company', $companyId);
+            $this->audit($companyId, 'company.'.$data['action'], 'company', $companyId,
+                $data['action'] === 'remove' ? [
+                    'reason' => trim($data['reason']),
+                    'environment_kind' => $company->environment_kind,
+                    'soft_removal' => true,
+                ] : []);
         }, 3);
 
         return back()->with('success', 'Company '.($data['action']).' operation completed.');
@@ -384,7 +452,7 @@ class PlatformManagementController extends Controller
 
     private function rejectArchived(object $company): void
     {
-        if ($company->archived_at !== null) {
+        if ($company->archived_at !== null || $company->deleted_at !== null) {
             throw ValidationException::withMessages([
                 'company_name' => 'Restore the archived company before editing details.',
             ]);
