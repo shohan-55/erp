@@ -53,6 +53,11 @@ class TeamController extends Controller
 
         $email = strtolower(trim($input['email']));
         $existingUser = User::where('email', $email)->first();
+        if ($existingUser?->is_platform_admin) {
+            throw ValidationException::withMessages([
+                'email' => 'Platform administrator accounts cannot join private company workspaces.',
+            ]);
+        }
         if ($existingUser && DB::table('memberships')
             ->where('company_id', $company->id)
             ->where('workspace_id', $workspace->id)
