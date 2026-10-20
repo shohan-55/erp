@@ -88,9 +88,15 @@ class PlatformBillingController extends Controller
             ->orderByDesc('id')->limit(100)->get();
         $workspaceCount=DB::table('workspaces')->where('company_id',$companyId)->count();
         $membershipCount=DB::table('memberships')->where('company_id',$companyId)->count();
+        $workspaces=DB::table('workspaces as w')
+            ->leftJoin('erp_vault_quotas as q',function($join){
+                $join->on('q.workspace_id','=','w.id')->on('q.company_id','=','w.company_id');
+            })->where('w.company_id',$companyId)->where('w.active',true)
+            ->select('w.id','w.name','q.limit_bytes','q.used_bytes','q.reserved_bytes')
+            ->orderBy('w.name')->limit(100)->get();
         return response()->view('erp.platform-company-billing',compact(
             'company','plans','subscription','invoices','payments','effective',
-            'workspaceCount','membershipCount'
+            'workspaceCount','membershipCount','workspaces'
         ))->header('Cache-Control','private, no-store');
     }
 
