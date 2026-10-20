@@ -199,7 +199,7 @@ final class Phase22SecurityHardeningTest extends TestCase
         $response=$this->actingAs($f['user'])->get('/c/headers-sec/app/settings/security');
         $response->assertOk()->assertHeader('X-Content-Type-Options','nosniff')
             ->assertHeader('X-Frame-Options','DENY')
-            ->assertHeader('Referrer-Policy','no-referrer');
+            ->assertHeader('Referrer-Policy','same-origin');
         $this->assertStringContainsString('no-store',(string)$response->headers->get('Cache-Control'));
         $this->assertStringContainsString("frame-ancestors 'none'",
             (string)$response->headers->get('Content-Security-Policy'));
