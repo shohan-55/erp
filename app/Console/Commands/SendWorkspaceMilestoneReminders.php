@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use Carbon\CarbonImmutable;
+use App\Support\ErpFeatures;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -65,6 +66,27 @@ final class SendWorkspaceMilestoneReminders extends Command
                                     continue;
                                 }
                                 DB::transaction(function () use ($rule, $item, $kind, $delivery, &$sent) {
+                                    // Recheck under locks: the Partner may disable this rule, finish
+                                    // a task, change its due date, or offboard the recipient while
+                                    // the batch is running. No stale or unauthorized send.
+                                    $currentRule = DB::table('workspace_reminder_rules')
+                                        ->where('id', $rule->id)->where('company_id', $rule->company_id)
+                                        ->where('workspace_id', $rule->workspace_id)
+                                        ->where('active', true)->lockForUpdate()->first();
+                                    if (! $currentRule || (int)$currentRule->days_before !== (int)$rule->days_before) return;
+                                    $milestone = DB::table('audit_engagement_milestones')
+                                        ->where('id', $item->id)
+                                        ->where('company_id', $rule->company_id)
+                                        ->where('workspace_id', $rule->workspace_id)
+                                        ->where('due_on', $item->due_on)
+                                        ->whereIn('status', ['open', 'rejected'])->lockForUpdate()->first();
+                                    if (! $milestone || (int)$milestone->membership_id !== (int)$item->membership_id) return;
+                                    $member = DB::table('memberships')
+                                        ->where('id', $item->membership_id)
+                                        ->where('company_id', $rule->company_id)
+                                        ->where('workspace_id', $rule->workspace_id)
+                                        ->where('active', true)->whereNull('platform_suspended_at')->first();
+                                    if (! $member || ! ErpFeatures::enabled($member, 'notifications')) return;
                                     // Unique delivery key is the concurrency guard across scheduler workers.
                                     if (DB::table('workspace_reminder_deliveries')->insertOrIgnore($delivery) !== 1) {
                                         return;
