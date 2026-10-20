@@ -7,6 +7,7 @@ use App\Http\Controllers\Erp\AccountInvitationController;
 use App\Http\Controllers\Erp\PortalController;
 use App\Http\Controllers\Erp\CorporateCalendarController;
 use App\Http\Controllers\Erp\AttendanceController;
+use App\Http\Controllers\Erp\AttendanceProxyController;
 use App\Http\Controllers\Erp\AttendanceReportController;
 use App\Http\Controllers\Erp\AttendanceReconciliationController;
 use App\Http\Controllers\Erp\AttendanceReviewController;
@@ -123,6 +124,12 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/settings/security/mfa/disable', [SecurityController::class, 'disableMfa'])
             ->middleware('throttle:5,1')->name('security.mfa.disable');
         Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance');
+        Route::post('/attendance/proxy/check-in', [AttendanceProxyController::class, 'checkIn'])
+            ->middleware('throttle:10,1')->name('attendance.proxy.in');
+        Route::post('/attendance/proxy/check-out', [AttendanceProxyController::class, 'checkOut'])
+            ->middleware('throttle:10,1')->name('attendance.proxy.out');
+        Route::post('/attendance/proxy/{sessionId}/decision', [AttendanceProxyController::class, 'decide'])
+            ->middleware('throttle:12,1')->name('attendance.proxy.decide');
         Route::get('/attendance/report', [AttendanceReportController::class, 'index'])->name('attendance.report');
         Route::get('/attendance/reconcile', [AttendanceReconciliationController::class, 'index'])->name('attendance.reconcile');
         Route::get('/attendance/reviews', [AttendanceReviewController::class, 'index'])->name('attendance.reviews');
