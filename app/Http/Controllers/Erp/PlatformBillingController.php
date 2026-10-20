@@ -80,7 +80,9 @@ class PlatformBillingController extends Controller
         $subscription=DB::table('saas_subscriptions as s')
             ->join('saas_plans as p','p.id','=','s.plan_id')
             ->where('s.company_id',$companyId)
-            ->select('s.*','p.name as plan_name','p.custom_domain_enabled')->first();
+            ->select('s.*','p.name as plan_name','p.custom_domain_enabled',
+                'p.storage_addon_mib','p.storage_addon_monthly_bdt',
+                'p.annual_discount_percent','p.trial_days')->first();
         $effective=$subscription?SaasBilling::effectiveStatus($subscription):'unbilled';
         $invoices=DB::table('saas_invoices')
             ->where('company_id',$companyId)->orderByDesc('id')->limit(100)->get();
