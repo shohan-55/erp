@@ -178,6 +178,10 @@ Route::prefix('c/{firmSlug}/app')->middleware('tenant.host')->name('erp.')->grou
         Route::post('/leave/credits', [LeavePolicyController::class, 'credit'])->middleware('throttle:10,1')->name('leaves.credit');
         Route::get('/claims', [WorkflowController::class, 'claims'])->name('claims');
         Route::post('/claims', [WorkflowController::class, 'submitClaim'])->name('claims.submit');
+        Route::post('/claims/delegated', [WorkflowController::class, 'submitClaimForStudent'])
+            ->middleware('throttle:10,1')->name('claims.delegated.submit');
+        Route::post('/claims/{id}/delegated-withdraw', [ExpenseManagementController::class, 'withdrawDelegated'])
+            ->middleware('throttle:10,1')->name('claims.delegated.withdraw');
         Route::get('/claims/{id}/receipt', [WorkflowController::class, 'receipt'])->name('claims.receipt');
         Route::post('/claims/{id}/decision', [WorkflowController::class, 'decideClaim'])->name('claims.decide');
         Route::post('/claims/{id}/withdraw', [ExpenseManagementController::class, 'withdraw'])
