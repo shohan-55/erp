@@ -196,8 +196,14 @@ final class Phase20IntegrationsPwaLocalizationTest extends TestCase
             ->assertJsonPath('start_url',"/c/{$f['slug']}/app")
             ->assertJsonPath('display','standalone')
             ->assertDontSee('Tenant Beta Secret');
-        $this->get('/sw-erp.js')->assertOk()->assertSee('erp-offline-shell-v1');
-        $this->get('/offline-erp.html')->assertOk()->assertSee('offline',false);
+        // Public static files are served by the web server, not Laravel's
+        // in-memory HTTP test route dispatcher.
+        $this->assertFileExists(public_path('sw-erp.js'));
+        $this->assertFileExists(public_path('offline-erp.html'));
+        $this->assertStringContainsString('erp-offline-shell-v1',
+            file_get_contents(public_path('sw-erp.js')));
+        $this->assertStringNotContainsString('caches.open(request.url)',
+            file_get_contents(public_path('sw-erp.js')));
     }
 
     public function test_date_range_limits_and_other_member_data_never_leak():void
