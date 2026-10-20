@@ -22,6 +22,8 @@ final class WorkspaceAccess
         'access.delegate' => 'Delegation: limited Moderator grants within own authorized scope',
         // Requires explicit checkbox: legacy full grants do not silently gain proxy rights.
         'attendance.proxy' => 'Proxy attendance: manager may punch for assigned students, pending Partner verification',
+        'leave.submit_for' => 'Leave: submit reasoned requests on behalf of assigned students (Partner final approval)',
+        'leave.withdraw_for' => 'Leave: withdraw own pending delegated student requests with a reason',
     ];
 
     private static function live(object $grant): bool
