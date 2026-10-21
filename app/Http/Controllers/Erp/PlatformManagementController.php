@@ -1,0 +1,481 @@
+<?php
+
+namespace App\Http\Controllers\Erp;
+
+use App\Http\Controllers\Controller;
+use App\Support\IdentityLink;
+use App\Support\OrganizationTemplate;
+use App\Models\User;
+use App\Mail\PlatformStaffInvitation;
+use App\Support\OutboundMailGuard;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+
+class PlatformManagementController extends Controller
+{
+    public function showCompany(int $companyId)
+    {
+        $company = DB::table('companies')->find($companyId);
+        abort_unless($company, 404);
+
+        $workspaces = DB::table('workspaces')
+            ->where('company_id', $companyId)->orderBy('name')->get();
+
+        // Platform account metadata ONLY. No joins to attendance, payroll,
+        // claims, leave, notifications, personal documents or tenant audit data.
+        $members = DB::table('memberships as m')
+            ->join('users as u', 'u.id', '=', 'm.user_id')
+            ->join('workspaces as w', 'w.id', '=', 'm.workspace_id')
+            ->where('m.company_id', $companyId)
+            ->where('w.company_id', $companyId)
+            ->select(
+                'm.id', 'm.workspace_id', 'm.role', 'm.active',
+                'm.invited_at', 'm.platform_suspended_at',
+                'm.manager_membership_id', 'u.name', 'u.email',
+                'u.is_platform_admin', 'w.name as workspace_name'
+            )
+            ->orderBy('w.name')->orderBy('u.name')->get();
+
+        $events = DB::table('platform_control_events')
+            ->where('company_id', $companyId)
+            ->orderByDesc('id')->limit(12)
+            ->get(['action', 'subject_type', 'subject_id', 'created_at']);
+
+        $customDomain = DB::table('company_custom_domains')->where('company_id', $companyId)->first();
+        $organizationTypeLabel = OrganizationTemplate::TYPES[OrganizationTemplate::type($company->organization_type)];
+
+        // Platform-safe deletion preview: only account/billing metadata.
+        // File contents, student attendance and payroll are never queried.
+        $lifecyclePreview = [
+            'workspaces' => $workspaces->count(),
+            'memberships' => $members->count(),
+            'subscriptions' => DB::table('saas_subscriptions')->where('company_id', $companyId)->count(),
+            'invoices' => DB::table('saas_invoices')->where('company_id', $companyId)->count(),
+            'payments' => DB::table('saas_payments')->where('company_id', $companyId)->count(),
+            'storage_bytes' => null, // Phase 17/18 needs a verified tenant file inventory.
+        ];
+
+        return view('erp.platform-company', compact('company', 'workspaces', 'members', 'events', 'customDomain', 'lifecyclePreview', 'organizationTypeLabel'));
+    }
+
+    public function updateCompany(Request $request, int $companyId)
+    {
+        $data = $request->validate([
+            'company_name' => ['required', 'string', 'min:3', 'max:255'],
+            'brand_name' => ['nullable', 'string', 'max:100'],
+            'brand_accent_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'timezone' => ['nullable', 'timezone'],
+            'min_active_partners_for_company_policy' => ['nullable', 'integer', 'between:1,200'],
+        ]);
+
+        $name = trim($data['company_name']);
+        if (mb_strlen($name) < 3) {
+            throw ValidationException::withMessages(['company_name' => 'Company name is too short.']);
+        }
+
+        DB::transaction(function () use ($companyId, $data, $name) {
+            $company = DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
+            abort_unless($company, 404);
+            $this->rejectArchived($company);
+
+            $values = ['name' => $name];
+            if (array_key_exists('brand_name', $data)) {
+                $values['brand_name'] = trim($data['brand_name'] ?? '') ?: null;
+            }
+            if (array_key_exists('brand_accent_color', $data) && $data['brand_accent_color'] !== null) {
+                $values['brand_accent_color'] = strtoupper($data['brand_accent_color']);
+            }
+            if (array_key_exists('timezone', $data) && $data['timezone'] !== null) {
+                $values['timezone'] = $data['timezone'];
+            }
+            if (array_key_exists('min_active_partners_for_company_policy', $data)) {
+                $values['min_active_partners_for_company_policy'] = (int) $data['min_active_partners_for_company_policy'];
+            }
+
+            $changed = [];
+            foreach ($values as $field => $value) {
+                if ((string) $company->{$field} !== (string) $value) {
+                    $changed[$field] = $value;
+                }
+            }
+            if ($changed !== []) {
+                DB::table('companies')->where('id', $companyId)->update([
+                    ...$changed, 'updated_at' => now(),
+                ]);
+                $this->audit($companyId, 'company.profile.updated', 'company', $companyId, [
+                    'fields' => array_keys($changed),
+                ]);
+                // Preserve the existing historical audit event relied on by earlier releases.
+                if (array_key_exists('name', $changed)) {
+                    $this->audit($companyId, 'company.name.updated', 'company', $companyId, [
+                        'field' => 'name',
+                    ]);
+                }
+            }
+        }, 3);
+
+        return back()->with('success', 'Firm profile updated. The tenant login slug stays unchanged.');
+    }
+
+    /**
+     * Administrative label only; it never grants access to private records
+     * or authorizes physical deletion. Existing companies default to customer.
+     */
+    public function classifyCompany(Request $request, int $companyId)
+    {
+        $input = $request->validate([
+            'environment_kind' => ['required', Rule::in(['customer', 'demo'])],
+            'confirmation_slug' => ['required', 'string', 'max:70'],
+            'reason' => ['required', 'string', 'min:15', 'max:1000'],
+        ]);
+
+        DB::transaction(function () use ($companyId, $input) {
+            $company = DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
+            abort_unless($company && $company->archived_at === null && $company->deleted_at === null, 404);
+            if (!hash_equals($company->slug, $input['confirmation_slug'])) {
+                throw ValidationException::withMessages(['confirmation_slug' => 'Type the exact company slug to confirm.']);
+            }
+
+            if ($input['environment_kind'] === 'demo'
+                && DB::table('saas_payments')->where('company_id', $companyId)
+                    ->where('status', 'approved')->exists()) {
+                throw ValidationException::withMessages([
+                    'environment_kind' => 'A company with approved payments cannot be classified as demo.',
+                ]);
+            }
+
+            if ($company->environment_kind !== $input['environment_kind']) {
+                DB::table('companies')->where('id', $companyId)->update([
+                    'environment_kind' => $input['environment_kind'], 'updated_at' => now(),
+                ]);
+                $this->audit($companyId, 'company.environment.changed', 'company', $companyId, [
+                    'old' => $company->environment_kind,
+                    'new' => $input['environment_kind'],
+                    'reason' => trim($input['reason']),
+                ]);
+            }
+        }, 3);
+
+        return back()->with('success', 'Company classification saved; no tenant data was modified.');
+    }
+
+    public function transitionCompany(Request $request, int $companyId)
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['suspend', 'reactivate', 'archive', 'restore', 'remove'])],
+            'confirmation_slug' => ['required', 'string', 'max:70'],
+            'remove_confirmation' => ['nullable', 'required_if:action,remove', 'in:REMOVE'],
+            'reason' => ['nullable', 'required_if:action,remove', 'string', 'min:15', 'max:1000'],
+        ]);
+
+        DB::transaction(function () use ($data, $companyId) {
+            $company = DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
+            abort_unless($company, 404);
+
+            if (! hash_equals($company->slug, $data['confirmation_slug'])) {
+                throw ValidationException::withMessages([
+                    'confirmation_slug' => 'Type the exact company slug to confirm this change.',
+                ]);
+            }
+
+            $changes = match ($data['action']) {
+                'suspend' => $company->active && $company->archived_at === null
+                    && $company->deleted_at === null ? ['active' => false] : null,
+                'reactivate' => ! $company->active && $company->archived_at === null
+                    && $company->deleted_at === null ? ['active' => true] : null,
+                'archive' => ! $company->active && $company->archived_at === null
+                    && $company->deleted_at === null
+                    ? ['active' => false, 'archived_at' => now()] : null,
+                // Restoration never reactivates accounts or bypasses admin review.
+                'restore' => ! $company->active && $company->archived_at !== null
+                    ? ['active' => false, 'archived_at' => null,
+                       'deleted_at' => null, 'deleted_by' => null, 'deleted_reason' => null] : null,
+                // Remove is strictly a recoverable directory state, not DELETE FROM companies.
+                'remove' => ! $company->active && $company->archived_at !== null
+                    && $company->deleted_at === null
+                    ? ['active' => false, 'deleted_at' => now(),
+                       'deleted_by' => Auth::id(), 'deleted_reason' => trim($data['reason'])] : null,
+            };
+
+            if ($changes === null) {
+                throw ValidationException::withMessages([
+                    'action' => 'Invalid state transition. Suspend before archive, archive before remove, and restore before reactivation.',
+                ]);
+            }
+
+            DB::table('companies')->where('id', $companyId)->update([
+                ...$changes, 'updated_at' => now(),
+            ]);
+            $this->audit($companyId, 'company.'.$data['action'], 'company', $companyId,
+                $data['action'] === 'remove' ? [
+                    'reason' => trim($data['reason']),
+                    'environment_kind' => $company->environment_kind,
+                    'soft_removal' => true,
+                ] : []);
+        }, 3);
+
+        return back()->with('success', 'Company '.($data['action']).' operation completed.');
+    }
+
+    public function inviteMember(Request $request, int $companyId)
+    {
+        $data = $request->validate([
+            'workspace_id' => ['required', 'integer'],
+            'name' => ['required', 'string', 'min:3', 'max:255'],
+            'email' => ['required', 'email', 'max:254'],
+            'role' => ['required', Rule::in(['manager', 'student'])],
+            'manager_membership_id' => ['nullable', 'integer'],
+        ]);
+
+        OutboundMailGuard::ensureConfigured();
+        $email = strtolower(trim($data['email']));
+        if (User::where('email', $email)->where('is_platform_admin', true)->exists()) {
+            throw ValidationException::withMessages([
+                'email' => 'Platform administrator accounts cannot be added to private customer workspaces.',
+            ]);
+        }
+
+        [$company, $user, $memberId, $existing] = DB::transaction(function () use ($companyId, $data, $email) {
+            $company = DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
+            abort_unless($company && $company->active && $company->archived_at === null, 404);
+
+            $workspace = DB::table('workspaces')->where('id', $data['workspace_id'])
+                ->where('company_id', $companyId)->where('active', true)->first();
+            abort_unless($workspace, 404);
+
+            $manager = $this->validManager(
+                $companyId, (int) $workspace->id, $data['manager_membership_id'] ?? null
+            );
+
+            \App\Support\SaasBilling::assertCapacity($companyId,0,1);
+            $user = User::where('email', $email)->first();
+            $existing = (bool) $user;
+            $user ??= User::create([
+                'name' => trim($data['name']), 'email' => $email,
+                'password' => Hash::make(Str::random(64)),
+            ]);
+            if (DB::table('memberships')->where('company_id', $companyId)
+                ->where('workspace_id', $workspace->id)->where('user_id', $user->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'email' => 'This person has already been invited to the selected workspace.',
+                ]);
+            }
+
+            $id = DB::table('memberships')->insertGetId([
+                'company_id' => $companyId, 'workspace_id' => $workspace->id,
+                'user_id' => $user->id, 'role' => $data['role'],
+                'manager_membership_id' => $data['role'] === 'student' ? $manager : null,
+                'active' => false, 'monthly_allowance' => '0.00',
+                'invited_at' => now(), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            $this->audit($companyId, 'account.invited', 'membership', $id, [
+                'role' => $data['role'], 'workspace_id' => (int) $workspace->id,
+            ]);
+
+            return [$company, $user, $id, $existing];
+        }, 3);
+
+        if ($existing) {
+            IdentityLink::issue($user, $memberId, $company->name);
+        } else {
+            $token = Password::broker()->createToken($user);
+            $url = route('erp.activate.form', [
+                'firmSlug' => $company->slug, 'token' => $token, 'email' => $user->email,
+            ]);
+            Mail::to($user->email)->send(new PlatformStaffInvitation($company->name, $url));
+        }
+
+        return back()->with('success', 'Account invitation saved; email delivery requested.');
+    }
+
+    public function updateMember(Request $request, int $companyId, int $memberId)
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'min:3', 'max:255'],
+            'role' => ['required', Rule::in(['partner', 'manager', 'student'])],
+            'manager_membership_id' => ['nullable', 'integer'],
+        ]);
+        $newName = trim($data['name']);
+        if (mb_strlen($newName) < 3) {
+            throw ValidationException::withMessages(['name' => 'Account name is too short.']);
+        }
+
+        DB::transaction(function () use ($data, $newName, $companyId, $memberId) {
+            $company = DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
+            abort_unless($company && $company->active && $company->archived_at === null, 404);
+
+            $member = DB::table('memberships')->where('id', $memberId)
+                ->where('company_id', $companyId)->lockForUpdate()->first();
+            abort_unless($member, 404);
+
+            $user = User::whereKey($member->user_id)->lockForUpdate()->firstOrFail();
+            if ($user->is_platform_admin && $newName !== $user->name) {
+                throw ValidationException::withMessages(['name' => 'Platform administrator identity cannot be edited here.']);
+            }
+
+            if ($user->name !== $newName) {
+                // User.name is global, not a tenant-scoped field.
+                if (DB::table('memberships')->where('user_id', $user->id)
+                    ->where('company_id', '!=', $companyId)->exists()) {
+                    throw ValidationException::withMessages([
+                        'name' => 'This account belongs to multiple companies. Edit shared identity separately.',
+                    ]);
+                }
+                $user->name = $newName;
+                $user->save();
+                $this->audit($companyId, 'account.name.updated', 'membership', $memberId, ['field' => 'name']);
+            }
+
+            if ($member->role !== $data['role']) {
+                if ($member->role === 'partner' || $data['role'] === 'partner') {
+                    throw ValidationException::withMessages([
+                        'role' => 'Partner ownership cannot be changed from account editing.',
+                    ]);
+                }
+                if ($member->role === 'manager' && DB::table('memberships')
+                    ->where('company_id', $companyId)
+                    ->where('workspace_id', $member->workspace_id)
+                    ->where('manager_membership_id', $memberId)->exists()) {
+                    throw ValidationException::withMessages([
+                        'role' => 'Reassign this Manager’s students before changing their role.',
+                    ]);
+                }
+            }
+
+            $manager = $data['role'] === 'student'
+                ? $this->validManager($companyId, (int) $member->workspace_id, $data['manager_membership_id'] ?? null)
+                : null;
+
+            $oldManager = $member->manager_membership_id !== null ? (int) $member->manager_membership_id : null;
+            if ($member->role !== $data['role'] || $oldManager !== $manager) {
+                DB::table('memberships')->where('id', $memberId)->update([
+                    'role' => $data['role'], 'manager_membership_id' => $manager, 'updated_at' => now(),
+                ]);
+                $this->audit($companyId, 'account.membership.updated', 'membership', $memberId, [
+                    'old_role' => $member->role, 'role' => $data['role'],
+                    'manager_changed' => $oldManager !== $manager,
+                ]);
+            }
+        }, 3);
+
+        return back()->with('success', 'Account details updated. Email and password were not changed.');
+    }
+
+    public function transitionMember(Request $request, int $companyId, int $memberId)
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['suspend', 'reactivate'])],
+            'confirmation_email' => ['required', 'email', 'max:254'],
+        ]);
+
+        DB::transaction(function () use ($companyId, $memberId, $data) {
+            $company = DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
+            abort_unless($company && $company->active && $company->archived_at === null, 404);
+
+            $member = DB::table('memberships')->where('id', $memberId)
+                ->where('company_id', $companyId)->lockForUpdate()->first();
+            abort_unless($member, 404);
+
+            $user = User::whereKey($member->user_id)->firstOrFail();
+            if (! hash_equals($user->email, strtolower(trim($data['confirmation_email'])))) {
+                throw ValidationException::withMessages([
+                    'confirmation_email' => 'Enter the exact account email to confirm the change.',
+                ]);
+            }
+
+            if ($data['action'] === 'suspend') {
+                if (! $member->active || $member->platform_suspended_at !== null) {
+                    throw ValidationException::withMessages([
+                        'action' => 'Only an active account can be suspended.',
+                    ]);
+                }
+                if ($member->role === 'partner' && ! DB::table('memberships')
+                    ->where('company_id', $companyId)
+                    ->where('workspace_id', $member->workspace_id)
+                    ->where('id', '!=', $memberId)
+                    ->where('role', 'partner')->where('active', true)->exists()) {
+                    throw ValidationException::withMessages([
+                        'action' => 'Cannot suspend the last active Partner. Suspend the company instead.',
+                    ]);
+                }
+                $updates = ['active' => false, 'platform_suspended_at' => now()];
+            } else {
+                if ($member->active || $member->platform_suspended_at === null) {
+                    throw ValidationException::withMessages([
+                        'action' => 'Unaccepted invitations cannot be activated by the platform operator.',
+                    ]);
+                }
+                $workspaceExists = DB::table('workspaces')
+                    ->where('company_id', $companyId)->where('id', $member->workspace_id)
+                    ->where('active', true)->exists();
+                abort_unless($workspaceExists, 404);
+                if ($member->role === 'partner' && DB::table('memberships')
+                    ->where('company_id', $companyId)
+                    ->where('workspace_id', $member->workspace_id)
+                    ->where('id', '!=', $memberId)
+                    ->where('role', 'partner')->where('active', true)->exists()) {
+                    throw ValidationException::withMessages([
+                        'action' => 'This workspace already has an active Partner.',
+                    ]);
+                }
+                $updates = ['active' => true, 'platform_suspended_at' => null];
+            }
+
+            DB::table('memberships')->where('id', $memberId)->update([...$updates, 'updated_at' => now()]);
+            $this->audit($companyId, 'account.'.$data['action'], 'membership', $memberId, [
+                'workspace_id' => (int) $member->workspace_id,
+            ]);
+        }, 3);
+
+        return back()->with('success', 'Account '.($data['action']).' operation completed.');
+    }
+
+    private function validManager(int $companyId, int $workspaceId, mixed $managerId): ?int
+    {
+        if ($managerId === null || $managerId === '') {
+            return null;
+        }
+
+        $found = DB::table('memberships')
+            ->where('id', (int) $managerId)
+            ->where('company_id', $companyId)
+            ->where('workspace_id', $workspaceId)
+            ->where('role', 'manager')->where('active', true)->exists();
+
+        if (! $found) {
+            throw ValidationException::withMessages([
+                'manager_membership_id' => 'Choose an active Manager in the same Partner workspace.',
+            ]);
+        }
+        return (int) $managerId;
+    }
+
+    private function rejectArchived(object $company): void
+    {
+        if ($company->archived_at !== null || $company->deleted_at !== null) {
+            throw ValidationException::withMessages([
+                'company_name' => 'Restore the archived company before editing details.',
+            ]);
+        }
+    }
+
+    private function audit(int $companyId, string $action, string $type, int $id, array $details = []): void
+    {
+        DB::table('platform_control_events')->insert([
+            'company_id' => $companyId,
+            'actor_user_id' => Auth::id(),
+            'action' => $action,
+            'subject_type' => $type,
+            'subject_id' => $id,
+            'details' => json_encode($details, JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+        ]);
+    }
+}

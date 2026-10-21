@@ -1,0 +1,169 @@
+<?php
+
+namespace App\Support;
+
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
+
+final class AttendanceReconciliation
+{
+    /**
+     * Read-only daily review. Missed attendance is a provisional REVIEW status,
+     * never a payroll penalty or an automatic confirmed absence.
+     * No browser GPS or payroll data is queried.
+     */
+    public static function forDate(object $company, object $workspace, object $actor, string $day): array
+    {
+        $members = DB::table('memberships as m')
+            ->join('users as u', 'u.id', '=', 'm.user_id')
+            ->where('m.company_id', $company->id)->where('m.workspace_id', $workspace->id)
+            ->where('m.role', 'student')->where('m.active', true)
+            ->when($actor->role === 'student', fn ($q) => $q->where('m.id', $actor->id))
+            ->when($actor->role === 'manager', fn ($q) => $q->where('m.manager_membership_id', $actor->id))
+            ->select('m.id','m.company_id','m.workspace_id','m.role','u.name')
+            ->orderBy('u.name')->get();
+
+        if ($members->isEmpty()) {
+            return ['rows' => collect(), 'summary' => self::initialSummary()];
+        }
+
+        $ids = $members->pluck('id')->all();
+        $sessions = DB::table('attendance_sessions')
+            ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
+            ->whereIn('membership_id', $ids)->where('work_date', $day)
+            ->where(fn($q)=>$q->whereNull('proxy_status')->orWhere('proxy_status','verified'))
+            ->orderBy('started_at')->get()->groupBy('membership_id');
+
+        $pendingProxy = DB::table('attendance_sessions')
+            ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+            ->whereIn('membership_id',$ids)->where('work_date',$day)
+            ->where('proxy_status','pending')->distinct()->pluck('membership_id')->all();
+
+        $leaves = DB::table('leave_requests')
+            ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
+            ->whereIn('membership_id', $ids)
+            ->where('status', 'approved')
+            ->where('date_from', '<=', $day)->where('date_to', '>=', $day)
+            ->get(['membership_id','day_portion'])->groupBy('membership_id');
+
+        $approvedClientDuty = DB::table('attendance_review_requests')
+            ->where('company_id',$company->id)->where('workspace_id',$workspace->id)
+            ->whereIn('membership_id',$ids)->where('work_date',$day)
+            ->where('kind','client_duty')->where('status','approved')
+            ->orderByDesc('id')->get()->unique('membership_id')->keyBy('membership_id');
+
+        $approvedShifts = DB::table('student_calendar_shifts')
+            ->where('company_id', $company->id)->where('workspace_id', $workspace->id)
+            ->whereIn('student_membership_id', $ids)
+            ->where('work_date', $day)->where('status', 'approved')
+            ->orderByDesc('id')->get()->unique('student_membership_id')
+            ->keyBy('student_membership_id');
+
+        $base = PolicyResolver::forDate($company,$workspace,$day);
+        $weekly = is_array($base['weekly_holidays']) ? $base['weekly_holidays'] : [5,6];
+        $workspaceDay = WorkCalendar::forDate($company,$workspace,$day,$weekly,$base);
+        $today = CarbonImmutable::now($company->timezone)->toDateString();
+
+        $summary = self::initialSummary();
+        $rows = $members->map(function ($member) use (
+            $day, $sessions, $leaves, $approvedShifts, $workspaceDay,
+            $company, $today, $approvedClientDuty, $pendingProxy, &$summary
+        ) {
+            $dayRule = $workspaceDay;
+            $shift = $approvedShifts->get($member->id);
+            if ($shift) {
+                $dayRule['holiday'] = $shift->day_type === 'holiday';
+                $dayRule['office_start'] = $shift->office_start ?: $dayRule['office_start'];
+                $dayRule['office_end'] = $shift->office_end ?: $dayRule['office_end'];
+                $dayRule['grace_minutes'] = $shift->grace_minutes !== null
+                    ? (int) $shift->grace_minutes : $dayRule['grace_minutes'];
+            }
+
+            $own = $sessions->get($member->id, collect());
+            $first = $own->first();
+            $last = $own->last();
+            $approvedLeave = $leaves->has($member->id);
+            $portions = $leaves->get($member->id, collect())->pluck('day_portion')->all();
+            $fullLeave = in_array('full', $portions, true) || (in_array('morning', $portions, true) && in_array('afternoon', $portions, true));
+            $duty = $approvedClientDuty->get($member->id);
+            $flag = 'present';
+            $label = 'Present';
+
+            if ($own->isNotEmpty()) {
+                if ($own->contains(fn ($s) => $s->ended_at === null)) {
+                    $flag = $day === $today ? 'checked_in' : 'missing_punch';
+                    $label = $day === $today ? 'Checked In' : 'Missing Punch · Review';
+                } elseif ($own->contains(fn ($s) => $s->work_mode === 'client')) {
+                    $matched = $duty && $own->contains(fn ($s) => $s->work_mode === 'client'
+                        && strcasecmp(trim((string)$s->client_site),trim((string)$duty->client_site)) === 0);
+                    $flag = $matched ? 'client_duty' : 'client_duty_review';
+                    $label = $matched ? 'Client Duty · Authorized' : 'Client Duty · Verify Assignment';
+                } else {
+                    $scheduledEnd = CarbonImmutable::parse($day.' '.substr($dayRule['office_end'],0,8),$company->timezone);
+                    $actualEnd = CarbonImmutable::parse($last->ended_at,'UTC')->setTimezone($company->timezone);
+                    if (! $dayRule['holiday'] && $actualEnd->lessThan($scheduledEnd)) {
+                        $flag = 'early_exit';
+                        $label = 'Early Exit · Review';
+                    } elseif ($own->contains(fn ($s) => (bool) $s->late)) {
+                        $flag = 'late';
+                        $label = 'Late';
+                    }
+                }
+            } elseif (in_array($member->id,$pendingProxy,true)) {
+                $flag = 'proxy_pending';
+                $label = 'Proxy Attendance · Awaiting Partner Verification';
+            } elseif ($duty) {
+                $flag = 'duty_authorized';
+                $label = 'Client Duty Approved · No Check-in';
+            } elseif ($dayRule['holiday']) {
+                $flag = 'holiday';
+                $label = 'Holiday';
+            } elseif ($approvedLeave && $fullLeave) {
+                $flag = 'leave';
+                $label = 'Approved Leave';
+            } elseif ($approvedLeave) {
+                $flag = 'half_leave';
+                $label = 'Half-day Leave · Check Attendance';
+            } elseif ($day === $today) {
+                $flag = 'not_checked_in';
+                $label = 'Not Checked In Yet';
+            } else {
+                $flag = 'review';
+                $label = 'No Check-in · Review';
+            }
+            $summary[$flag] = ($summary[$flag] ?? 0) + 1;
+
+            return (object) [
+                'membership_id' => $member->id,
+                'student_name' => $member->name,
+                'status_key' => $flag,
+                'status_label' => $label,
+                'scheduled_start' => substr($dayRule['office_start'],0,5),
+                'scheduled_end' => substr($dayRule['office_end'],0,5),
+                'holiday' => $dayRule['holiday'],
+                'session_count' => $own->count(),
+                'has_approved_leave' => $approvedLeave,
+                'has_conflict' => $fullLeave && ($own->isNotEmpty() || (bool)$duty),
+                'half_day_leave' => $approvedLeave && ! $fullLeave,
+                'approved_client_site' => $duty?->client_site,
+                'first_check_in' => $first?->started_at,
+                'last_check_out' => $last?->ended_at,
+            ];
+        });
+
+        $summary['total'] = $rows->count();
+        return ['rows' => $rows, 'summary' => $summary];
+    }
+
+    private static function initialSummary(): array
+    {
+        return [
+            'total' => 0, 'present' => 0, 'checked_in' => 0,
+            'client_duty' => 0, 'late' => 0, 'early_exit' => 0,
+            'missing_punch' => 0, 'holiday' => 0, 'leave' => 0,
+            'not_checked_in' => 0, 'review' => 0, 'half_leave' => 0,
+            'duty_authorized' => 0, 'client_duty_review' => 0,
+            'proxy_pending' => 0,
+        ];
+    }
+}

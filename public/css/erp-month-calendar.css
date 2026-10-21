@@ -1,0 +1,75 @@
+/* RA&C / workspace-branded, high-contrast corporate monthly attendance calendar. */
+.erp-month-calendar{position:relative;overflow:hidden;border-radius:25px;background:linear-gradient(145deg,#191c23,#252830 72%,#17191f);color:#f9fafb;box-shadow:0 18px 45px -24px #101827;border:1px solid #43464d}
+.erp-month-calendar__head{display:flex;align-items:start;justify-content:space-between;gap:14px;padding:23px 25px 17px;background:radial-gradient(ellipse at 90% 5%,rgba(252,223,2,.13),transparent 50%)}
+.erp-month-calendar__eyebrow{color:#fcdf02;font-size:10px;letter-spacing:.16em;font-weight:900}
+.erp-month-calendar__title{margin:9px 0 4px;color:white;font-size:clamp(24px,3.5vw,34px);font-weight:900;letter-spacing:-.04em;line-height:1.2}
+.erp-month-calendar__subtitle{color:#aeb5c2;font-size:11px;line-height:1.6}
+.erp-month-calendar__badge{display:flex;align-items:center;gap:8px;white-space:nowrap;color:#fcdf02;border:1px solid #666048;background:#34332d;padding:10px 12px;border-radius:13px;font-size:10px;letter-spacing:.08em;font-weight:800}
+.erp-month-calendar__badge svg{height:19px;width:19px}
+.erp-month-calendar__surface{position:relative;isolation:isolate;padding:16px 21px 19px;background:#22262d}
+.erp-month-calendar__watermark{position:absolute;inset:20px 22px 30px;z-index:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:var(--erp-cal-opacity,.06);text-align:center;overflow:hidden}
+.erp-month-calendar__watermark span{font-size:clamp(29px,6vw,75px);font-weight:900;line-height:1.1;letter-spacing:-.05em;color:#fcdf02;overflow-wrap:anywhere;max-width:90%}
+.erp-month-calendar__watermark img{max-width:70%;max-height:70%;object-fit:contain;filter:grayscale(1) brightness(2)}
+.erp-month-calendar__weekdays,.erp-month-calendar__grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.erp-month-calendar__weekdays{padding:0 0 11px}
+.erp-month-calendar__weekdays span{color:#c2c8d4;font-size:10px;font-weight:900;text-align:center;letter-spacing:.06em}
+.erp-month-calendar__day,.erp-month-calendar__empty{position:relative;min-width:0;min-height:77px;border-radius:12px}
+.erp-month-calendar__day{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;text-align:left;gap:8px;border:1px solid #4b505b;background:rgba(53,57,66,.84);color:#fff;padding:9px 8px;cursor:pointer;transition:transform .16s,border-color .16s,background .16s;overflow:hidden}
+.erp-month-calendar__day:hover{transform:translateY(-2px);border-color:#fcdf02;background:#414650}
+.erp-month-calendar__day:focus-visible{outline:3px solid #fcdf02;outline-offset:2px}
+.erp-month-calendar__day--today{border-color:#fcdf02;background:rgba(107,93,35,.64);box-shadow:inset 0 0 0 1px rgba(252,223,2,.2)}
+.erp-month-calendar__number{font-size:14px;font-weight:900;color:#fff}
+.erp-month-calendar__day--today .erp-month-calendar__number{color:#fcdf02}
+.erp-month-calendar__day-title{font-size:9px;line-height:1.25;font-weight:700;color:#d2d7de;overflow-wrap:anywhere}
+.erp-month-calendar__indicator{position:absolute;right:8px;top:10px;height:7px;width:7px;border-radius:50%;background:#6b7280;box-shadow:0 0 10px rgba(0,0,0,.3)}
+.erp-month-calendar__day--on_time .erp-month-calendar__indicator{background:#34d399;box-shadow:0 0 9px #34d399}
+.erp-month-calendar__day--grace .erp-month-calendar__indicator{background:#facc15}
+.erp-month-calendar__day--late .erp-month-calendar__indicator{background:#fb923c}
+.erp-month-calendar__day--active .erp-month-calendar__indicator{background:#34d399}
+.erp-month-calendar__day--leave .erp-month-calendar__indicator{background:#60a5fa}
+.erp-month-calendar__day--half .erp-month-calendar__indicator{background:#c4b5fd}
+.erp-month-calendar__day--holiday .erp-month-calendar__indicator{background:#a78bfa}
+.erp-month-calendar__day--client .erp-month-calendar__indicator{background:#22d3ee}
+.erp-month-calendar__day--review .erp-month-calendar__indicator{background:#fb7185}
+.erp-month-calendar__day--holiday{background:rgba(84,68,112,.48)}
+.erp-month-calendar__day--review{background:rgba(102,46,59,.42)}
+.erp-month-calendar__disclaimer{position:relative;z-index:1;display:flex;align-items:start;gap:7px;margin-top:17px;color:#bac2ce;font-size:10px;line-height:1.6}
+.erp-month-calendar__disclaimer svg{flex-shrink:0;height:15px;width:15px;color:#fcdf02}
+.erp-month-calendar__legend{padding:16px 22px;display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px;border-top:1px solid #43464d;color:#d2d7e1}
+.erp-month-calendar__legend span{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:600}
+.erp-month-calendar__legend-dot{display:inline-block;height:8px;width:8px;border-radius:50%;background:#94a3b8}
+.erp-month-calendar__legend-dot--on_time{background:#34d399}.erp-month-calendar__legend-dot--grace{background:#facc15}.erp-month-calendar__legend-dot--late{background:#fb923c}.erp-month-calendar__legend-dot--leave{background:#60a5fa}.erp-month-calendar__legend-dot--holiday{background:#a78bfa}.erp-month-calendar__legend-dot--review{background:#fb7185}
+.erp-month-calendar__manage{margin-left:auto;color:#fcdf02;font-size:11px;font-weight:800;text-decoration:none}
+.erp-calendar-dialog{position:fixed;inset:0;margin:auto;width:min(92vw,430px);max-height:82vh;border:1px solid #e2e8f0;border-radius:22px;background:#fff;color:#17191f;padding:25px;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.erp-calendar-dialog::backdrop{background:rgba(15,17,24,.73);backdrop-filter:blur(5px)}
+.erp-calendar-dialog__top{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#a16207;letter-spacing:.14em;font-size:10px;font-weight:900}
+.erp-calendar-dialog__top button{height:36px;width:36px;border-radius:50%;background:#f1f5f9;font-size:22px;color:#334155}
+.erp-calendar-dialog h3{margin-top:12px;font-weight:900;font-size:24px}
+.erp-calendar-dialog__status{margin-top:13px;padding:9px 12px;border-radius:12px;color:#713f12;background:#fffbeb;font-weight:800;font-size:13px}
+.erp-calendar-dialog__details{margin-top:12px;font-size:13px;line-height:1.8;color:#475569;overflow-wrap:anywhere}
+.erp-calendar-dialog__done{margin-top:23px;width:100%;min-height:45px;border-radius:12px;background:#17191f;color:#fcdf02;font-size:13px;font-weight:900}
+@media(max-width:600px){.erp-month-calendar{border-radius:20px}.erp-month-calendar__head{padding:19px 16px}.erp-month-calendar__badge{padding:8px;font-size:8px}.erp-month-calendar__surface{padding:12px 9px 15px}.erp-month-calendar__weekdays,.erp-month-calendar__grid{gap:3px}.erp-month-calendar__weekdays span{font-size:8px}.erp-month-calendar__day,.erp-month-calendar__empty{min-height:55px;border-radius:8px}.erp-month-calendar__day{gap:5px;padding:7px 4px}.erp-month-calendar__number{font-size:12px}.erp-month-calendar__day-title{font-size:7px;line-height:1.13;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.erp-month-calendar__indicator{height:5px;width:5px;top:8px;right:6px}.erp-month-calendar__legend{padding:13px 12px}.erp-month-calendar__watermark span{font-size:clamp(23px,8vw,40px)}}
+@media(prefers-reduced-motion:reduce){.erp-month-calendar__day{transition:none}.erp-month-calendar__day:hover{transform:none}}
+
+/* Team-scoped calendar: approved leave is blue; review queues are amber. */
+.erp-month-calendar__day--team_leave{background:rgba(31,72,119,.45);border-color:#548bcc}
+.erp-month-calendar__day--team_pending{background:rgba(117,75,22,.42);border-color:#b28846}
+.erp-month-calendar__day--team_leave .erp-month-calendar__indicator{background:#60a5fa;box-shadow:0 0 9px #60a5fa}
+.erp-month-calendar__day--team_pending .erp-month-calendar__indicator{background:#fbbf24;box-shadow:0 0 9px #fbbf24}
+.erp-month-calendar__legend-dot--team_leave{background:#60a5fa}
+.erp-month-calendar__legend-dot--team_pending{background:#fbbf24}
+.erp-calendar-dialog__leaves{margin-top:20px;border-top:1px solid #e2e8f0;padding-top:14px;display:grid;gap:12px}
+.erp-calendar-dialog__leave-heading{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:900;color:#1e293b}
+.erp-calendar-dialog__leave-heading svg{height:16px;width:16px;color:#2563eb}
+.erp-calendar-dialog__leave-heading span{margin-left:auto;border-radius:999px;background:#e0edff;padding:3px 8px;color:#1d4ed8}
+.erp-calendar-dialog__leave-row{border-radius:13px;border:1px solid #dbe4ef;background:#f8fafc;padding:12px;display:flex;flex-direction:column;gap:7px}
+.erp-calendar-dialog__member{font-size:12px;font-weight:900;color:#1e293b}
+.erp-calendar-dialog__leave-meta{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:7px;font-size:11px;color:#334155}
+.erp-calendar-dialog__status-pill{padding:5px 9px;border-radius:999px;font-size:10px;font-weight:900;background:#fef3c7;color:#92400e}
+.erp-calendar-dialog__status-pill--approved{background:#dbeafe;color:#1d4ed8}
+.erp-calendar-dialog__status-pill--manager_reviewed{background:#fef3c7;color:#78350f}
+.erp-calendar-dialog__reviewer{font-size:11px;color:#475569}
+.erp-calendar-dialog__leave-link{align-self:start;min-height:36px;display:inline-flex;align-items:center;padding:8px 11px;border:1px solid #93c5fd;background:#eff6ff;color:#1d4ed8;border-radius:10px;font-size:11px;font-weight:800;text-decoration:none}
+.erp-calendar-dialog__leave-link:focus-visible{outline:3px solid #2563eb;outline-offset:2px}
+.erp-calendar-dialog__no-leaves{font-size:11px;line-height:1.6;color:#64748b}
+.erp-calendar-dialog{overflow-y:auto;overscroll-behavior:contain}
