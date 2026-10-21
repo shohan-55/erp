@@ -35,6 +35,19 @@ final class PublicPremiumLandingTest extends TestCase
 
         $this->assertSame(1,substr_count($markup,'<h1'));
         $this->assertSame(6,substr_count($markup,'class="feature-card"'));
+        $this->assertSame(4,substr_count($markup,'class="industry-card"'));
+        $this->assertSame(4,substr_count($markup,'class="industry-visual"'));
+        $this->assertStringContainsString('id="industries"',$markup);
+        $this->assertStringContainsString('Built for the way',$markup);
+        $this->assertStringContainsString('CA &amp; Audit Firms',$markup);
+        $this->assertStringContainsString('Corporate Companies',$markup);
+        $this->assertStringContainsString('NGOs &amp; Nonprofits',$markup);
+        $this->assertStringContainsString('Consultancy Firms',$markup);
+        $this->assertStringContainsString('https://images.unsplash.com/',$markup);
+        $this->assertStringContainsString('aria-label="Volunteer supporting a community event"',$markup);
+        $this->assertStringContainsString('Your structure is unique. Your ERP should respect that.',$markup);
+        $this->assertStringContainsString('subject=DhakaWala%20ERP%20Organization%20Setup',$markup);
+        $this->assertStringContainsString('@media(max-width:370px)',$markup);
         $this->assertSame(7,substr_count($markup,'<details'));
         $this->assertStringContainsString('name="viewport"',$markup);
         $this->assertStringContainsString('class="skip"',$markup);

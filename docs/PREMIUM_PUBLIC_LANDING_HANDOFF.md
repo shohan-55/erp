@@ -5,11 +5,18 @@ The public root landing is redesigned in resources/views/erp/welcome.blade.php. 
 ## Visual design
 - DhakaWala platform identity: premium sea-green/teal (#20bea9), midnight navy (#1d2850 to #086e72 gradient) and off-white. RA&C yellow/gold is **tenant-specific branding**, not the public SaaS platform brand. Responsive hero and mock preview remain clearly labelled illustrative.
 - Six existing workflow highlights, independent Partner access, three-step experience, company access guidance, native collapsible FAQ and direct email CTA; copy makes it explicit that DhakaWala ERP is an independent product licensed to separate companies with monthly or yearly subscription options (without unverified published prices)
-- Native details-based mobile nav, keyboard focus, reduced-motion support, no JavaScript, tracker, external fonts or CDN dependencies
+- Native details-based mobile nav, keyboard focus, reduced-motion support, no JavaScript, tracker or external fonts. The industry showcase uses four Unsplash-hosted photographs (external image requests) and gradient fallbacks if images cannot load.
 - Real platform admin login URL generated from the Laravel named route, with no public self-registration
 
+## Industry showcase (2026-10-21)
+- Four responsive industry cards appear between core features and the security/tenant controls section: CA & Audit Firms, Corporate Companies, NGOs & Nonprofits and Consultancy Firms.
+- Each card carries a photographic backdrop, clear industry-specific description and chips referencing platform workflows. Photos are illustrative, not client testimonials, and do not imply sector-specific modules are fully released.
+- Source: Unsplash images. License: https://unsplash.com/license (free commercial use). Photographs are served over HTTPS by `images.unsplash.com`; no visitor-tracking scripts are added, but image delivery uses a third-party host. Before enforcing a first-party-only CSP or strict no-third-party traffic policy, locally host the licensed resized image assets and replace the URLs; the CSS gradient fallback remains usable without images.
+- Mobile layout uses two columns on 390px devices, one column for very narrow devices, and four columns on desktop. Contact CTA opens a real support email (no fake signup route).
+- Do not replace RA&C tenant logos or theme, and do not modify subscription, permissions, or production data.
+
 ## Simple cPanel landing-only rollout
-The landing CSS and preview are embedded in the Blade template. Vite, npm, public_html asset publishing, database migrations and Composer are NOT necessary for this update.
+The landing CSS and preview are embedded in the Blade template. Vite, npm, public_html asset publishing, database migrations and Composer are NOT necessary for this update. Four external images currently load from Unsplash where third-party images are allowed by browser and CSP.
 After merge and CI verification, the owner can use one command in the existing live ERP Git worktree:
 
     cd /home/erpdhakawala/erp-app && git pull --ff-only origin security/production-readiness-gates && php artisan view:clear

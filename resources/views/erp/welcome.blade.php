@@ -223,6 +223,42 @@
         .site-footer .brand-mark{background:linear-gradient(145deg,#25cfb8,#0e8990)}
         @media(max-width:900px){.hero{padding:73px 0 80px}.mobile-menu>summary{border-color:rgba(177,247,239,.38);background:rgba(255,255,255,.09)}.hamburger i{background:#e1f7f5}.mobile-menu[open] .mobile-dropdown{background:#f8fcfc;border-color:#c9e3e5}.mobile-dropdown a{color:#24334b}}
         @media(max-width:600px){.hero{padding:65px 0 71px}.hero-grid{gap:35px}.hero::after{top:33%;right:-160px;width:380px;opacity:.55}.hero h1{font-size:clamp(42px,10.2vw,57px)}.hero-description{font-size:15px}.preview-window{transform:none}.float-chip{left:6px}.nav-actions>.button-dark{padding:0 13px}}
+
+        /* Industry fit: self-contained layout; photos are progressive remote visual enhancements. */
+        .industry-section{position:relative;padding:101px 0 105px;background:linear-gradient(180deg,#f0f7f9 0%,#ffffff 42%,#f8fbfc 100%);border-block:1px solid #e0ecf0}
+        .industry-intro{display:flex;align-items:end;justify-content:space-between;gap:40px;margin-bottom:34px}
+        .industry-intro-main{max-width:725px}
+        .industry-overline{display:inline-flex;align-items:center;gap:9px;font-size:11px;font-weight:850;letter-spacing:1.8px;color:#088c91;text-transform:uppercase}
+        .industry-overline:before{content:"";width:22px;height:2px;border-radius:2px;background:#12b9a9}
+        .industry-intro h2{font-size:clamp(35px,4vw,55px);line-height:1.1;letter-spacing:-.057em;font-weight:850;color:#152e48;margin:16px 0 17px;max-width:730px}
+        .industry-intro h2 span{color:#099a95}
+        .industry-intro p{max-width:705px;color:#647c89;line-height:1.77;font-size:15px;margin:0}
+        .industry-intro-aside{max-width:223px;padding:18px 18px 18px 20px;border-left:2px solid #18b4a8;font-size:13px;font-weight:740;line-height:1.75;color:#426274}
+        .industry-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+        .industry-card{overflow:hidden;min-width:0;display:flex;flex-direction:column;background:#fff;border:1px solid #dce9ec;border-radius:22px;box-shadow:0 12px 28px rgba(16,52,74,.035);transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease}
+        .industry-card:hover{transform:translateY(-5px);border-color:#80d8cf;box-shadow:0 24px 46px rgba(15,61,80,.12)}
+        .industry-visual{position:relative;isolation:isolate;overflow:hidden;aspect-ratio:1.47;border-radius:17px;margin:11px 11px 0;background:linear-gradient(125deg,#204165,#0c918e);background-image:linear-gradient(135deg,rgba(18,42,70,.17),rgba(10,77,82,.16)),var(--industry-photo);background-size:cover;background-position:center}
+        .industry-visual::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,rgba(9,30,53,.35) 100%);pointer-events:none}
+        .industry-visual .industry-index{position:absolute;top:12px;left:12px;display:inline-grid;place-items:center;min-width:30px;height:27px;padding-inline:8px;z-index:1;border:1px solid rgba(255,255,255,.27);border-radius:8px;background:rgba(9,33,53,.57);color:#fff;font-size:10px;font-weight:850;letter-spacing:.08em;backdrop-filter:blur(10px)}
+        .industry-card-content{display:flex;flex-direction:column;flex:1;min-width:0;padding:22px 21px 23px}
+        .industry-title-row{display:flex;align-items:start;justify-content:space-between;gap:8px}
+        .industry-card h3{margin:0;color:#163149;font-size:clamp(16px,1.65vw,20px);line-height:1.26;font-weight:830;letter-spacing:-.6px}
+        .industry-symbol{display:grid;place-items:center;flex:0 0 29px;width:29px;height:29px;border:1px solid #d3f0e9;border-radius:10px;color:#088e86;background:#edf9f7}
+        .industry-symbol svg{width:15px;height:15px;stroke-width:1.8}
+        .industry-card p{font-size:12px;line-height:1.7;color:#70818b;margin:11px 0 18px}
+        .industry-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+        .industry-tags span{display:inline-flex;align-items:center;min-height:25px;padding:5px 9px;background:#edf7f6;border:1px solid #e2f0ee;border-radius:7px;color:#247772;font-size:10px;font-weight:720;line-height:1.2}
+        .industry-bottom{margin-top:33px;padding:24px 29px;border:1px solid #d6e9e8;background:linear-gradient(105deg,#e9f8f6,#f5fbfb);border-radius:18px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+        .industry-bottom strong{display:block;color:#193a50;font-size:16px;letter-spacing:-.35px}
+        .industry-bottom p{margin:7px 0 0;color:#5f7b83;line-height:1.6;font-size:12px}
+        .industry-bottom a{display:inline-flex;align-items:center;justify-content:center;gap:9px;white-space:nowrap;padding:13px 17px;border:1px solid #157f82;border-radius:10px;background:#174a63;color:#fff;font-size:12px;font-weight:780;transition:background .2s,transform .2s}
+        .industry-bottom a:hover{background:#087e81;transform:translateY(-2px)}
+        .industry-bottom a:focus-visible{outline:3px solid #087e76;outline-offset:4px}
+        .industry-bottom a svg{width:15px;height:15px}
+        @media(max-width:1080px){.industry-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.industry-card h3{font-size:20px}.industry-visual{aspect-ratio:1.8}}
+        @media(max-width:700px){.industry-section{padding:75px 0}.industry-intro{display:block;margin-bottom:27px}.industry-intro h2{font-size:clamp(32px,7.5vw,43px)}.industry-intro p{font-size:14px}.industry-intro-aside{display:none}.industry-grid{gap:12px}.industry-visual{aspect-ratio:1.32;margin:8px 8px 0;border-radius:13px}.industry-card{border-radius:17px}.industry-card-content{padding:16px 13px 17px}.industry-card h3{font-size:16px}.industry-card p{font-size:11px;line-height:1.58;margin:8px 0 12px}.industry-tags{gap:5px}.industry-tags span{font-size:9px;padding:5px 7px;min-height:24px}.industry-symbol{width:25px;height:25px;flex-basis:25px;border-radius:8px}.industry-bottom{margin-top:23px;flex-direction:column;align-items:flex-start;padding:22px}.industry-bottom a{width:100%}}
+        @media(max-width:370px){.industry-grid{grid-template-columns:1fr}.industry-visual{aspect-ratio:1.85}.industry-card-content{padding:18px 19px 20px}.industry-card h3{font-size:20px}.industry-card p{font-size:12px}.industry-tags span{font-size:10px}}
+        @media(prefers-reduced-motion:reduce){.industry-card,.industry-bottom a{transition:none}.industry-card:hover,.industry-bottom a:hover{transform:none}}
     </style>
 </head>
 <body>
@@ -235,6 +271,7 @@
         </a>
         <nav class="desktop-links" aria-label="Main navigation">
             <a href="#platform">Platform</a>
+            <a href="#industries">Industries</a>
             <a href="#why-dhakawala">Why DhakaWala</a>
             <a href="#how-it-works">How it works</a>
             <a href="#questions">FAQs</a>
@@ -247,7 +284,7 @@
             <details class="mobile-menu">
                 <summary aria-label="Open navigation menu"><span class="hamburger" aria-hidden="true"><i></i><i></i><i></i></span></summary>
                 <nav class="mobile-dropdown" aria-label="Mobile navigation">
-                    <a href="#platform">Platform</a><a href="#why-dhakawala">Why DhakaWala</a>
+                    <a href="#platform">Platform</a><a href="#industries">Industries</a><a href="#why-dhakawala">Why DhakaWala</a>
                     <a href="#how-it-works">How it works</a><a href="#questions">FAQs</a><a href="#access">Workspace login</a>
                 </nav>
             </details>
@@ -325,6 +362,62 @@
             </div>
         </div>
     </section>
+
+    <section class="industry-section" id="industries" aria-labelledby="industry-title">
+        <div class="container">
+            <div class="industry-intro">
+                <div class="industry-intro-main">
+                    <span class="industry-overline">Industry flexibility</span>
+                    <h2 id="industry-title">Built for the way <span>your organization</span> works.</h2>
+                    <p>One thoughtfully adaptable ERP platform for different teams, structures and responsibilities. From partner-led practices to growing businesses, bring the right people and processes together.</p>
+                </div>
+                <div class="industry-intro-aside">Different structures. Different workflows. One refined workspace experience.</div>
+            </div>
+            <div class="industry-grid">
+                <article class="industry-card">
+                    <div class="industry-visual" role="img" aria-label="Professionals meeting around a conference table" style="--industry-photo:url('https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&amp;fit=crop&amp;w=720&amp;q=76')"><span class="industry-index" aria-hidden="true">01</span></div>
+                    <div class="industry-card-content">
+                        <div class="industry-title-row"><h3>CA &amp; Audit Firms</h3><span class="industry-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3M3 13h18M10 13v2h4v-2"/></svg></span></div>
+                        <p>Purposeful workflows for partner-led practices and professional teams.</p>
+                        <div class="industry-tags"><span>Partners</span><span>Articleship</span><span>Audit work</span><span>Payroll</span></div>
+                    </div>
+                </article>
+                <article class="industry-card">
+                    <div class="industry-visual" role="img" aria-label="Corporate colleagues collaborating at an office desk" style="--industry-photo:url('https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&amp;fit=crop&amp;w=720&amp;q=76')"><span class="industry-index" aria-hidden="true">02</span></div>
+                    <div class="industry-card-content">
+                        <div class="industry-title-row"><h3>Corporate Companies</h3><span class="industry-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10 21v-3h4v3"/></svg></span></div>
+                        <p>Connected people operations across departments, shifts and teams.</p>
+                        <div class="industry-tags"><span>HR</span><span>Departments</span><span>Shifts</span><span>Approvals</span></div>
+                    </div>
+                </article>
+                <article class="industry-card">
+                    <div class="industry-visual" role="img" aria-label="Volunteer supporting a community event" style="--industry-photo:url('https://images.unsplash.com/photo-1559027615-cd4628902d4a?auto=format&amp;fit=crop&amp;w=720&amp;q=76')"><span class="industry-index" aria-hidden="true">03</span></div>
+                    <div class="industry-card-content">
+                        <div class="industry-title-row"><h3>NGOs &amp; Nonprofits</h3><span class="industry-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18M12 3c-5 5-5 13 0 18"/></svg></span></div>
+                        <p>Clarity for project teams, field staff and program operations.</p>
+                        <div class="industry-tags"><span>Projects</span><span>Field teams</span><span>Claims</span><span>Reports</span></div>
+                    </div>
+                </article>
+                <article class="industry-card">
+                    <div class="industry-visual" role="img" aria-label="Consultants planning work together at a meeting" style="--industry-photo:url('https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&amp;fit=crop&amp;w=720&amp;q=76')"><span class="industry-index" aria-hidden="true">04</span></div>
+                    <div class="industry-card-content">
+                        <div class="industry-title-row"><h3>Consultancy Firms</h3><span class="industry-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 20h16M6 16V9M12 16V4M18 16v-6"/></svg></span></div>
+                        <p>A more organized home for assignments, time and shared work.</p>
+                        <div class="industry-tags"><span>Engagements</span><span>Timesheets</span><span>Expenses</span><span>Teams</span></div>
+                    </div>
+                </article>
+            </div>
+            <div class="industry-bottom">
+                <div>
+                    <strong>Your structure is unique. Your ERP should respect that.</strong>
+                    <p>Configurable roles, policies and approvals support a setup that fits the way your organization operates.</p>
+                </div>
+                <a href="mailto:support@dhakawala.com?subject=DhakaWala%20ERP%20Organization%20Setup">Discuss your organization
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+                </a>
+            </div>
+        </div>
+    </section>
     <section class="container" id="why-dhakawala" aria-labelledby="trust-title">
         <div class="dark-feature">
             <div>
@@ -388,7 +481,7 @@
     <div class="container">
         <div class="footer-main">
             <div><a class="brand" href="{{ url('/') }}" aria-label="DhakaWala ERP home"><span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span><span class="brand-copy">DhakaWala <small>ERP PLATFORM</small></span></a><p class="footer-description">A thoughtful place for people, approvals and everything that keeps work moving.</p></div>
-            <nav class="footer-links" aria-label="Footer navigation"><a href="#platform">Platform</a><a href="#why-dhakawala">Why DhakaWala</a><a href="#access">Workspace access</a><a href="#questions">FAQs</a><a href="mailto:support@dhakawala.com?subject=DhakaWala%20ERP%20Enquiry">Contact</a></nav>
+            <nav class="footer-links" aria-label="Footer navigation"><a href="#platform">Platform</a><a href="#industries">Industries</a><a href="#why-dhakawala">Why DhakaWala</a><a href="#access">Workspace access</a><a href="#questions">FAQs</a><a href="mailto:support@dhakawala.com?subject=DhakaWala%20ERP%20Enquiry">Contact</a></nav>
         </div>
         <div class="footer-bottom"><span>© {{ now()->year }} DhakaWala ERP. All rights reserved.</span><span>Independently built. Ready for your organization.</span></div>
     </div>
