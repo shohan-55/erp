@@ -13,7 +13,7 @@
     {{-- This page deliberately has no Vite dependency: updating the Blade view
          cannot leave the separate cPanel public_html asset bundle out of sync. --}}
     <style>
-        :root{color-scheme:light;--ink:#132b36;--muted:#687d84;--brand:#13ac9d;--brand-deep:#087e76;--paper:#f6faf9;--line:#e0ebe8;--display:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif}
+        :root{color-scheme:light;--ink:#132b36;--muted:#687d84;--brand:#20bea9;--brand-deep:#087e76;--paper:#f6faf9;--line:#e0ebe8;--display:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif}
         *,*::before,*::after{box-sizing:border-box}
         html{scroll-behavior:smooth;scroll-padding-top:96px}
         body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--display);font-size:16px;-webkit-font-smoothing:antialiased}
@@ -172,6 +172,57 @@
         @media(max-width:900px){.nav{height:76px}.desktop-links{display:none}.mobile-menu{display:block;position:relative}.mobile-menu>summary{display:grid;place-items:center;width:43px;height:43px;border:1px solid #dde1dc;border-radius:10px;cursor:pointer;list-style:none;background:#fff}.mobile-menu>summary::-webkit-details-marker{display:none}.hamburger{width:17px;height:15px;display:flex;flex-direction:column;justify-content:space-between}.hamburger i{height:2px;width:100%;background:#1b2021;border-radius:2px}.mobile-menu[open] .mobile-dropdown{position:absolute;right:0;top:55px;width:min(270px,calc(100vw - 48px));display:grid;gap:4px;padding:11px;border:1px solid #e1e5df;border-radius:14px;background:#fff;box-shadow:0 20px 45px rgba(31,38,31,.14)}.mobile-dropdown a{padding:11px 12px;border-radius:8px;font-size:13px;font-weight:650}.mobile-dropdown a:hover{background:#f7f8f4}.hero{padding:67px 0 68px}.hero-grid{grid-template-columns:1fr;gap:41px}.hero-text{max-width:650px}.hero h1{max-width:620px}.preview-area{width:min(620px,95%);margin-inline:auto}.feature-grid{grid-template-columns:repeat(2,1fr)}.dark-feature{grid-template-columns:1fr;gap:26px}.dark-feature h2{max-width:650px}.access-grid{grid-template-columns:1fr;gap:26px}.faq-layout{grid-template-columns:1fr;gap:32px}.faq-layout .intro{max-width:530px}}
         @media(max-width:600px){.container{width:min(100% - 36px,1192px)}.nav{height:70px}.brand-mark{width:36px;height:36px}.brand-copy{font-size:18px}.nav-signin{display:none}.nav-actions>.button{min-height:39px;padding:0 12px;font-size:11px}.hero{padding:59px 0 65px}.hero h1{font-size:clamp(42px,10.1vw,60px);letter-spacing:-.068em;margin:22px 0 16px}.hero-description{font-size:14px;line-height:1.8}.hero-buttons{gap:10px}.hero-buttons .button{flex:1 1 100%;width:100%;min-width:0}.hero-note{font-size:11px}.preview-area{width:100%;padding:9px 0 26px}.preview-window{border-radius:14px;transform:none}.preview-content{grid-template-columns:48px minmax(0,1fr);min-height:300px}.preview-rail{padding:19px 4px;gap:18px}.rail-logo{height:25px;width:25px}.rail-item{width:27px;height:27px}.rail-item svg{width:15px;height:15px}.preview-dashboard{padding:18px 12px}.preview-dashboard h2{font-size:17px}.mock-stats{gap:5px}.mock-stat{padding:11px 7px}.stat-title{font-size:10px}.stat-label{font-size:8px}.mock-panels{gap:6px}.mock-panel{padding:11px 7px}.review-list{gap:10px}.review-item{font-size:7px;gap:3px}.review-icon{flex-basis:17px;width:17px;height:17px}.review-item small{font-size:6px;padding:3px}.float-chip{left:4px;bottom:3px;padding:9px}.showcase-note{right:0;font-size:9px}.proof-grid{grid-template-columns:1fr;gap:17px;padding-block:24px}.proof-item{justify-content:flex-start;padding-left:10px}.section{padding:77px 0}.section h2,.access h2,.dark-feature h2{font-size:clamp(33px,8vw,42px)}.section-heading p{font-size:14px}.feature-grid{grid-template-columns:1fr;gap:11px;margin-top:29px}.feature-card{min-height:0;padding:22px}.feature-card h3{margin-top:17px}.dark-feature{padding:36px 25px;border-radius:20px}.flow-section{padding:76px 0}.flow-grid{grid-template-columns:1fr;gap:29px;margin-top:36px}.flow-card:not(:last-child)::after{display:none}.access-grid{padding-block:73px}.access-card{padding:21px}.faq-section{padding:73px 0}.faq-list summary{font-size:14px}.cta-row{align-items:flex-start;flex-direction:column}.final-cta{padding:53px 0}.footer-main{flex-direction:column}.footer-bottom{flex-direction:column;align-items:flex-start}.footer-links{gap:17px}}
         @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.button,.feature-card{transition:none}.button:hover,.feature-card:hover{transform:none}}
+
+        /* Platform-only navy + sea-green theme. Tenant-specific workspace branding remains untouched. */
+        :root{--ink:#15283b;--muted:#647786;--brand:#20bea9;--brand-deep:#087f82;--paper:#f5f9fb;--line:#e1eaee}
+        ::selection{background:#1bc5b2;color:#0b293b}
+        .site-header{position:sticky;top:0;z-index:30;border-bottom:1px solid rgba(206,246,244,.13);background:rgba(27,40,79,.98);box-shadow:0 9px 24px rgba(5,23,48,.11);backdrop-filter:blur(18px)}
+        .brand-copy{color:#fff;letter-spacing:-.9px}
+        .brand-copy small{color:#9dd7d9}
+        .brand-mark{background:linear-gradient(145deg,#24d1be,#09858f);box-shadow:0 7px 22px rgba(2,164,165,.22);transform:rotate(-5deg)}
+        .desktop-links a,.nav-signin{color:#dae6f1}
+        .desktop-links a:hover,.nav-signin:hover{color:#8ef1df}
+        .nav-actions>.button-dark{background:#21bcae;color:#0c2940;box-shadow:none}
+        .nav-actions>.button-dark:hover{background:#7eeddc;box-shadow:0 10px 28px rgba(43,220,205,.2)}
+        .hero{padding:92px 0 108px;color:#fff;background:radial-gradient(ellipse 680px 510px at 88% 54%,rgba(20,190,180,.40),transparent 74%),radial-gradient(ellipse 510px 370px at 2% 100%,rgba(18,109,151,.5),transparent 78%),linear-gradient(123deg,#1d2850 4%,#173e59 55%,#086e72 100%)}
+        .hero::before{opacity:.15;background-image:radial-gradient(rgba(228,255,253,.9) .8px,transparent .8px);background-size:22px 22px;mask-image:linear-gradient(90deg,transparent 5%,#000 97%)}
+        .hero::after{content:"";position:absolute;z-index:0;right:-145px;top:8%;width:min(54vw,700px);aspect-ratio:1;border:1px solid rgba(153,249,241,.15);border-radius:50%;box-shadow:0 0 0 72px rgba(144,236,230,.035),0 0 0 155px rgba(144,236,230,.025);pointer-events:none}
+        .hero-grid{position:relative;z-index:1;gap:63px}
+        .eyebrow{color:#a6eee4;background:rgba(14,104,118,.32);border:1px solid rgba(126,246,229,.31);letter-spacing:1.05px}
+        .eyebrow .dot{background:#6ff3d1;box-shadow:0 0 0 4px rgba(127,249,223,.17)}
+        .hero h1{letter-spacing:-.073em;text-wrap:balance;text-shadow:0 4px 24px rgba(7,25,48,.08)}
+        .hero h1 em{color:#8eefd9}
+        .hero h1 .underline{color:#fff}
+        .hero h1 .underline::after{height:11px;bottom:2px;background:#24c5b5;z-index:-1;opacity:.78}
+        .hero-description{color:#d3e6ed;font-size:17px;line-height:1.85}
+        .hero .button-dark{background:#21c7b5;border-color:#21c7b5;color:#082d3d;box-shadow:0 15px 35px rgba(5,22,47,.18)}
+        .hero .button-dark:hover{background:#8af0df;border-color:#8af0df;box-shadow:0 17px 34px rgba(5,22,47,.27)}
+        .hero .button-outline{background:rgba(255,255,255,.075);border-color:rgba(221,249,250,.42);color:#fff}
+        .hero .button-outline:hover{background:rgba(255,255,255,.14);border-color:#e1fbf8}
+        .hero-note{color:#c4dfdf}
+        .hero-note .tiny-icon{background:rgba(72,228,199,.18);color:#91f1d9}
+        .preview-halo{inset:3% -4% -4% -3%;background:radial-gradient(circle at 60% 50%,rgba(73,249,217,.37),rgba(78,173,198,.13) 56%,transparent 77%);filter:blur(28px)}
+        .preview-window{border:1px solid rgba(221,255,250,.56);box-shadow:0 41px 80px rgba(3,23,51,.34),0 0 0 6px rgba(255,255,255,.035);transform:rotate(-1.5deg)}
+        .preview-rail{background:#1c3150}
+        .rail-item.active{background:#265e67;color:#7ef5df}
+        .preview-dashboard{background:#f5f9fb}
+        .preview-titlebar{background:#fcfefe}
+        .stat-mark,.bars i:nth-child(4),.bars i:nth-child(7){background:#20bea9}
+        .float-chip{border-color:#d9f3ee;box-shadow:0 21px 36px rgba(6,30,51,.24)}
+        .proof{border-block:1px solid #dfeaf0;background:#fff}
+        .feature-card{border-color:#dce9ed;box-shadow:0 7px 26px rgba(20,55,72,.025)}
+        .feature-card:hover{border-color:#8bded1;box-shadow:0 23px 40px rgba(20,85,100,.085)}
+        .feature-icon{background:#e3f8f4;color:#117e83}
+        .kicker{color:#078d91}
+        .dark-feature{background:radial-gradient(circle at 92% 80%,rgba(17,190,171,.18),transparent 49%),linear-gradient(120deg,#1e2c53,#0e4d65);box-shadow:0 26px 54px rgba(8,35,58,.1)}
+        .dark-feature .kicker,.dark-feature .text-link{color:#8cf4df}
+        .access-card{background:linear-gradient(145deg,#f6fcfb,#eaf7f6);border-color:#d5ebe8}
+        .final-cta{background:linear-gradient(110deg,#183c62,#087d80)}
+        .site-footer{background:#141f3d}
+        .footer-bottom{border-top-color:#32435c}
+        .site-footer .brand-mark{background:linear-gradient(145deg,#25cfb8,#0e8990)}
+        @media(max-width:900px){.hero{padding:73px 0 80px}.mobile-menu>summary{border-color:rgba(177,247,239,.38);background:rgba(255,255,255,.09)}.hamburger i{background:#e1f7f5}.mobile-menu[open] .mobile-dropdown{background:#f8fcfc;border-color:#c9e3e5}.mobile-dropdown a{color:#24334b}}
+        @media(max-width:600px){.hero{padding:65px 0 71px}.hero-grid{gap:35px}.hero::after{top:33%;right:-160px;width:380px;opacity:.55}.hero h1{font-size:clamp(42px,10.2vw,57px)}.hero-description{font-size:15px}.preview-window{transform:none}.float-chip{left:6px}.nav-actions>.button-dark{padding:0 13px}}
     </style>
 </head>
 <body>
@@ -211,8 +262,8 @@
                 <h1 id="hero-title">Less admin.<br>More <span class="underline">momentum.</span><br><em>Every day.</em></h1>
                 <p class="hero-description">Meet the workspace that brings your people, attendance, approvals and operations together. Beautifully organized, thoughtfully flexible, and made for teams who mean business.</p>
                 <div class="hero-buttons">
-                    <a class="button button-dark" href="#platform">Explore DhakaWala ERP <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
-                    <a class="button button-outline" href="#platform">Discover the platform <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></a>
+                    <a class="button button-dark" href="#platform">Explore the platform <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
+                    <a class="button button-outline" href="#access">Workspace access <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></a>
                 </div>
                 <div class="hero-note"><span class="tiny-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></span> Designed for practices, growing businesses and modern teams</div>
             </div>
