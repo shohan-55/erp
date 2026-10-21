@@ -59,6 +59,9 @@ final class PublicPremiumLandingTest extends TestCase
         $this->assertStringContainsString('@media(max-width:600px)',$markup);
         $this->assertStringContainsString('Illustrative interface preview',$markup);
         $this->assertStringContainsString('mailto:support@dhakawala.com',$markup);
+        $this->assertStringContainsString('Designed, engineered &amp; maintained by the',$markup);
+        $this->assertStringContainsString('<strong>DhakaWala Developer Team</strong>',$markup);
+        $this->assertStringNotContainsString('Independently built. Ready for your organization.',$markup);
         $this->assertStringContainsString('--brand:#20bea9',$markup);
         $this->assertStringContainsString('Platform-only navy + sea-green theme',$markup);
         $this->assertStringContainsString('linear-gradient(123deg,#1d2850',$markup);
