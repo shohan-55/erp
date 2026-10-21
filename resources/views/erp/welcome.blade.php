@@ -13,7 +13,7 @@
     {{-- This page deliberately has no Vite dependency: updating the Blade view
          cannot leave the separate cPanel public_html asset bundle out of sync. --}}
     <style>
-        :root{color-scheme:light;--ink:#132b36;--muted:#687d84;--brand:#13ac9d;--brand-deep:#087e76;--paper:#f6faf9;--line:#e0ebe8;--display:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif}
+        :root{color-scheme:light;--ink:#132b36;--muted:#687d84;--brand:#20bea9;--brand-deep:#087e76;--paper:#f6faf9;--line:#e0ebe8;--display:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Arial,sans-serif}
         *,*::before,*::after{box-sizing:border-box}
         html{scroll-behavior:smooth;scroll-padding-top:96px}
         body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--display);font-size:16px;-webkit-font-smoothing:antialiased}
