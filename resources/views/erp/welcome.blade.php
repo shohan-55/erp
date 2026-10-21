@@ -224,6 +224,16 @@
         @media(max-width:900px){.hero{padding:73px 0 80px}.mobile-menu>summary{border-color:rgba(177,247,239,.38);background:rgba(255,255,255,.09)}.hamburger i{background:#e1f7f5}.mobile-menu[open] .mobile-dropdown{background:#f8fcfc;border-color:#c9e3e5}.mobile-dropdown a{color:#24334b}}
         @media(max-width:600px){.hero{padding:65px 0 71px}.hero-grid{gap:35px}.hero::after{top:33%;right:-160px;width:380px;opacity:.55}.hero h1{font-size:clamp(42px,10.2vw,57px)}.hero-description{font-size:15px}.preview-window{transform:none}.float-chip{left:6px}.nav-actions>.button-dark{padding:0 13px}}
 
+
+        /* Refined photography-led industry experience; overrides only public landing cards. */
+        .industry-card{box-shadow:0 11px 27px rgba(19,52,75,.055),0 2px 5px rgba(19,52,75,.018)}
+        .industry-card:hover{box-shadow:0 26px 52px rgba(14,65,79,.15);border-color:#5bcebf}
+        .industry-visual{background-color:#174a65}
+        .industry-visual::before{content:"";position:absolute;inset:0;z-index:0;background:linear-gradient(135deg,rgba(13,31,57,.10),rgba(8,113,120,.1));transition:background .25s ease}
+        .industry-card:hover .industry-visual::before{background:linear-gradient(135deg,rgba(13,31,57,.02),rgba(8,113,120,.04))}
+        .industry-card h3{letter-spacing:-.042em}
+        .industry-bottom{box-shadow:0 12px 32px rgba(10,73,83,.045)}
+        @media(prefers-reduced-motion:reduce){.industry-visual::before{transition:none}}
         /* Industry fit: self-contained layout; photos are progressive remote visual enhancements. */
         .industry-section{position:relative;padding:101px 0 105px;background:linear-gradient(180deg,#f0f7f9 0%,#ffffff 42%,#f8fbfc 100%);border-block:1px solid #e0ecf0}
         .industry-intro{display:flex;align-items:end;justify-content:space-between;gap:40px;margin-bottom:34px}
@@ -260,31 +270,6 @@
         @media(max-width:370px){.industry-grid{grid-template-columns:1fr}.industry-visual{aspect-ratio:1.85}.industry-card-content{padding:18px 19px 20px}.industry-card h3{font-size:20px}.industry-card p{font-size:12px}.industry-tags span{font-size:10px}}
         @media(prefers-reduced-motion:reduce){.industry-card,.industry-bottom a{transition:none}.industry-card:hover,.industry-bottom a:hover{transform:none}}
 
-        /* Premium multi-industry showcase: scoped to the public landing only. */
-        .industry-section{padding:104px 0;background:linear-gradient(180deg,#f5f9fb 0%,#edf5f6 100%)}
-        .industry-heading{max-width:740px;margin:0 auto 45px;text-align:center}
-        .industry-heading h2{font-size:clamp(34px,4.5vw,57px);line-height:1.12;letter-spacing:-.055em;margin:16px 0;color:#182b43}
-        .industry-heading p{color:#657789;font-size:16px;line-height:1.8}
-        .industry-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:17px}
-        .industry-card{overflow:hidden;background:#fff;border:1px solid #dae7eb;border-radius:23px;box-shadow:0 12px 36px rgba(21,49,71,.045);transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease}
-        .industry-card:hover{transform:translateY(-6px);border-color:#5bcdbd;box-shadow:0 25px 45px rgba(13,75,90,.13)}
-        .industry-visual{position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;aspect-ratio:1.32;background:radial-gradient(circle at 70% 20%,rgba(100,237,219,.34),transparent 58%),linear-gradient(135deg,#1d2b56,#086e72)}
-        .industry-visual svg{width:74%;height:74%;filter:drop-shadow(0 15px 15px rgba(3,25,47,.28));transition:transform .35s ease}
-        .industry-card:hover .industry-visual svg{transform:scale(1.06)}
-        .industry-number{position:absolute;top:16px;left:17px;font-size:11px;font-weight:800;letter-spacing:.13em;color:#d6f8f2}
-        .industry-content{padding:25px 22px 26px}
-        .industry-content h3{font-size:20px;letter-spacing:-.035em;color:#182b43;margin:0 0 10px}
-        .industry-content p{color:#687b89;font-size:13px;line-height:1.75;margin:0 0 18px;min-height:69px}
-        .industry-tags{display:flex;flex-wrap:wrap;gap:7px}
-        .industry-tags span{background:#edf8f6;color:#176d72;border:1px solid #d6efeb;border-radius:99px;padding:6px 9px;font-size:10px;font-weight:750}
-        .industry-bottom{display:flex;align-items:center;justify-content:space-between;gap:22px;margin-top:29px;padding:23px 28px;border:1px solid #cfe6e6;border-radius:18px;background:#fff}
-        .industry-bottom p{margin:0;color:#344e61;font-size:14px;line-height:1.7}
-        .industry-bottom a{white-space:nowrap;color:#087e82;font-size:13px;font-weight:800}
-        .industry-bottom a:hover{text-decoration:underline}
-        @media(max-width:1050px){.industry-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.industry-content p{min-height:0}}
-        @media(max-width:600px){.industry-section{padding:74px 0}.industry-heading{margin-bottom:30px}.industry-heading p{font-size:14px}.industry-grid{gap:11px}.industry-card{border-radius:16px}.industry-visual{aspect-ratio:1.1}.industry-content{padding:17px 13px 20px}.industry-content h3{font-size:16px}.industry-content p{font-size:11px;line-height:1.6}.industry-tags span{font-size:9px;padding:5px 7px}.industry-bottom{align-items:flex-start;flex-direction:column;padding:20px;gap:13px}}
-        @media(max-width:370px){.industry-grid{grid-template-columns:1fr}.industry-visual{aspect-ratio:1.7}}
-        @media(prefers-reduced-motion:reduce){.industry-card,.industry-visual svg{transition:none}.industry-card:hover{transform:none}}
     </style>
 </head>
 <body>
@@ -481,18 +466,6 @@
                 </div>
                 <p class="access-small">Workspace addresses are assigned by your organization. Administrator access is restricted to authorized platform users.</p>
             </div>
-        </div>
-    </section>
-    <section class="industry-section" id="industries" aria-labelledby="industry-title">
-        <div class="container">
-            <div class="industry-heading"><span class="kicker">INDUSTRY FLEXIBILITY</span><h2 id="industry-title">Built for the way<br>your organization works.</h2><p>One connected ERP platform, thoughtfully adaptable to different team structures, responsibilities and workflows.</p></div>
-            <div class="industry-grid">
-            <article class="industry-card"><div class="industry-visual"><span class="industry-number">01 / 04</span><svg viewBox="0 0 160 150" role="img" aria-label="CA & Audit Firms illustration" fill="none" stroke="#b9fff0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><rect x="26" y="42" width="108" height="76" rx="12"/><path d="M55 42V29a9 9 0 0 1 9-9h32a9 9 0 0 1 9 9v13M26 74h108M69 74v13h22V74"/></svg></div><div class="industry-content"><h3>CA & Audit Firms</h3><p>For partner-led practices and structured professional teams.</p><div class="industry-tags"><span>Partners</span><span>Audit</span><span>Attendance</span></div></div></article>
-            <article class="industry-card"><div class="industry-visual"><span class="industry-number">02 / 04</span><svg viewBox="0 0 160 150" role="img" aria-label="Corporate Companies illustration" fill="none" stroke="#b9fff0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M30 121V42l49-23 50 23v79M18 121h124M48 53h15v15H48zm48 0h15v15H96zM48 81h15v15H48zm48 0h15v15H96zM72 121v-19h16v19"/></svg></div><div class="industry-content"><h3>Corporate Companies</h3><p>Connect departments, people and everyday operations.</p><div class="industry-tags"><span>HR</span><span>Shifts</span><span>Payroll</span></div></div></article>
-            <article class="industry-card"><div class="industry-visual"><span class="industry-number">03 / 04</span><svg viewBox="0 0 160 150" role="img" aria-label="NGOs & Nonprofits illustration" fill="none" stroke="#b9fff0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><circle cx="80" cy="66" r="43"/><path d="M37 66h86M80 23c-24 20-24 66 0 86M80 23c24 20 24 66 0 86M80 109v18M59 127h42"/></svg></div><div class="industry-content"><h3>NGOs & Nonprofits</h3><p>Coordinate project teams, field activity and approvals.</p><div class="industry-tags"><span>Field teams</span><span>Projects</span><span>Claims</span></div></div></article>
-            <article class="industry-card"><div class="industry-visual"><span class="industry-number">04 / 04</span><svg viewBox="0 0 160 150" role="img" aria-label="Consultancy Firms illustration" fill="none" stroke="#b9fff0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><rect x="23" y="23" width="114" height="83" rx="10"/><path d="M42 87l23-24 18 14 34-34M106 43h11v11M80 106v22M57 128h46"/></svg></div><div class="industry-content"><h3>Consultancy Firms</h3><p>Give client-facing teams more clarity across their work.</p><div class="industry-tags"><span>Clients</span><span>Timesheets</span><span>Expenses</span></div></div></article>
-            </div>
-            <div class="industry-bottom"><p><strong>Your structure is unique. Your ERP should respect that.</strong> Configure roles, policies and approvals around the way your team works.</p><a href="#contact">Discuss your workspace →</a></div>
         </div>
     </section>
     <section class="faq-section" id="questions" aria-labelledby="faq-title">
