@@ -36,6 +36,10 @@ final class PublicPremiumLandingTest extends TestCase
         $this->assertSame(1,substr_count($markup,'<h1'));
         $this->assertSame(6,substr_count($markup,'class="feature-card"'));
         $this->assertSame(4,substr_count($markup,'class="industry-card"'));
+        $this->assertSame(1,substr_count($markup,'id="industries"'), 'Industry showcase must never duplicate.');
+        $this->assertLessThan(strpos($markup,'id="industries"'),strpos($markup,'id="platform"'));
+        $this->assertLessThan(strpos($markup,'id="why-dhakawala"'),strpos($markup,'id="industries"'));
+        $this->assertStringContainsString('Refined photography-led industry experience',$markup);
         $this->assertSame(4,substr_count($markup,'class="industry-visual"'));
         $this->assertStringContainsString('id="industries"',$markup);
         $this->assertStringContainsString('Built for the way',$markup);

@@ -224,6 +224,16 @@
         @media(max-width:900px){.hero{padding:73px 0 80px}.mobile-menu>summary{border-color:rgba(177,247,239,.38);background:rgba(255,255,255,.09)}.hamburger i{background:#e1f7f5}.mobile-menu[open] .mobile-dropdown{background:#f8fcfc;border-color:#c9e3e5}.mobile-dropdown a{color:#24334b}}
         @media(max-width:600px){.hero{padding:65px 0 71px}.hero-grid{gap:35px}.hero::after{top:33%;right:-160px;width:380px;opacity:.55}.hero h1{font-size:clamp(42px,10.2vw,57px)}.hero-description{font-size:15px}.preview-window{transform:none}.float-chip{left:6px}.nav-actions>.button-dark{padding:0 13px}}
 
+
+        /* Refined photography-led industry experience; overrides only public landing cards. */
+        .industry-card{box-shadow:0 11px 27px rgba(19,52,75,.055),0 2px 5px rgba(19,52,75,.018)}
+        .industry-card:hover{box-shadow:0 26px 52px rgba(14,65,79,.15);border-color:#5bcebf}
+        .industry-visual{background-color:#174a65}
+        .industry-visual::before{content:"";position:absolute;inset:0;z-index:0;background:linear-gradient(135deg,rgba(13,31,57,.10),rgba(8,113,120,.1));transition:background .25s ease}
+        .industry-card:hover .industry-visual::before{background:linear-gradient(135deg,rgba(13,31,57,.02),rgba(8,113,120,.04))}
+        .industry-card h3{letter-spacing:-.042em}
+        .industry-bottom{box-shadow:0 12px 32px rgba(10,73,83,.045)}
+        @media(prefers-reduced-motion:reduce){.industry-visual::before{transition:none}}
         /* Industry fit: self-contained layout; photos are progressive remote visual enhancements. */
         .industry-section{position:relative;padding:101px 0 105px;background:linear-gradient(180deg,#f0f7f9 0%,#ffffff 42%,#f8fbfc 100%);border-block:1px solid #e0ecf0}
         .industry-intro{display:flex;align-items:end;justify-content:space-between;gap:40px;margin-bottom:34px}
@@ -259,6 +269,7 @@
         @media(max-width:700px){.industry-section{padding:75px 0}.industry-intro{display:block;margin-bottom:27px}.industry-intro h2{font-size:clamp(32px,7.5vw,43px)}.industry-intro p{font-size:14px}.industry-intro-aside{display:none}.industry-grid{gap:12px}.industry-visual{aspect-ratio:1.32;margin:8px 8px 0;border-radius:13px}.industry-card{border-radius:17px}.industry-card-content{padding:16px 13px 17px}.industry-card h3{font-size:16px}.industry-card p{font-size:11px;line-height:1.58;margin:8px 0 12px}.industry-tags{gap:5px}.industry-tags span{font-size:9px;padding:5px 7px;min-height:24px}.industry-symbol{width:25px;height:25px;flex-basis:25px;border-radius:8px}.industry-bottom{margin-top:23px;flex-direction:column;align-items:flex-start;padding:22px}.industry-bottom a{width:100%}}
         @media(max-width:370px){.industry-grid{grid-template-columns:1fr}.industry-visual{aspect-ratio:1.85}.industry-card-content{padding:18px 19px 20px}.industry-card h3{font-size:20px}.industry-card p{font-size:12px}.industry-tags span{font-size:10px}}
         @media(prefers-reduced-motion:reduce){.industry-card,.industry-bottom a{transition:none}.industry-card:hover,.industry-bottom a:hover{transform:none}}
+
     </style>
 </head>
 <body>
