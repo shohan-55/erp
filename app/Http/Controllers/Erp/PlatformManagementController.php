@@ -60,6 +60,10 @@ class PlatformManagementController extends Controller
             'invoices' => DB::table('saas_invoices')->where('company_id', $companyId)->count(),
             'payments' => DB::table('saas_payments')->where('company_id', $companyId)->count(),
             'storage_bytes' => null, // Phase 17/18 needs a verified tenant file inventory.
+            'unfinished_exits' => DB::table('tenant_exit_cases')
+                ->where('company_id', $companyId)
+                ->whereNotIn('state', ['rejected', 'restore_attested'])
+                ->count(),
         ];
 
         return view('erp.platform-company', compact('company', 'workspaces', 'members', 'events', 'customDomain', 'lifecyclePreview', 'organizationTypeLabel'));
