@@ -60,6 +60,10 @@ class PlatformManagementController extends Controller
             'invoices' => DB::table('saas_invoices')->where('company_id', $companyId)->count(),
             'payments' => DB::table('saas_payments')->where('company_id', $companyId)->count(),
             'storage_bytes' => null, // Phase 17/18 needs a verified tenant file inventory.
+            'unfinished_exits' => DB::table('tenant_exit_cases')
+                ->where('company_id', $companyId)
+                ->whereNotIn('state', ['rejected', 'restore_attested'])
+                ->count(),
         ];
 
         return view('erp.platform-company', compact('company', 'workspaces', 'members', 'events', 'customDomain', 'lifecyclePreview', 'organizationTypeLabel'));
@@ -182,6 +186,21 @@ class PlatformManagementController extends Controller
             if (! hash_equals($company->slug, $data['confirmation_slug'])) {
                 throw ValidationException::withMessages([
                     'confirmation_slug' => 'Type the exact company slug to confirm this change.',
+                ]);
+            }
+
+            // Exit packages cannot be prepared after archive/removal. A Partner may
+            // have started a consent/export flow before the platform operator
+            // received the cancellation request. Preserve that opportunity to
+            // finish and independently verify a customer-owned export.
+            // Suspension remains available without concealing the company.
+            if (in_array($data['action'], ['archive', 'remove'], true)
+                && DB::table('tenant_exit_cases')
+                    ->where('company_id', $companyId)
+                    ->whereNotIn('state', ['rejected', 'restore_attested'])
+                    ->exists()) {
+                throw ValidationException::withMessages([
+                    'action' => 'A company data-exit request remains unfinished or blocked. Resolve the export and verification before archiving or removing the company.',
                 ]);
             }
 
