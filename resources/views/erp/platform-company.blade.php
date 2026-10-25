@@ -115,6 +115,11 @@
 <p class="mt-1">Private file storage size: Not yet verified. Physical deletion requires a future fully verified customer export, legal retention checks and approval.</p>
 @if($customDomain)<p class="mt-1">Custom domain: {{ $customDomain->hostname }}{{ $customDomain->active ? ' (active mapping; tenant access remains blocked on removal)' : '' }}</p>@endif
 </div>
+@if($lifecyclePreview['unfinished_exits'] > 0)
+<div role="alert" class="mt-3 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs font-semibold text-rose-900">
+{{ $lifecyclePreview['unfinished_exits'] }} unfinished company data-exit request(s). Archive and removal are temporarily locked until Partner export/verification is resolved. Suspension and restoration remain available. No data has been deleted.
+</div>
+@endif
 @if($company->archived_at)
 @php($action='restore')
 @elseif($company->active)
@@ -126,13 +131,13 @@
 <input type="hidden" name="action" value="{{ $action }}">
 <label class="block text-xs font-bold text-slate-600">Type company slug to {{ $action }}<input name="confirmation_slug" required autocomplete="off" placeholder="{{ $company->slug }}" class="mt-2 w-full rounded-lg border border-slate-300 p-3 text-sm"></label>
 <button class="w-full rounded-xl p-3 text-xs font-extrabold {{ $action==='reactivate' || $action==='restore' ? 'bg-[#FCDF02] text-slate-900' : 'bg-rose-800 text-white' }}">{{ ucfirst($action) }} Company</button></form>
-@if(!$company->active && !$company->archived_at)
+@if(!$company->active && !$company->archived_at && $lifecyclePreview['unfinished_exits'] === 0)
 <form class="mt-3 space-y-2 rounded-xl border border-rose-200 p-3" action="{{ route('erp.platform.companies.lifecycle',['companyId'=>$company->id]) }}" method="POST">@csrf
 <input type="hidden" name="action" value="archive">
 <label class="block text-xs font-semibold text-rose-900">Archive suspended company · confirm slug<input name="confirmation_slug" placeholder="{{ $company->slug }}" required autocomplete="off" class="mt-2 w-full rounded-lg border border-rose-300 p-2.5 text-sm"></label>
 <button class="w-full rounded-lg bg-rose-900 p-2.5 text-xs font-bold text-white">Archive (Retain Records)</button></form>
 @endif
-@if($company->archived_at && !$company->deleted_at)
+@if($company->archived_at && !$company->deleted_at && $lifecyclePreview['unfinished_exits'] === 0)
 <details class="mt-3 rounded-xl border border-rose-300 bg-rose-50 p-3">
 <summary class="cursor-pointer text-xs font-extrabold text-rose-950">Remove this archived company from the directory (recoverable)</summary>
 <p class="mt-2 text-xs text-rose-900">This blocks tenant access and hides the company from the default directory. No database records or documents will be deleted. Do not confuse this with cancellation data export/purge.</p>
