@@ -1,10 +1,13 @@
-name: Laravel UI Verification
+name: ERP Laravel Operations & UI Verification
 
 on:
   pull_request:
   push:
     branches:
       - main
+      # Always build release review artifacts from the final *squash-merged*
+      # development SHA, rather than a pre-merge feature branch commit.
+      - security/production-readiness-gates
       - feature/phase-03-platform-dashboard
       - feature/phases-04-10-practice-suite-ui
 
@@ -24,7 +27,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, fileinfo
+          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, pdo_mysql, curl, fileinfo, zip
           coverage: none
           tools: composer:v2
 
@@ -37,6 +40,12 @@ jobs:
       - name: Install PHP dependencies
         run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
+      - name: Audit PHP dependency advisories
+        run: composer audit --locked --no-interaction
+
+      - name: Audit production JavaScript dependency advisories
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Initialize local test environment
         run: |
           cp .env.example .env
@@ -48,13 +57,58 @@ jobs:
       - name: Compile Vite production assets
         run: npm run build
 
+      - name: Verify shared hosting PHP CLI prerequisites
+        run: php artisan erp:hosting:check
+
       - name: Run full Laravel feature and unit tests
         run: php artisan test
+
+      # Phase 23: test-only synthetic backup/restore with random ephemeral
+      # encryption key, mock DB and private file. It never reads ERP .env/DB.
+      - name: Rehearse isolated synthetic encrypted restore and tamper rejection
+        env:
+          APP_ENV: testing
+          PHASE23_SYNTHETIC_RESTORE: '1'
+        run: php scripts/phase23-synthetic-restore.php
+
+      # Fail closed until external restore/UAT/reviewer evidence is collected.
+      # CI must NEVER mint a 'production authorized' record.
+      - name: Verify production release gate refuses absent human evidence
+        run: |
+          if php artisan erp:release:evidence --sha="$GITHUB_SHA" --json > /tmp/phase23-review-result.json; then
+            echo "SECURITY FAILURE: release gate accepted absent restoration evidence"
+            exit 1
+          fi
+          php -r '$j=json_decode(file_get_contents("/tmp/phase23-review-result.json"),true,512,JSON_THROW_ON_ERROR); if (($j["decision"]??"")!=="NO_GO"||($j["deployment_authorized"]??true)!==false) exit(1); echo "PASS: release gate fail-closed, no production authorization\n";'
+
+      # Phase 24: this audit MUST fail closed for deployment. The route
+      # inventory itself must pass, and no evidence JSON may grant live access.
+      - name: Assert final route security and production NO-GO without human DR and UAT
+        run: |
+          if php artisan erp:release:final-audit --sha="$GITHUB_SHA" --json > /tmp/erp-final-audit.json; then
+            echo "SECURITY FAILURE: final audit accidentally authorized production"
+            exit 1
+          fi
+          php -r '$v=json_decode(file_get_contents("/tmp/erp-final-audit.json"),true,512,JSON_THROW_ON_ERROR); if(($v["release_candidate_code_review"]??null)!=="ROUTE_GUARDS_PASSED"||($v["production_decision"]??null)!=="NO_GO"||($v["deployment_authorized"]??null)!==false||($v["routes"]["failed"]??["invalid"])!==[])exit(1); echo "PASS: all runtime route guards present and production requires independent authorization\n";'
+
+      - name: Check production routes expose no public UI prototypes
+        run: |
+          APP_ENV=production php artisan route:list --json > /tmp/erp-production-routes.json
+          node -e "const r=require('/tmp/erp-production-routes.json');const paths=r.map(x=>x.uri);const demos=paths.filter(x=>x==='platform/dashboard-preview'||(x.startsWith('c/')&&x.includes('/preview')));const logins=paths.filter(x=>x.endsWith('/app/login'));console.log(JSON.stringify({demo_routes:demos,real_login_routes:logins}));if(demos.length||!paths.includes('platform/app/login')||!paths.includes('c/{firmSlug}/app/login'))process.exit(1);console.log('Production routing protects demo screens.');"
 
       - name: Install Playwright browser for visual verification
         run: |
           npm install --no-save playwright@1.56.1
           npx playwright install --with-deps chromium
+
+      - name: Initialize isolated ERP browser QA database
+        run: |
+          export ERP_E2E_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$ERP_E2E_PASSWORD"
+          echo "ERP_E2E_PASSWORD=$ERP_E2E_PASSWORD" >> "$GITHUB_ENV"
+          touch database/database.sqlite
+          php artisan migrate --force
+          php artisan db:seed --class=ErpBrowserQaSeeder --force
 
       - name: Start the local Laravel preview server
         run: |
@@ -75,6 +129,32 @@ jobs:
       - name: Browser test all practice design phases and capture screenshots
         run: node tests/browser/practice-phases.mjs
 
+      - name: Render and visually verify premium public landing on desktop/mobile
+        run: |
+          php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); echo view("erp.welcome")->render();' > /tmp/erp-public-landing-preview.html
+          node tests/browser/public-landing.mjs
+
+      - name: Browser test actual authenticated ERP operations
+        run: node tests/browser/erp-live-pilot.mjs
+
+      - name: Upload premium public landing screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premium-public-landing-desktop-mobile
+          path: screenshots/public-landing/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload authenticated ERP pilot screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-erp-pilot-screenshots
+          path: screenshots/erp-live-pilot/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload Phase 04-10 screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -93,3 +173,126 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+
+
+  mysql-integration:
+    name: MySQL 8 integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root-ci-only
+          MYSQL_DATABASE: erp_ci
+          MYSQL_USER: erp_ci
+          MYSQL_PASSWORD: test-ci-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --user=erp_ci --password=test-ci-only"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: erp_ci
+      DB_USERNAME: erp_ci
+      DB_PASSWORD: test-ci-only
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP and MySQL extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_mysql, mysqlnd, curl, fileinfo, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies and assets
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist
+          cp .env.example .env
+          php artisan key:generate
+          npm ci
+          npm run build
+
+      - name: Verify hosting PHP CLI prerequisites with MySQL extensions
+        run: php artisan erp:hosting:check
+
+      - name: Run real MySQL schema migrations
+        run: php artisan migrate --force
+
+      # Phase 14: these checks run on an isolated fresh MySQL CI database.
+      # NEVER point this workflow at live ERP; it only checks committed test schema.
+      - name: Verify complete migrated schema and read-only financial integrity
+        run: |
+          php artisan erp:db:check
+          php artisan erp:integrity:check
+          php artisan erp:billing:check
+          php artisan erp:tenant:check
+
+      - name: Execute complete test suite using MySQL 8
+        run: php artisan test
+
+
+  package-cpanel:
+    name: Package cPanel release (not deployment)
+    runs-on: ubuntu-latest
+    needs: [ui-verification, mysql-integration]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout reviewed commit
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.4 for production vendor
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, curl, fileinfo, pdo_mysql, zip
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup Node for offline Vite build
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Build production application dependencies
+        run: |
+          composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader
+          npm ci
+          npm run build
+
+      - name: Assemble private Laravel and cPanel public webroot release
+        run: bash scripts/build-cpanel-release.sh
+
+      - name: Verify extracted cPanel release paths and no private file exposure
+        run: bash scripts/verify-cpanel-release.sh
+
+      - name: Upload app and optional split webroot (review artifacts only)
+        uses: actions/upload-artifact@v4
+        with:
+          name: erp-cpanel-release-review
+          path: |
+            dist/erp-cpanel-application.zip
+            dist/erp-cpanel-split-webroot.zip
+            dist/SHA256SUMS.txt
+            dist/release-manifest.json
+          if-no-files-found: error
+          retention-days: 14

@@ -38,6 +38,22 @@ return [
             'report' => false,
         ],
 
+        // Phase 17: private, non-public tenant object vault. Never symlink this root.
+        // Phase 18: encrypted exit export segments; never public or symlinked.
+        'erp_exit' => [
+            'driver' => 'local',
+            'root' => storage_path('app/erp-private-exports'),
+            'serve' => false,
+            'throw' => true,
+        ],
+
+        'erp_vault' => [
+            'driver' => 'local',
+            'root' => storage_path('app/erp-private-vault'),
+            'serve' => false,
+            'throw' => true,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
