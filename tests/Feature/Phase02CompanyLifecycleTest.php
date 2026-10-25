@@ -179,6 +179,10 @@ class Phase02CompanyLifecycleTest extends TestCase
         $this->assertDatabaseMissing('platform_control_events', [
             'company_id' => $company, 'action' => 'company.archive',
         ]);
+        $this->get("/platform/app/companies/{$company}")
+            ->assertOk()->assertSee('unfinished company data-exit request(s)')
+            ->assertDontSee('Archive (Retain Records)');
+
 
         // A different customer never inherits the first tenant's export lock.
         $otherUrl = "/platform/app/companies/{$otherCompany}/lifecycle";
@@ -192,6 +196,10 @@ class Phase02CompanyLifecycleTest extends TestCase
         // A rejected case is terminal; it cannot accidentally block the
         // reversible lifecycle forever. Its records still stay untouched.
         DB::table('tenant_exit_cases')->where('id', $case)->update(['state' => 'rejected']);
+        $this->get("/platform/app/companies/{$company}")
+            ->assertOk()->assertDontSee('unfinished company data-exit request(s)')
+            ->assertSee('Archive (Retain Records)');
+
         $this->post($url, [
             'action' => 'archive', 'confirmation_slug' => 'exit-in-progress',
         ])->assertRedirect()->assertSessionHasNoErrors();
