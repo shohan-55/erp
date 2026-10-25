@@ -185,6 +185,21 @@ class PlatformManagementController extends Controller
                 ]);
             }
 
+            // Exit packages cannot be prepared after archive/removal. A Partner may
+            // have started a consent/export flow before the platform operator
+            // received the cancellation request. Preserve that opportunity to
+            // finish and independently verify a customer-owned export.
+            // Suspension remains available without concealing the company.
+            if (in_array($data['action'], ['archive', 'remove'], true)
+                && DB::table('tenant_exit_cases')
+                    ->where('company_id', $companyId)
+                    ->whereNotIn('state', ['rejected', 'restore_attested'])
+                    ->exists()) {
+                throw ValidationException::withMessages([
+                    'action' => 'A company data-exit request remains unfinished or blocked. Resolve the export and verification before archiving or removing the company.',
+                ]);
+            }
+
             $changes = match ($data['action']) {
                 'suspend' => $company->active && $company->archived_at === null
                     && $company->deleted_at === null ? ['active' => false] : null,
