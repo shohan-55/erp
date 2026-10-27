@@ -99,4 +99,37 @@ class Phase03PlatformDashboardTest extends TestCase
             ->call('acknowledgePreview', 'grant-admin-access')
             ->assertSet('previewNotice', null);
     }
+
+    public function test_real_organization_provisioning_creates_firm_and_partner_user(): void
+    {
+        $this->artisan('migrate');
+
+        Livewire::test(DashboardPreview::class)
+            ->call('openProvisionPreview')
+            ->assertSet('showProvisionPreview', true)
+            ->set('newFirmName', 'Apex Accounting & Co.')
+            ->set('newFirmSlug', 'apex-ac')
+            ->set('newFirmKind', 'Chartered Accountants')
+            ->set('newPartnerName', 'Kamrul Islam, FCA')
+            ->set('newPartnerEmail', 'kamrul@apex.com')
+            ->set('newPartnerPassword', 'ApexSecret123!')
+            ->set('newFirmPlan', 'Practice')
+            ->set('newFirmSeats', 15)
+            ->set('newFirmRegion', 'Dhaka')
+            ->call('createOrganization')
+            ->assertHasNoErrors()
+            ->assertSet('showProvisionPreview', false)
+            ->assertSee("Organization 'Apex Accounting & Co.' created successfully");
+
+        $this->assertDatabaseHas('firms', [
+            'slug' => 'apex-ac',
+            'name' => 'Apex Accounting & Co.',
+            'seats' => 15,
+        ]);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'kamrul@apex.com',
+            'role' => 'partner',
+        ]);
+    }
 }

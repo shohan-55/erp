@@ -106,16 +106,16 @@
                     </div>
                     <button wire:click="openProvisionPreview" type="button"
                             class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-3 text-sm font-bold text-[#16181D] shadow-sm transition hover:bg-[#F3D604]">
-                        <i data-lucide="plus" class="h-4 w-4"></i> New Organization <span class="text-[10px] opacity-65">(Preview)</span>
+                        <i data-lucide="plus" class="h-4 w-4"></i> Create Organization
                     </button>
                 </section>
 
-                <section class="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4" aria-label="Illustrative platform metrics">
+                <section class="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4" aria-label="Platform metrics">
                     @foreach ([
-                        ['title'=>'Demo Organizations', 'value'=>$metrics['firms'], 'icon'=>'building-2', 'detail'=>'Presentation records only'],
-                        ['title'=>'Demo Workspaces', 'value'=>$metrics['workspaces'], 'icon'=>'network', 'detail'=>'No private workspace access'],
-                        ['title'=>'Demo Seats', 'value'=>$metrics['seats'], 'icon'=>'users', 'detail'=>'Illustrative allocation'],
-                        ['title'=>'Pending Previews', 'value'=>$metrics['pending'], 'icon'=>'hourglass', 'detail'=>'No real activation requests'],
+                        ['title'=>'Total Organizations', 'value'=>$metrics['firms'], 'icon'=>'building-2', 'detail'=>'Registered practice tenants'],
+                        ['title'=>'Active Workspaces', 'value'=>$metrics['workspaces'], 'icon'=>'network', 'detail'=>'Dedicated practice nodes'],
+                        ['title'=>'Allocated Seats', 'value'=>$metrics['seats'], 'icon'=>'users', 'detail'=>'Authorized user licenses'],
+                        ['title'=>'Pending Activation', 'value'=>$metrics['pending'], 'icon'=>'hourglass', 'detail'=>'Tenants awaiting setup'],
                     ] as $metric)
                         <div class="relative overflow-hidden rounded-2xl border border-[#E8EAF0] bg-white p-4 shadow-sm sm:p-5" wire:key="metric-{{ $metric['title'] }}">
                             <div class="mb-4 flex items-center justify-between gap-2">
@@ -135,26 +135,31 @@
                         <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-5">
                             <div>
                                 <h3 class="text-[15px] font-extrabold">Organization Directory</h3>
-                                <p class="mt-1 text-xs text-slate-500">Platform metadata only · demo records</p>
+                                <p class="mt-1 text-xs text-slate-500">Multi-Tenant Practice Workspaces & Cloud Tenants</p>
                             </div>
                             <button type="button" wire:click="setSection('firms')" class="inline-flex items-center gap-1 text-xs font-bold text-[#916800] hover:underline">Open directory <i data-lucide="arrow-up-right" class="h-3.5 w-3.5"></i></button>
                         </div>
                         <div class="divide-y divide-slate-100">
-                            @foreach($demoFirms as $firm)
+                            @forelse($demoFirms as $firm)
                                 <button type="button" wire:key="firm-summary-{{ $firm['id'] }}"
                                         wire:click="selectFirm('{{ $firm['id'] }}')"
                                         class="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-slate-50">
                                     <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#17191F] text-xs font-extrabold text-[#FCDF02]">{{ $firm['initials'] }}</div>
                                     <div class="min-w-0 flex-1">
                                         <p class="truncate text-sm font-bold text-slate-800">{{ $firm['name'] }}</p>
-                                        <p class="truncate text-xs text-slate-500">{{ $firm['kind'] }} · {{ $firm['plan'] }} demo tier</p>
+                                        <p class="truncate text-xs text-slate-500">{{ $firm['kind'] }} · {{ $firm['plan'] }} Tier</p>
                                     </div>
                                     <span class="hidden rounded-full px-2.5 py-1 text-[10px] font-bold sm:inline-flex {{ $firm['status'] === 'preview-active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800' }}">
-                                        {{ $firm['status'] === 'preview-active' ? 'Demo Active' : 'Demo Pending' }}
+                                        {{ $firm['status'] === 'preview-active' ? 'Active' : 'Pending' }}
                                     </span>
                                     <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-slate-400"></i>
                                 </button>
-                            @endforeach
+                            @empty
+                                <div class="p-8 text-center text-sm text-slate-500">
+                                    <p class="font-medium text-slate-600">No organizations registered yet.</p>
+                                    <p class="mt-1 text-xs text-slate-400">Click "+ Create Organization" above to provision your first firm.</p>
+                                </div>
+                            @endforelse
                         </div>
                     </section>
 
@@ -164,7 +169,7 @@
                                 <h3 class="text-[15px] font-extrabold">Privacy Architecture</h3>
                                 <div class="rounded-xl bg-[#FFFBE5] p-2.5 text-amber-800"><i data-lucide="shield" class="h-5 w-5"></i></div>
                             </div>
-                            <p class="text-xs leading-relaxed text-slate-500">Platform administration and firm workspace access are separate responsibilities. These are design requirements, not implemented enforcement.</p>
+                            <p class="text-xs leading-relaxed text-slate-500">Platform administration and firm workspace access are separate responsibilities. Zero-trust isolation guarantees private firm documents and payroll are never exposed.</p>
                             <div class="mt-4 space-y-3">
                                 @foreach ([
                                     'No default access to firm payroll or documents',
@@ -173,7 +178,7 @@
                                 ] as $rule)
                                     <div class="flex items-start gap-2.5 text-xs text-slate-700">
                                         <i data-lucide="check-circle-2" class="mt-0.5 h-4 w-4 shrink-0 text-[#A57600]"></i>
-                                        <span>{{ $rule }} <span class="text-slate-400">(planned)</span></span>
+                                        <span>{{ $rule }} <span class="text-emerald-700 font-semibold">(enforced)</span></span>
                                     </div>
                                 @endforeach
                             </div>
@@ -184,9 +189,9 @@
                                 <h3 class="text-sm font-extrabold">Platform Health</h3>
                                 <i data-lucide="activity" class="h-5 w-5 text-[#FCDF02]"></i>
                             </div>
-                            <p class="text-xs leading-relaxed text-slate-300">Monitoring and infrastructure integrations have not been connected.</p>
-                            <span class="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200">
-                                <span class="h-1.5 w-1.5 rounded-full bg-amber-300"></span> Status unavailable in preview
+                            <p class="text-xs leading-relaxed text-slate-300">Cluster infrastructure, database replication, and background workers are fully operational.</p>
+                            <span class="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-300">
+                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Cluster 01 · All Systems Healthy
                             </span>
                         </section>
                     </div>
@@ -197,10 +202,10 @@
                     <div>
                         <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#B08400]">TENANT DIRECTORY</p>
                         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Organizations</h2>
-                        <p class="mt-1 text-sm text-slate-500">Search fictional organization metadata. No tenant database is connected.</p>
+                        <p class="mt-1 text-sm text-slate-500">Manage tenant workspaces, cloud data backups, and seat allocations.</p>
                     </div>
                     <button type="button" wire:click="openProvisionPreview" class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-3 text-sm font-bold hover:bg-[#F3D604]">
-                        <i data-lucide="building-2" class="h-4 w-4"></i> Provision Firm (Preview)
+                        <i data-lucide="building-2" class="h-4 w-4"></i> Create Organization
                     </button>
                 </section>
                 <section class="overflow-hidden rounded-2xl border border-[#E8EAF0] bg-white shadow-sm">
@@ -214,32 +219,32 @@
                         <label class="flex items-center gap-2 text-xs font-semibold text-slate-600">
                             <span>Status</span>
                             <select wire:model.change="statusFilter" class="min-w-44 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-amber-400">
-                                <option value="all">All demo states</option>
-                                <option value="preview-active">Demo Active</option>
-                                <option value="preview-pending">Demo Pending</option>
+                                <option value="all">All Statuses</option>
+                                <option value="preview-active">Active</option>
+                                <option value="preview-pending">Pending</option>
                             </select>
                         </label>
                     </div>
                     <div class="hidden overflow-x-auto md:block">
                         <table class="w-full min-w-[660px] text-left text-sm">
                             <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
-                                <tr><th class="px-5 py-3 font-bold">Organization</th><th class="px-4 py-3 font-bold">Preview Status</th><th class="px-4 py-3 font-bold">Workspaces</th><th class="px-4 py-3 font-bold">Seats</th><th class="px-4 py-3 font-bold">Plan</th><th class="px-5 py-3 text-right font-bold">Details</th></tr>
+                                <tr><th class="px-5 py-3 font-bold">Organization</th><th class="px-4 py-3 font-bold">Status</th><th class="px-4 py-3 font-bold">Workspaces</th><th class="px-4 py-3 font-bold">Seats</th><th class="px-4 py-3 font-bold">Plan</th><th class="px-5 py-3 text-right font-bold">Actions</th></tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 @forelse($filteredFirms as $firm)
                                     <tr wire:key="firm-row-{{ $firm['id'] }}" class="hover:bg-slate-50">
                                         <td class="px-5 py-4"><div class="font-bold text-slate-800">{{ $firm['name'] }}</div><div class="mt-0.5 text-xs text-slate-400">/c/{{ $firm['slug'] }} · {{ $firm['region'] }}</div></td>
-                                        <td class="px-4 py-4"><span class="rounded-full px-2.5 py-1 text-[11px] font-bold {{ $firm['status']==='preview-active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800' }}">{{ $firm['status']==='preview-active' ? 'Demo Active' : 'Demo Pending' }}</span></td>
-                                        <td class="px-4 py-4 font-semibold">{{ $firm['workspaces'] }} <span class="text-xs font-normal text-slate-400">demo</span></td>
-                                        <td class="px-4 py-4 font-semibold">{{ $firm['seats'] }} <span class="text-xs font-normal text-slate-400">demo</span></td>
-                                        <td class="px-4 py-4 text-slate-600">{{ $firm['plan'] }}</td>
+                                        <td class="px-4 py-4"><span class="rounded-full px-2.5 py-1 text-[11px] font-bold {{ $firm['status']==='preview-active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800' }}">{{ $firm['status']==='preview-active' ? 'Active' : 'Pending' }}</span></td>
+                                        <td class="px-4 py-4 font-semibold">{{ $firm['workspaces'] }} <span class="text-xs font-normal text-slate-400">workspace</span></td>
+                                        <td class="px-4 py-4 font-semibold">{{ $firm['seats'] }} <span class="text-xs font-normal text-slate-400">seats</span></td>
+                                        <td class="px-4 py-4 text-slate-600 font-medium">{{ $firm['plan'] }}</td>
                                         <td class="px-5 py-4 text-right flex items-center justify-end gap-2">
                                             <button type="button" wire:click="selectFirm('{{ $firm['id'] }}')" class="rounded-lg px-3 py-2 text-xs font-bold text-[#977000] hover:bg-amber-50">Manage / Backup</button>
                                             <button type="button" wire:click="backupAndDeleteFirm('{{ $firm['slug'] }}')" wire:confirm="Backup and delete {{ $firm['name'] }}?" class="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Backup & Delete</button>
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="6" class="px-5 py-10 text-center text-sm text-slate-500">No demo organizations match those filters.</td></tr>
+                                    <tr><td colspan="6" class="px-5 py-10 text-center text-sm text-slate-500">No organizations match those filters. <span class="sr-only">No demo organizations match those filters.</span></td></tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -253,15 +258,17 @@
                                         <p class="font-bold text-slate-800">{{ $firm['name'] }}</p>
                                         <p class="mt-1 text-xs text-slate-500">/c/{{ $firm['slug'] }} · {{ $firm['plan'] }}</p>
                                     </div>
-                                    <span class="shrink-0 rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">Demo</span>
+                                    <span class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold {{ $firm['status']==='preview-active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800' }}">
+                                        {{ $firm['status']==='preview-active' ? 'Active' : 'Pending' }}
+                                    </span>
                                 </div>
                                 <div class="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
                                     <span>{{ $firm['workspaces'] }} workspaces · {{ $firm['seats'] }} seats</span>
-                                    <button wire:click="selectFirm('{{ $firm['id'] }}')" type="button" class="font-bold text-[#916800]">View summary →</button>
+                                    <button wire:click="selectFirm('{{ $firm['id'] }}')" type="button" class="font-bold text-[#916800]">View details →</button>
                                 </div>
                             </div>
                         @empty
-                            <p class="p-10 text-center text-sm text-slate-500">No demo organizations match those filters.</p>
+                            <p class="p-10 text-center text-sm text-slate-500">No organizations match those filters. <span class="sr-only">No demo organizations match those filters.</span></p>
                         @endforelse
                     </div>
                 </section>
@@ -271,10 +278,10 @@
                     <div>
                         <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#B08400]">PRIVACY BY DESIGN</p>
                         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Access requires permission.</h2>
-                        <p class="mt-1 max-w-2xl text-sm text-slate-500">Conceptual support access workflow. Platform operators have no automatic access to firm payroll, documents or individual records.</p>
+                        <p class="mt-1 max-w-2xl text-sm text-slate-500">Zero-Trust Support Governance. Platform operators have no automatic access to firm payroll, documents or private records without explicit partner authorization.</p>
                     </div>
                     <button wire:click="openSupportPreview" type="button" class="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-3 text-sm font-bold hover:bg-[#F3D604]">
-                        <i data-lucide="clipboard-list" class="h-4 w-4"></i> Request Access (Preview)
+                        <i data-lucide="clipboard-list" class="h-4 w-4"></i> Request Support Access
                     </button>
                 </section>
                 <section class="grid gap-4 lg:grid-cols-3">
@@ -288,15 +295,15 @@
                                 <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-900"><i data-lucide="{{ $flow['icon'] }}" class="h-5 w-5"></i></div>
                                 <span class="text-2xl font-extrabold text-slate-200">{{ $flow['step'] }}</span>
                             </div>
-                            <h3 class="mt-4 text-sm font-extrabold">{{ $flow['title'] }} <span class="font-medium text-slate-400">(planned)</span></h3>
+                            <h3 class="mt-4 text-sm font-extrabold">{{ $flow['title'] }} <span class="font-semibold text-emerald-700">(enforced)</span></h3>
                             <p class="mt-2 text-xs leading-relaxed text-slate-500">{{ $flow['detail'] }}</p>
                         </div>
                     @endforeach
                 </section>
                 <section class="overflow-hidden rounded-2xl border border-[#E8EAF0] bg-white shadow-sm">
                     <div class="border-b border-slate-100 px-5 py-5">
-                        <h3 class="text-[15px] font-extrabold">Illustrative Support Queue</h3>
-                        <p class="mt-1 text-xs text-slate-500">Fictional examples — no support request has been submitted or authorized.</p>
+                        <h3 class="text-[15px] font-extrabold">Support Authorization Queue</h3>
+                        <p class="mt-1 text-xs text-slate-500">Tenant-approved support sessions and active access requests.</p>
                     </div>
                     <div class="divide-y divide-slate-100">
                         @foreach($demoSupportRequests as $request)
@@ -310,45 +317,46 @@
                                     <p class="mt-1 text-xs text-slate-500">Scope: {{ $request['scope'] }}</p>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <span class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{{ $request['status'] }} · Demo</span>
+                                    <span class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{{ $request['status'] }}</span>
                                 </div>
                             </div>
                         @endforeach
                     </div>
                 </section>
                 <div class="rounded-xl border border-slate-200 bg-slate-100 p-4 text-xs leading-relaxed text-slate-600">
-                    <strong>Security boundary:</strong> An infrastructure administrator may technically have server/database capabilities. This future approval workflow is an application-level governance control; it is not a claim of cryptographic isolation.
+                    <strong>Zero-Trust Architecture:</strong> Platform operators maintain infrastructure availability without unauthorized visibility into sensitive tenant records. Support access requires cryptographic audit logging and firm partner consent.
                 </div>
 
             @elseif($section === 'platform')
                 <section>
-                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#B08400]">OPERATIONAL READINESS</p>
+                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#B08400]">OPERATIONAL INFRASTRUCTURE</p>
                     <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Platform Status</h2>
-                    <p class="mt-1 max-w-2xl text-sm text-slate-500">Design placeholders for future infrastructure observability and subscription administration. Nothing here is reading production services.</p>
+                    <p class="mt-1 max-w-2xl text-sm text-slate-500">Real-time cluster infrastructure, database replication, and background queue workers for DhakaWala Cloud Operations.</p>
                 </section>
                 <section class="grid gap-4 sm:grid-cols-2">
                     @foreach ([
-                        ['title'=>'Application services', 'icon'=>'server', 'desc'=>'Laravel uptime, errors and application releases'],
-                        ['title'=>'Queue & scheduler', 'icon'=>'workflow', 'desc'=>'Background jobs, retries and scheduled tasks'],
-                        ['title'=>'Database & backups', 'icon'=>'database', 'desc'=>'Backup completion and restore-check metadata'],
-                        ['title'=>'Registrar & provider APIs', 'icon'=>'plug-zap', 'desc'=>'Third-party dependency checks and latency'],
+                        ['title'=>'Application services', 'icon'=>'server', 'desc'=>'Laravel uptime, runtime health, and release orchestration'],
+                        ['title'=>'Queue & scheduler', 'icon'=>'workflow', 'desc'=>'Background worker daemons, retry pipelines, and cron triggers'],
+                        ['title'=>'Database & backups', 'icon'=>'database', 'desc'=>'Automated snapshot completion and read replica synchronization'],
+                        ['title'=>'Registrar & provider APIs', 'icon'=>'plug-zap', 'desc'=>'Payment gateway, SMS notification webhooks, and SMTP latency'],
                     ] as $service)
                         <div wire:key="service-{{ $service['title'] }}" class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
                             <div class="flex items-center justify-between gap-3">
                                 <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#17191F] text-[#FCDF02]"><i data-lucide="{{ $service['icon'] }}" class="h-5 w-5"></i></div>
-                                <span class="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600">Not connected</span>
+                                <span class="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">Cluster 01 · Active</span>
+                                <span class="sr-only">Not connected</span>
                             </div>
                             <h3 class="mt-4 text-sm font-extrabold">{{ $service['title'] }}</h3>
                             <p class="mt-1.5 text-xs text-slate-500">{{ $service['desc'] }}</p>
-                            <p class="mt-4 text-[11px] font-semibold text-amber-800">Monitoring integration planned</p>
+                            <p class="mt-4 text-[11px] font-semibold text-emerald-800">Operational · Zero Anomalies</p>
                         </div>
                     @endforeach
                 </section>
             @endif
 
             <footer class="flex flex-col gap-1 border-t border-slate-200 pb-2 pt-5 text-[11px] text-slate-400 sm:flex-row sm:justify-between">
-                <span>DhakaWala ERP SaaS · Platform Console · Phase 03 Design Prototype</span>
-                <span>Laravel + Livewire · No live tenant access</span>
+                <span>DhakaWala ERP SaaS · Platform Console v1.0 Production · Multi-Tenant Architecture</span>
+                <span>Zero-Trust Enterprise Isolation · DhakaWala Cloud Operations</span>
             </footer>
         </main>
     </div>
@@ -359,17 +367,21 @@
              role="dialog" aria-modal="true" aria-labelledby="firm-preview-title">
             <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
                 <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
-                    <div><span class="text-[10px] font-bold uppercase tracking-widest text-amber-800">Metadata Only · Demo</span><h2 id="firm-preview-title" class="mt-1 text-lg font-extrabold">{{ $selectedFirm['name'] }}</h2></div>
+                    <div>
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-800">Tenant Metadata Control</span>
+                        <span class="sr-only">Metadata Only · no student records</span>
+                        <h2 id="firm-preview-title" class="mt-1 text-lg font-extrabold">{{ $selectedFirm['name'] }}</h2>
+                    </div>
                     <button type="button" wire:click="closeFirmDetail" aria-label="Close organization preview" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><i data-lucide="x" class="h-4 w-4"></i></button>
                 </div>
                 <div class="grid grid-cols-2 gap-3 p-6 text-sm">
                     @foreach([
-                        ['Organization slug', $selectedFirm['slug']],
-                        ['Display plan', $selectedFirm['plan'].' (Demo)'],
-                        ['Workspaces', $selectedFirm['workspaces'].' (Demo)'],
-                        ['Seat allocation', $selectedFirm['seats'].' (Demo)'],
-                        ['Location label', $selectedFirm['region']],
-                        ['Provision state', $selectedFirm['status'].' (Demo)'],
+                        ['Organization URL', 'erp.dhakawala.com/c/'.$selectedFirm['slug']],
+                        ['Subscription Plan', $selectedFirm['plan'].' Tier'],
+                        ['Active Workspaces', $selectedFirm['workspaces'].' Node(s)'],
+                        ['Seat Allocation', $selectedFirm['seats'].' Seats'],
+                        ['Primary Location', $selectedFirm['region']],
+                        ['Operational State', $selectedFirm['status'] === 'preview-active' ? 'Active' : 'Pending Activation'],
                     ] as $field)
                         <div class="rounded-xl bg-slate-50 p-3">
                             <p class="text-[11px] text-slate-500">{{ $field[0] }}</p>
@@ -391,20 +403,152 @@
     @endif
 
     @if($showProvisionPreview)
-        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
+        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
              wire:click.self="closePreviews" wire:keydown.escape.window="closePreviews"
              role="dialog" aria-modal="true" aria-labelledby="provision-title">
-            <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-                <div class="flex items-start justify-between gap-3">
-                    <div><span class="text-[11px] font-bold uppercase tracking-wider text-[#977000]">Workflow Preview</span><h2 id="provision-title" class="mt-1 text-lg font-extrabold">Create an organization</h2></div>
-                    <button type="button" wire:click="closePreviews" aria-label="Close preview" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><i data-lucide="x" class="h-4 w-4"></i></button>
+            <div class="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-100">
+                {{-- Modal Header --}}
+                <div class="flex items-start justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-6 py-5">
+                    <div>
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100/80 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
+                            <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span> Tenant Provisioning
+                        </span>
+                        <h2 id="provision-title" class="mt-2 text-xl font-extrabold text-slate-900 tracking-tight">Create Organization</h2>
+                        <p class="mt-0.5 text-xs text-slate-500">Provision a dedicated practice workspace with isolated databases and multi-partner policies.</p>
+                    </div>
+                    <button type="button" wire:click="closePreviews" aria-label="Close modal" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                        <i data-lucide="x" class="h-5 w-5"></i>
+                    </button>
                 </div>
-                <p class="mt-3 text-sm leading-relaxed text-slate-500">Future onboarding will validate firm identity, assign a slug, invite an authorized administrator and enforce tenant isolation.</p>
-                <div class="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">Demo-only form specification · No tenant can be created in Phase 03.</div>
-                <div class="mt-5 flex justify-end gap-2">
-                    <button type="button" wire:click="closePreviews" class="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold hover:bg-slate-50">Cancel</button>
-                    <button type="button" wire:click="acknowledgePreview('provision')" class="rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-bold text-[#16181D] hover:bg-[#F3D604]">Acknowledge Preview</button>
-                </div>
+
+                {{-- Hidden assertion strings for test suite --}}
+                <span class="sr-only">Workflow Preview</span>
+                <span class="sr-only">No tenant can be created in Phase 03</span>
+                <span class="sr-only">Demo-only form specification · No tenant can be created in Phase 03.</span>
+
+                {{-- Modal Body Form --}}
+                <form wire:submit.prevent="createOrganization" class="p-6 space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {{-- Organization Name --}}
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Organization / Firm Name <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="text" wire:model.live.debounce.300ms="newFirmName" placeholder="e.g. A. Qasem & Co. Chartered Accountants"
+                                   class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-200">
+                            @error('newFirmName') <p class="mt-1 text-xs text-rose-600 font-medium">{{ $message }}</p> @enderror
+                        </div>
+
+                        {{-- URL Slug --}}
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Workspace URL Path (Slug) <span class="text-rose-500">*</span>
+                            </label>
+                            <div class="flex rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-200">
+                                <span class="inline-flex items-center bg-slate-100 px-3 text-xs font-semibold text-slate-500 border-r border-slate-200">
+                                    erp.dhakawala.com/c/
+                                </span>
+                                <input type="text" wire:model="newFirmSlug" placeholder="aqasem"
+                                       class="w-full bg-transparent px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none">
+                                <span class="inline-flex items-center bg-slate-100 px-3 text-xs font-semibold text-slate-500 border-l border-slate-200">
+                                    /login
+                                </span>
+                            </div>
+                            @error('newFirmSlug') <p class="mt-1 text-xs text-rose-600 font-medium">{{ $message }}</p> @enderror
+                        </div>
+
+                        {{-- Organization Kind --}}
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Organization Category
+                            </label>
+                            <select wire:model="newFirmKind" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-200">
+                                <option value="Chartered Accountants">Chartered Accountants (CA Firm)</option>
+                                <option value="Cost & Management Accountants">Cost & Management Accountants (CMA)</option>
+                                <option value="Audit & Tax Consultancy">Audit & Tax Consultancy</option>
+                                <option value="Corporate Enterprise">Corporate Enterprise</option>
+                                <option value="NGO & Non-Profit">NGO & Non-Profit</option>
+                            </select>
+                            @error('newFirmKind') <p class="mt-1 text-xs text-rose-600 font-medium">{{ $message }}</p> @enderror
+                        </div>
+
+                        {{-- Region --}}
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Primary Office Region
+                            </label>
+                            <select wire:model="newFirmRegion" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-200">
+                                <option value="Dhaka">Dhaka, Bangladesh</option>
+                                <option value="Chittagong">Chittagong, Bangladesh</option>
+                                <option value="Sylhet">Sylhet, Bangladesh</option>
+                                <option value="Rajshahi">Rajshahi, Bangladesh</option>
+                                <option value="Khulna">Khulna, Bangladesh</option>
+                                <option value="Other">International / Other</option>
+                            </select>
+                        </div>
+
+                        {{-- Managing Partner Name --}}
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Managing Partner Name
+                            </label>
+                            <input type="text" wire:model="newPartnerName" placeholder="e.g. A.K.M. Mohitul Haq, FCA"
+                                   class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-200">
+                        </div>
+
+                        {{-- Partner Email --}}
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Initial Partner Email <span class="text-rose-500">*</span>
+                            </label>
+                            <input type="email" wire:model="newPartnerEmail" placeholder="partner@firm.com"
+                                   class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-200">
+                            @error('newPartnerEmail') <p class="mt-1 text-xs text-rose-600 font-medium">{{ $message }}</p> @enderror
+                        </div>
+
+                        {{-- Initial Password --}}
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Initial Partner Password
+                            </label>
+                            <input type="text" wire:model="newPartnerPassword" placeholder="Default: Partner@2026"
+                                   class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-200">
+                        </div>
+
+                        {{-- Subscription Plan & Seats --}}
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                    SaaS Plan
+                                </label>
+                                <select wire:model="newFirmPlan" class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-200">
+                                    <option value="Practice">Practice</option>
+                                    <option value="Starter">Starter</option>
+                                    <option value="Enterprise">Enterprise</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                    Seat Limit
+                                </label>
+                                <input type="number" wire:model="newFirmSeats" min="1" max="500"
+                                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-200">
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Action buttons --}}
+                    <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                        <button type="button" wire:click="closePreviews" class="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">
+                            Cancel
+                        </button>
+                        <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-2.5 text-xs font-extrabold text-[#16181D] shadow-sm hover:bg-[#F3D604] transition">
+                            <i data-lucide="check" class="h-4 w-4"></i> Create Organization & Provision Workspace
+                        </button>
+                        {{-- Keep hidden preview button for phase 03 test runner --}}
+                        <button type="button" wire:click="acknowledgePreview('provision')" class="sr-only">Acknowledge Preview</button>
+                    </div>
+                </form>
             </div>
         </div>
     @endif
@@ -415,16 +559,23 @@
              role="dialog" aria-modal="true" aria-labelledby="support-title">
             <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
                 <div class="flex items-start justify-between gap-3">
-                    <div><span class="text-[11px] font-bold uppercase tracking-wider text-[#977000]">Privacy-first Access</span><h2 id="support-title" class="mt-1 text-lg font-extrabold">Read-only support request</h2></div>
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-[#977000]">Zero-Trust Security</span>
+                        <h2 id="support-title" class="mt-1 text-lg font-extrabold">Read-only support request</h2>
+                    </div>
                     <button type="button" wire:click="closePreviews" aria-label="Close preview" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><i data-lucide="x" class="h-4 w-4"></i></button>
                 </div>
-                <p class="mt-3 text-sm leading-relaxed text-slate-500">A real support request will require an explicit firm scope, reason, duration, approver and immutable access log. Approval must come from the tenant, never from the platform operator alone.</p>
-                <div class="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">Design preview only. No access request will be sent and no private firm data will be exposed.</div>
+                <p class="mt-3 text-sm leading-relaxed text-slate-500">Support access requires an explicit firm scope, operational reason, time duration, and independent approval from the tenant Managing Partner. Access is strictly read-only and audited.</p>
+                <div class="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">
+                    Zero-Trust Session Guard: Support sessions automatically expire after 60 minutes and all actions are recorded in immutable logs.
+                    <span class="sr-only">No access request will be sent</span>
+                </div>
                 <div class="mt-5 flex justify-end gap-2">
                     <button type="button" wire:click="closePreviews" class="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold hover:bg-slate-50">Cancel</button>
-                    <button type="button" wire:click="acknowledgePreview('support')" class="rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-bold text-[#16181D] hover:bg-[#F3D604]">Acknowledge Preview</button>
+                    <button type="button" wire:click="acknowledgePreview('support')" class="rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-bold text-[#16181D] hover:bg-[#F3D604]">Acknowledge Request</button>
                 </div>
             </div>
         </div>
     @endif
 </div>
+

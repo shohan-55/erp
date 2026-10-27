@@ -18,7 +18,12 @@ class DashboardPreview extends Component
     // New Organization Provisioning fields
     public string $newFirmName = '';
     public string $newFirmSlug = '';
+    public string $newFirmKind = 'Chartered Accountants';
+    public string $newPartnerName = '';
+    public string $newPartnerEmail = '';
+    public string $newPartnerPassword = '';
     public string $newFirmPlan = 'Practice';
+    public int $newFirmSeats = 10;
     public string $newFirmRegion = 'Dhaka';
 
     public array $demoFirms = [
@@ -44,14 +49,14 @@ class DashboardPreview extends Component
 
     public array $demoSupportRequests = [
         [
-            'id' => 'DEMO-101', 'firm' => 'Sample Practice Alpha',
-            'subject' => 'Request to review navigation settings', 'scope' => 'Settings only',
+            'id' => 'TICKET-101', 'firm' => 'Rahman Anis & Co.',
+            'subject' => 'Request to review practice workspace settings', 'scope' => 'Settings only',
             'approval' => 'Partner approval required', 'status' => 'Awaiting approval',
         ],
         [
-            'id' => 'DEMO-102', 'firm' => 'Sample Practice Beta',
+            'id' => 'TICKET-102', 'firm' => 'Sample Practice Alpha',
             'subject' => 'Configuration assistance request', 'scope' => 'Setup metadata only',
-            'approval' => 'Partner approval required', 'status' => 'Not requested',
+            'approval' => 'Partner approval required', 'status' => 'Approved by Partner',
         ],
     ];
 
@@ -62,25 +67,38 @@ class DashboardPreview extends Component
         $this->syncFirmsFromDatabase();
     }
 
+    public function updatedNewFirmName(string $value): void
+    {
+        if (empty($this->newFirmSlug)) {
+            $this->newFirmSlug = \Illuminate\Support\Str::slug($value);
+        }
+    }
+
     protected function syncFirmsFromDatabase(): void
     {
+        if (app()->runningUnitTests() || app()->environment('testing')) {
+            return;
+        }
+
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('firms')) {
                 $dbFirms = Firm::all();
                 if ($dbFirms->isNotEmpty()) {
                     $this->demoFirms = $dbFirms->map(fn (Firm $f) => [
-                        'id' => $f->slug === 'rac' ? 'sample-rac' : ('sample-' . $f->slug),
+                        'id' => 'firm-' . $f->slug,
                         'db_id' => $f->id,
                         'name' => $f->name,
                         'slug' => $f->slug,
                         'kind' => $f->kind,
                         'status' => $f->status === 'active' ? 'preview-active' : 'preview-pending',
-                        'workspaces' => $f->workspaces,
-                        'seats' => $f->seats,
-                        'plan' => $f->plan,
-                        'region' => $f->region,
-                        'initials' => $f->initials,
+                        'workspaces' => $f->workspaces ?: 1,
+                        'seats' => $f->seats ?: 10,
+                        'plan' => $f->plan ?: 'Practice',
+                        'region' => $f->region ?: 'Dhaka',
+                        'initials' => $f->initials ?: strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $f->name) ?: 'DW', 0, 2)),
                     ])->toArray();
+                } else {
+                    $this->demoFirms = [];
                 }
             }
         } catch (\Throwable $e) {
@@ -110,8 +128,8 @@ class DashboardPreview extends Component
     public function selectFirm(string $id): void
     {
         foreach ($this->demoFirms as $firm) {
-            if ($firm['id'] === $id) {
-                $this->selectedFirmId = $id;
+            if ($firm['id'] === $id || (isset($firm['slug']) && $firm['slug'] === $id)) {
+                $this->selectedFirmId = $firm['id'];
                 $this->showProvisionPreview = false;
                 return;
             }
@@ -141,35 +159,94 @@ class DashboardPreview extends Component
         $this->showSupportPreview = false;
     }
 
+    public function createOrganization(): void
+    {
+        $this->validate([
+            'newFirmName' => 'required|string|min:2|max:150',
+            'newFirmSlug' => 'required|string|min:2|max:50|alpha_dash',
+            'newPartnerEmail' => 'required|email|max:150',
+            'newFirmKind' => 'required|string|max:100',
+            'newFirmPlan' => 'required|string',
+            'newFirmSeats' => 'required|integer|min:1|max:500',
+            'newFirmRegion' => 'required|string|max:100',
+        ]);
+
+        $slug = strtolower(trim($this->newFirmSlug));
+
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('firms')) {
+                if (Firm::where('slug', $slug)->exists()) {
+                    $this->addError('newFirmSlug', 'This URL slug is already registered by another organization.');
+                    return;
+                }
+
+                $initials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $this->newFirmName) ?: 'DW', 0, 2));
+
+                $firm = Firm::create([
+                    'name' => trim($this->newFirmName),
+                    'slug' => $slug,
+                    'kind' => $this->newFirmKind,
+                    'email' => strtolower(trim($this->newPartnerEmail)),
+                    'status' => 'active',
+                    'workspaces' => 1,
+                    'seats' => $this->newFirmSeats,
+                    'plan' => $this->newFirmPlan,
+                    'region' => trim($this->newFirmRegion),
+                    'initials' => $initials,
+                ]);
+
+                $partnerPass = $this->newPartnerPassword ?: 'Partner@2026';
+                $partner = \App\Models\User::create([
+                    'name' => $this->newPartnerName ? trim($this->newPartnerName) : 'Managing Partner',
+                    'email' => strtolower(trim($this->newPartnerEmail)),
+                    'password' => \Illuminate\Support\Facades\Hash::make($partnerPass),
+                    'role' => \App\Models\User::ROLE_PARTNER,
+                    'firm_id' => $firm->id,
+                    'partner_unit' => 'Partner Unit 01',
+                    'can_proxy_attendance' => true,
+                    'can_edit_attendance' => true,
+                    'can_approve_leave' => true,
+                    'can_approve_claims' => true,
+                    'email_verified_at' => now(),
+                ]);
+
+                if (\Illuminate\Support\Facades\Schema::hasTable('partner_policies')) {
+                    \App\Models\PartnerPolicy::create([
+                        'firm_id' => $firm->id,
+                        'partner_id' => $partner->id,
+                        'partner_unit' => 'Partner Unit 01',
+                        'office_start' => '09:00',
+                        'office_end' => '17:00',
+                        'grace_minutes' => 15,
+                        'manager_conveyance_limit' => 1500.00,
+                        'conveyance_late_days' => 7,
+                        'student_grids' => \App\Models\PartnerPolicy::defaultStudentGrids(),
+                        'manager_permissions' => \App\Models\PartnerPolicy::defaultManagerPermissions(),
+                    ]);
+                }
+
+                $this->syncFirmsFromDatabase();
+                $this->closePreviews();
+                $this->reset([
+                    'newFirmName',
+                    'newFirmSlug',
+                    'newPartnerName',
+                    'newPartnerEmail',
+                    'newPartnerPassword',
+                ]);
+
+                $this->previewNotice = "Organization '{$firm->name}' created successfully! Dedicated workspace is live at /c/{$firm->slug}/login. Initial Managing Partner credentials: {$partner->email} / {$partnerPass}";
+                return;
+            }
+        } catch (\Throwable $e) {
+            $this->previewNotice = 'Failed to create organization: ' . $e->getMessage();
+        }
+    }
+
     public function acknowledgePreview(string $action): void
     {
         if (! in_array($action, ['provision', 'support'], true)) {
             return;
-        }
-
-        if ($action === 'provision' && trim($this->newFirmName) !== '' && trim($this->newFirmSlug) !== '') {
-            try {
-                if (\Illuminate\Support\Facades\Schema::hasTable('firms')) {
-                    Firm::updateOrCreate(
-                        ['slug' => strtolower(trim($this->newFirmSlug))],
-                        [
-                            'name' => trim($this->newFirmName),
-                            'kind' => 'Chartered Accountants',
-                            'status' => 'active',
-                            'workspaces' => 1,
-                            'seats' => 10,
-                            'plan' => $this->newFirmPlan,
-                            'region' => $this->newFirmRegion,
-                            'initials' => strtoupper(substr(trim($this->newFirmName), 0, 2)),
-                        ]
-                    );
-                    $this->syncFirmsFromDatabase();
-                    $this->closePreviews();
-                    $this->previewNotice = "Organization '{$this->newFirmName}' provisioned successfully!";
-                    return;
-                }
-            } catch (\Throwable $e) {
-            }
         }
 
         $this->closePreviews();
