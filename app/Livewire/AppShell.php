@@ -2,15 +2,17 @@
 
 namespace App\Livewire;
 
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class AppShell extends Component
 {
-    // Active Role Preview (Super Admin, Partner, Manager, Student) - Design Preview Only
-    public string $currentRole = 'partner';
-
-    // Active View Tab for Phase 01 Prototype
+    // Active navigation tab
     public string $activeTab = 'dashboard';
+
+    // Role preview state
+    public string $currentRole = 'partner';
 
     // Sidebar state
     public bool $sidebarCollapsed = false;
@@ -25,48 +27,77 @@ class AppShell extends Component
     public string $searchQuery = '';
     public string $filterStatus = 'all';
 
-    // Current Organization Branch Context
-    public string $currentBranch = 'EDB Trade Center Branch, Karwan Bazar';
-
-    // Role definitions (Fictional sample profiles for Phase 01 design demonstration)
     public array $roles = [
         'partner' => [
-            'name' => 'A.K.M. Mohitul Haq, FCA',
-            'role_title' => 'Senior Partner / Principal',
-            'partner_group' => 'Partner Unit 01 (MH)',
-            'badge' => 'Partner / Principal',
-            'initials' => 'MH',
-            'email' => 'mohitul.haq@rahmananis.com',
-            'access_level' => 'Tier 2 Firm Principal (Design Preview)'
+            'name'          => 'A.K.M. Mohitul Haq, FCA',
+            'role_title'    => 'Senior Partner',
+            'partner_unit'  => 'Partner Unit 01',
+            'partner_group' => 'Partner Unit 01 • Executive Practice',
+            'badge'         => 'Principal',
+            'initials'      => 'MH',
+            'email'         => 'mohitul.haq@rahmananis.com',
         ],
         'manager' => [
-            'name' => 'Khandaker Tanvir Ahmed, ACA',
-            'role_title' => 'Audit & Assurance Manager',
-            'partner_group' => 'Partner Unit 01 (MH)',
-            'badge' => 'Manager',
-            'initials' => 'TA',
-            'email' => 'tanvir.ahmed@rahmananis.com',
-            'access_level' => 'Tier 3 Team Manager (Design Preview)'
+            'name'          => 'Khandaker Tanvir Ahmed, ACA',
+            'role_title'    => 'Audit Manager',
+            'partner_unit'  => 'Partner Unit 01',
+            'partner_group' => 'Partner Unit 01 • Audit Field Team',
+            'badge'         => 'Manager',
+            'initials'      => 'TA',
+            'email'         => 'tanvir.ahmed@rahmananis.com',
         ],
         'student' => [
-            'name' => 'Zubair Hossain Siddique',
-            'role_title' => 'Articled Student (Reg: 4128)',
-            'partner_group' => 'Partner Unit 01 (MH)',
-            'badge' => 'Student',
-            'initials' => 'ZS',
-            'email' => 'zubair.student@rahmananis.com',
-            'access_level' => 'Tier 4 Articled Student (Design Preview)'
+            'name'          => 'Zubair Hossain Siddique',
+            'role_title'    => 'Articled Student (Level 2)',
+            'partner_unit'  => 'Partner Unit 01',
+            'partner_group' => 'Partner Unit 01 • Field Articled',
+            'badge'         => 'Student',
+            'initials'      => 'ZS',
+            'email'         => 'zubair.student@rahmananis.com',
         ],
         'admin' => [
-            'name' => 'DhakaWeb Systems Administrator',
-            'role_title' => 'Platform Super Admin',
-            'partner_group' => 'All CA Firms & Tenants',
-            'badge' => 'Super Admin',
-            'initials' => 'SA',
-            'email' => 'sysadmin@dhakawala.com',
-            'access_level' => 'Tier 1 Central Platform (Design Preview)'
-        ]
+            'name'          => 'Platform Super Admin',
+            'role_title'    => 'System Administrator',
+            'partner_unit'  => 'IT Operations',
+            'partner_group' => 'IT Operations & Infrastructure',
+            'badge'         => 'Super Admin',
+            'initials'      => 'SA',
+            'email'         => 'admin@dhakawala.com',
+        ],
     ];
+
+    public function mount(): void
+    {
+        if (Auth::check()) {
+            /** @var User $user */
+            $user = Auth::user();
+            if (in_array($user->role, ['partner', 'manager', 'student'])) {
+                $this->currentRole = $user->role;
+            } elseif ($user->isPlatformAdmin()) {
+                $this->currentRole = 'admin';
+            }
+        }
+    }
+
+    public function setRole(string $role): void
+    {
+        if (array_key_exists($role, $this->roles)) {
+            $this->currentRole = $role;
+            $this->dispatch('toast', [
+                'title'   => '[Preview] Role Switched',
+                'message' => "Previewing workspace as {$this->roles[$role]['name']} ({$this->roles[$role]['role_title']}). No live financial ledger records affected.",
+                'type'    => 'info',
+            ]);
+        }
+    }
+
+    public function setActiveTab(string $tab): void
+    {
+        $allowed = ['dashboard', 'components', 'tokens', 'architecture'];
+        if (in_array($tab, $allowed, true)) {
+            $this->activeTab = $tab;
+        }
+    }
 
     public function toggleSidebar(): void
     {
@@ -81,23 +112,6 @@ class AppShell extends Component
     public function closeMobileMenu(): void
     {
         $this->mobileMenuOpen = false;
-    }
-
-    public function setRole(string $role): void
-    {
-        if (array_key_exists($role, $this->roles)) {
-            $this->currentRole = $role;
-            $this->dispatch('toast', [
-                'title' => '[Preview] Role Context Switched',
-                'message' => 'Now previewing application shell as ' . $this->roles[$role]['badge'] . ' (' . $this->roles[$role]['name'] . '). UI simulation only.',
-                'type' => 'info'
-            ]);
-        }
-    }
-
-    public function setActiveTab(string $tab): void
-    {
-        $this->activeTab = $tab;
     }
 
     public function openModal(): void
@@ -128,38 +142,47 @@ class AppShell extends Component
     public function triggerToast(string $type = 'success'): void
     {
         $messages = [
-            'success' => [
-                '[Preview] Sign-off Simulated',
-                'Partner approval simulated for design demonstration. No live financial ledger or database was altered.'
-            ],
-            'warning' => [
-                '[Preview] Policy Review Simulated',
-                'Sample threshold notification demo for Partner Unit 01. UI simulation only.'
-            ],
-            'danger' => [
-                '[Preview] Validation Alert Simulated',
-                'Sample verification warning rendered to demonstrate danger status state.'
-            ],
-            'info' => [
-                '[Preview] Fiscal Period Note',
-                'Statutory audit calendar milestone demo. System is currently in Phase 01 UI prototype mode.'
-            ]
+            'success' => ['[Preview] Sign-off Recorded', 'Partner approval simulation recorded. No live financial ledger records affected.'],
+            'warning' => ['[Preview] Policy Review Required', 'A threshold notification has been issued for your Partner Unit.'],
+            'danger'  => ['[Preview] Validation Alert', 'Verification warning triggered. Please review.'],
+            'info'    => ['[Preview] Fiscal Period Note', 'Statutory audit calendar milestone noted.'],
         ];
 
         $payload = $messages[$type] ?? $messages['success'];
         $this->dispatch('toast', [
-            'title' => $payload[0],
+            'title'   => $payload[0],
             'message' => $payload[1],
-            'type' => $type
+            'type'    => $type,
         ]);
+    }
+
+    public function logout(): void
+    {
+        Auth::logout();
+        session()->invalidate();
+        session()->regenerateToken();
+        $this->redirect(route('home'), navigate: true);
     }
 
     public function render()
     {
         $userData = $this->roles[$this->currentRole] ?? $this->roles['partner'];
 
+        if (Auth::check()) {
+            /** @var User $user */
+            $user = Auth::user();
+            $userData['name'] = $user->name;
+            $userData['email'] = $user->email;
+            if ($user->partner_unit) {
+                $userData['partner_unit'] = $user->partner_unit;
+                $userData['partner_group'] = $user->partner_unit . ' • Executive Practice';
+            }
+        }
+
         return view('livewire.app-shell', [
-            'user' => $userData
+            'user' => $userData,
+            'currentRole' => $this->currentRole,
+            'activeTab' => $this->activeTab,
         ]);
     }
 }

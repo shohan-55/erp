@@ -126,13 +126,54 @@
                         @if($showPolicyModal)
                             A change to RA&C company-wide defaults requires individual agreement from all three Partners. The proposal, distinct voting identities, effective date and immutable finalized payroll must be validated in the future backend.
                         @elseif($showCorrectionModal)
-                            A correction would require a reason, authorized reviewer and audit trail. This screen does not change timestamps, daily totals, attendance or payroll.
+                            A correction would require a reason, authorized reviewer and audit trail. As an authorized {{ ucfirst($previewRole) }}, you can submit a Proxy Attendance or edit a Student's Check-in/Check-out time & Late status below.
                         @elseif($showLeaveReviewModal)
                             An assigned Manager may review their own students' requests. Final approval follows the Home Partner's policy. This preview neither changes leave balances nor sends notifications.
                         @else
                             A claim review would require assigned-scope access, proof documents and duplicate-payment checks. This screen cannot approve, reimburse or pay any claim.
                         @endif
                     </p>
+
+                    @if($showCorrectionModal)
+                        <div class="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs">
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="block font-bold text-slate-700">Select Student
+                                    <select wire:model="selectedStudentCode" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs">
+                                        @foreach($allRows as $sRow)
+                                            <option value="{{ $sRow['id'] }}">{{ $sRow['id'] }} — {{ $sRow['name'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                                <label class="block font-bold text-slate-700">Action Type
+                                    <select wire:model="editModeType" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs">
+                                        <option value="edit">Edit Late / In-Out Time</option>
+                                        <option value="proxy">Give Proxy Attendance</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <label class="block font-bold text-slate-700">Check-in Time
+                                    <input type="text" wire:model="editCheckinTime" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="10:00">
+                                </label>
+                                <label class="block font-bold text-slate-700">Check-out Time
+                                    <input type="text" wire:model="editCheckoutTime" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="18:00">
+                                </label>
+                                <label class="block font-bold text-slate-700">Status
+                                    <select wire:model="editStatus" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs">
+                                        <option value="On time">On time</option>
+                                        <option value="Late">Late</option>
+                                        <option value="Incomplete">Incomplete</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <label class="block font-bold text-slate-700">Location Tag (In/Out)
+                                <input type="text" wire:model="editLocationName" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="EDB Trade Centre, Karwan Bazar, Dhaka">
+                            </label>
+                            <label class="block font-bold text-slate-700">Audit Remarks / Reason
+                                <input type="text" wire:model="editRemarks" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="e.g., Partner approved late waiver / proxy">
+                            </label>
+                        </div>
+                    @endif
                     <div class="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">No database records, policy votes, permissions or transactions will be created.</div>
                     <div class="mt-5 flex justify-end gap-2">
                         <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold hover:bg-slate-50">Cancel</button>

@@ -355,7 +355,7 @@
                             <div>
                                 <div class="flex items-center gap-2">
                                     <span class="text-xs px-2 py-0.5 rounded bg-white/10 text-[#FCDF02] font-semibold uppercase tracking-wider">
-                                        {{ $user['partner_group'] }}
+                                        {{ $user['partner_group'] ?? $user['partner_unit'] ?? 'Partner Unit 01' }}
                                     </span>
                                     <span class="text-xs text-slate-400">• {{ date('l, d F Y') }}</span>
                                 </div>

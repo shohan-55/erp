@@ -3,6 +3,8 @@
 namespace App\Livewire\Auth;
 
 use App\Services\FirmRegistry;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
 
 class ForgotPassword extends Component
@@ -37,13 +39,23 @@ class ForgotPassword extends Component
             return;
         }
 
-        // Privacy-first response: Always show success state without revealing existence
+        // Send the password reset link via Laravel's built-in broker.
+        // Privacy-first: We always show "submitted" regardless of whether the
+        // email exists, to prevent user enumeration attacks.
+        try {
+            if (Schema::hasTable('users') && Schema::hasTable('password_reset_tokens')) {
+                Password::sendResetLink(['email' => strtolower(trim($this->email))]);
+            }
+        } catch (\Throwable) {
+            // Safe silent fallback for privacy and unmigrated testing environments
+        }
+
         $this->submitted = true;
 
         $this->dispatch('toast', [
-            'title' => '[Preview] Recovery Request Simulated',
-            'message' => 'Privacy-first recovery request simulated for ' . $this->email . '. No actual email was sent.',
-            'type' => 'success'
+            'title'   => 'Recovery Email Sent',
+            'message' => 'If an account with that email exists, a password reset link has been sent. Please check your inbox.',
+            'type'    => 'success',
         ]);
     }
 
@@ -51,20 +63,14 @@ class ForgotPassword extends Component
     {
         $this->submitted = false;
         $this->validationError = null;
-    }
-
-    public function fillDemoEmail(): void
-    {
-        $this->email = $this->isPlatform ? 'admin@dhakawala.com' : 'mohitul.haq@rahmananis.com';
-        $this->validationError = null;
+        $this->email = '';
     }
 
     public function render()
     {
-        $firmName = $this->firm ? $this->firm['name'] : ($this->isPlatform ? 'DhakaWala Platform' : 'Practice');
         return view('livewire.auth.forgot-password')
             ->layout('layouts.auth', [
-                'title' => "Password Recovery — {$firmName} | RA&C ERP SaaS"
+                'title' => ($this->firm ? $this->firm['name'] : 'Platform') . ' — Account Recovery | RA&C ERP'
             ]);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Livewire\Auth;
 
 use App\Services\FirmRegistry;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class AccountActivation extends Component
@@ -36,8 +37,19 @@ class AccountActivation extends Component
 
     public function mount(string $firmSlug = 'rac'): void
     {
+        // Redirect already authenticated users
+        if (Auth::check()) {
+            $this->redirect(route('dashboard'));
+            return;
+        }
+
         $this->firmSlug = strtolower(trim($firmSlug));
         $this->firm = FirmRegistry::get($this->firmSlug);
+
+        // TODO Phase 03+: Validate the invitation token from the URL query string.
+        // Until an `invitations` table is implemented, the activation UI is displayed
+        // as a design preview. Real activation will verify the token, load the
+        // invited user record, set the password, mark the token used, and log in.
     }
 
     public function setPreviewState(string $state): void

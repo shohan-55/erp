@@ -3,6 +3,11 @@
 namespace App\Livewire\Auth;
 
 use App\Services\FirmRegistry;
+use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 class ResetPassword extends Component
@@ -12,13 +17,20 @@ class ResetPassword extends Component
     public ?array $firm = null;
     public bool $isPlatform = false;
 
+    // Token and email from the reset URL
+    #[Url]
+    public string $token = '';
+
+    #[Url]
+    public string $email = '';
+
     // Form inputs
     public string $password = '';
     public string $passwordConfirmation = '';
     public bool $showPassword = false;
     public bool $showConfirmation = false;
 
-    // Interactive Preview State Switcher: 'form' | 'mismatch' | 'expired' | 'completed'
+    // UI state: 'form' | 'completed' | 'invalid'
     public string $previewState = 'form';
     public ?string $validationError = null;
 
@@ -31,27 +43,21 @@ class ResetPassword extends Component
         } else {
             $this->isPlatform = true;
         }
+
+        $this->previewState = 'form';
     }
 
     public function setPreviewState(string $state): void
     {
         $this->previewState = $state;
-        $this->validationError = null;
 
         if ($state === 'mismatch') {
-            $this->password = '';
-            $this->passwordConfirmation = '';
-            $this->validationError = 'Design Preview: Password confirmation does not match the chosen password.';
-        } elseif ($state === 'form') {
-            $this->password = '';
-            $this->passwordConfirmation = '';
+            $this->validationError = 'The password confirmation does not match.';
+        } elseif ($state === 'expired' || $state === 'invalid') {
+            $this->validationError = 'This password reset link is invalid or has expired. Please request a new one.';
+        } else {
+            $this->validationError = null;
         }
-
-        $this->dispatch('toast', [
-            'title' => '[Preview] State Switched',
-            'message' => "Switched Reset Password view to '{$state}' preview state.",
-            'type' => 'info'
-        ]);
     }
 
     public function togglePassword(): void
@@ -93,16 +99,42 @@ class ResetPassword extends Component
             return;
         }
 
-        $this->previewState = 'completed';
+        // ─── Use Laravel's built-in password reset broker ─────────────────
+        $status = Password::reset(
+            [
+                'email'                 => strtolower(trim($this->email)),
+                'password'              => $this->password,
+                'password_confirmation' => $this->passwordConfirmation,
+                'token'                 => $this->token,
+            ],
+            function ($user, $password) {
+                $user->forceFill([
+                    'password'       => Hash::make($password),
+                    'remember_token' => Str::random(60),
+                ])->save();
 
-        $this->dispatch('toast', [
-            'title' => '[Preview] Password Reset Simulated',
-            'message' => 'Password reset simulated successfully. In production, single-use token will be consumed.',
-            'type' => 'success'
-        ]);
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            $this->previewState = 'completed';
+            $this->dispatch('toast', [
+                'title'   => 'Password Reset Successfully',
+                'message' => 'Your password has been updated. Please log in with your new password.',
+                'type'    => 'success',
+            ]);
+        } else {
+            $this->previewState = 'invalid';
+            $this->validationError = match($status) {
+                Password::INVALID_TOKEN => 'This password reset link is invalid or has expired. Please request a new one.',
+                Password::INVALID_USER  => 'We could not find an account with that email address.',
+                default                 => 'An error occurred. Please try again.',
+            };
+        }
     }
 
-    // Dynamic requirement checks for live checklist
+    // ─── Dynamic requirement checks for live checklist ────────────────────────
     public function getHasMinLengthProperty(): bool
     {
         return strlen($this->password) >= 8;

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Platform;
 
+use App\Models\Firm;
 use Livewire\Component;
 
 class DashboardPreview extends Component
@@ -14,10 +15,12 @@ class DashboardPreview extends Component
     public bool $showSupportPreview = false;
     public ?string $previewNotice = null;
 
-    /**
-     * Presentation-only organization metadata. These are NOT tenant records,
-     * and figures below must never be treated as real operational statistics.
-     */
+    // New Organization Provisioning fields
+    public string $newFirmName = '';
+    public string $newFirmSlug = '';
+    public string $newFirmPlan = 'Practice';
+    public string $newFirmRegion = 'Dhaka';
+
     public array $demoFirms = [
         [
             'id' => 'sample-rac', 'name' => 'Rahman Anis & Co.', 'slug' => 'rac',
@@ -53,6 +56,37 @@ class DashboardPreview extends Component
     ];
 
     private const SECTIONS = ['overview', 'firms', 'support', 'platform'];
+
+    public function mount(): void
+    {
+        $this->syncFirmsFromDatabase();
+    }
+
+    protected function syncFirmsFromDatabase(): void
+    {
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('firms')) {
+                $dbFirms = Firm::all();
+                if ($dbFirms->isNotEmpty()) {
+                    $this->demoFirms = $dbFirms->map(fn (Firm $f) => [
+                        'id' => $f->slug === 'rac' ? 'sample-rac' : ('sample-' . $f->slug),
+                        'db_id' => $f->id,
+                        'name' => $f->name,
+                        'slug' => $f->slug,
+                        'kind' => $f->kind,
+                        'status' => $f->status === 'active' ? 'preview-active' : 'preview-pending',
+                        'workspaces' => $f->workspaces,
+                        'seats' => $f->seats,
+                        'plan' => $f->plan,
+                        'region' => $f->region,
+                        'initials' => $f->initials,
+                    ])->toArray();
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fallback to static array if DB not migrated yet
+        }
+    }
 
     public function setSection(string $section): void
     {
@@ -113,10 +147,125 @@ class DashboardPreview extends Component
             return;
         }
 
+        if ($action === 'provision' && trim($this->newFirmName) !== '' && trim($this->newFirmSlug) !== '') {
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasTable('firms')) {
+                    Firm::updateOrCreate(
+                        ['slug' => strtolower(trim($this->newFirmSlug))],
+                        [
+                            'name' => trim($this->newFirmName),
+                            'kind' => 'Chartered Accountants',
+                            'status' => 'active',
+                            'workspaces' => 1,
+                            'seats' => 10,
+                            'plan' => $this->newFirmPlan,
+                            'region' => $this->newFirmRegion,
+                            'initials' => strtoupper(substr(trim($this->newFirmName), 0, 2)),
+                        ]
+                    );
+                    $this->syncFirmsFromDatabase();
+                    $this->closePreviews();
+                    $this->previewNotice = "Organization '{$this->newFirmName}' provisioned successfully!";
+                    return;
+                }
+            } catch (\Throwable $e) {
+            }
+        }
+
         $this->closePreviews();
         $this->previewNotice = $action === 'provision'
             ? 'Design preview only. No organization was created or provisioned.'
             : 'Design preview only. No support access was granted, requested, or logged.';
+    }
+
+    /**
+     * Platform Admin Feature #2: Download Complete Firm Data Backup (JSON)
+     */
+    public function downloadFirmBackup(string $slug)
+    {
+        $firmData = collect($this->demoFirms)->firstWhere('slug', $slug);
+        $payload = [
+            'backup_generated_at' => now()->toIso8601String(),
+            'platform_host' => 'erp.dhakawala.com',
+            'firm_metadata' => $firmData,
+            'users' => [],
+            'attendances' => [],
+            'leave_requests' => [],
+            'conveyance_claims' => [],
+        ];
+
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('firms')) {
+                $dbFirm = Firm::with(['users', 'attendances', 'leaveRequests', 'conveyanceClaims'])
+                    ->where('slug', $slug)
+                    ->first();
+                if ($dbFirm) {
+                    $payload['firm_metadata'] = $dbFirm->only(['id', 'name', 'slug', 'kind', 'email', 'status', 'plan', 'region']);
+                    $payload['users'] = $dbFirm->users->toArray();
+                    $payload['attendances'] = $dbFirm->attendances->toArray();
+                    $payload['leave_requests'] = $dbFirm->leaveRequests->toArray();
+                    $payload['conveyance_claims'] = $dbFirm->conveyanceClaims->toArray();
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
+        $filename = 'backup_' . $slug . '_' . now()->format('Y_m_d_His') . '.json';
+
+        return response()->streamDownload(function () use ($payload) {
+            echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        }, $filename, ['Content-Type' => 'application/json']);
+    }
+
+    /**
+     * Platform Admin Feature #2: Backup Firm Data AND Delete Firm Completely
+     */
+    public function backupAndDeleteFirm(string $slug)
+    {
+        $firmData = collect($this->demoFirms)->firstWhere('slug', $slug);
+        $payload = [
+            'backup_generated_at' => now()->toIso8601String(),
+            'action' => 'FULL_BACKUP_BEFORE_DELETION',
+            'platform_host' => 'erp.dhakawala.com',
+            'firm_metadata' => $firmData,
+            'users' => [],
+            'attendances' => [],
+            'leave_requests' => [],
+            'conveyance_claims' => [],
+        ];
+
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('firms')) {
+                $dbFirm = Firm::with(['users', 'attendances', 'leaveRequests', 'conveyanceClaims'])
+                    ->where('slug', $slug)
+                    ->first();
+                if ($dbFirm) {
+                    $payload['firm_metadata'] = $dbFirm->only(['id', 'name', 'slug', 'kind', 'email', 'status', 'plan', 'region']);
+                    $payload['users'] = $dbFirm->users->toArray();
+                    $payload['attendances'] = $dbFirm->attendances->toArray();
+                    $payload['leave_requests'] = $dbFirm->leaveRequests->toArray();
+                    $payload['conveyance_claims'] = $dbFirm->conveyanceClaims->toArray();
+
+                    // Delete the firm and all cascading records
+                    $dbFirm->delete();
+                }
+            }
+        } catch (\Throwable $e) {
+        }
+
+        // Remove from current list & update UI state
+        $this->demoFirms = array_values(array_filter(
+            $this->demoFirms,
+            fn (array $f) => $f['slug'] !== $slug
+        ));
+        $this->selectedFirmId = null;
+        $this->previewNotice = "Company '{$slug}' backup downloaded and company records deleted.";
+
+        $filename = 'deleted_firm_backup_' . $slug . '_' . now()->format('Y_m_d_His') . '.json';
+
+        return response()->streamDownload(function () use ($payload) {
+            echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        }, $filename, ['Content-Type' => 'application/json']);
     }
 
     public function dismissNotice(): void
@@ -160,7 +309,7 @@ class DashboardPreview extends Component
             'selectedFirm' => $selectedFirm,
             'metrics' => $metrics,
         ])->layout('layouts.platform', [
-            'title' => 'Platform Dashboard Preview — DhakaWala ERP SaaS',
+            'title' => 'Platform Console — DhakaWala ERP SaaS',
         ]);
     }
 }

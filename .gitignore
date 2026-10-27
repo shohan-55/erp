@@ -28,3 +28,8 @@ Thumbs.db
 *.sqlite
 *.sqlite-journal
 /database/*.sqlite
+
+# Deployment archives — never commit these
+*.zip
+*.tar.gz
+*-cpanel-ready.zip

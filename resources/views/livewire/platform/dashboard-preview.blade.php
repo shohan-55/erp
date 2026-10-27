@@ -247,7 +247,10 @@
                                         <td class="px-4 py-4 font-semibold">{{ $firm['workspaces'] }} <span class="text-xs font-normal text-slate-400">demo</span></td>
                                         <td class="px-4 py-4 font-semibold">{{ $firm['seats'] }} <span class="text-xs font-normal text-slate-400">demo</span></td>
                                         <td class="px-4 py-4 text-slate-600">{{ $firm['plan'] }}</td>
-                                        <td class="px-5 py-4 text-right"><button type="button" wire:click="selectFirm('{{ $firm['id'] }}')" class="rounded-lg px-3 py-2 text-xs font-bold text-[#977000] hover:bg-amber-50">View summary</button></td>
+                                        <td class="px-5 py-4 text-right flex items-center justify-end gap-2">
+                                            <button type="button" wire:click="selectFirm('{{ $firm['id'] }}')" class="rounded-lg px-3 py-2 text-xs font-bold text-[#977000] hover:bg-amber-50">Manage / Backup</button>
+                                            <button type="button" wire:click="backupAndDeleteFirm('{{ $firm['slug'] }}')" wire:confirm="Backup and delete {{ $firm['name'] }}?" class="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Backup & Delete</button>
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="6" class="px-5 py-10 text-center text-sm text-slate-500">No demo organizations match those filters.</td></tr>
@@ -388,7 +391,15 @@
                         </div>
                     @endforeach
                 </div>
-                <div class="border-t border-slate-100 bg-amber-50 px-6 py-4 text-xs leading-relaxed text-amber-900">This preview intentionally contains no student records, salary amounts, payroll, attendance, or firm documents.</div>
+                <div class="border-t border-slate-100 bg-slate-50 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <button type="button" wire:click="downloadFirmBackup('{{ $selectedFirm['slug'] }}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-800 shadow-sm hover:bg-slate-100">
+                        <i data-lucide="download" class="h-4 w-4"></i> Download Backup (.json)
+                    </button>
+                    <button type="button" wire:click="backupAndDeleteFirm('{{ $selectedFirm['slug'] }}')" wire:confirm="Are you sure you want to take a full backup and permanently DELETE {{ $selectedFirm['name'] }}?" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-rose-700">
+                        <i data-lucide="trash-2" class="h-4 w-4"></i> Backup & Delete Company
+                    </button>
+                </div>
+                <div class="border-t border-slate-100 bg-amber-50 px-6 py-3 text-[11px] leading-relaxed text-amber-900">Platform Admin Action: Downloading backup exports all company users, attendance logs, leaves, and claims before deletion. Metadata Only: no student records, payroll entries or private documents are accessible without authorization.</div>
             </div>
         </div>
     @endif
