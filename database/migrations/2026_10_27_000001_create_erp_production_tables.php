@@ -8,87 +8,117 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('firms', function (Blueprint $table) {
-            $table->id();
-            $table->string('name');
-            $table->string('slug')->unique();
-            $table->string('kind')->default('Chartered Accountants');
-            $table->string('email')->nullable();
-            $table->string('status')->default('active');
-            $table->integer('workspaces')->default(1);
-            $table->integer('seats')->default(10);
-            $table->string('plan')->default('Practice');
-            $table->string('region')->default('Dhaka');
-            $table->string('initials', 5)->default('RA');
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('firms')) {
+            Schema::create('firms', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->string('slug')->unique();
+                $table->string('kind')->default('Chartered Accountants');
+                $table->string('email')->nullable();
+                $table->string('status')->default('active');
+                $table->integer('workspaces')->default(1);
+                $table->integer('seats')->default(10);
+                $table->string('plan')->default('Practice');
+                $table->string('region')->default('Dhaka');
+                $table->string('initials', 5)->default('RA');
+                $table->timestamps();
+            });
+        }
 
-        Schema::table('users', function (Blueprint $table) {
-            $table->foreignId('firm_id')->nullable()->constrained('firms')->cascadeOnDelete();
-            $table->string('student_code')->nullable();
-            $table->string('role')->default('student');
-            $table->foreignId('manager_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->string('partner_unit')->nullable()->default('Partner Unit 01');
-            $table->boolean('can_proxy_attendance')->default(false);
-            $table->boolean('can_edit_attendance')->default(false);
-            $table->boolean('can_approve_leave')->default(false);
-            $table->boolean('can_approve_claims')->default(false);
-            $table->decimal('monthly_allowance', 10, 2)->default(8000.00);
-        });
+        if (Schema::hasTable('users')) {
+            Schema::table('users', function (Blueprint $table) {
+                if (! Schema::hasColumn('users', 'firm_id')) {
+                    $table->foreignId('firm_id')->nullable()->constrained('firms')->cascadeOnDelete();
+                }
+                if (! Schema::hasColumn('users', 'student_code')) {
+                    $table->string('student_code')->nullable();
+                }
+                if (! Schema::hasColumn('users', 'role')) {
+                    $table->string('role')->default('student');
+                }
+                if (! Schema::hasColumn('users', 'manager_id')) {
+                    $table->foreignId('manager_id')->nullable()->constrained('users')->nullOnDelete();
+                }
+                if (! Schema::hasColumn('users', 'partner_unit')) {
+                    $table->string('partner_unit')->nullable()->default('Partner Unit 01');
+                }
+                if (! Schema::hasColumn('users', 'can_proxy_attendance')) {
+                    $table->boolean('can_proxy_attendance')->default(false);
+                }
+                if (! Schema::hasColumn('users', 'can_edit_attendance')) {
+                    $table->boolean('can_edit_attendance')->default(false);
+                }
+                if (! Schema::hasColumn('users', 'can_approve_leave')) {
+                    $table->boolean('can_approve_leave')->default(false);
+                }
+                if (! Schema::hasColumn('users', 'can_approve_claims')) {
+                    $table->boolean('can_approve_claims')->default(false);
+                }
+                if (! Schema::hasColumn('users', 'monthly_allowance')) {
+                    $table->decimal('monthly_allowance', 10, 2)->default(8000.00);
+                }
+            });
+        }
 
-        Schema::create('attendances', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('firm_id')->constrained('firms')->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->date('date');
-            $table->string('work_mode')->default('office');
-            $table->string('client_site')->nullable();
+        if (! Schema::hasTable('attendances')) {
+            Schema::create('attendances', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('firm_id')->constrained('firms')->cascadeOnDelete();
+                $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+                $table->date('date');
+                $table->string('work_mode')->default('office');
+                $table->string('client_site')->nullable();
 
-            $table->timestamp('in_time')->nullable();
-            $table->decimal('in_lat', 10, 7)->nullable();
-            $table->decimal('in_lng', 10, 7)->nullable();
-            $table->string('in_location_name')->nullable();
+                $table->timestamp('in_time')->nullable();
+                $table->decimal('in_lat', 10, 7)->nullable();
+                $table->decimal('in_lng', 10, 7)->nullable();
+                $table->string('in_location_name')->nullable();
 
-            $table->timestamp('out_time')->nullable();
-            $table->decimal('out_lat', 10, 7)->nullable();
-            $table->decimal('out_lng', 10, 7)->nullable();
-            $table->string('out_location_name')->nullable();
+                $table->timestamp('out_time')->nullable();
+                $table->decimal('out_lat', 10, 7)->nullable();
+                $table->decimal('out_lng', 10, 7)->nullable();
+                $table->string('out_location_name')->nullable();
 
-            $table->string('status')->default('On time');
-            $table->boolean('is_proxy')->default(false);
-            $table->foreignId('proxy_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->foreignId('edited_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->text('edit_remarks')->nullable();
-            $table->timestamps();
+                $table->string('status')->default('On time');
+                $table->boolean('is_proxy')->default(false);
+                $table->foreignId('proxy_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->foreignId('edited_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->text('edit_remarks')->nullable();
+                $table->timestamps();
 
-            $table->unique(['user_id', 'date']);
-        });
+                $table->unique(['user_id', 'date']);
+            });
+        }
 
-        Schema::create('leave_requests', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('firm_id')->constrained('firms')->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->string('leave_type')->default('annual');
-            $table->date('start_date');
-            $table->date('end_date');
-            $table->text('reason');
-            $table->string('status')->default('Awaiting Manager');
-            $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('leave_requests')) {
+            Schema::create('leave_requests', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('firm_id')->constrained('firms')->cascadeOnDelete();
+                $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+                $table->string('leave_type')->default('annual');
+                $table->date('start_date');
+                $table->date('end_date');
+                $table->text('reason');
+                $table->string('status')->default('Awaiting Manager');
+                $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->timestamps();
+            });
+        }
 
-        Schema::create('conveyance_claims', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('firm_id')->constrained('firms')->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->date('claim_date');
-            $table->decimal('amount', 10, 2);
-            $table->string('route');
-            $table->text('purpose');
-            $table->string('status')->default('Manager Review');
-            $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamps();
-        });
+        if (! Schema::hasTable('conveyance_claims')) {
+            Schema::create('conveyance_claims', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('firm_id')->constrained('firms')->cascadeOnDelete();
+                $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+                $table->date('claim_date');
+                $table->decimal('amount', 10, 2);
+                $table->string('route');
+                $table->text('purpose');
+                $table->string('status')->default('Manager Review');
+                $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->timestamps();
+            });
+        }
     }
 
     public function down(): void
