@@ -119,18 +119,27 @@ class PlatformLogin extends Component
         /** @var User $user */
         $user = Auth::user();
 
-        // ─── Verify the user is a platform admin ──────────────────────────
+        // ─── Route according to role ──────────────────────────────────────
+        RateLimiter::clear('platform-login:' . $throttleKey);
+        session()->regenerate();
+
         if ($user && ! $user->isPlatformAdmin()) {
+            if ($user->isFirmMember()) {
+                $firmSlug = $user->firm ? $user->firm->slug : 'rac';
+                $this->redirect(route('firm.practice.preview', [
+                    'firmSlug' => $firmSlug,
+                    'previewRole' => $user->role,
+                ]), navigate: true);
+                return;
+            }
+
             Auth::logout();
             $this->validationError = 'Access denied. This portal is restricted to platform administrators. Firm members must use their firm\'s dedicated workspace URL.';
             $this->password = '';
             return;
         }
 
-        // ─── Success ───────────────────────────────────────────────────────
-        RateLimiter::clear('platform-login:' . $throttleKey);
-        session()->regenerate();
-
+        // ─── Platform Admin Success ────────────────────────────────────────
         $userName = $user ? $user->name : 'DhakaWala Platform Admin';
         $userEmail = $user ? $user->email : $this->email;
 

@@ -21,22 +21,12 @@
                 <i data-lucide="building" class="w-3.5 h-3.5 text-[#FCDF02]"></i>
                 <span>CA Firm Login (RA&C)</span>
             </a>
-            <a href="{{ url('/') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-colors">
+            <a href="{{ url('/c/rac/login') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-colors">
                 <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
-                <span>Practice Workspace Shell</span>
+                <span>CA Firm Portal</span>
             </a>
         </div>
     </header>
-
-    <!-- Explicit, non-authenticated Phase 03 design preview link. Remove on production enablement. -->
-    <div class="flex justify-center px-4 pt-4">
-        <a href="{{ route('platform.dashboard.preview') }}"
-           class="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-300/10 px-4 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-300/20">
-            <i data-lucide="layout-dashboard" class="h-4 w-4"></i>
-            Open Phase 03 Dashboard Design Preview
-            <span class="font-normal text-slate-400">(no sign-in required)</span>
-        </a>
-    </div>
 
     <!-- Main Platform Console Card -->
     <main class="flex-1 flex items-center justify-center p-4 sm:p-6 my-auto">
@@ -89,7 +79,7 @@
                     <div class="mb-6 p-4 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-200 text-xs flex items-start gap-3" role="status">
                         <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5"></i>
                         <div class="flex-1 leading-relaxed">
-                            <span class="font-bold text-emerald-100">[Design Preview] Platform Auth Simulated:</span> {{ $simulatedSuccessMessage }}
+                            <span class="font-bold text-emerald-100">Authenticated:</span> {{ $simulatedSuccessMessage }}
                         </div>
                     </div>
                 @endif
@@ -179,27 +169,6 @@
                         </button>
                     </div>
                 </form>
-
-                <!-- Demo Reviewer Tools -->
-                <div class="mt-8 pt-6 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-                    <button
-                        type="button"
-                        wire:click="fillPlatformCredentials"
-                        class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 inline-flex items-center gap-1.5 transition-colors"
-                    >
-                        <i data-lucide="user-check" class="w-3.5 h-3.5 text-amber-400"></i>
-                        <span>Populate Demo Operator</span>
-                    </button>
-
-                    <button
-                        type="button"
-                        wire:click="triggerErrorSimulation"
-                        class="px-3 py-1.5 rounded-lg bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-800/80 inline-flex items-center gap-1.5 transition-colors"
-                    >
-                        <i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i>
-                        <span>Simulate Reject State</span>
-                    </button>
-                </div>
             </div>
         </div>
     </main>

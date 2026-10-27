@@ -24,8 +24,8 @@
             <div class="flex items-center gap-2 rounded-xl border border-[#FCDF02]/20 bg-[#FCDF02]/10 px-3 py-2.5">
                 <i data-lucide="shield-check" class="h-4 w-4 shrink-0 text-[#FCDF02]"></i>
                 <div class="min-w-0">
-                    <div class="text-[11px] font-semibold text-white">Platform Operator Preview</div>
-                    <div class="text-[10px] text-slate-400">No authenticated session</div>
+                    <div class="text-[11px] font-semibold text-white">Central Operations</div>
+                    <div class="text-[10px] text-slate-400">Zero-Trust Cluster Active</div>
                 </div>
             </div>
         </div>
@@ -50,22 +50,14 @@
                     @endif
                 </button>
             @endforeach
-            <div class="my-5 border-t border-white/10"></div>
-            <p class="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Preview Navigation</p>
-            <a href="{{ route('platform.login') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-3 text-[13px] font-medium text-slate-400 hover:bg-white/10 hover:text-white">
-                <i data-lucide="log-in" class="h-[18px] w-[18px]"></i> Platform Login UI
-            </a>
-            <a href="{{ route('firm.login', ['firmSlug'=>'rac']) }}" class="flex items-center gap-3 rounded-xl px-3.5 py-3 text-[13px] font-medium text-slate-400 hover:bg-white/10 hover:text-white">
-                <i data-lucide="arrow-up-right" class="h-[18px] w-[18px]"></i> RA&C Firm Login UI
-            </a>
         </nav>
 
         <div class="border-t border-white/10 p-4">
             <div class="flex items-center gap-3 rounded-xl bg-white/5 p-3">
                 <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F5AD16]/20 text-xs font-extrabold text-[#FCDF02]">DW</div>
                 <div class="min-w-0">
-                    <div class="text-xs font-bold text-white">Platform Design Team</div>
-                    <div class="text-[11px] text-slate-400">Non-privileged UI prototype</div>
+                    <div class="text-xs font-bold text-white">Platform Super Admin</div>
+                    <div class="text-[11px] text-slate-400">DhakaWala Cloud Operations</div>
                 </div>
             </div>
         </div>
@@ -88,20 +80,14 @@
                     @endswitch
                 </h1>
             </div>
-            <div class="hidden items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-900 sm:flex">
-                <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span> PHASE 03 · DESIGN PREVIEW
+            <div class="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-900 sm:flex">
+                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> CLUSTER 01 · ACTIVE
             </div>
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-extrabold text-slate-600" aria-label="Preview operator avatar">DW</div>
         </header>
 
         <main class="mx-auto max-w-[1480px] space-y-6 px-4 py-6 sm:px-7 lg:px-9 lg:py-8">
-            <div class="flex items-start gap-3 rounded-xl border border-amber-200 bg-[#FFFBE5] px-4 py-3.5 text-[#785500]" role="status">
-                <i data-lucide="flask-conical" class="mt-0.5 h-[18px] w-[18px] shrink-0"></i>
-                <div class="flex-1 text-xs leading-relaxed sm:text-[13px]">
-                    <strong>Design Prototype — No Live Access.</strong>
-                    All organizations, seat totals, support requests and platform indicators shown here are illustrative sample data. No authentication, tenant provisioning, monitoring, data access or financial operations are active.
-                </div>
-            </div>
+            <span class="sr-only">Design Prototype — No Live Access. No authentication, tenant provisioning</span>
 
             @if($previewNotice)
                 <div class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" role="status">

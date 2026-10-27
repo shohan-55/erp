@@ -143,7 +143,7 @@
                     </div>
                 @endif
 
-                <!-- Simulated Success / Redirect Banner -->
+                <!-- Authenticated Alert -->
                 @if($simulatedSuccessMessage)
                     <div class="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-sm shadow-sm" role="status">
                         <div class="flex items-start gap-3">
@@ -151,14 +151,8 @@
                                 <i data-lucide="check" class="w-4 h-4"></i>
                             </div>
                             <div class="flex-1">
-                                <p class="font-bold text-emerald-950">[Design Preview] Authentication Simulated</p>
+                                <p class="font-bold text-emerald-950">Signed In</p>
                                 <p class="text-xs text-emerald-800 mt-1 leading-relaxed">{{ $simulatedSuccessMessage }}</p>
-                                <div class="mt-3">
-                                    <a href="{{ $simulatedRedirectUrl }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 hover:bg-emerald-800 text-white transition-colors">
-                                        <span>Open Practice Design Preview (No Login)</span>
-                                        <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-                                    </a>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -246,77 +240,12 @@
                             <span wire:loading.remove>Sign In to Practice Workspace</span>
                             <span wire:loading class="inline-flex items-center gap-2">
                                 <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
-                                <span>Simulating Authentication...</span>
+                                <span>Signing In...</span>
                             </span>
                             <i wire:loading.remove data-lucide="arrow-right" class="w-4 h-4"></i>
                         </button>
                     </div>
                 </form>
-
-                <!-- Demo Reviewer Quick-Fill Box -->
-                <div class="mt-8 pt-6 border-t border-slate-200">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2.5">
-                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                            Design Preview Test Personas
-                        </span>
-                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 self-start sm:self-auto">
-                            Preview Identities (No Password Stored)
-                        </span>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <button
-                            type="button"
-                            wire:click="fillDemoCredentials('partner')"
-                            class="flex flex-col items-start p-2.5 rounded-xl border border-slate-200 hover:border-amber-400 bg-slate-50 hover:bg-amber-50/50 transition-all text-left group"
-                        >
-                            <div class="flex items-center gap-1.5 w-full">
-                                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                                <span class="text-xs font-bold text-slate-900 group-hover:text-amber-900">Partner / Principal</span>
-                            </div>
-                            <span class="text-[11px] text-slate-500 mt-0.5 truncate w-full">Mohitul Haq, FCA</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            wire:click="fillDemoCredentials('manager')"
-                            class="flex flex-col items-start p-2.5 rounded-xl border border-slate-200 hover:border-blue-400 bg-slate-50 hover:bg-blue-50/50 transition-all text-left group"
-                        >
-                            <div class="flex items-center gap-1.5 w-full">
-                                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                                <span class="text-xs font-bold text-slate-900 group-hover:text-blue-900">Audit Manager</span>
-                            </div>
-                            <span class="text-[11px] text-slate-500 mt-0.5 truncate w-full">Tanvir Ahmed, ACA</span>
-                        </button>
-
-                        <button
-                            type="button"
-                            wire:click="fillDemoCredentials('student')"
-                            class="flex flex-col items-start p-2.5 rounded-xl border border-slate-200 hover:border-emerald-400 bg-slate-50 hover:bg-emerald-50/50 transition-all text-left group"
-                        >
-                            <div class="flex items-center gap-1.5 w-full">
-                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                <span class="text-xs font-bold text-slate-900 group-hover:text-emerald-900">Articled Student</span>
-                            </div>
-                            <span class="text-[11px] text-slate-500 mt-0.5 truncate w-full">Zubair (Reg: 4128)</span>
-                        </button>
-                    </div>
-
-                    <div class="mt-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
-                        <button
-                            type="button"
-                            wire:click="triggerErrorSimulation"
-                            class="text-xs text-rose-600 hover:text-rose-800 hover:underline font-medium inline-flex items-center gap-1"
-                        >
-                            <i data-lucide="alert-octagon" class="w-3.5 h-3.5"></i>
-                            <span>Simulate Credential Error State</span>
-                        </button>
-                        <a href="{{ url('/c/' . $firmSlug . '/activate') }}" class="text-xs text-amber-700 hover:text-amber-800 hover:underline font-medium inline-flex items-center gap-1">
-                            <span>Account Invitation UI</span>
-                            <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
-                        </a>
-                    </div>
-                </div>
 
                 <!-- Invitation Link Callout -->
                 <div class="mt-6 p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">

@@ -15,7 +15,16 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Create Platform Super Admin
+        // 1. Create Platform Super Admins
+        User::updateOrCreate(
+            ['email' => 'infobd.sohan@gmail.com'],
+            [
+                'name' => 'Sohan Hossain',
+                'password' => Hash::make('password'),
+                'role' => 'platform_admin',
+            ]
+        );
+
         User::updateOrCreate(
             ['email' => 'admin@dhakawala.com'],
             [
