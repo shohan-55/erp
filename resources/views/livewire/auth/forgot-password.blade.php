@@ -183,9 +183,8 @@
         </div>
     </main>
 
-    <!-- Global Footer -->
     <footer class="w-full max-w-lg mx-auto text-center text-xs text-slate-400 mt-8">
-        <div>RA&C ERP SaaS • Powered by DhakaWala • Privacy-Preserving Account Recovery</div>
+        <div>DhakaWala ERP SaaS • Privacy-Preserving Account Recovery</div>
     </footer>
 </div>
 @endif

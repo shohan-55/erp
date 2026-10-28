@@ -136,7 +136,7 @@ class AccountActivation extends Component
     {
         return view('livewire.auth.account-activation')
             ->layout('layouts.auth', [
-                'title' => ($this->firm ? $this->firm['name'] : 'Practice') . ' — Account Invitation & Activation | RA&C ERP'
+                'title' => ($this->firm ? $this->firm['name'] : 'Practice') . ' — Account Invitation & Activation | DhakaWala ERP'
             ]);
     }
 }

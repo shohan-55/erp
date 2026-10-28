@@ -319,9 +319,8 @@
         </div>
     </main>
 
-    <!-- Global Footer -->
     <footer class="w-full max-w-xl mx-auto text-center text-xs text-slate-400 mt-8">
-        <div>RA&C ERP SaaS • Enterprise Password Management Preview</div>
+        <div>DhakaWala ERP SaaS • Enterprise Password Management</div>
     </footer>
 </div>
 @endif

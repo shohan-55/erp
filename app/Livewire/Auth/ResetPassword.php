@@ -165,7 +165,7 @@ class ResetPassword extends Component
         $firmName = $this->firm ? $this->firm['name'] : ($this->isPlatform ? 'DhakaWala Platform' : 'Practice');
         return view('livewire.auth.reset-password')
             ->layout('layouts.auth', [
-                'title' => "Set New Password — {$firmName} | RA&C ERP SaaS"
+                'title' => "Set New Password — {$firmName} | DhakaWala ERP"
             ]);
     }
 }

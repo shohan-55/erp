@@ -65,7 +65,7 @@ class FirmRegistry
     ];
 
     /**
-     * Retrieve firm by slug from the database (with fallback).
+     * Retrieve firm by slug from the database (with fallback only if table missing).
      */
     public static function get(string $slug): ?array
     {
@@ -77,9 +77,7 @@ class FirmRegistry
                 if ($firm && $firm->status === 'active') {
                     return self::toArray($firm);
                 }
-                if ($firm && $firm->status !== 'active') {
-                    return null;
-                }
+                return null;
             }
         } catch (\Throwable) {
             // Fall back if database is not migrated or available
@@ -115,15 +113,11 @@ class FirmRegistry
     {
         try {
             if (Schema::hasTable('firms')) {
-                $firms = Firm::where('status', 'active')
+                return Firm::where('status', 'active')
                     ->get()
                     ->keyBy('slug')
                     ->map(fn (Firm $firm) => self::toArray($firm))
                     ->all();
-
-                if (! empty($firms)) {
-                    return $firms;
-                }
             }
         } catch (\Throwable) {
             // Fall back

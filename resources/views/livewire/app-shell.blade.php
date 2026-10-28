@@ -256,39 +256,46 @@
                         </span>
                     </div>
 
-                    <!-- Direct Client Firm Launchpad -->
+                    <!-- Dynamic Client Firm Launchpad -->
                     <div class="space-y-2">
-                        <a href="{{ url('/c/rac/login') }}" class="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all group">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center shrink-0">
-                                    <img src="{{ asset('images/rac_logo.svg') }}" alt="Rahman Anis & Co." class="w-full h-full object-contain">
+                        @forelse(array_slice($firms, 0, 4) as $firmItem)
+                            @php
+                                $workspaceUrl = !empty($firmItem['workspace_url']) ? $firmItem['workspace_url'] : url('/c/' . $firmItem['slug'] . '/login');
+                            @endphp
+                            <a href="{{ $workspaceUrl }}" class="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all group">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="w-8 h-8 rounded-lg bg-[#222632] border border-white/10 flex items-center justify-center text-amber-400 font-extrabold text-xs shrink-0 overflow-hidden">
+                                        @if(!empty($firmItem['logo_url']) && file_exists(public_path($firmItem['logo_url'])))
+                                            <img src="{{ asset($firmItem['logo_url']) }}" alt="{{ $firmItem['name'] }}" class="w-full h-full object-contain p-1 bg-white">
+                                        @else
+                                            <span>{{ strtoupper($firmItem['initials'] ?? substr($firmItem['name'] ?? 'CA', 0, 2)) }}</span>
+                                        @endif
+                                    </div>
+                                    <div class="truncate">
+                                        <div class="text-xs font-bold text-white group-hover:text-[#FCDF02] transition-colors truncate">
+                                            {{ $firmItem['name'] }}
+                                        </div>
+                                        <div class="text-[10px] text-slate-400 truncate flex items-center gap-1.5">
+                                            <span>{{ $firmItem['designation'] ?? 'Chartered Accountants' }}</span>
+                                            @if(!empty($firmItem['custom_domain']))
+                                                <span class="text-emerald-400 font-mono text-[9px]">• {{ $firmItem['custom_domain'] }}</span>
+                                            @elseif(!empty($firmItem['custom_subdomain']))
+                                                <span class="text-amber-400 font-mono text-[9px]">• {{ $firmItem['custom_subdomain'] }}.dhakawala.com</span>
+                                            @endif
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="truncate">
-                                    <div class="text-xs font-bold text-white group-hover:text-[#FCDF02] transition-colors truncate">Rahman Anis & Co.</div>
-                                    <div class="text-[10px] text-slate-400 truncate">Chartered Accountants • Client Practice Node</div>
-                                </div>
+                                <span class="text-xs text-[#FCDF02] font-semibold flex items-center gap-1 shrink-0">
+                                    <span>Launch</span>
+                                    <i data-lucide="chevron-right" class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform"></i>
+                                </span>
+                            </a>
+                        @empty
+                            <div class="p-4 rounded-xl bg-white/5 border border-white/10 text-center">
+                                <div class="text-xs text-slate-400">No client firms provisioned yet.</div>
+                                <div class="text-[10px] text-slate-500 mt-1">Sign in as Platform Operator to create your first firm.</div>
                             </div>
-                            <span class="text-xs text-[#FCDF02] font-semibold flex items-center gap-1 shrink-0">
-                                <span>Launch</span>
-                                <i data-lucide="chevron-right" class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform"></i>
-                            </span>
-                        </a>
-
-                        <a href="{{ url('/c/sample-alpha/login') }}" class="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all group">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="w-8 h-8 rounded-lg bg-[#222632] border border-white/10 flex items-center justify-center text-amber-400 font-extrabold text-xs shrink-0">
-                                    SA
-                                </div>
-                                <div class="truncate">
-                                    <div class="text-xs font-bold text-white group-hover:text-[#FCDF02] transition-colors truncate">Sample Practice Alpha</div>
-                                    <div class="text-[10px] text-slate-400 truncate">Chartered Accountants • Practice Node</div>
-                                </div>
-                            </div>
-                            <span class="text-xs text-slate-400 font-semibold flex items-center gap-1 shrink-0 group-hover:text-white transition-colors">
-                                <span>Launch</span>
-                                <i data-lucide="chevron-right" class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform"></i>
-                            </span>
-                        </a>
+                        @endforelse
                     </div>
 
                     <!-- Bottom Quick Links -->
@@ -297,10 +304,20 @@
                             <i data-lucide="shield" class="w-3.5 h-3.5 text-amber-400"></i>
                             <span>Platform Operator Console</span>
                         </a>
-                        <a href="{{ url('/c/rac/activate') }}" class="hover:text-white transition-colors flex items-center gap-1">
-                            <i data-lucide="user-check" class="w-3.5 h-3.5 text-emerald-400"></i>
-                            <span>Activate Account</span>
-                        </a>
+                        @php
+                            $firstFirmSlug = !empty($firms) ? array_key_first($firms) : null;
+                        @endphp
+                        @if($firstFirmSlug)
+                            <a href="{{ url('/c/' . $firstFirmSlug . '/activate') }}" class="hover:text-white transition-colors flex items-center gap-1">
+                                <i data-lucide="user-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                <span>Activate Account</span>
+                            </a>
+                        @else
+                            <a href="{{ url('/platform/login') }}" class="hover:text-white transition-colors flex items-center gap-1">
+                                <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-[#FCDF02]"></i>
+                                <span>Provision First Firm</span>
+                            </a>
+                        @endif
                     </div>
                 </div>
             </div>

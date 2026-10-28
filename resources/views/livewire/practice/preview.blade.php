@@ -74,7 +74,7 @@
             <header class="sticky top-0 z-30 flex min-h-[76px] items-center gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-7 lg:px-9">
                 <button type="button" @click="menuOpen = true" class="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden" aria-label="Open navigation"><i data-lucide="menu" class="h-5 w-5"></i></button>
                 <div class="min-w-0 flex-1">
-                    <div class="truncate text-[11px] font-medium text-slate-400">RA&C ERP <span class="mx-1">/</span> {{ $partnerUnit === 'unit_02' ? 'Partner Unit 02' : 'Partner Unit 01' }} <span class="mx-1">/</span> <span class="text-amber-800">{{ $sectionLabel }}</span></div>
+                    <div class="truncate text-[11px] font-medium text-slate-400">{{ $firm ? $firm['name'] : 'Practice' }} <span class="mx-1">/</span> {{ $partnerUnit === 'unit_02' ? 'Partner Unit 02' : 'Partner Unit 01' }} <span class="mx-1">/</span> <span class="text-amber-800">{{ $sectionLabel }}</span></div>
                     <h1 class="truncate text-lg font-extrabold tracking-tight sm:text-xl">{{ $sectionLabel }}</h1>
                 </div>
                 <div class="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-900 sm:inline-flex">

@@ -154,7 +154,7 @@
                 </span>
 
                 <h1 class="text-2xl font-extrabold tracking-tight text-slate-950 mt-1">
-                    Welcome to Rahman Anis & Co.
+                    Welcome to {{ $firm['name'] ?? 'Your Practice' }}
                 </h1>
 
                 <p class="text-sm text-slate-600 mt-3 leading-relaxed max-w-md mx-auto">
@@ -343,7 +343,7 @@
                                 class="mt-0.5 w-4 h-4 rounded border-slate-300 text-amber-600 focus:ring-[#FCDF02] focus:ring-offset-0"
                             >
                             <span class="text-xs text-slate-700 leading-relaxed">
-                                I acknowledge and agree to comply with the <strong>Rahman Anis & Co. Professional Code of Ethics</strong> and strict ICAB audit client confidentiality guidelines.
+                                I acknowledge and agree to comply with the <strong>{{ $firm['name'] ?? 'Practice' }} Professional Code of Ethics</strong> and strict ICAB audit client confidentiality guidelines.
                             </span>
                         </label>
                     </div>
@@ -376,9 +376,8 @@
         </div>
     </main>
 
-    <!-- Global Footer -->
     <footer class="w-full max-w-xl mx-auto text-center text-xs text-slate-400 mt-8">
-        <div>RA&C ERP SaaS • Invited Member Onboarding Preview</div>
+        <div>DhakaWala ERP SaaS • Invited Member Onboarding</div>
     </footer>
 </div>
 @endif

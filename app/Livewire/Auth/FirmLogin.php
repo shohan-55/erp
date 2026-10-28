@@ -198,7 +198,7 @@ class FirmLogin extends Component
     {
         return view('livewire.auth.firm-login')
             ->layout('layouts.auth', [
-                'title' => ($this->firm ? $this->firm['name'] : 'Unknown Firm') . ' — Practice Workspace Sign In | RA&C ERP'
+                'title' => ($this->firm ? $this->firm['name'] : 'Practice Workspace') . ' — Sign In | DhakaWala ERP'
             ]);
     }
 }

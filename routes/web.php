@@ -19,10 +19,22 @@ use App\Livewire\Practice\PracticePreview;
 | Owned and Operated by DhakaWala (erp.dhakawala.com)
 */
 
-// Default login redirect to main DhakaWala ERP Portal
-Route::get('/login', function () {
+// Default login redirect (resolves custom domain or points to DhakaWala ERP portal)
+Route::get('/login', function (\Illuminate\Http\Request $request) {
+    $customFirm = \App\Services\FirmRegistry::getByHost($request->getHost());
+    if ($customFirm) {
+        return redirect()->route('firm.login', ['firmSlug' => $customFirm['slug']]);
+    }
     return redirect()->route('home');
 })->name('login');
+
+// Unified sign out route
+Route::match(['get', 'post'], '/logout', function (\Illuminate\Http\Request $request) {
+    Auth::logout();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+    return redirect()->route('home');
+})->name('logout');
 
 // ─── Guest / Auth Recovery Routes ──────────────────────────────────────────
 

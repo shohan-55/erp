@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Livewire\Platform\DashboardPreview;
+use App\Models\Firm;
+use App\Models\User;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -179,6 +181,31 @@ class Phase03PlatformDashboardTest extends TestCase
         $this->assertDatabaseMissing('firms', [
             'slug' => 'global-audit',
         ]);
+
+        $this->assertNull(\App\Services\FirmRegistry::get('global-audit'));
+        $this->assertFalse(\App\Services\FirmRegistry::has('global-audit'));
+    }
+
+    public function test_when_all_firms_deleted_registry_returns_empty_and_dashboard_shows_no_ghost_firms(): void
+    {
+        $this->artisan('migrate');
+        $this->seed();
+        $admin = User::where('role', 'platform_admin')->first();
+        $this->actingAs($admin);
+
+        // Delete all firms in the database
+        $firms = Firm::all();
+        foreach ($firms as $firm) {
+            Livewire::test(DashboardPreview::class)
+                ->call('deleteOrganization', $firm->slug);
+        }
+
+        $this->assertSame(0, Firm::count());
+        $this->assertSame([], \App\Services\FirmRegistry::all());
+
+        // Refresh dashboard component and assert demoFirms is empty
+        $component = Livewire::test(DashboardPreview::class);
+        $this->assertEmpty($component->get('demoFirms'));
     }
 }
 

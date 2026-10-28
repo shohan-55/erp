@@ -99,10 +99,6 @@ class DashboardPreview extends Component
 
     protected function syncFirmsFromDatabase(): void
     {
-        if (app()->runningUnitTests() || app()->environment('testing')) {
-            return;
-        }
-
         try {
             if (Schema::hasTable('firms')) {
                 $dbFirms = Firm::all();
@@ -502,11 +498,7 @@ class DashboardPreview extends Component
             Log::error('backupAndDeleteFirm DB delete error: ' . $e->getMessage());
         }
 
-        // Update in-memory state
-        $this->demoFirms = array_values(array_filter(
-            $this->demoFirms,
-            fn (array $f) => $f['slug'] !== $slug
-        ));
+        $this->syncFirmsFromDatabase();
         $this->selectedFirmId = null;
         $this->previewNotice = "Company '{$slug}' backup downloaded and permanently deleted from production.";
 

@@ -1086,6 +1086,8 @@ class PracticePreview extends Component
                 'policies'      => 'Policy & Governance',
                 'settings'      => 'Workspace Settings',
             ][$this->section],
-        ])->layout('layouts.practice', ['title' => 'RA&C ERP — ' . ucfirst($this->section) . ' Design Preview']);
+        ])->layout('layouts.practice', [
+            'title' => ($this->firm ? $this->firm['name'] : 'Practice Workspace') . ' — ' . ucfirst($this->section) . ' | DhakaWala ERP'
+        ]);
     }
 }

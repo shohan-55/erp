@@ -13,9 +13,9 @@
             The practice identifier <code class="px-2 py-0.5 rounded bg-slate-900 text-amber-300 text-xs font-mono">/c/{{ $firmSlug }}</code> has not been provisioned or is currently inactive on this SaaS cluster.
         </p>
         <div class="space-y-3">
-            <a href="{{ url('/c/rac/login') }}" class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm bg-[#FCDF02] hover:bg-[#F0D400] text-[#16181D] shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-[#FCDF02]/60">
-                <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                <span>Open Rahman Anis & Co. (RA&C) Preview</span>
+            <a href="{{ url('/') }}" class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm bg-[#FCDF02] hover:bg-[#F0D400] text-[#16181D] shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-[#FCDF02]/60">
+                <i data-lucide="home" class="w-4 h-4"></i>
+                <span>Return to DhakaWala ERP Portal</span>
             </a>
             <a href="{{ url('/platform/login') }}" class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium text-sm text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700/80 border border-slate-700 transition-all">
                 <i data-lucide="shield" class="w-4 h-4"></i>
@@ -23,7 +23,7 @@
             </a>
         </div>
         <div class="mt-8 pt-6 border-t border-slate-700/60 text-xs text-slate-500">
-            RA&C ERP SaaS • Node: <span class="text-slate-400">erp.dhakawala.com</span> (Design Preview)
+            DhakaWala ERP SaaS • Cluster: <span class="text-slate-400">erp.dhakawala.com</span>
         </div>
     </div>
 </div>

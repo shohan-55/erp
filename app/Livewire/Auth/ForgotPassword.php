@@ -70,7 +70,7 @@ class ForgotPassword extends Component
     {
         return view('livewire.auth.forgot-password')
             ->layout('layouts.auth', [
-                'title' => ($this->firm ? $this->firm['name'] : 'Platform') . ' — Account Recovery | RA&C ERP'
+                'title' => ($this->firm ? $this->firm['name'] : 'Platform') . ' — Account Recovery | DhakaWala ERP'
             ]);
     }
 }
