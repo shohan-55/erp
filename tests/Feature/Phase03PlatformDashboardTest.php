@@ -207,5 +207,39 @@ class Phase03PlatformDashboardTest extends TestCase
         $component = Livewire::test(DashboardPreview::class);
         $this->assertEmpty($component->get('demoFirms'));
     }
+
+    public function test_secure_deletion_modal_requires_confirm_keyword_to_permanently_delete_firm(): void
+    {
+        $this->artisan('migrate');
+        $this->seed();
+
+        $firm = Firm::first();
+        $this->assertNotNull($firm);
+
+        Livewire::test(DashboardPreview::class)
+            ->call('openDeleteModal', $firm->slug)
+            ->assertSet('showDeleteModal', true)
+            ->assertSet('firmToDeleteSlug', $firm->slug)
+            ->assertSee('Delete Organization')
+            ->assertSee('To proceed, please type')
+            ->assertSee('confirm')
+            // Trying with wrong confirmation string fails
+            ->set('deleteConfirmationInput', 'wrong')
+            ->call('confirmDeleteOrganization')
+            ->assertSet('showDeleteModal', true);
+
+        // Firm still exists
+        $this->assertDatabaseHas('firms', ['id' => $firm->id]);
+
+        // Trying with 'confirm' succeeds
+        Livewire::test(DashboardPreview::class)
+            ->call('openDeleteModal', $firm->slug)
+            ->set('deleteConfirmationInput', 'confirm')
+            ->call('confirmDeleteOrganization')
+            ->assertSet('showDeleteModal', false);
+
+        // Firm permanently deleted
+        $this->assertDatabaseMissing('firms', ['id' => $firm->id]);
+    }
 }
 

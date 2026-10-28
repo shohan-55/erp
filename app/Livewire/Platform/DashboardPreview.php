@@ -25,6 +25,12 @@ class DashboardPreview extends Component
     public bool $showSupportPreview = false;
     public ?string $previewNotice = null;
 
+    // Permanent Deletion Confirmation Modal
+    public bool $showDeleteModal = false;
+    public ?string $firmToDeleteSlug = null;
+    public ?string $firmToDeleteName = null;
+    public string $deleteConfirmationInput = '';
+
     // New Organization Provisioning fields
     public string $newFirmName = '';
     public string $newFirmSlug = '';
@@ -368,61 +374,178 @@ class DashboardPreview extends Component
     }
 
     /**
+     * Open Secure Permanent Deletion Confirmation Modal
+     */
+    public function openDeleteModal(string $slug): void
+    {
+        $cleanSlug = trim($slug);
+        $this->firmToDeleteSlug = $cleanSlug;
+
+        $firm = collect($this->demoFirms)->first(function ($f) use ($cleanSlug) {
+            return ($f['slug'] ?? null) === $cleanSlug || ($f['id'] ?? null) === $cleanSlug;
+        });
+
+        if ($firm) {
+            $this->firmToDeleteName = $firm['name'] ?? $cleanSlug;
+        } else {
+            try {
+                if (Schema::hasTable('firms')) {
+                    $dbFirm = Firm::where('slug', $cleanSlug)->orWhere('id', $cleanSlug)->first();
+                    $this->firmToDeleteName = $dbFirm ? $dbFirm->name : $cleanSlug;
+                }
+            } catch (\Throwable) {
+                $this->firmToDeleteName = $cleanSlug;
+            }
+        }
+
+        $this->deleteConfirmationInput = '';
+        $this->showDeleteModal = true;
+    }
+
+    /**
+     * Close Secure Permanent Deletion Confirmation Modal
+     */
+    public function closeDeleteModal(): void
+    {
+        $this->showDeleteModal = false;
+        $this->firmToDeleteSlug = null;
+        $this->firmToDeleteName = null;
+        $this->deleteConfirmationInput = '';
+    }
+
+    /**
+     * Execute Permanent Deletion after user explicitly types "confirm"
+     */
+    public function confirmDeleteOrganization(): void
+    {
+        if (strtolower(trim($this->deleteConfirmationInput)) !== 'confirm') {
+            $this->previewNotice = 'Please type "confirm" to verify permanent deletion.';
+            $this->dispatch('toast', [
+                'type'    => 'warning',
+                'title'   => 'Confirmation Required',
+                'message' => 'Please type "confirm" exactly to delete.',
+            ]);
+            return;
+        }
+
+        $slug = $this->firmToDeleteSlug;
+        if (! $slug) {
+            $this->closeDeleteModal();
+            return;
+        }
+
+        $this->deleteOrganization($slug);
+        $this->closeDeleteModal();
+    }
+
+    /**
      * Permanent transactional deletion of an organization and all its data.
      */
     public function deleteOrganization(string $slug): void
     {
         $this->previewNotice = null;
+        $slug = trim($slug);
 
         try {
             if (Schema::hasTable('firms')) {
-                $dbFirm = Firm::where('slug', $slug)->first();
+                $dbFirm = Firm::where('slug', $slug)
+                    ->orWhere('id', $slug)
+                    ->when(str_starts_with($slug, 'firm-'), fn ($q) => $q->orWhere('slug', substr($slug, 5)))
+                    ->first();
+
                 if ($dbFirm) {
                     $firmName = $dbFirm->name;
+                    $firmId = $dbFirm->id;
 
-                    DB::transaction(function () use ($dbFirm) {
+                    $driver = DB::connection()->getDriverName();
+                    if ($driver === 'mysql') {
+                        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+                    } elseif ($driver === 'sqlite') {
+                        DB::statement('PRAGMA foreign_keys = OFF;');
+                    }
+
+                    try {
+                        $userIds = DB::table('users')->where('firm_id', $firmId)->pluck('id')->all();
+
                         // 1. Break self-referencing foreign keys on users
-                        User::where('firm_id', $dbFirm->id)->update(['manager_id' => null]);
+                        DB::table('users')->where('firm_id', $firmId)->update(['manager_id' => null]);
 
-                        // 2. Delete partner policies
+                        // 2. Clear sessions
+                        if (Schema::hasTable('sessions') && ! empty($userIds)) {
+                            DB::table('sessions')->whereIn('user_id', $userIds)->delete();
+                        }
+
+                        // 3. Clear partner_policies
                         if (Schema::hasTable('partner_policies')) {
-                            PartnerPolicy::where('firm_id', $dbFirm->id)->delete();
+                            DB::table('partner_policies')->where('firm_id', $firmId)->delete();
+                            if (! empty($userIds)) {
+                                DB::table('partner_policies')->whereIn('partner_id', $userIds)->delete();
+                            }
                         }
 
-                        // 3. Delete attendance, leaves, conveyance
+                        // 4. Clear attendances
                         if (Schema::hasTable('attendances')) {
-                            Attendance::where('firm_id', $dbFirm->id)->delete();
+                            DB::table('attendances')->where('firm_id', $firmId)->delete();
+                            if (! empty($userIds)) {
+                                DB::table('attendances')->whereIn('user_id', $userIds)->delete();
+                            }
                         }
+
+                        // 5. Clear leave_requests
                         if (Schema::hasTable('leave_requests')) {
-                            LeaveRequest::where('firm_id', $dbFirm->id)->delete();
+                            DB::table('leave_requests')->where('firm_id', $firmId)->delete();
+                            if (! empty($userIds)) {
+                                DB::table('leave_requests')->whereIn('user_id', $userIds)->delete();
+                            }
                         }
+
+                        // 6. Clear conveyance_claims
                         if (Schema::hasTable('conveyance_claims')) {
-                            ConveyanceClaim::where('firm_id', $dbFirm->id)->delete();
+                            DB::table('conveyance_claims')->where('firm_id', $firmId)->delete();
+                            if (! empty($userIds)) {
+                                DB::table('conveyance_claims')->whereIn('user_id', $userIds)->delete();
+                            }
                         }
 
-                        // 4. Delete users of this firm
-                        User::where('firm_id', $dbFirm->id)->delete();
+                        // 7. Delete users
+                        DB::table('users')->where('firm_id', $firmId)->delete();
 
-                        // 5. Delete firm record
-                        $dbFirm->delete();
-                    });
+                        // 8. Delete firm
+                        DB::table('firms')->where('id', $firmId)->delete();
+                    } finally {
+                        if ($driver === 'mysql') {
+                            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+                        } elseif ($driver === 'sqlite') {
+                            DB::statement('PRAGMA foreign_keys = ON;');
+                        }
+                    }
 
                     $this->syncFirmsFromDatabase();
                     $this->selectedFirmId = null;
                     $this->previewNotice = "Organization '{$firmName}' has been permanently deleted from production.";
+                    $this->dispatch('toast', [
+                        'type'    => 'success',
+                        'title'   => 'Organization Deleted',
+                        'message' => "Organization '{$firmName}' has been permanently deleted.",
+                    ]);
                     return;
                 }
             }
         } catch (\Throwable $e) {
             Log::error('deleteOrganization error: ' . $e->getMessage());
             $this->previewNotice = 'Failed to delete organization: ' . $e->getMessage();
+            $this->dispatch('toast', [
+                'type'    => 'error',
+                'title'   => 'Deletion Failed',
+                'message' => $e->getMessage(),
+            ]);
             return;
         }
 
         // Demo fallback for testing
         $this->demoFirms = array_values(array_filter(
             $this->demoFirms,
-            fn (array $f) => $f['slug'] !== $slug
+            fn (array $f) => $f['slug'] !== $slug && $f['id'] !== $slug
         ));
         $this->selectedFirmId = null;
         $this->previewNotice = "Organization '{$slug}' deleted.";
@@ -509,24 +632,54 @@ class DashboardPreview extends Component
                     $payload['leave_requests'] = $dbFirm->leaveRequests->toArray();
                     $payload['conveyance_claims'] = $dbFirm->conveyanceClaims->toArray();
 
-                    // Clean transactional deletion to prevent MySQL foreign key failures
-                    DB::transaction(function () use ($dbFirm) {
-                        User::where('firm_id', $dbFirm->id)->update(['manager_id' => null]);
+                    $driver = DB::connection()->getDriverName();
+                    if ($driver === 'mysql') {
+                        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+                    } elseif ($driver === 'sqlite') {
+                        DB::statement('PRAGMA foreign_keys = OFF;');
+                    }
+
+                    try {
+                        $firmId = $dbFirm->id;
+                        $userIds = DB::table('users')->where('firm_id', $firmId)->pluck('id')->all();
+
+                        DB::table('users')->where('firm_id', $firmId)->update(['manager_id' => null]);
+                        if (Schema::hasTable('sessions') && ! empty($userIds)) {
+                            DB::table('sessions')->whereIn('user_id', $userIds)->delete();
+                        }
                         if (Schema::hasTable('partner_policies')) {
-                            PartnerPolicy::where('firm_id', $dbFirm->id)->delete();
+                            DB::table('partner_policies')->where('firm_id', $firmId)->delete();
+                            if (! empty($userIds)) {
+                                DB::table('partner_policies')->whereIn('partner_id', $userIds)->delete();
+                            }
                         }
                         if (Schema::hasTable('attendances')) {
-                            Attendance::where('firm_id', $dbFirm->id)->delete();
+                            DB::table('attendances')->where('firm_id', $firmId)->delete();
+                            if (! empty($userIds)) {
+                                DB::table('attendances')->whereIn('user_id', $userIds)->delete();
+                            }
                         }
                         if (Schema::hasTable('leave_requests')) {
-                            LeaveRequest::where('firm_id', $dbFirm->id)->delete();
+                            DB::table('leave_requests')->where('firm_id', $firmId)->delete();
+                            if (! empty($userIds)) {
+                                DB::table('leave_requests')->whereIn('user_id', $userIds)->delete();
+                            }
                         }
                         if (Schema::hasTable('conveyance_claims')) {
-                            ConveyanceClaim::where('firm_id', $dbFirm->id)->delete();
+                            DB::table('conveyance_claims')->where('firm_id', $firmId)->delete();
+                            if (! empty($userIds)) {
+                                DB::table('conveyance_claims')->whereIn('user_id', $userIds)->delete();
+                            }
                         }
-                        User::where('firm_id', $dbFirm->id)->delete();
-                        $dbFirm->delete();
-                    });
+                        DB::table('users')->where('firm_id', $firmId)->delete();
+                        DB::table('firms')->where('id', $firmId)->delete();
+                    } finally {
+                        if ($driver === 'mysql') {
+                            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+                        } elseif ($driver === 'sqlite') {
+                            DB::statement('PRAGMA foreign_keys = ON;');
+                        }
+                    }
                 }
             }
         } catch (\Throwable $e) {
