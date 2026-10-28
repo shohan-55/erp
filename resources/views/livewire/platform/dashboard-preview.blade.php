@@ -145,7 +145,16 @@
                                     <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#17191F] text-xs font-extrabold text-[#FCDF02]">{{ $firm['initials'] }}</div>
                                     <div class="min-w-0 flex-1">
                                         <p class="truncate text-sm font-bold text-slate-800">{{ $firm['name'] }}</p>
-                                        <p class="truncate text-xs text-slate-500">{{ $firm['kind'] }} · {{ $firm['plan'] }} Tier</p>
+                                        <p class="truncate text-xs text-slate-500">
+                                            @if(!empty($firm['custom_domain']))
+                                                <span class="inline-flex items-center gap-1 font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px]">🌐 {{ $firm['custom_domain'] }}</span> ·
+                                            @elseif(!empty($firm['custom_subdomain']))
+                                                <span class="inline-flex items-center gap-1 font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded text-[10px]">⚡ {{ $firm['custom_subdomain'] }}.dhakawala.com</span> ·
+                                            @else
+                                                <span class="text-slate-400">/c/{{ $firm['slug'] }}</span> ·
+                                            @endif
+                                            {{ $firm['kind'] }} · {{ $firm['plan'] }} Tier
+                                        </p>
                                     </div>
                                     <span class="hidden rounded-full px-2.5 py-1 text-[10px] font-bold sm:inline-flex {{ $firm['status'] === 'preview-active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800' }}">
                                         {{ $firm['status'] === 'preview-active' ? 'Active' : 'Pending' }}
@@ -231,14 +240,25 @@
                             <tbody class="divide-y divide-slate-100">
                                 @forelse($filteredFirms as $firm)
                                     <tr wire:key="firm-row-{{ $firm['id'] }}" class="hover:bg-slate-50">
-                                        <td class="px-5 py-4"><div class="font-bold text-slate-800">{{ $firm['name'] }}</div><div class="mt-0.5 text-xs text-slate-400">/c/{{ $firm['slug'] }} · {{ $firm['region'] }}</div></td>
+                                        <td class="px-5 py-4">
+                                            <div class="font-bold text-slate-800">{{ $firm['name'] }}</div>
+                                            <div class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
+                                                <span>/c/{{ $firm['slug'] }} · {{ $firm['region'] }}</span>
+                                                @if(!empty($firm['custom_domain']))
+                                                    <span class="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">🌐 {{ $firm['custom_domain'] }}</span>
+                                                @elseif(!empty($firm['custom_subdomain']))
+                                                    <span class="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">⚡ {{ $firm['custom_subdomain'] }}.dhakawala.com</span>
+                                                @endif
+                                            </div>
+                                        </td>
                                         <td class="px-4 py-4"><span class="rounded-full px-2.5 py-1 text-[11px] font-bold {{ $firm['status']==='preview-active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800' }}">{{ $firm['status']==='preview-active' ? 'Active' : 'Pending' }}</span></td>
                                         <td class="px-4 py-4 font-semibold">{{ $firm['workspaces'] }} <span class="text-xs font-normal text-slate-400">workspace</span></td>
                                         <td class="px-4 py-4 font-semibold">{{ $firm['seats'] }} <span class="text-xs font-normal text-slate-400">seats</span></td>
                                         <td class="px-4 py-4 text-slate-600 font-medium">{{ $firm['plan'] }}</td>
-                                        <td class="px-5 py-4 text-right flex items-center justify-end gap-2">
-                                            <button type="button" wire:click="selectFirm('{{ $firm['id'] }}')" class="rounded-lg px-3 py-2 text-xs font-bold text-[#977000] hover:bg-amber-50">Manage / Backup</button>
-                                            <button type="button" wire:click="backupAndDeleteFirm('{{ $firm['slug'] }}')" wire:confirm="Backup and delete {{ $firm['name'] }}?" class="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Backup & Delete</button>
+                                        <td class="px-5 py-4 text-right flex items-center justify-end gap-1.5">
+                                            <button type="button" wire:click="selectFirm('{{ $firm['id'] }}')" class="rounded-lg px-2.5 py-1.5 text-xs font-bold text-[#977000] hover:bg-amber-50">Manage / Domain</button>
+                                            <button type="button" wire:click="deleteOrganization('{{ $firm['slug'] }}')" wire:confirm="Are you sure you want to permanently DELETE {{ $firm['name'] }} and all its users/data from production database?" class="rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100">Delete</button>
+                                            <button type="button" wire:click="backupAndDeleteFirm('{{ $firm['slug'] }}')" wire:confirm="Backup and delete {{ $firm['name'] }}?" class="rounded-lg bg-slate-100 px-2 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200">Backup & Delete</button>
                                         </td>
                                     </tr>
                                 @empty
@@ -374,28 +394,66 @@
                 </div>
                 <div class="grid grid-cols-2 gap-3 p-6 text-sm">
                     @foreach([
-                        ['Organization URL', 'erp.dhakawala.com/c/'.$selectedFirm['slug']],
+                        ['Workspace URL', 'erp.dhakawala.com/c/'.$selectedFirm['slug']],
+                        ['Personal Custom Domain', $selectedFirm['custom_domain'] ?: 'Not configured'],
+                        ['Dedicated Subdomain', $selectedFirm['custom_subdomain'] ? $selectedFirm['custom_subdomain'].'.dhakawala.com' : 'Not configured'],
                         ['Subscription Plan', $selectedFirm['plan'].' Tier'],
-                        ['Active Workspaces', $selectedFirm['workspaces'].' Node(s)'],
                         ['Seat Allocation', $selectedFirm['seats'].' Seats'],
                         ['Primary Location', $selectedFirm['region']],
-                        ['Operational State', $selectedFirm['status'] === 'preview-active' ? 'Active' : 'Pending Activation'],
                     ] as $field)
                         <div class="rounded-xl bg-slate-50 p-3">
                             <p class="text-[11px] text-slate-500">{{ $field[0] }}</p>
-                            <p class="mt-1 font-bold text-slate-800">{{ $field[1] }}</p>
+                            <p class="mt-1 font-bold text-slate-800 truncate">{{ $field[1] }}</p>
                         </div>
                     @endforeach
                 </div>
-                <div class="border-t border-slate-100 bg-slate-50 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <button type="button" wire:click="downloadFirmBackup('{{ $selectedFirm['slug'] }}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-800 shadow-sm hover:bg-slate-100">
-                        <i data-lucide="download" class="h-4 w-4"></i> Download Backup (.json)
-                    </button>
-                    <button type="button" wire:click="backupAndDeleteFirm('{{ $selectedFirm['slug'] }}')" wire:confirm="Are you sure you want to take a full backup and permanently DELETE {{ $selectedFirm['name'] }}?" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-rose-700">
-                        <i data-lucide="trash-2" class="h-4 w-4"></i> Backup & Delete Company
-                    </button>
+
+                {{-- Domain & Host Mapping Settings --}}
+                <div class="border-t border-slate-100 bg-slate-50/70 p-6">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i data-lucide="globe" class="h-4 w-4 text-[#977000]"></i>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800">Domain & Host Mapping</h3>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mb-3">Map a personal custom domain (e.g. erp.yourfirm.com) or custom subdomain.</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 mb-1">Personal Custom Domain</label>
+                            <input type="text" wire:model="editCustomDomain" placeholder="e.g. erp.clientfirm.com"
+                                   class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-200">
+                            @error('editCustomDomain') <p class="text-[10px] text-rose-600 mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-700 mb-1">Custom Subdomain</label>
+                            <div class="flex rounded-xl border border-slate-200 bg-white overflow-hidden focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-200">
+                                <input type="text" wire:model="editCustomSubdomain" placeholder="client"
+                                       class="w-full bg-transparent px-3 py-2 text-xs text-slate-800 outline-none">
+                                <span class="inline-flex items-center bg-slate-100 px-2.5 text-[11px] font-semibold text-slate-500 border-l border-slate-200">.dhakawala.com</span>
+                            </div>
+                            @error('editCustomSubdomain') <p class="text-[10px] text-rose-600 mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    </div>
+                    <div class="mt-3 flex justify-end">
+                        <button type="button" wire:click="updateDomainSettings('{{ $selectedFirm['slug'] }}')" class="rounded-xl bg-[#16181D] px-4 py-2 text-xs font-bold text-[#FCDF02] hover:bg-slate-800 transition">
+                            Save Domain Settings
+                        </button>
+                    </div>
                 </div>
-                <div class="border-t border-slate-100 bg-amber-50 px-6 py-3 text-[11px] leading-relaxed text-amber-900">Platform Admin Action: Downloading backup exports all company users, attendance logs, leaves, and claims before deletion. Metadata Only: no student records, payroll entries or private documents are accessible without authorization.</div>
+
+                {{-- Modal Footer Actions --}}
+                <div class="border-t border-slate-100 bg-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                    <button type="button" wire:click="downloadFirmBackup('{{ $selectedFirm['slug'] }}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-100">
+                        <i data-lucide="download" class="h-3.5 w-3.5"></i> Backup JSON
+                    </button>
+                    <div class="w-full sm:w-auto flex items-center justify-end gap-2">
+                        <button type="button" wire:click="deleteOrganization('{{ $selectedFirm['slug'] }}')" wire:confirm="Are you sure you want to permanently DELETE {{ $selectedFirm['name'] }} and all its users/attendance/records from production database?" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700">
+                            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> Delete Firm
+                        </button>
+                        <button type="button" wire:click="backupAndDeleteFirm('{{ $selectedFirm['slug'] }}')" wire:confirm="Are you sure you want to take a full backup and permanently DELETE {{ $selectedFirm['name'] }}?" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">
+                            Backup & Delete
+                        </button>
+                    </div>
+                </div>
+                <div class="border-t border-slate-100 bg-amber-50 px-6 py-2.5 text-[11px] leading-relaxed text-amber-900">Platform Admin Governance: Permanent deletion cascades across all associated firm records cleanly. Zero-trust isolation guarantees client data security.</div>
             </div>
         </div>
     @endif
@@ -453,6 +511,31 @@
                                 </span>
                             </div>
                             @error('newFirmSlug') <p class="mt-1 text-xs text-rose-600 font-medium">{{ $message }}</p> @enderror
+                        </div>
+
+                        {{-- Custom Domain & Subdomain Options --}}
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Personal Custom Domain (Optional)
+                            </label>
+                            <input type="text" wire:model="newFirmCustomDomain" placeholder="e.g. erp.clientfirm.com"
+                                   class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-200">
+                            <p class="mt-1 text-[11px] text-slate-400">Client's personal domain (point CNAME to erp.dhakawala.com)</p>
+                            @error('newFirmCustomDomain') <p class="mt-1 text-xs text-rose-600 font-medium">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                                Dedicated Subdomain (Optional)
+                            </label>
+                            <div class="flex rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-200">
+                                <input type="text" wire:model="newFirmCustomSubdomain" placeholder="client"
+                                       class="w-full bg-transparent px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none">
+                                <span class="inline-flex items-center bg-slate-100 px-3 text-xs font-semibold text-slate-500 border-l border-slate-200">
+                                    .dhakawala.com
+                                </span>
+                            </div>
+                            <p class="mt-1 text-[11px] text-slate-400">e.g. client.dhakawala.com</p>
+                            @error('newFirmCustomSubdomain') <p class="mt-1 text-xs text-rose-600 font-medium">{{ $message }}</p> @enderror
                         </div>
 
                         {{-- Organization Kind --}}

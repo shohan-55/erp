@@ -157,7 +157,9 @@ class FirmRegistry
             'seats'         => $firm->seats,
             'region'        => $firm->region,
             'initials'      => $firm->initials,
-            'icab_reg'      => 'ICAB REG # ' . strtoupper($firm->slug) . '-2024',
+            'custom_domain' => $firm->custom_domain,
+            'custom_subdomain' => $firm->custom_subdomain,
+            'workspace_url' => $firm->workspace_url,
             'features'      => [
                 'Centralized ICAB Articled Student Roster & Compliance',
                 'Client Audit Engagement Attendance & Geo Check-in',
@@ -165,5 +167,23 @@ class FirmRegistry
                 'Integrated Monthly Stipend Calculation Engine',
             ],
         ];
+    }
+
+    /**
+     * Resolve firm by host (custom domain or custom subdomain).
+     */
+    public static function getByHost(string $host): ?array
+    {
+        try {
+            if (Schema::hasTable('firms')) {
+                $firm = Firm::findByHost($host);
+                if ($firm && $firm->status === 'active') {
+                    return self::toArray($firm);
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        return null;
     }
 }

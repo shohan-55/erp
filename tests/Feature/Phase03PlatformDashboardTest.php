@@ -129,5 +129,56 @@ class Phase03PlatformDashboardTest extends TestCase
             'email' => 'kamrul@apex.com',
             'role' => 'partner',
         ]);
+
+        // Now test deleting the firm
+        Livewire::test(DashboardPreview::class)
+            ->call('backupAndDeleteFirm', 'apex-ac');
+
+        $this->assertDatabaseMissing('firms', [
+            'slug' => 'apex-ac',
+        ]);
+    }
+
+    public function test_organization_can_be_provisioned_with_custom_domain_and_subdomain(): void
+    {
+        $this->artisan('migrate');
+
+        Livewire::test(DashboardPreview::class)
+            ->call('openProvisionPreview')
+            ->set('newFirmName', 'Global Audit Partners')
+            ->set('newFirmSlug', 'global-audit')
+            ->set('newPartnerEmail', 'info@globalaudit.com')
+            ->set('newFirmCustomDomain', 'erp.globalaudit.com')
+            ->set('newFirmCustomSubdomain', 'global')
+            ->call('createOrganization')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('firms', [
+            'slug' => 'global-audit',
+            'custom_domain' => 'erp.globalaudit.com',
+            'custom_subdomain' => 'global',
+        ]);
+
+        // Test updating domain settings
+        Livewire::test(DashboardPreview::class)
+            ->set('editCustomDomain', 'portal.globalaudit.com')
+            ->set('editCustomSubdomain', 'global-portal')
+            ->call('updateDomainSettings', 'global-audit')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('firms', [
+            'slug' => 'global-audit',
+            'custom_domain' => 'portal.globalaudit.com',
+            'custom_subdomain' => 'global-portal',
+        ]);
+
+        // Test direct permanent deletion
+        Livewire::test(DashboardPreview::class)
+            ->call('deleteOrganization', 'global-audit');
+
+        $this->assertDatabaseMissing('firms', [
+            'slug' => 'global-audit',
+        ]);
     }
 }
+

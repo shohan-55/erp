@@ -91,6 +91,16 @@ class AppShell extends Component
                 return;
             }
         }
+
+        // Resolve tenant if accessing via custom domain or custom subdomain
+        if (! app()->runningUnitTests()) {
+            $host = request()->getHost();
+            $customFirm = FirmRegistry::getByHost($host);
+            if ($customFirm) {
+                $this->redirect(route('firm.login', ['firmSlug' => $customFirm['slug']]));
+                return;
+            }
+        }
     }
 
     public function togglePassword(): void

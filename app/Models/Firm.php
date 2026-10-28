@@ -18,7 +18,49 @@ class Firm extends Model
         'plan',
         'region',
         'initials',
+        'custom_domain',
+        'custom_subdomain',
     ];
+
+    /**
+     * Resolve a firm by host (custom domain or custom subdomain).
+     */
+    public static function findByHost(string $host): ?self
+    {
+        $cleanHost = strtolower(trim(preg_replace('/:\d+$/', '', $host)));
+
+        // Direct custom domain match
+        $firm = static::where('custom_domain', $cleanHost)->first();
+        if ($firm) {
+            return $firm;
+        }
+
+        // Custom subdomain match (e.g. {sub}.dhakawala.com)
+        if (str_ends_with($cleanHost, '.dhakawala.com')) {
+            $sub = str_replace('.dhakawala.com', '', $cleanHost);
+            if ($sub !== 'erp' && $sub !== 'www' && ! empty($sub)) {
+                return static::where('custom_subdomain', $sub)
+                    ->orWhere('slug', $sub)
+                    ->first();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get computed full workspace URL.
+     */
+    public function getWorkspaceUrlAttribute(): string
+    {
+        if (! empty($this->custom_domain)) {
+            return 'https://' . $this->custom_domain;
+        }
+        if (! empty($this->custom_subdomain)) {
+            return 'https://' . $this->custom_subdomain . '.dhakawala.com';
+        }
+        return url('/c/' . $this->slug);
+    }
 
     /**
      * Get all users belonging to this firm.
