@@ -73,6 +73,7 @@
                     ['key'=>'leave','title'=>'Leave Requests','icon'=>'calendar-days'],
                     ['key'=>'conveyance','title'=>'Conveyance Claims','icon'=>'receipt'],
                     ['key'=>'payroll','title'=>'Payroll & Allowance','icon'=>'wallet-cards'],
+                    ['key'=>'team','title'=>'Team & Members','icon'=>'users'],
                     ['key'=>'notifications','title'=>'Notifications','icon'=>'bell'],
                     ['key'=>'policies','title'=>'Policy & Governance','icon'=>'shield-check'],
                     ['key'=>'settings','title'=>'Workspace Settings','icon'=>'settings-2']

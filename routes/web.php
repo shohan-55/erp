@@ -100,7 +100,7 @@ Route::get('/platform/dashboard-preview', DashboardPreview::class)->name('platfo
 Route::get('/c/{firmSlug}/dashboard', PracticePreview::class)->name('firm.practice.dashboard');
 Route::get('/c/{firmSlug}/preview/{previewRole?}/{section?}', PracticePreview::class)
     ->where('previewRole', 'partner|manager|student')
-    ->where('section', 'dashboard|attendance|leave|conveyance|payroll|notifications|policies|settings')
+    ->where('section', 'dashboard|attendance|leave|conveyance|payroll|notifications|policies|settings|team')
     ->name('firm.practice.preview');
 
 // ─── Authenticated Live Routes ─────────────────────────────────────────────

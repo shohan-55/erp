@@ -118,10 +118,51 @@ class PracticePreview extends Component
     public array $readNotificationIds = [];
     public array $studentRows = [];
 
+    // Team & Member Roster Management
+    public array $teamMembers = [];
+    public string $teamFilter = 'all';
+    public bool $canManageTeam = false;
+    public bool $showAddMemberModal = false;
+    public bool $showEditMemberModal = false;
+    public bool $showDeleteMemberModal = false;
+    public ?int $selectedMemberId = null;
+    public string $selectedMemberName = '';
+    public string $deleteConfirmationInput = '';
+
+    // Add Member Form Fields
+    public string $newMemberRole = 'student';
+    public string $newMemberName = '';
+    public string $newMemberEmail = '';
+    public string $newMemberPassword = '';
+    public string $newMemberPartnerUnit = 'Partner Unit 01';
+    public string $newMemberStudentCode = '';
+    public ?int $newMemberManagerId = null;
+    public float $newMemberMonthlyAllowance = 6000.00;
+    public bool $newMemberCanManageTeam = false;
+    public bool $newMemberCanProxyAttendance = false;
+    public bool $newMemberCanEditAttendance = false;
+    public bool $newMemberCanApproveLeave = false;
+    public bool $newMemberCanApproveClaims = false;
+
+    // Edit Member Form Fields
+    public ?int $editMemberId = null;
+    public string $editMemberName = '';
+    public string $editMemberEmail = '';
+    public string $editMemberRole = 'student';
+    public string $editMemberPartnerUnit = 'Partner Unit 01';
+    public string $editMemberStudentCode = '';
+    public ?int $editMemberManagerId = null;
+    public float $editMemberMonthlyAllowance = 6000.00;
+    public bool $editMemberCanManageTeam = false;
+    public bool $editMemberCanProxyAttendance = false;
+    public bool $editMemberCanEditAttendance = false;
+    public bool $editMemberCanApproveLeave = false;
+    public bool $editMemberCanApproveClaims = false;
+
     private const ROLES = ['partner', 'manager', 'student'];
     private const SECTIONS = [
         'dashboard', 'attendance', 'leave', 'conveyance', 'payroll',
-        'notifications', 'policies', 'settings',
+        'notifications', 'policies', 'settings', 'team',
     ];
     private const NOTIFICATION_IDS = ['demo-note-1', 'demo-note-2', 'demo-note-3'];
 
@@ -160,6 +201,8 @@ class PracticePreview extends Component
         $this->loadAttendanceRows();
         $this->loadLeaveQueue();
         $this->loadClaimQueue();
+        $this->loadTeamMembers();
+        $this->canManageTeam = $this->userCanManageTeam();
     }
 
     public function setPartnerUnit(string $unit): void
@@ -205,6 +248,7 @@ class PracticePreview extends Component
             $this->loadAttendanceRows();
             $this->loadLeaveQueue();
             $this->loadClaimQueue();
+            $this->loadTeamMembers();
         }
     }
 
@@ -690,6 +734,7 @@ class PracticePreview extends Component
         $this->filter = 'all';
         $this->notice = 'Design preview role changed. Active role: ' . ucfirst($role) . '. No authenticated user session is active.';
         $this->error = null;
+        $this->canManageTeam = $this->userCanManageTeam();
         $this->closeDialogs();
     }
 
@@ -727,6 +772,12 @@ class PracticePreview extends Component
         $this->showCorrectionModal = false;
         $this->showClaimReviewModal = false;
         $this->showLeaveReviewModal = false;
+        $this->showAddMemberModal = false;
+        $this->showEditMemberModal = false;
+        $this->showDeleteMemberModal = false;
+        $this->deleteConfirmationInput = '';
+        $this->selectedMemberId = null;
+        $this->selectedMemberName = '';
     }
 
     public function toggleManagerPermission(string $permission): void
@@ -1366,6 +1417,468 @@ class PracticePreview extends Component
         return $date !== false && $date->format('Y-m-d') === $value;
     }
 
+    public function userCanManageTeam(): bool
+    {
+        if (Auth::check()) {
+            /** @var User $user */
+            $user = Auth::user();
+            return $user->canManageTeam();
+        }
+        return $this->previewRole === 'partner';
+    }
+
+    public function getAvailableManagersProperty(): array
+    {
+        return array_values(array_filter($this->teamMembers, function ($m) {
+            return ($m['role'] ?? '') === 'manager';
+        }));
+    }
+
+    public function loadTeamMembers(): void
+    {
+        if (Schema::hasTable('users') && Schema::hasTable('firms')) {
+            $firmModel = Firm::where('slug', $this->firmSlug)->first();
+            if ($firmModel) {
+                try {
+                    $dbUsers = User::with('manager')
+                        ->where('firm_id', $firmModel->id)
+                        ->orderByRaw("CASE role WHEN 'partner' THEN 1 WHEN 'manager' THEN 2 WHEN 'student' THEN 3 ELSE 4 END")
+                        ->orderBy('name')
+                        ->get();
+
+                    if ($dbUsers->isNotEmpty()) {
+                        $this->teamMembers = $dbUsers->map(function (User $u) {
+                            return [
+                                'id'                   => $u->id,
+                                'name'                 => $u->name,
+                                'email'                => $u->email,
+                                'role'                 => $u->role,
+                                'role_label'           => match ($u->role) {
+                                    'partner' => 'Partner / Principal',
+                                    'manager' => 'Audit Manager',
+                                    'student' => 'Articled Student',
+                                    default   => ucfirst($u->role),
+                                },
+                                'phone'                => '—',
+                                'student_code'         => $u->student_code ?? ($u->role === 'student' ? ('S-' . $u->id) : null),
+                                'partner_unit'         => $u->partner_unit ?? $this->partnerUnit,
+                                'manager_id'           => $u->manager_id,
+                                'manager_name'         => $u->manager?->name ?? '—',
+                                'monthly_allowance'    => (float) ($u->monthly_allowance ?? ($u->role === 'student' ? 6000 : ($u->role === 'manager' ? 25000 : 0))),
+                                'can_manage_team'      => (bool) $u->can_manage_team,
+                                'can_proxy_attendance' => (bool) $u->can_proxy_attendance,
+                                'can_edit_attendance'  => (bool) $u->can_edit_attendance,
+                                'can_approve_leave'    => (bool) $u->can_approve_leave,
+                                'can_approve_claims'   => (bool) $u->can_approve_claims,
+                                'created_at'           => $u->created_at?->format('d M Y') ?? 'Recent',
+                            ];
+                        })->toArray();
+                        return;
+                    }
+                } catch (\Throwable) {}
+            }
+        }
+
+        $this->teamMembers = [
+            [
+                'id'                   => 1,
+                'name'                 => 'Rahman Anis, FCA',
+                'email'                => 'partner@rac.dhakawala.com',
+                'role'                 => 'partner',
+                'role_label'           => 'Partner / Principal',
+                'phone'                => '+880 1711 000001',
+                'student_code'         => null,
+                'partner_unit'         => 'Partner Unit 01',
+                'manager_id'           => null,
+                'manager_name'         => '—',
+                'monthly_allowance'    => 0,
+                'can_manage_team'      => true,
+                'can_proxy_attendance' => true,
+                'can_edit_attendance'  => true,
+                'can_approve_leave'    => true,
+                'can_approve_claims'   => true,
+                'created_at'           => '01 Jan 2026',
+            ],
+            [
+                'id'                   => 2,
+                'name'                 => 'Sample Manager A',
+                'email'                => 'manager.a@rac.dhakawala.com',
+                'role'                 => 'manager',
+                'role_label'           => 'Audit Manager',
+                'phone'                => '+880 1711 000002',
+                'student_code'         => null,
+                'partner_unit'         => 'Partner Unit 01',
+                'manager_id'           => null,
+                'manager_name'         => 'Rahman Anis, FCA',
+                'monthly_allowance'    => 28000,
+                'can_manage_team'      => true,
+                'can_proxy_attendance' => true,
+                'can_edit_attendance'  => true,
+                'can_approve_leave'    => true,
+                'can_approve_claims'   => true,
+                'created_at'           => '15 Jan 2026',
+            ],
+            [
+                'id'                   => 3,
+                'name'                 => 'Sample Manager B',
+                'email'                => 'manager.b@rac.dhakawala.com',
+                'role'                 => 'manager',
+                'role_label'           => 'Audit Manager',
+                'phone'                => '+880 1711 000003',
+                'student_code'         => null,
+                'partner_unit'         => 'Partner Unit 01',
+                'manager_id'           => null,
+                'manager_name'         => 'Rahman Anis, FCA',
+                'monthly_allowance'    => 26000,
+                'can_manage_team'      => false,
+                'can_proxy_attendance' => true,
+                'can_edit_attendance'  => false,
+                'can_approve_leave'    => true,
+                'can_approve_claims'   => false,
+                'created_at'           => '01 Feb 2026',
+            ],
+            [
+                'id'                   => 4,
+                'name'                 => 'Sample Student 01 (Zubair)',
+                'email'                => 'zubair@rac.dhakawala.com',
+                'role'                 => 'student',
+                'role_label'           => 'Articled Student',
+                'phone'                => '+880 1811 000004',
+                'student_code'         => 'S-101',
+                'partner_unit'         => 'Partner Unit 01',
+                'manager_id'           => 2,
+                'manager_name'         => 'Sample Manager A',
+                'monthly_allowance'    => 7000,
+                'can_manage_team'      => false,
+                'can_proxy_attendance' => false,
+                'can_edit_attendance'  => false,
+                'can_approve_leave'    => false,
+                'can_approve_claims'   => false,
+                'created_at'           => '10 Mar 2026',
+            ],
+            [
+                'id'                   => 5,
+                'name'                 => 'Sample Student 02 (Nusrat)',
+                'email'                => 'nusrat@rac.dhakawala.com',
+                'role'                 => 'student',
+                'role_label'           => 'Articled Student',
+                'phone'                => '+880 1811 000005',
+                'student_code'         => 'S-102',
+                'partner_unit'         => 'Partner Unit 01',
+                'manager_id'           => 2,
+                'manager_name'         => 'Sample Manager A',
+                'monthly_allowance'    => 6500,
+                'can_manage_team'      => false,
+                'can_proxy_attendance' => false,
+                'can_edit_attendance'  => false,
+                'can_approve_leave'    => false,
+                'can_approve_claims'   => false,
+                'created_at'           => '12 Mar 2026',
+            ],
+            [
+                'id'                   => 6,
+                'name'                 => 'Sample Student 03 (Rakibul)',
+                'email'                => 'rakibul@rac.dhakawala.com',
+                'role'                 => 'student',
+                'role_label'           => 'Articled Student',
+                'phone'                => '+880 1811 000006',
+                'student_code'         => 'S-103',
+                'partner_unit'         => 'Partner Unit 01',
+                'manager_id'           => 3,
+                'manager_name'         => 'Sample Manager B',
+                'monthly_allowance'    => 6000,
+                'can_manage_team'      => false,
+                'can_proxy_attendance' => false,
+                'can_edit_attendance'  => false,
+                'can_approve_leave'    => false,
+                'can_approve_claims'   => false,
+                'created_at'           => '15 Mar 2026',
+            ],
+        ];
+    }
+
+    public function openAddMemberModal(): void
+    {
+        if (! $this->userCanManageTeam()) {
+            $this->error = 'Only Partners or authorized Managers can enroll new team members.';
+            return;
+        }
+        $this->closeDialogs();
+        $this->resetNewMemberFields();
+        $this->showAddMemberModal = true;
+    }
+
+    private function resetNewMemberFields(): void
+    {
+        $this->newMemberName = '';
+        $this->newMemberEmail = '';
+        $this->newMemberPassword = '';
+        $this->newMemberRole = 'student';
+        $this->newMemberStudentCode = '';
+        $this->newMemberManagerId = null;
+        $this->newMemberPartnerUnit = $this->partnerUnit;
+        $this->newMemberMonthlyAllowance = 6000.00;
+        $this->newMemberCanManageTeam = false;
+        $this->newMemberCanProxyAttendance = false;
+        $this->newMemberCanEditAttendance = false;
+        $this->newMemberCanApproveLeave = false;
+        $this->newMemberCanApproveClaims = false;
+    }
+
+    public function createMember(): void
+    {
+        if (! $this->userCanManageTeam()) {
+            $this->error = 'Unauthorized action: Only Partners or authorized Managers can enroll team members.';
+            return;
+        }
+
+        $this->validate([
+            'newMemberName'  => 'required|string|min:2|max:120',
+            'newMemberEmail' => 'required|email|max:150',
+            'newMemberRole'  => 'required|in:partner,manager,student',
+        ]);
+
+        $firmModel = Firm::where('slug', $this->firmSlug)->first();
+
+        if ($firmModel && Schema::hasTable('users')) {
+            $existing = User::where('email', strtolower(trim($this->newMemberEmail)))->first();
+            if ($existing) {
+                $this->error = "A user with email {$this->newMemberEmail} already exists.";
+                return;
+            }
+
+            $user = new User();
+            $user->firm_id = $firmModel->id;
+            $user->name = trim($this->newMemberName);
+            $user->email = strtolower(trim($this->newMemberEmail));
+            $plainPassword = $this->newMemberPassword ?: 'Password@123';
+            $user->password = bcrypt($plainPassword);
+            $user->role = $this->newMemberRole;
+            $user->partner_unit = $this->newMemberPartnerUnit ?: $this->partnerUnit;
+            $user->monthly_allowance = (float) $this->newMemberMonthlyAllowance;
+            $user->student_code = $this->newMemberRole === 'student' ? ($this->newMemberStudentCode ?: ('S-' . rand(100, 999))) : null;
+            $user->manager_id = ($this->newMemberRole === 'student' && !empty($this->newMemberManagerId)) ? (int) $this->newMemberManagerId : null;
+            $user->can_manage_team = (bool) $this->newMemberCanManageTeam;
+            $user->can_proxy_attendance = (bool) $this->newMemberCanProxyAttendance;
+            $user->can_edit_attendance = (bool) $this->newMemberCanEditAttendance;
+            $user->can_approve_leave = (bool) $this->newMemberCanApproveLeave;
+            $user->can_approve_claims = (bool) $this->newMemberCanApproveClaims;
+            $user->save();
+
+            $this->notice = "Successfully enrolled {$user->name} as " . ucfirst($user->role) . " (Temporary password: {$plainPassword}).";
+        } else {
+            $newId = count($this->teamMembers) + 1;
+            $managerName = '—';
+            if ($this->newMemberManagerId) {
+                foreach ($this->teamMembers as $m) {
+                    if ($m['id'] == $this->newMemberManagerId) {
+                        $managerName = $m['name'];
+                        break;
+                    }
+                }
+            }
+
+            $this->teamMembers[] = [
+                'id'                   => $newId,
+                'name'                 => trim($this->newMemberName),
+                'email'                => strtolower(trim($this->newMemberEmail)),
+                'role'                 => $this->newMemberRole,
+                'role_label'           => match ($this->newMemberRole) {
+                    'partner' => 'Partner / Principal',
+                    'manager' => 'Audit Manager',
+                    'student' => 'Articled Student',
+                    default   => ucfirst($this->newMemberRole),
+                },
+                'phone'                => '—',
+                'student_code'         => $this->newMemberRole === 'student' ? ($this->newMemberStudentCode ?: ('S-' . $newId)) : null,
+                'partner_unit'         => $this->newMemberPartnerUnit ?: $this->partnerUnit,
+                'manager_id'           => $this->newMemberManagerId ? (int) $this->newMemberManagerId : null,
+                'manager_name'         => $managerName,
+                'monthly_allowance'    => (float) $this->newMemberMonthlyAllowance,
+                'can_manage_team'      => (bool) $this->newMemberCanManageTeam,
+                'can_proxy_attendance' => (bool) $this->newMemberCanProxyAttendance,
+                'can_edit_attendance'  => (bool) $this->newMemberCanEditAttendance,
+                'can_approve_leave'    => (bool) $this->newMemberCanApproveLeave,
+                'can_approve_claims'   => (bool) $this->newMemberCanApproveClaims,
+                'created_at'           => date('d M Y'),
+            ];
+            $this->notice = "Successfully added {$this->newMemberName} to the team roster.";
+        }
+
+        $this->closeDialogs();
+        $this->loadTeamMembers();
+        $this->loadAttendanceRows();
+    }
+
+    public function openEditMemberModal($id): void
+    {
+        if (! $this->userCanManageTeam()) {
+            $this->error = 'Only Partners or authorized Managers can edit member profiles and permissions.';
+            return;
+        }
+
+        $member = collect($this->teamMembers)->firstWhere('id', $id);
+        if (! $member) {
+            $this->error = 'Member not found.';
+            return;
+        }
+
+        $this->closeDialogs();
+        $this->editMemberId = (int) $member['id'];
+        $this->editMemberName = $member['name'];
+        $this->editMemberEmail = $member['email'];
+        $this->editMemberRole = $member['role'];
+        $this->editMemberStudentCode = $member['student_code'] ?? '';
+        $this->editMemberManagerId = $member['manager_id'] ?? null;
+        $this->editMemberPartnerUnit = $member['partner_unit'] ?? $this->partnerUnit;
+        $this->editMemberMonthlyAllowance = (float) ($member['monthly_allowance'] ?? 0);
+        $this->editMemberCanManageTeam = (bool) ($member['can_manage_team'] ?? false);
+        $this->editMemberCanProxyAttendance = (bool) ($member['can_proxy_attendance'] ?? false);
+        $this->editMemberCanEditAttendance = (bool) ($member['can_edit_attendance'] ?? false);
+        $this->editMemberCanApproveLeave = (bool) ($member['can_approve_leave'] ?? false);
+        $this->editMemberCanApproveClaims = (bool) ($member['can_approve_claims'] ?? false);
+
+        $this->showEditMemberModal = true;
+    }
+
+    public function updateMember(): void
+    {
+        if (! $this->userCanManageTeam()) {
+            $this->error = 'Unauthorized action: Only Partners or authorized Managers can modify permissions.';
+            return;
+        }
+
+        $firmModel = Firm::where('slug', $this->firmSlug)->first();
+
+        if ($firmModel && Schema::hasTable('users')) {
+            $user = User::where('firm_id', $firmModel->id)->where('id', $this->editMemberId)->first();
+            if ($user) {
+                $user->role = $this->editMemberRole;
+                $user->partner_unit = $this->editMemberPartnerUnit;
+                $user->monthly_allowance = (float) $this->editMemberMonthlyAllowance;
+                if ($this->editMemberRole === 'student') {
+                    $user->student_code = $this->editMemberStudentCode ?: $user->student_code;
+                    $user->manager_id = !empty($this->editMemberManagerId) ? (int) $this->editMemberManagerId : null;
+                } else {
+                    $user->manager_id = null;
+                }
+                $user->can_manage_team = (bool) $this->editMemberCanManageTeam;
+                $user->can_proxy_attendance = (bool) $this->editMemberCanProxyAttendance;
+                $user->can_edit_attendance = (bool) $this->editMemberCanEditAttendance;
+                $user->can_approve_leave = (bool) $this->editMemberCanApproveLeave;
+                $user->can_approve_claims = (bool) $this->editMemberCanApproveClaims;
+                $user->save();
+
+                $this->notice = "Updated permissions and profile for {$user->name}.";
+            }
+        } else {
+            foreach ($this->teamMembers as &$m) {
+                if ($m['id'] == $this->editMemberId) {
+                    $m['role'] = $this->editMemberRole;
+                    $m['role_label'] = match ($this->editMemberRole) {
+                        'partner' => 'Partner / Principal',
+                        'manager' => 'Audit Manager',
+                        'student' => 'Articled Student',
+                        default   => ucfirst($this->editMemberRole),
+                    };
+                    $m['partner_unit'] = $this->editMemberPartnerUnit;
+                    $m['monthly_allowance'] = (float) $this->editMemberMonthlyAllowance;
+                    if ($this->editMemberRole === 'student') {
+                        $m['student_code'] = $this->editMemberStudentCode;
+                        $m['manager_id'] = $this->editMemberManagerId ? (int) $this->editMemberManagerId : null;
+                        if ($this->editMemberManagerId) {
+                            foreach ($this->teamMembers as $mgr) {
+                                if ($mgr['id'] == $this->editMemberManagerId) {
+                                    $m['manager_name'] = $mgr['name'];
+                                    break;
+                                }
+                            }
+                        } else {
+                            $m['manager_name'] = '—';
+                        }
+                    }
+                    $m['can_manage_team'] = (bool) $this->editMemberCanManageTeam;
+                    $m['can_proxy_attendance'] = (bool) $this->editMemberCanProxyAttendance;
+                    $m['can_edit_attendance'] = (bool) $this->editMemberCanEditAttendance;
+                    $m['can_approve_leave'] = (bool) $this->editMemberCanApproveLeave;
+                    $m['can_approve_claims'] = (bool) $this->editMemberCanApproveClaims;
+                    break;
+                }
+            }
+            unset($m);
+            $this->notice = "Updated permissions and profile for {$this->editMemberName}.";
+        }
+
+        $this->closeDialogs();
+        $this->loadTeamMembers();
+        $this->loadAttendanceRows();
+    }
+
+    public function confirmDeleteMember($id): void
+    {
+        if (! $this->userCanManageTeam()) {
+            $this->error = 'Only Partners or authorized Managers can remove practice members.';
+            return;
+        }
+
+        if (Auth::check() && Auth::id() == $id) {
+            $this->error = 'Security rule: You cannot delete your own active account.';
+            return;
+        }
+
+        $member = collect($this->teamMembers)->firstWhere('id', $id);
+        if (! $member) {
+            $this->error = 'Member not found.';
+            return;
+        }
+
+        $this->closeDialogs();
+        $this->selectedMemberId = (int) $member['id'];
+        $this->selectedMemberName = $member['name'];
+        $this->deleteConfirmationInput = '';
+        $this->showDeleteMemberModal = true;
+    }
+
+    public function deleteMember(): void
+    {
+        if (! $this->userCanManageTeam()) {
+            $this->error = 'Unauthorized: Only Partners or authorized Managers can remove team members.';
+            return;
+        }
+
+        $typed = strtoupper(trim($this->deleteConfirmationInput));
+        if ($typed !== 'DELETE' && $typed !== 'CONFIRM') {
+            $this->error = 'Security confirmation failed: You must type "DELETE" or "CONFIRM" exactly to proceed.';
+            return;
+        }
+
+        if (Auth::check() && Auth::id() == $this->selectedMemberId) {
+            $this->error = 'Security rule: You cannot delete your own active account.';
+            return;
+        }
+
+        $memberName = $this->selectedMemberName;
+        $memberId = $this->selectedMemberId;
+
+        $firmModel = Firm::where('slug', $this->firmSlug)->first();
+
+        if ($firmModel && Schema::hasTable('users')) {
+            $user = User::where('firm_id', $firmModel->id)->where('id', $memberId)->first();
+            if ($user) {
+                User::where('firm_id', $firmModel->id)->where('manager_id', $user->id)->update(['manager_id' => null]);
+                $user->delete();
+                $this->notice = "Member {$memberName} has been permanently removed from the practice.";
+            }
+        } else {
+            $this->teamMembers = array_values(array_filter($this->teamMembers, fn ($m) => $m['id'] != $memberId));
+            $this->notice = "Member {$memberName} has been permanently removed.";
+        }
+
+        $this->closeDialogs();
+        $this->loadTeamMembers();
+        $this->loadAttendanceRows();
+    }
+
     public function render()
     {
         if (! in_array($this->previewRole, self::ROLES, true)) {
@@ -1404,7 +1917,7 @@ class PracticePreview extends Component
             default => $studentRows,
         };
 
-        if (trim($this->search) !== '') {
+        if ($this->section !== 'team' && trim($this->search) !== '') {
             $query = mb_strtolower(trim($this->search));
             $rows = array_values(array_filter(
                 $rows,
@@ -1451,19 +1964,42 @@ class PracticePreview extends Component
                 }))
                 : $this->claimQueue);
 
+        // Filter team roster
+        $this->canManageTeam = $this->userCanManageTeam();
+        $filteredTeamMembers = $this->teamMembers;
+
+        if ($this->teamFilter !== 'all') {
+            $filteredTeamMembers = array_values(array_filter(
+                $filteredTeamMembers,
+                fn (array $m) => ($m['role'] ?? '') === $this->teamFilter
+            ));
+        }
+
+        if ($this->section === 'team' && trim($this->search) !== '') {
+            $sq = mb_strtolower(trim($this->search));
+            $filteredTeamMembers = array_values(array_filter(
+                $filteredTeamMembers,
+                fn (array $m) => str_contains(mb_strtolower(($m['name'] ?? '').' '.($m['email'] ?? '').' '.($m['student_code'] ?? '').' '.($m['role'] ?? '')), $sq)
+            ));
+        }
+
         return view('livewire.practice.preview', [
-            'rows'             => $rows,
-            'allRows'          => $studentRows,
-            'leaveQueue'       => $scopedLeaveQueue,
-            'claimQueue'       => $scopedClaimQueue,
-            'studentGrids'     => $this->studentGrids,
-            'partnerUnit'      => $this->partnerUnit,
-            'roleLabel'        => match ($this->previewRole) {
+            'rows'              => $rows,
+            'allRows'           => $studentRows,
+            'leaveQueue'        => $scopedLeaveQueue,
+            'claimQueue'        => $scopedClaimQueue,
+            'teamMembers'       => $filteredTeamMembers,
+            'allTeamMembers'    => $this->teamMembers,
+            'availableManagers' => $this->availableManagers,
+            'canManageTeam'     => $this->userCanManageTeam(),
+            'studentGrids'      => $this->studentGrids,
+            'partnerUnit'       => $this->partnerUnit,
+            'roleLabel'         => match ($this->previewRole) {
                 'manager' => 'Audit Manager',
                 'student' => 'Articled Student',
                 default   => 'Partner / Principal',
             },
-            'sectionLabel'     => [
+            'sectionLabel'      => [
                 'dashboard'     => 'Overview',
                 'attendance'    => 'Attendance',
                 'leave'         => 'Leave Management',
@@ -1472,6 +2008,7 @@ class PracticePreview extends Component
                 'notifications' => 'Notifications',
                 'policies'      => 'Policy & Governance',
                 'settings'      => 'Workspace Settings',
+                'team'          => 'Team & Members',
             ][$this->section],
         ])->layout('layouts.practice', [
             'title' => ($this->firm ? $this->firm['name'] : 'Practice Workspace') . ' — ' . ucfirst($this->section) . ' | DhakaWala ERP'

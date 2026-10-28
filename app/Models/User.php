@@ -42,6 +42,7 @@ class User extends Authenticatable
         'can_edit_attendance',
         'can_approve_leave',
         'can_approve_claims',
+        'can_manage_team',
         'monthly_allowance',
     ];
 
@@ -59,6 +60,7 @@ class User extends Authenticatable
             'can_edit_attendance'  => 'boolean',
             'can_approve_leave'    => 'boolean',
             'can_approve_claims'   => 'boolean',
+            'can_manage_team'      => 'boolean',
             'monthly_allowance'    => 'decimal:2',
         ];
     }
@@ -127,6 +129,15 @@ class User extends Authenticatable
     public function isFirmMember(): bool
     {
         return in_array($this->role, [self::ROLE_PARTNER, self::ROLE_MANAGER, self::ROLE_STUDENT]);
+    }
+
+    /**
+     * Check if this user is allowed to add, edit, or remove practice members.
+     * Partners always have full permission. Managers or Students require explicit delegation.
+     */
+    public function canManageTeam(): bool
+    {
+        return $this->isPlatformAdmin() || $this->isPartner() || (bool) $this->can_manage_team;
     }
 
     /**

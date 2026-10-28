@@ -154,4 +154,113 @@ class ProductionWorkspaceTest extends TestCase
             'user_id' => $this->student->id,
         ]);
     }
+
+    public function test_partner_can_view_team_roster_and_enroll_new_manager_and_student(): void
+    {
+        $this->actingAs($this->partner);
+
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'partner',
+            'section'     => 'team',
+        ])
+            ->assertSet('canManageTeam', true)
+            ->call('openAddMemberModal')
+            ->assertSet('showAddMemberModal', true)
+            ->set('newMemberName', 'Sayeda Tasnim, ACA')
+            ->set('newMemberEmail', 'tasnim.manager@rahmananis.com')
+            ->set('newMemberRole', 'manager')
+            ->set('newMemberPartnerUnit', 'Partner Unit 01')
+            ->set('newMemberMonthlyAllowance', 30000)
+            ->set('newMemberCanManageTeam', true)
+            ->call('createMember')
+            ->assertSet('error', null);
+
+        $this->assertDatabaseHas('users', [
+            'firm_id'         => $this->firm->id,
+            'name'            => 'Sayeda Tasnim, ACA',
+            'email'           => 'tasnim.manager@rahmananis.com',
+            'role'            => 'manager',
+            'can_manage_team' => true,
+        ]);
+    }
+
+    public function test_delegated_manager_can_add_members_but_non_delegated_cannot(): void
+    {
+        // 1. Initially manager has can_manage_team = false
+        $this->actingAs($this->manager);
+
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'manager',
+            'section'     => 'team',
+        ])
+            ->assertSet('canManageTeam', false)
+            ->call('openAddMemberModal')
+            ->assertSet('showAddMemberModal', false)
+            ->assertSet('error', 'Only Partners or authorized Managers can enroll new team members.');
+
+        // 2. Partner delegates can_manage_team = true to the manager
+        $this->manager->update(['can_manage_team' => true]);
+        $this->actingAs($this->manager->fresh());
+
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'manager',
+            'section'     => 'team',
+        ])
+            ->assertSet('canManageTeam', true)
+            ->call('openAddMemberModal')
+            ->assertSet('showAddMemberModal', true)
+            ->set('newMemberName', 'Kamrul Hasan')
+            ->set('newMemberEmail', 'kamrul.student@rahmananis.com')
+            ->set('newMemberRole', 'student')
+            ->set('newMemberStudentCode', 'S-105')
+            ->set('newMemberManagerId', $this->manager->id)
+            ->call('createMember')
+            ->assertSet('error', null);
+
+        $this->assertDatabaseHas('users', [
+            'firm_id'      => $this->firm->id,
+            'name'         => 'Kamrul Hasan',
+            'email'        => 'kamrul.student@rahmananis.com',
+            'role'         => 'student',
+            'student_code' => 'S-105',
+            'manager_id'   => $this->manager->id,
+        ]);
+    }
+
+    public function test_delete_member_requires_security_confirmation_and_prevents_self_deletion(): void
+    {
+        $this->actingAs($this->partner);
+
+        $component = Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'partner',
+            'section'     => 'team',
+        ]);
+
+        // Attempt self-deletion
+        $component->call('confirmDeleteMember', $this->partner->id)
+            ->assertSet('error', 'Security rule: You cannot delete your own active account.');
+
+        // Open delete modal for student
+        $component->call('confirmDeleteMember', $this->student->id)
+            ->assertSet('showDeleteMemberModal', true)
+            ->assertSet('selectedMemberId', $this->student->id);
+
+        // Fail with wrong text
+        $component->set('deleteConfirmationInput', 'WRONG')
+            ->call('deleteMember')
+            ->assertSet('error', 'Security confirmation failed: You must type "DELETE" or "CONFIRM" exactly to proceed.');
+
+        $this->assertDatabaseHas('users', ['id' => $this->student->id]);
+
+        // Proceed with DELETE
+        $component->set('deleteConfirmationInput', 'DELETE')
+            ->call('deleteMember')
+            ->assertSet('showDeleteMemberModal', false);
+
+        $this->assertDatabaseMissing('users', ['id' => $this->student->id]);
+    }
 }
