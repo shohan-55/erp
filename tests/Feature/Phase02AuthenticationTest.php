@@ -267,4 +267,17 @@ class Phase02AuthenticationTest extends TestCase
             ->call('setPreviewState', 'valid')
             ->assertSet('previewState', 'valid');
     }
+
+    public function test_firm_canonical_entry_route_redirects_guest_to_login(): void
+    {
+        $response = $this->get('/c/rac');
+        $response->assertRedirect(route('firm.login', ['firmSlug' => 'rac']));
+    }
+
+    public function test_firm_canonical_entry_route_returns_404_for_invalid_firm(): void
+    {
+        $response = $this->get('/c/definitely-non-existent-firm-xyz');
+        $response->assertStatus(404);
+    }
 }
+

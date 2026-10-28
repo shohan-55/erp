@@ -53,6 +53,37 @@ Route::prefix('c/{firmSlug}')->middleware('throttle:20,1')->group(function () {
     Route::get('/activate', AccountActivation::class)->name('firm.activate');
 });
 
+// Canonical Multi-Firm Practice Workspace Entry Route (/c/{firmSlug})
+Route::get('/c/{firmSlug}', function (string $firmSlug) {
+    $cleanSlug = strtolower(trim($firmSlug));
+    $firm = \App\Services\FirmRegistry::get($cleanSlug);
+
+    if (! $firm) {
+        abort(404, 'Practice workspace not found.');
+    }
+
+    if (Auth::check()) {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        if ($user->isFirmMember() && $user->belongsToFirm($cleanSlug)) {
+            return redirect()->route('firm.practice.preview', [
+                'firmSlug'    => $cleanSlug,
+                'previewRole' => $user->role,
+                'section'     => 'dashboard',
+            ]);
+        }
+        if ($user->isPlatformAdmin()) {
+            return redirect()->route('firm.practice.preview', [
+                'firmSlug'    => $cleanSlug,
+                'previewRole' => 'partner',
+                'section'     => 'dashboard',
+            ]);
+        }
+    }
+
+    return redirect()->route('firm.login', ['firmSlug' => $cleanSlug]);
+})->name('firm.workspace');
+
 // Standard Laravel Password Broker Reset Route
 Route::get('/reset-password/{token?}', ResetPassword::class)->name('password.reset');
 

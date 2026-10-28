@@ -266,6 +266,10 @@
                                         <td class="px-4 py-4 font-semibold">{{ $firm['seats'] }} <span class="text-xs font-normal text-slate-400">seats</span></td>
                                         <td class="px-4 py-4 text-slate-600 font-medium">{{ $firm['plan'] }}</td>
                                         <td class="px-5 py-4 text-right flex items-center justify-end gap-1.5">
+                                            <a href="{{ url('/c/'.$firm['slug']) }}" target="_blank" class="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-[#977000] hover:bg-amber-100 transition">
+                                                <span>Visit</span>
+                                                <i data-lucide="external-link" class="h-3 w-3"></i>
+                                            </a>
                                             <button type="button" wire:click="selectFirm('{{ $firm['id'] }}')" class="rounded-lg px-2.5 py-1.5 text-xs font-bold text-[#977000] hover:bg-amber-50">Manage / Domain</button>
                                             <button type="button" wire:click="openDeleteModal('{{ $firm['slug'] }}')" class="rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition">Delete</button>
                                             <button type="button" wire:click="backupAndDeleteFirm('{{ $firm['slug'] }}')" wire:confirm="Backup and delete {{ $firm['name'] }}?" class="rounded-lg bg-slate-100 px-2 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200">Backup & Delete</button>
@@ -293,6 +297,10 @@
                                 <div class="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
                                     <span>{{ $firm['workspaces'] }} workspaces · {{ $firm['seats'] }} seats</span>
                                     <div class="flex items-center gap-3">
+                                        <a href="{{ url('/c/'.$firm['slug']) }}" target="_blank" class="font-bold text-[#916800] hover:underline inline-flex items-center gap-0.5">
+                                            <span>Visit</span>
+                                            <i data-lucide="external-link" class="h-3 w-3"></i>
+                                        </a>
                                         <button wire:click="openDeleteModal('{{ $firm['slug'] }}')" type="button" class="font-bold text-rose-600 hover:text-rose-800">Delete</button>
                                         <button wire:click="selectFirm('{{ $firm['id'] }}')" type="button" class="font-bold text-[#916800]">View details →</button>
                                     </div>
@@ -423,10 +431,24 @@
                                 ['Seat Allocation', $selectedFirm['seats'].' Seats'],
                                 ['Primary Location', $selectedFirm['region']],
                             ] as $field)
-                                <div class="rounded-xl bg-slate-50 p-3">
-                                    <p class="text-[11px] text-slate-500">{{ $field[0] }}</p>
-                                    <p class="mt-1 font-bold text-slate-800 truncate">{{ $field[1] }}</p>
-                                </div>
+                                @if($field[0] === 'Workspace URL')
+                                    <div class="rounded-xl bg-amber-50/80 border border-amber-200/70 p-3">
+                                        <div class="flex items-center justify-between">
+                                            <p class="text-[11px] font-bold text-amber-900">{{ $field[0] }}</p>
+                                            <a href="{{ url('/c/'.$selectedFirm['slug']) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#977000] hover:text-amber-900 hover:underline">
+                                                <span>Open</span> <i data-lucide="external-link" class="h-3 w-3"></i>
+                                            </a>
+                                        </div>
+                                        <a href="{{ url('/c/'.$selectedFirm['slug']) }}" target="_blank" class="mt-1 block font-bold text-slate-900 hover:text-[#977000] truncate transition">
+                                            {{ $field[1] }}
+                                        </a>
+                                    </div>
+                                @else
+                                    <div class="rounded-xl bg-slate-50 p-3">
+                                        <p class="text-[11px] text-slate-500">{{ $field[0] }}</p>
+                                        <p class="mt-1 font-bold text-slate-800 truncate">{{ $field[1] }}</p>
+                                    </div>
+                                @endif
                             @endforeach
                         </div>
 
@@ -464,9 +486,14 @@
 
                     {{-- Modal Footer Actions --}}
                     <div class="flex-shrink-0 border-t border-slate-100 bg-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-                        <button type="button" wire:click="downloadFirmBackup('{{ $selectedFirm['slug'] }}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-100">
-                            <i data-lucide="download" class="h-3.5 w-3.5"></i> Backup JSON
-                        </button>
+                        <div class="w-full sm:w-auto flex items-center gap-2">
+                            <a href="{{ url('/c/'.$selectedFirm['slug']) }}" target="_blank" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#FCDF02] px-3.5 py-2 text-xs font-extrabold text-[#16181D] shadow-sm hover:bg-[#F3D604] transition">
+                                <i data-lucide="external-link" class="h-3.5 w-3.5"></i> Launch Workspace
+                            </a>
+                            <button type="button" wire:click="downloadFirmBackup('{{ $selectedFirm['slug'] }}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-100">
+                                <i data-lucide="download" class="h-3.5 w-3.5"></i> Backup JSON
+                            </button>
+                        </div>
                         <div class="w-full sm:w-auto flex items-center justify-end gap-2">
                             <button type="button" wire:click="openDeleteModal('{{ $selectedFirm['slug'] }}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700 transition">
                                 <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> Delete Firm
