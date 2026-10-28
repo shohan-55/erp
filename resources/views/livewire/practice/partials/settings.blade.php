@@ -1,6 +1,6 @@
 <section class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
     <div>
-        <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">WORKSPACE CONFIGURATION · PHASE 10</p>
+        <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">PRACTICE GOVERNANCE · POLICY &amp; PERMISSIONS</p>
         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Workspace Settings &amp; Partner Policy</h2>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">Configure independent Partner Unit policies, Manager delegation thresholds, and toggle active Student dashboard widgets.</p>
     </div>
@@ -8,8 +8,8 @@
         <div class="flex items-center gap-2">
             <label class="text-xs font-bold text-slate-600">Active Partner Unit:</label>
             <select wire:change="setPartnerUnit($event.target.value)" class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-extrabold text-amber-950 outline-none">
-                <option value="Partner Unit 01" @selected($partnerUnit === 'Partner Unit 01')>Partner Unit 01 (Mohitul Haq, FCA)</option>
-                <option value="Partner Unit 02" @selected($partnerUnit === 'Partner Unit 02')>Partner Unit 02 (Anwarul Kabir, FCA)</option>
+                <option value="Partner Unit 01" @selected($partnerUnit === 'Partner Unit 01')>Partner Unit 01</option>
+                <option value="Partner Unit 02" @selected($partnerUnit === 'Partner Unit 02')>Partner Unit 02</option>
             </select>
         </div>
     @endif

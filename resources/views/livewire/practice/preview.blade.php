@@ -23,16 +23,42 @@
             </div>
 
             <div class="px-4 pt-4">
-                <div class="rounded-xl border border-amber-400/20 bg-[#FCDF02]/10 p-3">
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-[#FCDF02]">Practice Role</p>
-                    <div class="mt-2 grid grid-cols-3 gap-1" aria-label="Practice persona">
-                        @foreach(['partner'=>'Partner','manager'=>'Manager','student'=>'Student'] as $role => $label)
-                            <button type="button" wire:key="role-{{ $role }}" wire:click="setPreviewRole('{{ $role }}')" @click="menuOpen = false"
-                                    class="rounded-lg px-1.5 py-2 text-[10px] font-bold transition {{ $previewRole === $role ? 'bg-[#FCDF02] text-[#17191F]' : 'bg-white/5 text-slate-300 hover:bg-white/10' }}"
-                                    @if($previewRole === $role) aria-current="true" @endif>{{ $label }}</button>
-                        @endforeach
+                @if(Auth::check() && !Auth::user()->isPlatformAdmin())
+                    <div class="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-3.5 shadow-inner">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FCDF02] text-xs font-black text-[#17191F] shadow-sm">
+                                {{ strtoupper(substr(Auth::user()->name ?? $previewRole, 0, 1)) }}
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-xs font-bold text-white">{{ Auth::user()->name }}</p>
+                                <div class="mt-0.5 flex items-center gap-1.5">
+                                    <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                                    <span class="truncate text-[10px] font-semibold text-amber-300">{{ $roleLabel }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex items-center justify-between border-t border-white/10 pt-2 text-[10px] text-slate-400">
+                            <span class="truncate">{{ $partnerUnit }}</span>
+                            <span class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[9px] text-emerald-300">SECURE NODE</span>
+                        </div>
                     </div>
-                </div>
+                @else
+                    <div class="rounded-xl border border-amber-400/20 bg-[#FCDF02]/10 p-3">
+                        <div class="flex items-center justify-between">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-[#FCDF02]">Practice Role</p>
+                            @if(Auth::check() && Auth::user()->isPlatformAdmin())
+                                <span class="rounded bg-amber-400/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">Admin View</span>
+                            @endif
+                        </div>
+                        <div class="mt-2 grid grid-cols-3 gap-1" aria-label="Practice persona">
+                            @foreach(['partner'=>'Partner','manager'=>'Manager','student'=>'Student'] as $role => $label)
+                                <button type="button" wire:key="role-{{ $role }}" wire:click="setPreviewRole('{{ $role }}')" @click="menuOpen = false"
+                                        class="rounded-lg px-1.5 py-2 text-[10px] font-bold transition {{ $previewRole === $role ? 'bg-[#FCDF02] text-[#17191F]' : 'bg-white/5 text-slate-300 hover:bg-white/10' }}"
+                                        @if($previewRole === $role) aria-current="true" @endif>{{ $label }}</button>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
                 <div class="mt-3 rounded-xl border border-white/5 bg-white/5 px-3 py-2.5">
                     <div class="text-[11px] font-bold text-white">{{ $partnerUnit }}</div>
                     <div class="mt-1 text-[10px] text-slate-400">{{ $firm['name'] ?? 'Practice' }} • Isolated Scope</div>
@@ -65,10 +91,10 @@
 
             <div class="border-t border-white/10 p-4">
                 <div class="flex items-center gap-3 rounded-xl bg-white/5 p-3">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FCDF02] text-xs font-extrabold text-[#17191F]">{{ strtoupper(substr($previewRole,0,1)) }}</div>
-                    <div class="min-w-0">
-                        <p class="truncate text-xs font-bold text-white">{{ $roleLabel }}</p>
-                        <p class="truncate text-[10px] text-slate-400">CA Practice Member</p>
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FCDF02] text-xs font-extrabold text-[#17191F]">{{ strtoupper(substr(Auth::user()->name ?? $previewRole,0,1)) }}</div>
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate text-xs font-bold text-white">{{ Auth::user()->name ?? $roleLabel }}</p>
+                        <p class="truncate text-[10px] text-slate-400">{{ Auth::user()->email ?? ($roleLabel . ' • ' . ($firm['name'] ?? 'Practice')) }}</p>
                     </div>
                 </div>
             </div>
@@ -89,7 +115,7 @@
                     <i data-lucide="bell" class="h-[18px] w-[18px]"></i>
                     <span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-[#17191F]">3</span>
                 </button>
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-[#17191F] text-xs font-extrabold text-[#FCDF02]">{{ strtoupper(substr($previewRole,0,1)) }}</div>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-[#17191F] text-xs font-extrabold text-[#FCDF02]">{{ strtoupper(substr(Auth::user()->name ?? $previewRole,0,1)) }}</div>
             </header>
 
             <main class="mx-auto max-w-[1480px] space-y-6 px-4 py-6 sm:px-7 lg:px-9 lg:py-8">

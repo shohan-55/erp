@@ -407,6 +407,7 @@ class PracticePreview extends Component
                             'remarks'        => $att?->edit_remarks ?? '',
                         ];
                     })->toArray();
+                    return;
                 } else {
                     $this->studentRows = [];
                     return;
@@ -500,6 +501,9 @@ class PracticePreview extends Component
                         'partner_remarks' => $lr->partner_remarks ?? '',
                     ])->toArray();
                     return;
+                } elseif (Auth::check()) {
+                    $this->leaveQueue = [];
+                    return;
                 }
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('loadLeaveQueue error: ' . $e->getMessage());
@@ -592,6 +596,9 @@ class PracticePreview extends Component
                             'manager_remarks'   => $cc->manager_remarks ?? '',
                             'partner_remarks'   => $cc->partner_remarks ?? '',
                         ])->toArray();
+                        return;
+                    } elseif (Auth::check()) {
+                        $this->claimQueue = [];
                         return;
                     }
                 } catch (\Throwable $e) {
@@ -875,6 +882,46 @@ class PracticePreview extends Component
 
         $this->persistAttendanceRows();
 
+        // Persist to real database for authenticated firm members
+        if (Auth::check() && Schema::hasTable('attendances') && Schema::hasTable('firms')) {
+            try {
+                $user = Auth::user();
+                $firm = Firm::where('slug', $this->firmSlug)->first();
+                $firmId = $firm?->id ?? $user->firm_id;
+
+                if ($firmId) {
+                    $att = Attendance::firstOrNew([
+                        'firm_id' => $firmId,
+                        'user_id' => $user->id,
+                        'date'    => now()->toDateString(),
+                    ]);
+
+                    if ($this->previewSessionActive) {
+                        $att->work_mode = $this->workMode;
+                        $att->client_site = $this->workMode === 'client' ? $this->clientSite : null;
+                        $att->in_time = now();
+                        $att->in_lat = $lat;
+                        $att->in_lng = $lng;
+                        $att->in_location_name = $locName;
+                        $isLate = $nowTime > ($this->officeStart ?: '10:00');
+                        $att->status = $isLate ? 'Late' : 'On time';
+                    } else {
+                        $att->out_time = now();
+                        $att->out_lat = $lat;
+                        $att->out_lng = $lng;
+                        $att->out_location_name = $locName;
+                    }
+                    $att->save();
+
+                    $this->loadAttendanceRows();
+                    $this->notice = $this->previewSessionActive
+                        ? "Check-in logged successfully at {$nowTime} from {$locName}."
+                        : "Check-out logged successfully at {$nowTime}.";
+                    return;
+                }
+            } catch (\Throwable) {}
+        }
+
         $this->notice = $this->previewSessionActive
             ? "Check-in appearance simulated. Location captured: {$locName} ({$lat}, {$lng}). No timestamp, geolocation or attendance record was saved."
             : "Check-out appearance simulated. Out Location captured: {$locName} ({$lat}, {$lng}). No timestamp, geolocation or attendance record was saved.";
@@ -882,12 +929,19 @@ class PracticePreview extends Component
 
     // ─── Multi-Tier Leave Workflow Methods ─────────────────────────────────────
 
+    public function submitLeaveApplication(): void
+    {
+        $this->submitLeaveDemo();
+    }
+
     public function submitLeaveDemo(): void
     {
         $this->error = null;
         $this->notice = null;
         if ($this->previewRole !== 'student') {
-            $this->error = 'Only the Student design role can preview a new leave application.';
+            $this->error = Auth::check()
+                ? 'Only the Student role can submit a new leave application.'
+                : 'Only the Student design role can preview a new leave application.';
             return;
         }
 
@@ -902,8 +956,6 @@ class PracticePreview extends Component
             return;
         }
 
-        // Add to active leave queue
-        $newId = 'LR-' . (count($this->leaveQueue) + 101);
         $typeLabel = match ($this->leaveType) {
             'icab_exam'  => 'ICAB Exam Preparation',
             'icab_study' => 'ICAB Study Leave',
@@ -912,10 +964,44 @@ class PracticePreview extends Component
             default      => 'Annual Leave',
         };
 
+        if (Auth::check() && Schema::hasTable('leave_requests') && Schema::hasTable('firms')) {
+            try {
+                $user = Auth::user();
+                $firm = Firm::where('slug', $this->firmSlug)->first();
+                $firmId = $firm?->id ?? $user->firm_id;
+
+                if ($firmId) {
+                    LeaveRequest::create([
+                        'firm_id'         => $firmId,
+                        'user_id'         => $user->id,
+                        'leave_type'      => $this->leaveType,
+                        'start_date'      => $this->leaveStart,
+                        'end_date'        => $this->leaveEnd,
+                        'reason'          => $this->leaveReason,
+                        'status'          => 'pending_manager',
+                        'manager_remarks' => '',
+                        'partner_remarks' => '',
+                    ]);
+
+                    $this->loadLeaveQueue();
+                    $this->leaveReason = '';
+                    $this->notice = "Leave application ({$typeLabel}) submitted successfully. Forwarded to Manager for review.";
+                    $this->dispatch('toast', [
+                        'type'    => 'success',
+                        'title'   => 'Leave Submitted',
+                        'message' => "Your leave application ({$typeLabel}) has been forwarded to your Manager.",
+                    ]);
+                    return;
+                }
+            } catch (\Throwable) {}
+        }
+
+        // Add to active leave queue (in-memory / test environment)
+        $newId = 'LR-' . (count($this->leaveQueue) + 101);
         $this->leaveQueue[] = [
             'id'              => $newId,
-            'name'            => 'Sample Student 01',
-            'student_code'    => 'S-101',
+            'name'            => Auth::check() ? Auth::user()->name : 'Sample Student 01',
+            'student_code'    => Auth::check() ? (Auth::user()->student_code ?? 'S-101') : 'S-101',
             'manager'         => 'Sample Manager A',
             'partner_unit'    => $this->partnerUnit,
             'type'            => $typeLabel,
@@ -937,6 +1023,21 @@ class PracticePreview extends Component
             return;
         }
 
+        if (Schema::hasTable('leave_requests')) {
+            try {
+                $dbId = str_replace('LR-', '', $id);
+                $lr = LeaveRequest::find($dbId);
+                if ($lr) {
+                    $lr->status = 'pending_partner';
+                    $lr->manager_remarks = $remarks ?: 'Manager reviewed and recommended for Partner sanction.';
+                    if (Auth::check()) {
+                        $lr->reviewed_by = Auth::id();
+                    }
+                    $lr->save();
+                }
+            } catch (\Throwable) {}
+        }
+
         foreach ($this->leaveQueue as &$req) {
             if ($req['id'] === $id) {
                 $req['status'] = 'pending_partner';
@@ -954,6 +1055,21 @@ class PracticePreview extends Component
         if ($this->previewRole !== 'partner') {
             $this->error = 'Only a Partner can give final leave approval.';
             return;
+        }
+
+        if (Schema::hasTable('leave_requests')) {
+            try {
+                $dbId = str_replace('LR-', '', $id);
+                $lr = LeaveRequest::find($dbId);
+                if ($lr) {
+                    $lr->status = 'approved';
+                    $lr->partner_remarks = $remarks ?: 'Approved by Partner ' . $this->partnerUnit . '.';
+                    if (Auth::check()) {
+                        $lr->partner_id = Auth::id();
+                    }
+                    $lr->save();
+                }
+            } catch (\Throwable) {}
         }
 
         foreach ($this->leaveQueue as &$req) {
@@ -975,6 +1091,18 @@ class PracticePreview extends Component
             return;
         }
 
+        if (Schema::hasTable('leave_requests')) {
+            try {
+                $dbId = str_replace('LR-', '', $id);
+                $lr = LeaveRequest::find($dbId);
+                if ($lr) {
+                    $lr->status = 'rejected';
+                    $lr->partner_remarks = $reason ?: ('Rejected by ' . ucfirst($this->previewRole));
+                    $lr->save();
+                }
+            } catch (\Throwable) {}
+        }
+
         foreach ($this->leaveQueue as &$req) {
             if ($req['id'] === $id) {
                 $req['status'] = 'rejected';
@@ -989,12 +1117,19 @@ class PracticePreview extends Component
 
     // ─── Multi-Tier Conveyance Workflow Methods ───────────────────────────────
 
+    public function submitConveyanceClaim(): void
+    {
+        $this->submitClaimDemo();
+    }
+
     public function submitClaimDemo(): void
     {
         $this->error = null;
         $this->notice = null;
         if ($this->previewRole !== 'student') {
-            $this->error = 'Only the Student design role can preview a new conveyance claim.';
+            $this->error = Auth::check()
+                ? 'Only the Student role can submit a conveyance claim.'
+                : 'Only the Student design role can preview a new conveyance claim.';
             return;
         }
 
@@ -1012,11 +1147,49 @@ class PracticePreview extends Component
         $daysAgo = (int) now()->diffInDays($claimDateTime);
         $isLate = $daysAgo > $this->conveyanceLateDays;
 
+        if (Auth::check() && Schema::hasTable('conveyance_claims') && Schema::hasTable('firms')) {
+            try {
+                $user = Auth::user();
+                $firm = Firm::where('slug', $this->firmSlug)->first();
+                $firmId = $firm?->id ?? $user->firm_id;
+
+                if ($firmId) {
+                    ConveyanceClaim::create([
+                        'firm_id'           => $firmId,
+                        'user_id'           => $user->id,
+                        'claim_date'        => $this->claimDate,
+                        'amount'            => $amount,
+                        'original_amount'   => $amount,
+                        'route'             => $this->claimRoute,
+                        'purpose'           => $this->claimPurpose,
+                        'client_name'       => $this->claimClientName ?: 'General Practice Site',
+                        'is_late'           => $isLate,
+                        'status'            => $isLate ? 'pending_partner' : 'pending_manager',
+                        'manager_remarks'   => $isLate ? "Submitted {$daysAgo} days late (> {$this->conveyanceLateDays} days policy)." : '',
+                        'partner_remarks'   => '',
+                    ]);
+
+                    $this->loadClaimQueue();
+                    $this->claimAmount = '';
+                    $this->claimRoute = '';
+                    $this->claimPurpose = '';
+                    $statusLabel = $isLate ? 'Escalated to Partner (Late Submission)' : 'Forwarded to Manager';
+                    $this->notice = "Conveyance claim of ৳{$amount} submitted successfully. Status: {$statusLabel}.";
+                    $this->dispatch('toast', [
+                        'type'    => 'success',
+                        'title'   => 'Claim Submitted',
+                        'message' => "Your conveyance claim for ৳{$amount} has been logged.",
+                    ]);
+                    return;
+                }
+            } catch (\Throwable) {}
+        }
+
         $newId = 'CC-' . (count($this->claimQueue) + 201);
         $this->claimQueue[] = [
             'id'                => $newId,
-            'name'              => 'Sample Student 01',
-            'student_code'      => 'S-101',
+            'name'              => Auth::check() ? Auth::user()->name : 'Sample Student 01',
+            'student_code'      => Auth::check() ? (Auth::user()->student_code ?? 'S-101') : 'S-101',
             'manager'           => 'Sample Manager A',
             'partner_unit'      => $this->partnerUnit,
             'client_name'       => $this->claimClientName ?: 'General Practice Site',
@@ -1039,6 +1212,28 @@ class PracticePreview extends Component
         if ($this->previewRole !== 'manager' && $this->previewRole !== 'partner') {
             $this->error = 'Only an assigned Manager or Partner can review conveyance claims.';
             return;
+        }
+
+        if (Schema::hasTable('conveyance_claims')) {
+            try {
+                $dbId = str_replace('CC-', '', $id);
+                $cc = ConveyanceClaim::find($dbId);
+                if ($cc) {
+                    if ($action === 'reject') {
+                        $cc->status = 'rejected';
+                        $cc->manager_remarks = $adjustmentRemark ?: 'Rejected by Manager.';
+                    } else {
+                        $cc->amount = $adjustedAmount;
+                        $cc->adjustment_remark = $adjustmentRemark;
+                        $exceedsLimit = $adjustedAmount > $this->managerConveyanceLimit;
+                        $cc->status = ($exceedsLimit || $cc->is_late) ? 'pending_partner' : 'approved';
+                    }
+                    if (Auth::check()) {
+                        $cc->reviewed_by = Auth::id();
+                    }
+                    $cc->save();
+                }
+            } catch (\Throwable) {}
         }
 
         foreach ($this->claimQueue as &$claim) {
@@ -1085,6 +1280,21 @@ class PracticePreview extends Component
             return;
         }
 
+        if (Schema::hasTable('conveyance_claims')) {
+            try {
+                $dbId = str_replace('CC-', '', $id);
+                $cc = ConveyanceClaim::find($dbId);
+                if ($cc) {
+                    $cc->status = 'approved';
+                    $cc->partner_remarks = $remarks ?: ('Sanctioned by Partner ' . $this->partnerUnit . '.');
+                    if (Auth::check()) {
+                        $cc->partner_id = Auth::id();
+                    }
+                    $cc->save();
+                }
+            } catch (\Throwable) {}
+        }
+
         foreach ($this->claimQueue as &$claim) {
             if ($claim['id'] === $id) {
                 $claim['status'] = 'approved';
@@ -1102,6 +1312,17 @@ class PracticePreview extends Component
         if ($this->previewRole === 'student') {
             $this->error = 'Students cannot reject claims.';
             return;
+        }
+        if (Schema::hasTable('conveyance_claims')) {
+            try {
+                $dbId = str_replace('CC-', '', $id);
+                $cc = ConveyanceClaim::find($dbId);
+                if ($cc) {
+                    $cc->status = 'rejected';
+                    $cc->partner_remarks = $remarks ?: ('Rejected by ' . ucfirst($this->previewRole));
+                    $cc->save();
+                }
+            } catch (\Throwable) {}
         }
 
         foreach ($this->claimQueue as &$claim) {
@@ -1165,10 +1386,20 @@ class PracticePreview extends Component
 
         $rows = match ($this->previewRole) {
             'manager' => array_values(array_filter(
-                $studentRows, fn (array $row) => $row['manager'] === 'Sample Manager A'
+                $studentRows, function (array $row) {
+                    if (Auth::check() && Auth::user()->isManager()) {
+                        return $row['manager'] === Auth::user()->name;
+                    }
+                    return $row['manager'] === 'Sample Manager A';
+                }
             )),
             'student' => array_values(array_filter(
-                $studentRows, fn (array $row) => $row['id'] === 'S-101'
+                $studentRows, function (array $row) {
+                    if (Auth::check() && Auth::user()->isStudent()) {
+                        return ($row['db_id'] ?? null) === Auth::id() || (Auth::user()->student_code && $row['id'] === Auth::user()->student_code);
+                    }
+                    return $row['id'] === 'S-101';
+                }
             )),
             default => $studentRows,
         };
@@ -1189,15 +1420,35 @@ class PracticePreview extends Component
 
         // Filter queues by role
         $scopedLeaveQueue = $this->previewRole === 'student'
-            ? array_values(array_filter($this->leaveQueue, fn ($q) => ($q['student_code'] ?? '') === 'S-101'))
+            ? array_values(array_filter($this->leaveQueue, function ($q) {
+                if (Auth::check() && Auth::user()->isStudent()) {
+                    return ($q['user_id'] ?? null) === Auth::id() || ($q['student_code'] ?? '') === (Auth::user()->student_code ?? 'S-101');
+                }
+                return ($q['student_code'] ?? '') === 'S-101';
+            }))
             : ($this->previewRole === 'manager'
-                ? array_values(array_filter($this->leaveQueue, fn ($q) => ($q['manager'] ?? '') === 'Sample Manager A'))
+                ? array_values(array_filter($this->leaveQueue, function ($q) {
+                    if (Auth::check() && Auth::user()->isManager()) {
+                        return ($q['manager'] ?? '') === Auth::user()->name;
+                    }
+                    return ($q['manager'] ?? '') === 'Sample Manager A';
+                }))
                 : $this->leaveQueue);
 
         $scopedClaimQueue = $this->previewRole === 'student'
-            ? array_values(array_filter($this->claimQueue, fn ($q) => ($q['student_code'] ?? '') === 'S-101'))
+            ? array_values(array_filter($this->claimQueue, function ($q) {
+                if (Auth::check() && Auth::user()->isStudent()) {
+                    return ($q['user_id'] ?? null) === Auth::id() || ($q['student_code'] ?? '') === (Auth::user()->student_code ?? 'S-101');
+                }
+                return ($q['student_code'] ?? '') === 'S-101';
+            }))
             : ($this->previewRole === 'manager'
-                ? array_values(array_filter($this->claimQueue, fn ($q) => ($q['manager'] ?? '') === 'Sample Manager A'))
+                ? array_values(array_filter($this->claimQueue, function ($q) {
+                    if (Auth::check() && Auth::user()->isManager()) {
+                        return ($q['manager'] ?? '') === Auth::user()->name;
+                    }
+                    return ($q['manager'] ?? '') === 'Sample Manager A';
+                }))
                 : $this->claimQueue);
 
         return view('livewire.practice.preview', [

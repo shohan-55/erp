@@ -11,9 +11,9 @@
             @endif
         </h2>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
-            @if($previewRole === 'partner') Example {{ $partnerUnit }} dashboard. Records from other Partners are deliberately excluded from this screen.
-            @elseif($previewRole === 'manager') Example view of only assigned students under {{ $partnerUnit }}.
-            @else A personal-first experience for an articled student. Only your own attendance, leave, and conveyance rows appear.
+            @if($previewRole === 'partner') Autonomous practice operations for {{ $partnerUnit }}. Multi-partner zero-trust boundary active.
+            @elseif($previewRole === 'manager') Team supervision and operational workflows for assigned articled students under {{ $partnerUnit }}.
+            @else Personal attendance, leave allowance, and client conveyance ledger.
             @endif
         </p>
     </div>
@@ -32,21 +32,21 @@
     @php
         $metricCards = match ($previewRole) {
             'partner' => [
-                ['label'=>'Active Students', 'value'=> sprintf('%02d', count($rows) ?: 4), 'icon'=>'users', 'note'=>$partnerUnit . ' scope'],
-                ['label'=>'Present Today', 'value'=> sprintf('%02d', count(array_filter($rows, fn($r) => ($r['status'] ?? '') === 'On time')) ?: 2), 'icon'=>'clock-3', 'note'=>'Live check-ins'],
-                ['label'=>'Pending Leaves', 'value'=> sprintf('%02d', count($leaveQueue) ?: 2), 'icon'=>'calendar-days', 'note'=>'Queue for approval'],
-                ['label'=>'Conveyance Claims', 'value'=> sprintf('%02d', count($claimQueue) ?: 3), 'icon'=>'receipt', 'note'=>'Awaiting verification'],
+                ['label'=>'Active Students', 'value'=> sprintf('%02d', count($rows)), 'icon'=>'users', 'note'=>$partnerUnit . ' scope'],
+                ['label'=>'Present Today', 'value'=> sprintf('%02d', count(array_filter($rows, fn($r) => ($r['status'] ?? '') === 'On time'))), 'icon'=>'clock-3', 'note'=>'Live check-ins'],
+                ['label'=>'Pending Leaves', 'value'=> sprintf('%02d', count($leaveQueue)), 'icon'=>'calendar-days', 'note'=>'Queue for approval'],
+                ['label'=>'Conveyance Claims', 'value'=> sprintf('%02d', count($claimQueue)), 'icon'=>'receipt', 'note'=>'Awaiting verification'],
             ],
             'manager' => [
-                ['label'=>'Assigned Team', 'value'=> sprintf('%02d', count($rows) ?: 2), 'icon'=>'users', 'note'=>'Manager supervision'],
-                ['label'=>'Checked In', 'value'=> sprintf('%02d', count(array_filter($rows, fn($r) => ($r['status'] ?? '') === 'On time')) ?: 1), 'icon'=>'clock-3', 'note'=>'Today\'s arrivals'],
-                ['label'=>'Pending Approvals', 'value'=> sprintf('%02d', count($leaveQueue) ?: 2), 'icon'=>'clipboard-check', 'note'=>'Action required'],
-                ['label'=>'Open Audits', 'value'=>'03', 'icon'=>'list-todo', 'note'=>'Audit site assignments'],
+                ['label'=>'Assigned Team', 'value'=> sprintf('%02d', count($rows)), 'icon'=>'users', 'note'=>'Manager supervision'],
+                ['label'=>'Checked In', 'value'=> sprintf('%02d', count(array_filter($rows, fn($r) => ($r['status'] ?? '') === 'On time'))), 'icon'=>'clock-3', 'note'=>'Today\'s arrivals'],
+                ['label'=>'Pending Approvals', 'value'=> sprintf('%02d', count($leaveQueue)), 'icon'=>'clipboard-check', 'note'=>'Action required'],
+                ['label'=>'Open Audits', 'value'=> sprintf('%02d', count($claimQueue)), 'icon'=>'list-todo', 'note'=>'Audit site assignments'],
             ],
             default => [
-                ['label'=>'My Attendance', 'value'=>'01', 'icon'=>'calendar-check-2', 'note'=>'Recorded today'],
+                ['label'=>'My Attendance', 'value'=> sprintf('%02d', count(array_filter($rows, fn($r) => ($r['status'] ?? '') === 'On time'))), 'icon'=>'calendar-check-2', 'note'=>'Recorded today'],
                 ['label'=>'Leave Balance', 'value'=>'14', 'icon'=>'calendar-days', 'note'=>'Days available'],
-                ['label'=>'Pending Claims', 'value'=> sprintf('%02d', count($claimQueue) ?: 1), 'icon'=>'receipt', 'note'=>'Submitted this month'],
+                ['label'=>'Pending Claims', 'value'=> sprintf('%02d', count($claimQueue)), 'icon'=>'receipt', 'note'=>'Submitted this month'],
                 ['label'=>'Firm Notices', 'value'=>'03', 'icon'=>'bell', 'note'=>'Practice announcements'],
             ],
         };
@@ -71,12 +71,12 @@
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-5">
                     <div>
                         <h3 class="text-sm font-extrabold text-slate-900">{{ $previewRole === 'student' ? 'My Attendance Snapshot' : 'Team Attendance Snapshot' }}</h3>
-                        <p class="mt-1 text-xs text-slate-500">{{ $partnerUnit }} · Fictional office and client engagement activity</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ $partnerUnit }} · Daily office and client site audit activity</p>
                     </div>
                     <button type="button" wire:click="setSection('attendance')" class="text-xs font-bold text-amber-800 hover:underline">View all →</button>
                 </div>
                 <div class="divide-y divide-slate-100">
-                    @foreach ($previewRole === 'partner' ? $allRows : array_values(array_filter($allRows, fn($r) => $previewRole === 'student' ? $r['id'] === 'S-101' : $r['manager'] === 'Sample Manager A')) as $item)
+                    @forelse ($rows as $item)
                         <div wire:key="dash-row-{{ $item['id'] }}" class="flex items-center gap-3 px-5 py-4">
                             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-extrabold text-slate-700">{{ substr($item['id'], -3) }}</div>
                             <div class="min-w-0 flex-1">
@@ -85,7 +85,12 @@
                             </div>
                             <span class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold {{ $item['status'] === 'On time' ? 'bg-emerald-50 text-emerald-700' : ($item['status'] === 'Late' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-600') }}">{{ $item['status'] }}</span>
                         </div>
-                    @endforeach
+                    @empty
+                        <div class="px-5 py-8 text-center text-xs text-slate-400">
+                            <i data-lucide="calendar-x-2" class="mx-auto mb-2 h-6 w-6 text-slate-300"></i>
+                            No attendance records logged for today yet. Team check-ins will appear here in real-time.
+                        </div>
+                    @endforelse
                 </div>
             </section>
         @endif

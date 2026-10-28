@@ -40,7 +40,7 @@
                 </div>
                 <p class="mt-2 text-xs leading-relaxed text-slate-500">Tag your audit client, route, and fare. Claims submitted after {{ $conveyanceLateDays }} days will be flagged for Partner review.</p>
 
-                <form wire:submit.prevent="submitClaimDemo" class="mt-6 space-y-4" novalidate>
+                <form wire:submit.prevent="submitConveyanceClaim" class="mt-6 space-y-4" novalidate>
                     <div class="grid gap-3 sm:grid-cols-2">
                         <label class="block text-xs font-bold text-slate-700">Journey Date
                             <input type="date" wire:model="claimDate" required class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-amber-400">

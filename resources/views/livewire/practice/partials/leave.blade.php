@@ -21,7 +21,7 @@
                 </div>
                 <p class="mt-2 text-xs text-slate-500">Select leave category, specify dates, and submit. Application will be routed to your assigned Manager.</p>
 
-                <form wire:submit.prevent="submitLeaveDemo" class="mt-6 space-y-4" novalidate>
+                <form wire:submit.prevent="submitLeaveApplication" class="mt-6 space-y-4" novalidate>
                     <label class="block text-xs font-bold text-slate-700">Leave Category
                         <select wire:model="leaveType" class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-amber-400">
                             <option value="annual">Annual Leave (Casual)</option>
