@@ -241,5 +241,73 @@ class Phase03PlatformDashboardTest extends TestCase
         // Firm permanently deleted
         $this->assertDatabaseMissing('firms', ['id' => $firm->id]);
     }
+
+    public function test_firm_deletion_handles_tables_safely_without_crashing_on_missing_columns(): void
+    {
+        $this->artisan('migrate');
+        $this->seed();
+
+        $firm = Firm::create([
+            'name'       => 'Safe Delete Test Firm',
+            'slug'       => 'safe-delete-firm',
+            'kind'       => 'Chartered Accountants',
+            'status'     => 'active',
+            'workspaces' => 1,
+            'seats'      => 10,
+            'plan'       => 'Practice',
+            'region'     => 'Dhaka',
+            'initials'   => 'SD',
+        ]);
+
+        $user = User::create([
+            'name'              => 'Firm Student',
+            'email'             => 'student.safedelete@dhakawala.com',
+            'password'          => bcrypt('secret123'),
+            'firm_id'           => $firm->id,
+            'role'              => 'student',
+            'student_code'      => 'S-SD-1',
+            'monthly_allowance' => 8000.00,
+        ]);
+
+        // Create leave request and conveyance claim if tables exist
+        if (\Illuminate\Support\Facades\Schema::hasTable('leave_requests')) {
+            \Illuminate\Support\Facades\DB::table('leave_requests')->insert([
+                'firm_id'    => $firm->id,
+                'user_id'    => $user->id,
+                'leave_type' => 'annual',
+                'start_date' => now()->toDateString(),
+                'end_date'   => now()->addDays(2)->toDateString(),
+                'reason'     => 'Test leave',
+                'status'     => 'pending_manager',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('conveyance_claims')) {
+            \Illuminate\Support\Facades\DB::table('conveyance_claims')->insert([
+                'firm_id'         => $firm->id,
+                'user_id'         => $user->id,
+                'claim_date'      => now()->toDateString(),
+                'amount'          => 150.00,
+                'route'           => 'Office -> Client',
+                'purpose'         => 'Audit field work',
+                'status'          => 'pending_manager',
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ]);
+        }
+
+        // Test deletion with confirmation
+        Livewire::test(DashboardPreview::class)
+            ->call('openDeleteModal', $firm->slug)
+            ->set('deleteConfirmationInput', 'confirm')
+            ->call('confirmDeleteOrganization')
+            ->assertSet('showDeleteModal', false)
+            ->assertDispatched('toast');
+
+        $this->assertDatabaseMissing('firms', ['id' => $firm->id]);
+        $this->assertDatabaseMissing('users', ['id' => $user->id]);
+    }
 }
 

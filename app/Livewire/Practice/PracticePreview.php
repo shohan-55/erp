@@ -468,9 +468,15 @@ class PracticePreview extends Component
         if (Schema::hasTable('leave_requests') && Schema::hasTable('users')) {
             $firmModel = Firm::where('slug', $this->firmSlug)->first();
             if ($firmModel) {
-                $dbLeaves = LeaveRequest::with(['user.manager', 'reviewer', 'partner'])
-                    ->where('firm_id', $firmModel->id)
-                    ->get();
+                try {
+                    $leavesQuery = LeaveRequest::with(['user.manager', 'reviewer', 'partner']);
+                    if (Schema::hasColumn('leave_requests', 'firm_id')) {
+                        $leavesQuery->where('firm_id', $firmModel->id);
+                    } elseif (Schema::hasColumn('leave_requests', 'user_id')) {
+                        $userIds = DB::table('users')->where('firm_id', $firmModel->id)->pluck('id')->all();
+                        $leavesQuery->whereIn('user_id', $userIds);
+                    }
+                    $dbLeaves = $leavesQuery->get();
                 if ($dbLeaves->isNotEmpty()) {
                     $this->leaveQueue = $dbLeaves->map(fn (LeaveRequest $lr) => [
                         'id'              => 'LR-' . $lr->id,
@@ -494,10 +500,10 @@ class PracticePreview extends Component
                         'partner_remarks' => $lr->partner_remarks ?? '',
                     ])->toArray();
                     return;
-                } elseif ($firmModel->slug !== 'rac') {
-                    $this->leaveQueue = [];
-                    return;
                 }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('loadLeaveQueue error: ' . $e->getMessage());
+            }
             }
         }
 
@@ -552,38 +558,44 @@ class PracticePreview extends Component
         if (Schema::hasTable('conveyance_claims') && Schema::hasTable('users')) {
             $firmModel = Firm::where('slug', $this->firmSlug)->first();
             if ($firmModel) {
-                $dbClaims = ConveyanceClaim::with(['user.manager', 'reviewer'])
-                    ->where('firm_id', $firmModel->id)
-                    ->get();
-                if ($dbClaims->isNotEmpty()) {
-                    $this->claimQueue = $dbClaims->map(fn (ConveyanceClaim $cc) => [
-                        'id'                => 'CC-' . $cc->id,
-                        'db_id'             => $cc->id,
-                        'name'              => $cc->user->name,
-                        'student_code'      => $cc->user->student_code ?? ('S-' . $cc->user_id),
-                        'manager'           => $cc->user->manager?->name ?? 'Direct Report',
-                        'partner_unit'      => $cc->user->partner_unit ?? $this->partnerUnit,
-                        'client_name'       => $cc->client_name,
-                        'route'             => $cc->route,
-                        'amount'            => (float) $cc->amount,
-                        'original_amount'   => (float) $cc->original_amount,
-                        'adjustment_remark' => $cc->adjustment_remark ?? '',
-                        'is_late'           => (bool) $cc->is_late,
-                        'status'            => $cc->status,
-                        'status_label'      => match($cc->status) {
-                            'pending_manager' => 'Awaiting Manager',
-                            'pending_partner' => 'Escalated to Partner',
-                            'approved'        => 'Approved',
-                            'rejected'        => 'Rejected',
-                            default           => ucfirst($cc->status),
-                        },
-                        'manager_remarks'   => $cc->manager_remarks ?? '',
-                        'partner_remarks'   => $cc->partner_remarks ?? '',
-                    ])->toArray();
-                    return;
-                } elseif ($firmModel->slug !== 'rac') {
-                    $this->claimQueue = [];
-                    return;
+                try {
+                    $claimsQuery = ConveyanceClaim::with(['user.manager', 'reviewer']);
+                    if (Schema::hasColumn('conveyance_claims', 'firm_id')) {
+                        $claimsQuery->where('firm_id', $firmModel->id);
+                    } elseif (Schema::hasColumn('conveyance_claims', 'user_id')) {
+                        $userIds = DB::table('users')->where('firm_id', $firmModel->id)->pluck('id')->all();
+                        $claimsQuery->whereIn('user_id', $userIds);
+                    }
+                    $dbClaims = $claimsQuery->get();
+                    if ($dbClaims->isNotEmpty()) {
+                        $this->claimQueue = $dbClaims->map(fn (ConveyanceClaim $cc) => [
+                            'id'                => 'CC-' . $cc->id,
+                            'db_id'             => $cc->id,
+                            'name'              => $cc->user->name,
+                            'student_code'      => $cc->user->student_code ?? ('S-' . $cc->user_id),
+                            'manager'           => $cc->user->manager?->name ?? 'Direct Report',
+                            'partner_unit'      => $cc->user->partner_unit ?? $this->partnerUnit,
+                            'client_name'       => $cc->client_name,
+                            'route'             => $cc->route,
+                            'amount'            => (float) $cc->amount,
+                            'original_amount'   => (float) $cc->original_amount,
+                            'adjustment_remark' => $cc->adjustment_remark ?? '',
+                            'is_late'           => (bool) $cc->is_late,
+                            'status'            => $cc->status,
+                            'status_label'      => match($cc->status) {
+                                'pending_manager' => 'Awaiting Manager',
+                                'pending_partner' => 'Escalated to Partner',
+                                'approved'        => 'Approved',
+                                'rejected'        => 'Rejected',
+                                default           => ucfirst($cc->status),
+                            },
+                            'manager_remarks'   => $cc->manager_remarks ?? '',
+                            'partner_remarks'   => $cc->partner_remarks ?? '',
+                        ])->toArray();
+                        return;
+                    }
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('loadClaimQueue error: ' . $e->getMessage());
                 }
             }
         }

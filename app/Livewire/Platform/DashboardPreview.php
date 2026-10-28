@@ -439,6 +439,96 @@ class DashboardPreview extends Component
     }
 
     /**
+     * Safely delete all firm records in transactional order without column assumption.
+     */
+    protected function performSafeFirmDeletion(int $firmId): void
+    {
+        $driver = DB::connection()->getDriverName();
+        if ($driver === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        } elseif ($driver === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = OFF;');
+        }
+
+        try {
+            $userIds = [];
+            if (Schema::hasTable('users') && Schema::hasColumn('users', 'firm_id')) {
+                $userIds = DB::table('users')->where('firm_id', $firmId)->pluck('id')->all();
+            }
+
+            // 1. Break self-referencing foreign keys on users
+            if (Schema::hasTable('users') && Schema::hasColumn('users', 'firm_id') && Schema::hasColumn('users', 'manager_id')) {
+                DB::table('users')->where('firm_id', $firmId)->update(['manager_id' => null]);
+            }
+
+            // 2. Clear sessions
+            if (Schema::hasTable('sessions') && ! empty($userIds) && Schema::hasColumn('sessions', 'user_id')) {
+                DB::table('sessions')->whereIn('user_id', $userIds)->delete();
+            }
+
+            // 3. Clear partner_policies
+            if (Schema::hasTable('partner_policies')) {
+                if (Schema::hasColumn('partner_policies', 'firm_id')) {
+                    DB::table('partner_policies')->where('firm_id', $firmId)->delete();
+                }
+                if (! empty($userIds) && Schema::hasColumn('partner_policies', 'partner_id')) {
+                    DB::table('partner_policies')->whereIn('partner_id', $userIds)->delete();
+                }
+            }
+
+            // 4. Clear attendances
+            if (Schema::hasTable('attendances')) {
+                if (Schema::hasColumn('attendances', 'firm_id')) {
+                    DB::table('attendances')->where('firm_id', $firmId)->delete();
+                }
+                if (! empty($userIds) && Schema::hasColumn('attendances', 'user_id')) {
+                    DB::table('attendances')->whereIn('user_id', $userIds)->delete();
+                }
+            }
+
+            // 5. Clear leave_requests
+            if (Schema::hasTable('leave_requests')) {
+                if (Schema::hasColumn('leave_requests', 'firm_id')) {
+                    DB::table('leave_requests')->where('firm_id', $firmId)->delete();
+                }
+                if (! empty($userIds) && Schema::hasColumn('leave_requests', 'user_id')) {
+                    DB::table('leave_requests')->whereIn('user_id', $userIds)->delete();
+                }
+            }
+
+            // 6. Clear conveyance_claims
+            if (Schema::hasTable('conveyance_claims')) {
+                if (Schema::hasColumn('conveyance_claims', 'firm_id')) {
+                    DB::table('conveyance_claims')->where('firm_id', $firmId)->delete();
+                }
+                if (! empty($userIds) && Schema::hasColumn('conveyance_claims', 'user_id')) {
+                    DB::table('conveyance_claims')->whereIn('user_id', $userIds)->delete();
+                }
+            }
+
+            // 7. Delete users
+            if (Schema::hasTable('users')) {
+                if (Schema::hasColumn('users', 'firm_id')) {
+                    DB::table('users')->where('firm_id', $firmId)->delete();
+                } elseif (! empty($userIds)) {
+                    DB::table('users')->whereIn('id', $userIds)->delete();
+                }
+            }
+
+            // 8. Delete firm
+            if (Schema::hasTable('firms')) {
+                DB::table('firms')->where('id', $firmId)->delete();
+            }
+        } finally {
+            if ($driver === 'mysql') {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            } elseif ($driver === 'sqlite') {
+                DB::statement('PRAGMA foreign_keys = ON;');
+            }
+        }
+    }
+
+    /**
      * Permanent transactional deletion of an organization and all its data.
      */
     public function deleteOrganization(string $slug): void
@@ -457,68 +547,7 @@ class DashboardPreview extends Component
                     $firmName = $dbFirm->name;
                     $firmId = $dbFirm->id;
 
-                    $driver = DB::connection()->getDriverName();
-                    if ($driver === 'mysql') {
-                        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-                    } elseif ($driver === 'sqlite') {
-                        DB::statement('PRAGMA foreign_keys = OFF;');
-                    }
-
-                    try {
-                        $userIds = DB::table('users')->where('firm_id', $firmId)->pluck('id')->all();
-
-                        // 1. Break self-referencing foreign keys on users
-                        DB::table('users')->where('firm_id', $firmId)->update(['manager_id' => null]);
-
-                        // 2. Clear sessions
-                        if (Schema::hasTable('sessions') && ! empty($userIds)) {
-                            DB::table('sessions')->whereIn('user_id', $userIds)->delete();
-                        }
-
-                        // 3. Clear partner_policies
-                        if (Schema::hasTable('partner_policies')) {
-                            DB::table('partner_policies')->where('firm_id', $firmId)->delete();
-                            if (! empty($userIds)) {
-                                DB::table('partner_policies')->whereIn('partner_id', $userIds)->delete();
-                            }
-                        }
-
-                        // 4. Clear attendances
-                        if (Schema::hasTable('attendances')) {
-                            DB::table('attendances')->where('firm_id', $firmId)->delete();
-                            if (! empty($userIds)) {
-                                DB::table('attendances')->whereIn('user_id', $userIds)->delete();
-                            }
-                        }
-
-                        // 5. Clear leave_requests
-                        if (Schema::hasTable('leave_requests')) {
-                            DB::table('leave_requests')->where('firm_id', $firmId)->delete();
-                            if (! empty($userIds)) {
-                                DB::table('leave_requests')->whereIn('user_id', $userIds)->delete();
-                            }
-                        }
-
-                        // 6. Clear conveyance_claims
-                        if (Schema::hasTable('conveyance_claims')) {
-                            DB::table('conveyance_claims')->where('firm_id', $firmId)->delete();
-                            if (! empty($userIds)) {
-                                DB::table('conveyance_claims')->whereIn('user_id', $userIds)->delete();
-                            }
-                        }
-
-                        // 7. Delete users
-                        DB::table('users')->where('firm_id', $firmId)->delete();
-
-                        // 8. Delete firm
-                        DB::table('firms')->where('id', $firmId)->delete();
-                    } finally {
-                        if ($driver === 'mysql') {
-                            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
-                        } elseif ($driver === 'sqlite') {
-                            DB::statement('PRAGMA foreign_keys = ON;');
-                        }
-                    }
+                    $this->performSafeFirmDeletion($firmId);
 
                     $this->syncFirmsFromDatabase();
                     $this->selectedFirmId = null;
@@ -564,38 +593,77 @@ class DashboardPreview extends Component
     }
 
     /**
-     * Download Complete Firm Data Backup (JSON)
+     * Safely compile all firm export data without assuming column structures.
      */
-    public function downloadFirmBackup(string $slug)
+    protected function compileFirmBackupPayload(string $slug): array
     {
         $firmData = collect($this->demoFirms)->firstWhere('slug', $slug);
         $payload = [
             'backup_generated_at' => now()->toIso8601String(),
-            'platform_host' => 'erp.dhakawala.com',
-            'firm_metadata' => $firmData,
-            'users' => [],
-            'attendances' => [],
-            'leave_requests' => [],
-            'conveyance_claims' => [],
+            'platform_host'       => 'erp.dhakawala.com',
+            'firm_metadata'       => $firmData,
+            'users'               => [],
+            'attendances'         => [],
+            'leave_requests'      => [],
+            'conveyance_claims'   => [],
         ];
 
-        try {
-            if (Schema::hasTable('firms')) {
-                $dbFirm = Firm::with(['users', 'attendances', 'leaveRequests', 'conveyanceClaims'])
-                    ->where('slug', $slug)
-                    ->first();
-                if ($dbFirm) {
-                    $payload['firm_metadata'] = $dbFirm->only(['id', 'name', 'slug', 'kind', 'email', 'status', 'plan', 'region', 'custom_domain', 'custom_subdomain']);
-                    $payload['users'] = $dbFirm->users->toArray();
-                    $payload['attendances'] = $dbFirm->attendances->toArray();
-                    $payload['leave_requests'] = $dbFirm->leaveRequests->toArray();
-                    $payload['conveyance_claims'] = $dbFirm->conveyanceClaims->toArray();
+        if (Schema::hasTable('firms')) {
+            $dbFirm = Firm::where('slug', $slug)
+                ->orWhere('id', $slug)
+                ->when(str_starts_with($slug, 'firm-'), fn ($q) => $q->orWhere('slug', substr($slug, 5)))
+                ->first();
+
+            if ($dbFirm) {
+                $firmId = $dbFirm->id;
+                $payload['firm_metadata'] = $dbFirm->only([
+                    'id', 'name', 'slug', 'kind', 'email', 'status', 'plan', 'region', 'custom_domain', 'custom_subdomain'
+                ]);
+
+                $userIds = [];
+                if (Schema::hasTable('users') && Schema::hasColumn('users', 'firm_id')) {
+                    $userIds = DB::table('users')->where('firm_id', $firmId)->pluck('id')->all();
+                    $payload['users'] = DB::table('users')->where('firm_id', $firmId)->get()->map(function ($u) {
+                        unset($u->password, $u->remember_token);
+                        return (array) $u;
+                    })->toArray();
+                }
+
+                if (Schema::hasTable('attendances')) {
+                    if (Schema::hasColumn('attendances', 'firm_id')) {
+                        $payload['attendances'] = DB::table('attendances')->where('firm_id', $firmId)->get()->map(fn ($r) => (array) $r)->toArray();
+                    } elseif (! empty($userIds) && Schema::hasColumn('attendances', 'user_id')) {
+                        $payload['attendances'] = DB::table('attendances')->whereIn('user_id', $userIds)->get()->map(fn ($r) => (array) $r)->toArray();
+                    }
+                }
+
+                if (Schema::hasTable('leave_requests')) {
+                    if (Schema::hasColumn('leave_requests', 'firm_id')) {
+                        $payload['leave_requests'] = DB::table('leave_requests')->where('firm_id', $firmId)->get()->map(fn ($r) => (array) $r)->toArray();
+                    } elseif (! empty($userIds) && Schema::hasColumn('leave_requests', 'user_id')) {
+                        $payload['leave_requests'] = DB::table('leave_requests')->whereIn('user_id', $userIds)->get()->map(fn ($r) => (array) $r)->toArray();
+                    }
+                }
+
+                if (Schema::hasTable('conveyance_claims')) {
+                    if (Schema::hasColumn('conveyance_claims', 'firm_id')) {
+                        $payload['conveyance_claims'] = DB::table('conveyance_claims')->where('firm_id', $firmId)->get()->map(fn ($r) => (array) $r)->toArray();
+                    } elseif (! empty($userIds) && Schema::hasColumn('conveyance_claims', 'user_id')) {
+                        $payload['conveyance_claims'] = DB::table('conveyance_claims')->whereIn('user_id', $userIds)->get()->map(fn ($r) => (array) $r)->toArray();
+                    }
                 }
             }
-        } catch (\Throwable $e) {
-            Log::error('downloadFirmBackup error: ' . $e->getMessage());
         }
 
+        return $payload;
+    }
+
+    /**
+     * Download Complete Firm Data Backup (JSON)
+     */
+    public function downloadFirmBackup(string $slug)
+    {
+        $payload = $this->compileFirmBackupPayload($slug);
         $filename = 'backup_' . $slug . '_' . now()->format('Y_m_d_His') . '.json';
 
         return response()->streamDownload(function () use ($payload) {
@@ -608,78 +676,18 @@ class DashboardPreview extends Component
      */
     public function backupAndDeleteFirm(string $slug)
     {
-        $firmData = collect($this->demoFirms)->firstWhere('slug', $slug);
-        $payload = [
-            'backup_generated_at' => now()->toIso8601String(),
-            'action' => 'FULL_BACKUP_BEFORE_DELETION',
-            'platform_host' => 'erp.dhakawala.com',
-            'firm_metadata' => $firmData,
-            'users' => [],
-            'attendances' => [],
-            'leave_requests' => [],
-            'conveyance_claims' => [],
-        ];
+        $payload = $this->compileFirmBackupPayload($slug);
+        $payload['action'] = 'FULL_BACKUP_BEFORE_DELETION';
 
         try {
             if (Schema::hasTable('firms')) {
-                $dbFirm = Firm::with(['users', 'attendances', 'leaveRequests', 'conveyanceClaims'])
-                    ->where('slug', $slug)
+                $dbFirm = Firm::where('slug', $slug)
+                    ->orWhere('id', $slug)
+                    ->when(str_starts_with($slug, 'firm-'), fn ($q) => $q->orWhere('slug', substr($slug, 5)))
                     ->first();
+
                 if ($dbFirm) {
-                    $payload['firm_metadata'] = $dbFirm->only(['id', 'name', 'slug', 'kind', 'email', 'status', 'plan', 'region', 'custom_domain', 'custom_subdomain']);
-                    $payload['users'] = $dbFirm->users->toArray();
-                    $payload['attendances'] = $dbFirm->attendances->toArray();
-                    $payload['leave_requests'] = $dbFirm->leaveRequests->toArray();
-                    $payload['conveyance_claims'] = $dbFirm->conveyanceClaims->toArray();
-
-                    $driver = DB::connection()->getDriverName();
-                    if ($driver === 'mysql') {
-                        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-                    } elseif ($driver === 'sqlite') {
-                        DB::statement('PRAGMA foreign_keys = OFF;');
-                    }
-
-                    try {
-                        $firmId = $dbFirm->id;
-                        $userIds = DB::table('users')->where('firm_id', $firmId)->pluck('id')->all();
-
-                        DB::table('users')->where('firm_id', $firmId)->update(['manager_id' => null]);
-                        if (Schema::hasTable('sessions') && ! empty($userIds)) {
-                            DB::table('sessions')->whereIn('user_id', $userIds)->delete();
-                        }
-                        if (Schema::hasTable('partner_policies')) {
-                            DB::table('partner_policies')->where('firm_id', $firmId)->delete();
-                            if (! empty($userIds)) {
-                                DB::table('partner_policies')->whereIn('partner_id', $userIds)->delete();
-                            }
-                        }
-                        if (Schema::hasTable('attendances')) {
-                            DB::table('attendances')->where('firm_id', $firmId)->delete();
-                            if (! empty($userIds)) {
-                                DB::table('attendances')->whereIn('user_id', $userIds)->delete();
-                            }
-                        }
-                        if (Schema::hasTable('leave_requests')) {
-                            DB::table('leave_requests')->where('firm_id', $firmId)->delete();
-                            if (! empty($userIds)) {
-                                DB::table('leave_requests')->whereIn('user_id', $userIds)->delete();
-                            }
-                        }
-                        if (Schema::hasTable('conveyance_claims')) {
-                            DB::table('conveyance_claims')->where('firm_id', $firmId)->delete();
-                            if (! empty($userIds)) {
-                                DB::table('conveyance_claims')->whereIn('user_id', $userIds)->delete();
-                            }
-                        }
-                        DB::table('users')->where('firm_id', $firmId)->delete();
-                        DB::table('firms')->where('id', $firmId)->delete();
-                    } finally {
-                        if ($driver === 'mysql') {
-                            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
-                        } elseif ($driver === 'sqlite') {
-                            DB::statement('PRAGMA foreign_keys = ON;');
-                        }
-                    }
+                    $this->performSafeFirmDeletion($dbFirm->id);
                 }
             }
         } catch (\Throwable $e) {
