@@ -397,186 +397,197 @@
     </div>
 
     @if($selectedFirm)
-        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
+        <div class="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/60 p-4 sm:p-6 backdrop-blur-sm"
              wire:click.self="closeFirmDetail" wire:keydown.escape.window="closeFirmDetail"
              role="dialog" aria-modal="true" aria-labelledby="firm-preview-title">
-            <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
-                    <div>
-                        <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-800">Tenant Metadata Control</span>
-                        <span class="sr-only">Metadata Only · no student records</span>
-                        <h2 id="firm-preview-title" class="mt-1 text-lg font-extrabold">{{ $selectedFirm['name'] }}</h2>
-                    </div>
-                    <button type="button" wire:click="closeFirmDetail" aria-label="Close organization preview" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><i data-lucide="x" class="h-4 w-4"></i></button>
-                </div>
-                <div class="grid grid-cols-2 gap-3 p-6 text-sm">
-                    @foreach([
-                        ['Workspace URL', 'erp.dhakawala.com/c/'.$selectedFirm['slug']],
-                        ['Personal Custom Domain', $selectedFirm['custom_domain'] ?: 'Not configured'],
-                        ['Dedicated Subdomain', $selectedFirm['custom_subdomain'] ? $selectedFirm['custom_subdomain'].'.dhakawala.com' : 'Not configured'],
-                        ['Subscription Plan', $selectedFirm['plan'].' Tier'],
-                        ['Seat Allocation', $selectedFirm['seats'].' Seats'],
-                        ['Primary Location', $selectedFirm['region']],
-                    ] as $field)
-                        <div class="rounded-xl bg-slate-50 p-3">
-                            <p class="text-[11px] text-slate-500">{{ $field[0] }}</p>
-                            <p class="mt-1 font-bold text-slate-800 truncate">{{ $field[1] }}</p>
+            <div class="flex min-h-full items-center justify-center">
+                <div class="w-full max-w-lg my-auto max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                    {{-- Modal Header --}}
+                    <div class="flex-shrink-0 flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5 bg-white">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-800">Tenant Metadata Control</span>
+                            <span class="sr-only">Metadata Only · no student records</span>
+                            <h2 id="firm-preview-title" class="mt-1 text-lg font-extrabold text-slate-900">{{ $selectedFirm['name'] }}</h2>
                         </div>
-                    @endforeach
-                </div>
+                        <button type="button" wire:click="closeFirmDetail" aria-label="Close organization preview" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 transition"><i data-lucide="x" class="h-4 w-4"></i></button>
+                    </div>
 
-                {{-- Domain & Host Mapping Settings --}}
-                <div class="border-t border-slate-100 bg-slate-50/70 p-6">
-                    <div class="flex items-center gap-2 mb-2">
-                        <i data-lucide="globe" class="h-4 w-4 text-[#977000]"></i>
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800">Domain & Host Mapping</h3>
-                    </div>
-                    <p class="text-[11px] text-slate-500 mb-3">Map a personal custom domain (e.g. erp.yourfirm.com) or custom subdomain.</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-700 mb-1">Personal Custom Domain</label>
-                            <input type="text" wire:model="editCustomDomain" placeholder="e.g. erp.clientfirm.com"
-                                   class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-200">
-                            @error('editCustomDomain') <p class="text-[10px] text-rose-600 mt-1">{{ $message }}</p> @enderror
+                    {{-- Scrollable Content --}}
+                    <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                        <div class="grid grid-cols-2 gap-3 p-6 text-sm">
+                            @foreach([
+                                ['Workspace URL', 'erp.dhakawala.com/c/'.$selectedFirm['slug']],
+                                ['Personal Custom Domain', $selectedFirm['custom_domain'] ?: 'Not configured'],
+                                ['Dedicated Subdomain', $selectedFirm['custom_subdomain'] ? $selectedFirm['custom_subdomain'].'.dhakawala.com' : 'Not configured'],
+                                ['Subscription Plan', $selectedFirm['plan'].' Tier'],
+                                ['Seat Allocation', $selectedFirm['seats'].' Seats'],
+                                ['Primary Location', $selectedFirm['region']],
+                            ] as $field)
+                                <div class="rounded-xl bg-slate-50 p-3">
+                                    <p class="text-[11px] text-slate-500">{{ $field[0] }}</p>
+                                    <p class="mt-1 font-bold text-slate-800 truncate">{{ $field[1] }}</p>
+                                </div>
+                            @endforeach
                         </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-700 mb-1">Custom Subdomain</label>
-                            <div class="flex rounded-xl border border-slate-200 bg-white overflow-hidden focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-200">
-                                <input type="text" wire:model="editCustomSubdomain" placeholder="client"
-                                       class="w-full bg-transparent px-3 py-2 text-xs text-slate-800 outline-none">
-                                <span class="inline-flex items-center bg-slate-100 px-2.5 text-[11px] font-semibold text-slate-500 border-l border-slate-200">.dhakawala.com</span>
+
+                        {{-- Domain & Host Mapping Settings --}}
+                        <div class="border-t border-slate-100 bg-slate-50/70 p-6">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i data-lucide="globe" class="h-4 w-4 text-[#977000]"></i>
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800">Domain & Host Mapping</h3>
                             </div>
-                            @error('editCustomSubdomain') <p class="text-[10px] text-rose-600 mt-1">{{ $message }}</p> @enderror
+                            <p class="text-[11px] text-slate-500 mb-3">Map a personal custom domain (e.g. erp.yourfirm.com) or custom subdomain.</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Personal Custom Domain</label>
+                                    <input type="text" wire:model="editCustomDomain" placeholder="e.g. erp.clientfirm.com"
+                                           class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-200">
+                                    @error('editCustomDomain') <p class="text-[10px] text-rose-600 mt-1">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Custom Subdomain</label>
+                                    <div class="flex rounded-xl border border-slate-200 bg-white overflow-hidden focus-within:border-amber-400 focus-within:ring-1 focus-within:ring-amber-200">
+                                        <input type="text" wire:model="editCustomSubdomain" placeholder="client"
+                                               class="w-full bg-transparent px-3 py-2 text-xs text-slate-800 outline-none">
+                                        <span class="inline-flex items-center bg-slate-100 px-2.5 text-[11px] font-semibold text-slate-500 border-l border-slate-200">.dhakawala.com</span>
+                                    </div>
+                                    @error('editCustomSubdomain') <p class="text-[10px] text-rose-600 mt-1">{{ $message }}</p> @enderror
+                                </div>
+                            </div>
+                            <div class="mt-3 flex justify-end">
+                                <button type="button" wire:click="updateDomainSettings('{{ $selectedFirm['slug'] }}')" class="rounded-xl bg-[#16181D] px-4 py-2 text-xs font-bold text-[#FCDF02] hover:bg-slate-800 transition">
+                                    Save Domain Settings
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div class="mt-3 flex justify-end">
-                        <button type="button" wire:click="updateDomainSettings('{{ $selectedFirm['slug'] }}')" class="rounded-xl bg-[#16181D] px-4 py-2 text-xs font-bold text-[#FCDF02] hover:bg-slate-800 transition">
-                            Save Domain Settings
-                        </button>
-                    </div>
-                </div>
 
-                {{-- Modal Footer Actions --}}
-                <div class="border-t border-slate-100 bg-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-                    <button type="button" wire:click="downloadFirmBackup('{{ $selectedFirm['slug'] }}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-100">
-                        <i data-lucide="download" class="h-3.5 w-3.5"></i> Backup JSON
-                    </button>
-                    <div class="w-full sm:w-auto flex items-center justify-end gap-2">
-                        <button type="button" wire:click="openDeleteModal('{{ $selectedFirm['slug'] }}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700 transition">
-                            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> Delete Firm
+                    {{-- Modal Footer Actions --}}
+                    <div class="flex-shrink-0 border-t border-slate-100 bg-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                        <button type="button" wire:click="downloadFirmBackup('{{ $selectedFirm['slug'] }}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-100">
+                            <i data-lucide="download" class="h-3.5 w-3.5"></i> Backup JSON
                         </button>
-                        <button type="button" wire:click="backupAndDeleteFirm('{{ $selectedFirm['slug'] }}')" wire:confirm="Are you sure you want to take a full backup and permanently DELETE {{ $selectedFirm['name'] }}?" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">
-                            Backup & Delete
-                        </button>
+                        <div class="w-full sm:w-auto flex items-center justify-end gap-2">
+                            <button type="button" wire:click="openDeleteModal('{{ $selectedFirm['slug'] }}')" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-700 transition">
+                                <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> Delete Firm
+                            </button>
+                            <button type="button" wire:click="backupAndDeleteFirm('{{ $selectedFirm['slug'] }}')" wire:confirm="Are you sure you want to take a full backup and permanently DELETE {{ $selectedFirm['name'] }}?" class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-slate-100 px-3.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">
+                                Backup & Delete
+                            </button>
+                        </div>
                     </div>
+                    <div class="flex-shrink-0 border-t border-slate-100 bg-amber-50 px-6 py-2.5 text-[11px] leading-relaxed text-amber-900">Platform Admin Governance: Permanent deletion cascades across all associated firm records cleanly. Zero-trust isolation guarantees client data security.</div>
                 </div>
-                <div class="border-t border-slate-100 bg-amber-50 px-6 py-2.5 text-[11px] leading-relaxed text-amber-900">Platform Admin Governance: Permanent deletion cascades across all associated firm records cleanly. Zero-trust isolation guarantees client data security.</div>
             </div>
         </div>
     @endif
 
     {{-- Security Permanent Deletion Confirmation Modal --}}
     @if($showDeleteModal)
-        <div class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+        <div class="fixed inset-0 z-[80] overflow-y-auto bg-slate-950/70 p-4 sm:p-6 backdrop-blur-sm"
              wire:click.self="closeDeleteModal" wire:keydown.escape.window="closeDeleteModal"
              role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
-            <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl border border-rose-100">
-                {{-- Modal Header --}}
-                <div class="flex items-start justify-between gap-3 border-b border-rose-100 bg-rose-50/70 px-6 py-5">
-                    <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
-                            <i data-lucide="alert-triangle" class="h-5 w-5"></i>
+            <div class="flex min-h-full items-center justify-center">
+                <div class="w-full max-w-md my-auto overflow-hidden rounded-2xl bg-white shadow-2xl border border-rose-100">
+                    {{-- Modal Header --}}
+                    <div class="flex items-start justify-between gap-3 border-b border-rose-100 bg-rose-50/70 px-6 py-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
+                                <i data-lucide="alert-triangle" class="h-5 w-5"></i>
+                            </div>
+                            <div>
+                                <h2 id="delete-modal-title" class="text-base font-extrabold text-slate-900 tracking-tight">Delete Organization</h2>
+                                <p class="text-xs text-rose-700 font-semibold">Irreversible Action</p>
+                            </div>
                         </div>
+                        <button type="button" wire:click="closeDeleteModal" aria-label="Close modal" class="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-600 transition">
+                            <i data-lucide="x" class="h-5 w-5"></i>
+                        </button>
+                    </div>
+
+                    {{-- Modal Body --}}
+                    <div class="p-6 space-y-4">
+                        <div class="rounded-xl border border-rose-100 bg-rose-50/40 p-4 text-xs leading-relaxed text-slate-600">
+                            Are you sure you want to permanently delete <strong class="text-slate-900">{{ $firmToDeleteName }}</strong> (<span class="font-mono text-slate-700">/c/{{ $firmToDeleteSlug }}</span>)?
+                            <p class="mt-2 text-rose-800 font-semibold">
+                                ⚠️ This will permanently remove all workspaces, users, student rosters, geo-attendance logs, leave applications, and conveyance records from the database.
+                            </p>
+                        </div>
+
                         <div>
-                            <h2 id="delete-modal-title" class="text-base font-extrabold text-slate-900 tracking-tight">Delete Organization</h2>
-                            <p class="text-xs text-rose-700 font-semibold">Irreversible Action</p>
+                            <label for="delete-confirmation-input" class="block text-xs font-bold text-slate-700 mb-1.5">
+                                To proceed, please type <span class="rounded bg-rose-100 px-1.5 py-0.5 font-mono font-extrabold text-rose-800">confirm</span> below:
+                            </label>
+                            <input
+                                type="text"
+                                id="delete-confirmation-input"
+                                wire:model.live="deleteConfirmationInput"
+                                wire:keydown.enter="confirmDeleteOrganization"
+                                placeholder="Type 'confirm' to enable deletion"
+                                autocomplete="off"
+                                autofocus
+                                class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-rose-500 focus:bg-white focus:ring-2 focus:ring-rose-200"
+                            >
                         </div>
                     </div>
-                    <button type="button" wire:click="closeDeleteModal" aria-label="Close modal" class="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-600 transition">
-                        <i data-lucide="x" class="h-5 w-5"></i>
-                    </button>
-                </div>
 
-                {{-- Modal Body --}}
-                <div class="p-6 space-y-4">
-                    <div class="rounded-xl border border-rose-100 bg-rose-50/40 p-4 text-xs leading-relaxed text-slate-600">
-                        Are you sure you want to permanently delete <strong class="text-slate-900">{{ $firmToDeleteName }}</strong> (<span class="font-mono text-slate-700">/c/{{ $firmToDeleteSlug }}</span>)?
-                        <p class="mt-2 text-rose-800 font-semibold">
-                            ⚠️ This will permanently remove all workspaces, users, student rosters, geo-attendance logs, leave applications, and conveyance records from the database.
-                        </p>
-                    </div>
-
-                    <div>
-                        <label for="delete-confirmation-input" class="block text-xs font-bold text-slate-700 mb-1.5">
-                            To proceed, please type <span class="rounded bg-rose-100 px-1.5 py-0.5 font-mono font-extrabold text-rose-800">confirm</span> below:
-                        </label>
-                        <input
-                            type="text"
-                            id="delete-confirmation-input"
-                            wire:model.live="deleteConfirmationInput"
-                            wire:keydown.enter="confirmDeleteOrganization"
-                            placeholder="Type 'confirm' to enable deletion"
-                            autocomplete="off"
-                            autofocus
-                            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-rose-500 focus:bg-white focus:ring-2 focus:ring-rose-200"
+                    {{-- Modal Footer --}}
+                    <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-4">
+                        <button
+                            type="button"
+                            wire:click="closeDeleteModal"
+                            class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
                         >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            wire:click="confirmDeleteOrganization"
+                            @disabled(strtolower(trim($deleteConfirmationInput)) !== 'confirm')
+                            class="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            <span wire:loading.remove wire:target="confirmDeleteOrganization">
+                                <i data-lucide="trash-2" class="inline h-3.5 w-3.5 mr-1"></i> Permanently Delete
+                            </span>
+                            <span wire:loading wire:target="confirmDeleteOrganization">
+                                Deleting...
+                            </span>
+                        </button>
                     </div>
-                </div>
-
-                {{-- Modal Footer --}}
-                <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-6 py-4">
-                    <button
-                        type="button"
-                        wire:click="closeDeleteModal"
-                        class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        wire:click="confirmDeleteOrganization"
-                        @disabled(strtolower(trim($deleteConfirmationInput)) !== 'confirm')
-                        class="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                        <span wire:loading.remove wire:target="confirmDeleteOrganization">
-                            <i data-lucide="trash-2" class="inline h-3.5 w-3.5 mr-1"></i> Permanently Delete
-                        </span>
-                        <span wire:loading wire:target="confirmDeleteOrganization">
-                            Deleting...
-                        </span>
-                    </button>
                 </div>
             </div>
         </div>
     @endif
 
     @if($showProvisionPreview)
-        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
+        <div class="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/60 p-4 sm:p-6 backdrop-blur-sm"
              wire:click.self="closePreviews" wire:keydown.escape.window="closePreviews"
              role="dialog" aria-modal="true" aria-labelledby="provision-title">
-            <div class="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-100">
-                {{-- Modal Header --}}
-                <div class="flex items-start justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-6 py-5">
-                    <div>
-                        <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100/80 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
-                            <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span> Tenant Provisioning
-                        </span>
-                        <h2 id="provision-title" class="mt-2 text-xl font-extrabold text-slate-900 tracking-tight">Create Organization</h2>
-                        <p class="mt-0.5 text-xs text-slate-500">Provision a dedicated practice workspace with isolated databases and multi-partner policies.</p>
+            <div class="flex min-h-full items-center justify-center">
+                <div class="w-full max-w-xl my-auto max-h-[90vh] flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-100">
+                    {{-- Modal Header --}}
+                    <div class="flex-shrink-0 flex items-start justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-6 py-5">
+                        <div>
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100/80 px-2.5 py-0.5 text-[11px] font-bold text-amber-900">
+                                <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span> Tenant Provisioning
+                            </span>
+                            <h2 id="provision-title" class="mt-2 text-xl font-extrabold text-slate-900 tracking-tight">Create Organization</h2>
+                            <p class="mt-0.5 text-xs text-slate-500">Provision a dedicated practice workspace with isolated databases and multi-partner policies.</p>
+                        </div>
+                        <button type="button" wire:click="closePreviews" aria-label="Close modal" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                            <i data-lucide="x" class="h-5 w-5"></i>
+                        </button>
                     </div>
-                    <button type="button" wire:click="closePreviews" aria-label="Close modal" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
-                        <i data-lucide="x" class="h-5 w-5"></i>
-                    </button>
-                </div>
 
-                {{-- Hidden assertion strings for test suite --}}
-                <span class="sr-only">Workflow Preview</span>
-                <span class="sr-only">No tenant can be created in Phase 03</span>
-                <span class="sr-only">Demo-only form specification · No tenant can be created in Phase 03.</span>
+                    {{-- Hidden assertion strings for test suite --}}
+                    <span class="sr-only">Workflow Preview</span>
+                    <span class="sr-only">No tenant can be created in Phase 03</span>
+                    <span class="sr-only">Demo-only form specification · No tenant can be created in Phase 03.</span>
 
-                {{-- Modal Body Form --}}
-                <form wire:submit.prevent="createOrganization" class="p-6 space-y-4">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {{-- Modal Body Form --}}
+                    <form wire:submit.prevent="createOrganization" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+                        <div class="flex-1 overflow-y-auto p-6 space-y-4 overscroll-contain">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {{-- Organization Name --}}
                         <div class="sm:col-span-2">
                             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -708,11 +719,12 @@
                                        class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-200">
                             </div>
                         </div>
+                        </div>
                     </div>
 
-                    {{-- Action buttons --}}
-                    <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-                        <button type="button" wire:click="closePreviews" class="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">
+                    {{-- Action buttons (Sticky at bottom so always visible) --}}
+                    <div class="flex-shrink-0 border-t border-slate-100 bg-slate-50/90 px-6 py-4 flex items-center justify-end gap-3">
+                        <button type="button" wire:click="closePreviews" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition">
                             Cancel
                         </button>
                         <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-2.5 text-xs font-extrabold text-[#16181D] shadow-sm hover:bg-[#F3D604] transition">
@@ -724,28 +736,31 @@
                 </form>
             </div>
         </div>
+    </div>
     @endif
 
     @if($showSupportPreview)
-        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
+        <div class="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/60 p-4 sm:p-6 backdrop-blur-sm"
              wire:click.self="closePreviews" wire:keydown.escape.window="closePreviews"
              role="dialog" aria-modal="true" aria-labelledby="support-title">
-            <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <span class="text-[11px] font-bold uppercase tracking-wider text-[#977000]">Zero-Trust Security</span>
-                        <h2 id="support-title" class="mt-1 text-lg font-extrabold">Read-only support request</h2>
+            <div class="flex min-h-full items-center justify-center">
+                <div class="w-full max-w-lg my-auto rounded-2xl bg-white p-6 shadow-2xl">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-[#977000]">Zero-Trust Security</span>
+                            <h2 id="support-title" class="mt-1 text-lg font-extrabold">Read-only support request</h2>
+                        </div>
+                        <button type="button" wire:click="closePreviews" aria-label="Close preview" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 transition"><i data-lucide="x" class="h-4 w-4"></i></button>
                     </div>
-                    <button type="button" wire:click="closePreviews" aria-label="Close preview" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><i data-lucide="x" class="h-4 w-4"></i></button>
-                </div>
-                <p class="mt-3 text-sm leading-relaxed text-slate-500">Support access requires an explicit firm scope, operational reason, time duration, and independent approval from the tenant Managing Partner. Access is strictly read-only and audited.</p>
-                <div class="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">
-                    Zero-Trust Session Guard: Support sessions automatically expire after 60 minutes and all actions are recorded in immutable logs.
-                    <span class="sr-only">No access request will be sent</span>
-                </div>
-                <div class="mt-5 flex justify-end gap-2">
-                    <button type="button" wire:click="closePreviews" class="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold hover:bg-slate-50">Cancel</button>
-                    <button type="button" wire:click="acknowledgePreview('support')" class="rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-bold text-[#16181D] hover:bg-[#F3D604]">Acknowledge Request</button>
+                    <p class="mt-3 text-sm leading-relaxed text-slate-500">Support access requires an explicit firm scope, operational reason, time duration, and independent approval from the tenant Managing Partner. Access is strictly read-only and audited.</p>
+                    <div class="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">
+                        Zero-Trust Session Guard: Support sessions automatically expire after 60 minutes and all actions are recorded in immutable logs.
+                        <span class="sr-only">No access request will be sent</span>
+                    </div>
+                    <div class="mt-5 flex justify-end gap-2">
+                        <button type="button" wire:click="closePreviews" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">Cancel</button>
+                        <button type="button" wire:click="acknowledgePreview('support')" class="rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-bold text-[#16181D] hover:bg-[#F3D604] transition">Acknowledge Request</button>
+                    </div>
                 </div>
             </div>
         </div>

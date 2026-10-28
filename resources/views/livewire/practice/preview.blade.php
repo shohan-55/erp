@@ -111,73 +111,75 @@
         </div>
 
         @if($showPolicyModal || $showCorrectionModal || $showClaimReviewModal || $showLeaveReviewModal)
-            <div class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
+            <div class="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/60 p-4 sm:p-6 backdrop-blur-sm"
                  wire:click.self="closeDialogs" wire:keydown.escape.window="closeDialogs"
                  role="dialog" aria-modal="true" aria-labelledby="practice-dialog-title">
-                <div class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-800">Practice Governance Workflow</p>
-                            <h2 id="practice-dialog-title" class="mt-1 text-lg font-extrabold">{{ $showPolicyModal ? 'Company Policy Proposal' : ($showCorrectionModal ? 'Attendance Correction Review' : ($showLeaveReviewModal ? 'Leave Application Review' : 'Conveyance Claim Review')) }}</h2>
+                <div class="flex min-h-full items-center justify-center">
+                    <div class="w-full max-w-lg my-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-800">Practice Governance Workflow</p>
+                                <h2 id="practice-dialog-title" class="mt-1 text-lg font-extrabold">{{ $showPolicyModal ? 'Company Policy Proposal' : ($showCorrectionModal ? 'Attendance Correction Review' : ($showLeaveReviewModal ? 'Leave Application Review' : 'Conveyance Claim Review')) }}</h2>
+                            </div>
+                            <button type="button" wire:click="closeDialogs" aria-label="Close dialog" class="rounded-lg p-2 hover:bg-slate-100 transition"><i data-lucide="x" class="h-4 w-4"></i></button>
                         </div>
-                        <button type="button" wire:click="closeDialogs" aria-label="Close dialog" class="rounded-lg p-2 hover:bg-slate-100"><i data-lucide="x" class="h-4 w-4"></i></button>
-                    </div>
-                    <p class="mt-4 text-sm leading-relaxed text-slate-600">
-                        @if($showPolicyModal)
-                            Company policy updates require partner authorization. Adjustments to office hours, grace periods, and conveyance thresholds will apply across active scopes.
-                        @elseif($showCorrectionModal)
-                            Attendance adjustments and proxy entries require authorized partner/manager verification with recorded audit remarks.
-                        @elseif($showLeaveReviewModal)
-                            Supervisor review of student leave request. Upon approval, balances and attendance schedules are synchronized.
-                        @else
-                            Review and audit supporting voucher receipts for client site audit engagement conveyance claim.
-                        @endif
-                    </p>
+                        <p class="mt-4 text-sm leading-relaxed text-slate-600">
+                            @if($showPolicyModal)
+                                Company policy updates require partner authorization. Adjustments to office hours, grace periods, and conveyance thresholds will apply across active scopes.
+                            @elseif($showCorrectionModal)
+                                Attendance adjustments and proxy entries require authorized partner/manager verification with recorded audit remarks.
+                            @elseif($showLeaveReviewModal)
+                                Supervisor review of student leave request. Upon approval, balances and attendance schedules are synchronized.
+                            @else
+                                Review and audit supporting voucher receipts for client site audit engagement conveyance claim.
+                            @endif
+                        </p>
 
-                    @if($showCorrectionModal)
-                        <div class="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs">
-                            <div class="grid grid-cols-2 gap-3">
-                                <label class="block font-bold text-slate-700">Select Student
-                                    <select wire:model="selectedStudentCode" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs">
-                                        @foreach($allRows as $sRow)
-                                            <option value="{{ $sRow['id'] }}">{{ $sRow['id'] }} — {{ $sRow['name'] }}</option>
-                                        @endforeach
-                                    </select>
+                        @if($showCorrectionModal)
+                            <div class="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <label class="block font-bold text-slate-700">Select Student
+                                        <select wire:model="selectedStudentCode" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs">
+                                            @foreach($allRows as $sRow)
+                                                <option value="{{ $sRow['id'] }}">{{ $sRow['id'] }} — {{ $sRow['name'] }}</option>
+                                            @endforeach
+                                        </select>
+                                    </label>
+                                    <label class="block font-bold text-slate-700">Action Type
+                                        <select wire:model="editModeType" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs">
+                                            <option value="edit">Edit Late / In-Out Time</option>
+                                            <option value="proxy">Give Proxy Attendance</option>
+                                        </select>
+                                    </label>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <label class="block font-bold text-slate-700">Check-in Time
+                                        <input type="text" wire:model="editCheckinTime" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="10:00">
+                                    </label>
+                                    <label class="block font-bold text-slate-700">Check-out Time
+                                        <input type="text" wire:model="editCheckoutTime" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="18:00">
+                                    </label>
+                                    <label class="block font-bold text-slate-700">Status
+                                        <select wire:model="editStatus" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs">
+                                            <option value="On time">On time</option>
+                                            <option value="Late">Late</option>
+                                            <option value="Incomplete">Incomplete</option>
+                                        </select>
+                                    </label>
+                                </div>
+                                <label class="block font-bold text-slate-700">Location Tag (In/Out)
+                                    <input type="text" wire:model="editLocationName" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="EDB Trade Centre, Karwan Bazar, Dhaka">
                                 </label>
-                                <label class="block font-bold text-slate-700">Action Type
-                                    <select wire:model="editModeType" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs">
-                                        <option value="edit">Edit Late / In-Out Time</option>
-                                        <option value="proxy">Give Proxy Attendance</option>
-                                    </select>
+                                <label class="block font-bold text-slate-700">Audit Remarks / Reason
+                                    <input type="text" wire:model="editRemarks" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="e.g., Partner approved late waiver / proxy">
                                 </label>
                             </div>
-                            <div class="grid grid-cols-3 gap-2">
-                                <label class="block font-bold text-slate-700">Check-in Time
-                                    <input type="text" wire:model="editCheckinTime" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="10:00">
-                                </label>
-                                <label class="block font-bold text-slate-700">Check-out Time
-                                    <input type="text" wire:model="editCheckoutTime" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="18:00">
-                                </label>
-                                <label class="block font-bold text-slate-700">Status
-                                    <select wire:model="editStatus" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs">
-                                        <option value="On time">On time</option>
-                                        <option value="Late">Late</option>
-                                        <option value="Incomplete">Incomplete</option>
-                                    </select>
-                                </label>
-                            </div>
-                            <label class="block font-bold text-slate-700">Location Tag (In/Out)
-                                <input type="text" wire:model="editLocationName" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="EDB Trade Centre, Karwan Bazar, Dhaka">
-                            </label>
-                            <label class="block font-bold text-slate-700">Audit Remarks / Reason
-                                <input type="text" wire:model="editRemarks" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="e.g., Partner approved late waiver / proxy">
-                            </label>
+                        @endif
+                        <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">All submissions are cryptographically associated with your identity and audited for compliance.</div>
+                        <div class="mt-5 flex justify-end gap-2">
+                            <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition">Cancel</button>
+                            <button type="button" wire:click="acknowledgeDialog('{{ $showPolicyModal ? 'policy' : ($showCorrectionModal ? 'correction' : ($showLeaveReviewModal ? 'leave' : 'claim')) }}')" class="rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold text-[#16181D] hover:bg-[#F3D604] transition">Confirm & Save</button>
                         </div>
-                    @endif
-                    <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">All submissions are cryptographically associated with your identity and audited for compliance.</div>
-                    <div class="mt-5 flex justify-end gap-2">
-                        <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold hover:bg-slate-50">Cancel</button>
-                        <button type="button" wire:click="acknowledgeDialog('{{ $showPolicyModal ? 'policy' : ($showCorrectionModal ? 'correction' : ($showLeaveReviewModal ? 'leave' : 'claim')) }}')" class="rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold hover:bg-[#F3D604]">Confirm & Save</button>
                     </div>
                 </div>
             </div>
