@@ -105,10 +105,13 @@ class PracticePreview extends Component
     public array $auditClients = [
         'BEXIMCO Textiles Audit',
         'Square Pharmaceuticals Audit',
-        'Brac Bank Motijheel Branch',
-        'ACI Logistics Site',
+        'BRAC Bank PLC (Motijheel Branch)',
+        'ACI Logistics Limited (Shwapno)',
         'General Office / Firm HQ',
     ];
+    public string $newClientName = '';
+    public string $newClientLocation = '';
+    public bool $showAddNewClientModal = false;
     public array $claimQueue = [];
     public string $selectedClaimId = 'CC-201';
     public float $claimAdjustedAmount = 220.00;
@@ -202,6 +205,7 @@ class PracticePreview extends Component
         $this->loadLeaveQueue();
         $this->loadClaimQueue();
         $this->loadTeamMembers();
+        $this->loadAuditClients();
         $this->canManageTeam = $this->userCanManageTeam();
     }
 
@@ -437,6 +441,7 @@ class PracticePreview extends Component
                             'partner'        => $s->partner_unit ?? $this->partnerUnit,
                             'status'         => $att ? $att->status : 'Incomplete',
                             'mode'           => $att ? ucfirst($att->work_mode) : 'Office',
+                            'client_site'    => $att?->client_site,
                             'day'            => now()->format('D'),
                             'checkin'        => $att?->in_time?->format('H:i') ?? '—',
                             'checkout'       => $att?->out_time?->format('H:i') ?? '—',
@@ -462,7 +467,7 @@ class PracticePreview extends Component
         $defaultRows = [
             [
                 'id' => 'S-101', 'name' => 'Sample Student 01 (Zubair)', 'manager' => 'Sample Manager A',
-                'partner' => 'Partner Unit 01', 'status' => 'On time', 'mode' => 'Office', 'day' => 'Mon',
+                'partner' => 'Partner Unit 01', 'status' => 'On time', 'mode' => 'Office', 'client_site' => null, 'day' => 'Mon',
                 'checkin' => '10:05', 'checkout' => '18:00',
                 'in_lat' => 23.7516, 'in_lng' => 90.3943, 'in_location' => 'Karwan Bazar Office, Dhaka',
                 'out_lat' => 23.7516, 'out_lng' => 90.3943, 'out_location' => 'Karwan Bazar Office, Dhaka',
@@ -470,7 +475,7 @@ class PracticePreview extends Component
             ],
             [
                 'id' => 'S-102', 'name' => 'Sample Student 02 (Nusrat)', 'manager' => 'Sample Manager A',
-                'partner' => 'Partner Unit 01', 'status' => 'Late', 'mode' => 'Client', 'day' => 'Tue',
+                'partner' => 'Partner Unit 01', 'status' => 'Late', 'mode' => 'Client', 'client_site' => 'Square Pharmaceuticals Audit', 'day' => 'Tue',
                 'checkin' => '10:14', 'checkout' => '18:15',
                 'in_lat' => 23.7279, 'in_lng' => 90.4178, 'in_location' => 'Motijheel Commercial Area, Dhaka',
                 'out_lat' => 23.7279, 'out_lng' => 90.4178, 'out_location' => 'Motijheel Commercial Area, Dhaka',
@@ -478,7 +483,7 @@ class PracticePreview extends Component
             ],
             [
                 'id' => 'S-103', 'name' => 'Sample Student 03 (Rakibul)', 'manager' => 'Sample Manager B',
-                'partner' => 'Partner Unit 01', 'status' => 'Incomplete', 'mode' => 'Office', 'day' => 'Wed',
+                'partner' => 'Partner Unit 01', 'status' => 'Incomplete', 'mode' => 'Client', 'client_site' => 'BRAC Bank PLC (Motijheel Branch)', 'day' => 'Wed',
                 'checkin' => '10:08', 'checkout' => '—',
                 'in_lat' => 23.7937, 'in_lng' => 90.4066, 'in_location' => 'Banani Audit Site, Dhaka',
                 'out_lat' => null, 'out_lng' => null, 'out_location' => '—',
@@ -486,7 +491,7 @@ class PracticePreview extends Component
             ],
             [
                 'id' => 'S-104', 'name' => 'Sample Student 04 (Tania)', 'manager' => 'Sample Manager B',
-                'partner' => 'Partner Unit 01', 'status' => 'On time', 'mode' => 'Office', 'day' => 'Thu',
+                'partner' => 'Partner Unit 01', 'status' => 'On time', 'mode' => 'Office', 'client_site' => null, 'day' => 'Thu',
                 'checkin' => '10:01', 'checkout' => '18:10',
                 'in_lat' => 23.7516, 'in_lng' => 90.3943, 'in_location' => 'Karwan Bazar Office, Dhaka',
                 'out_lat' => 23.7516, 'out_lng' => 90.3943, 'out_location' => 'Karwan Bazar Office, Dhaka',
@@ -775,6 +780,9 @@ class PracticePreview extends Component
         $this->showAddMemberModal = false;
         $this->showEditMemberModal = false;
         $this->showDeleteMemberModal = false;
+        $this->showAddNewClientModal = false;
+        $this->newClientName = '';
+        $this->newClientLocation = '';
         $this->deleteConfirmationInput = '';
         $this->selectedMemberId = null;
         $this->selectedMemberName = '';
@@ -908,7 +916,9 @@ class PracticePreview extends Component
         }
 
         if (! $this->previewSessionActive && $this->workMode === 'client' && trim($this->clientSite) === '') {
-            $this->error = 'Choose a demo client site before checking in.';
+            $this->error = Auth::check()
+                ? 'Please select or add an audit client site before checking in.'
+                : 'Choose a demo client site before starting an audit visit preview.';
             return;
         }
 
@@ -924,6 +934,7 @@ class PracticePreview extends Component
             if ($row['id'] === 'S-101') {
                 if ($this->previewSessionActive) {
                     $row['mode'] = ucfirst($this->workMode);
+                    $row['client_site'] = $this->workMode === 'client' ? $this->clientSite : null;
                     $row['checkin'] = $nowTime;
                     $row['checkout'] = '—';
                     $row['in_lat'] = $lat;
@@ -1419,6 +1430,206 @@ class PracticePreview extends Component
     {
         $this->notice = null;
         $this->error = null;
+    }
+
+    public function loadAuditClients(): void
+    {
+        if (Schema::hasTable('audit_clients') && Schema::hasTable('firms')) {
+            $firm = Firm::where('slug', $this->firmSlug)->first();
+            if ($firm) {
+                try {
+                    $dbClients = \App\Models\AuditClient::where('firm_id', $firm->id)->orderBy('name')->pluck('name')->all();
+                    if (! empty($dbClients)) {
+                        $this->auditClients = $dbClients;
+                        if (! in_array($this->clientSite, $this->auditClients, true) && ! empty($this->auditClients)) {
+                            $this->clientSite = $this->auditClients[0];
+                        }
+                        if (! in_array($this->claimClientName, $this->auditClients, true) && ! empty($this->auditClients)) {
+                            $this->claimClientName = $this->auditClients[0];
+                        }
+                        return;
+                    }
+                } catch (\Throwable) {}
+            }
+        }
+
+        $this->auditClients = [
+            'BEXIMCO Textiles Audit',
+            'Square Pharmaceuticals Audit',
+            'BRAC Bank PLC (Motijheel Branch)',
+            'ACI Logistics Limited (Shwapno)',
+            'General Office / Firm HQ',
+        ];
+        if (! in_array($this->clientSite, $this->auditClients, true)) {
+            $this->clientSite = $this->auditClients[0];
+        }
+        if (! in_array($this->claimClientName, $this->auditClients, true)) {
+            $this->claimClientName = $this->auditClients[0];
+        }
+    }
+
+    public function updatedClientSite($value): void
+    {
+        if ($value === '__NEW__') {
+            $this->clientSite = $this->auditClients[0] ?? 'General Office / Firm HQ';
+            $this->openNewClientModal();
+        }
+    }
+
+    public function updatedClaimClientName($value): void
+    {
+        if ($value === '__NEW__') {
+            $this->claimClientName = $this->auditClients[0] ?? 'General Office / Firm HQ';
+            $this->openNewClientModal();
+        }
+    }
+
+    public function openNewClientModal(): void
+    {
+        $this->closeDialogs();
+        $this->newClientName = '';
+        $this->newClientLocation = '';
+        $this->showAddNewClientModal = true;
+    }
+
+    public function saveNewClientSite(): void
+    {
+        $name = trim($this->newClientName);
+        if (empty($name)) {
+            $this->error = 'Please enter a valid client or audit location name.';
+            return;
+        }
+
+        $firm = Firm::where('slug', $this->firmSlug)->first();
+        if ($firm && Schema::hasTable('audit_clients')) {
+            try {
+                $existing = \App\Models\AuditClient::where('firm_id', $firm->id)->where('name', $name)->first();
+                if (! $existing) {
+                    \App\Models\AuditClient::create([
+                        'firm_id'    => $firm->id,
+                        'name'       => $name,
+                        'location'   => trim($this->newClientLocation) ?: null,
+                        'created_by' => Auth::id(),
+                    ]);
+                }
+            } catch (\Throwable) {}
+        }
+
+        if (! in_array($name, $this->auditClients, true)) {
+            $this->auditClients[] = $name;
+            sort($this->auditClients);
+        }
+
+        $this->clientSite = $name;
+        $this->claimClientName = $name;
+        $this->showAddNewClientModal = false;
+        $this->newClientName = '';
+        $this->newClientLocation = '';
+        $this->notice = "Audit client site '{$name}' has been added and selected.";
+    }
+
+    public function exportAttendanceCsv()
+    {
+        $filename = 'Attendance_Register_' . $this->firmSlug . '_' . date('Y_m_d') . '.csv';
+
+        $columns = [
+            'Staff ID',
+            'Staff Name',
+            'Partner Unit',
+            'Supervising Manager',
+            'Workplace Mode',
+            'Audit Client Site',
+            'Day',
+            'Check-In Time',
+            'Check-In Location (GPS)',
+            'Check-Out Time',
+            'Check-Out Location (GPS)',
+            'Status',
+            'Verification State',
+            'Remarks',
+        ];
+
+        $rowsToExport = $this->studentRows;
+
+        return response()->streamDownload(function () use ($columns, $rowsToExport) {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
+            fputcsv($handle, $columns);
+
+            foreach ($rowsToExport as $row) {
+                fputcsv($handle, [
+                    $row['id'] ?? '',
+                    $row['name'] ?? '',
+                    $row['partner'] ?? $this->partnerUnit,
+                    $row['manager'] ?? 'Direct Report',
+                    $row['mode'] ?? 'Office',
+                    $row['client_site'] ?? ($row['mode'] === 'Client' ? ($row['in_location'] ?? 'Client Audit Site') : 'Principal Office HQ'),
+                    $row['day'] ?? date('D'),
+                    $row['checkin'] ?? '—',
+                    $row['in_location'] ?? '—',
+                    $row['checkout'] ?? '—',
+                    $row['out_location'] ?? '—',
+                    $row['status'] ?? '—',
+                    !empty($row['is_proxy']) ? ('Proxy by ' . ($row['edited_by_role'] ?? 'Manager')) : (!empty($row['edited_by_role']) ? ('Edited by ' . $row['edited_by_role']) : 'Standard Entry'),
+                    $row['remarks'] ?? '',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    public function exportConveyanceCsv()
+    {
+        $filename = 'Conveyance_Claims_' . $this->firmSlug . '_' . date('Y_m_d') . '.csv';
+
+        $columns = [
+            'Claim ID',
+            'Staff Name',
+            'Student ID',
+            'Audit Client Tagged',
+            'Travel Route',
+            'Claim Purpose',
+            'Amount (BDT)',
+            'Original Amount (BDT)',
+            'Adjustment Remarks',
+            'Late Claim Flag',
+            'Approval Status',
+            'Manager Remarks',
+            'Partner Remarks',
+        ];
+
+        $claimsToExport = $this->claimQueue;
+
+        return response()->streamDownload(function () use ($columns, $claimsToExport) {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
+            fputcsv($handle, $columns);
+
+            foreach ($claimsToExport as $claim) {
+                fputcsv($handle, [
+                    $claim['id'] ?? '',
+                    $claim['name'] ?? '',
+                    $claim['student_code'] ?? '',
+                    $claim['client_name'] ?? 'Audit Site',
+                    $claim['route'] ?? '—',
+                    $claim['purpose'] ?? ($claim['client_name'] ?? 'Field Audit Duty'),
+                    number_format((float) ($claim['amount'] ?? 0), 2),
+                    number_format((float) ($claim['original_amount'] ?? $claim['amount'] ?? 0), 2),
+                    $claim['adjustment_remark'] ?? '—',
+                    !empty($claim['is_late']) ? 'YES (Late Submission)' : 'NO',
+                    $claim['status_label'] ?? ucfirst($claim['status'] ?? 'pending'),
+                    $claim['manager_remarks'] ?? '—',
+                    $claim['partner_remarks'] ?? '—',
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     private function validDate(string $value): bool

@@ -4,11 +4,17 @@
         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Travel &amp; Conveyance Expenses</h2>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">Audit client tagging, Manager threshold approval (up to ৳{{ number_format($managerConveyanceLimit, 2) }}), amount adjustments, and automatic Partner escalation for excess or late claims.</p>
     </div>
-    @if($previewRole !== 'student')
-        <button type="button" wire:click="openDialog('claim')" class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-3 text-xs font-extrabold hover:bg-[#F3D604]">
-            <i data-lucide="clipboard-check" class="h-4 w-4"></i> Review Conveyance Claim
+    <div class="flex items-center gap-2">
+        <button type="button" wire:click="exportConveyanceCsv" title="Export Conveyance Claims Ledger to CSV" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-extrabold text-slate-700 hover:bg-slate-50 transition shadow-sm">
+            <i data-lucide="download" class="h-4 w-4 text-emerald-600"></i>
+            <span>Export CSV</span>
         </button>
-    @endif
+        @if($previewRole !== 'student')
+            <button type="button" wire:click="openDialog('claim')" class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-3 text-xs font-extrabold hover:bg-[#F3D604]">
+                <i data-lucide="clipboard-check" class="h-4 w-4"></i> Review Conveyance Claim
+            </button>
+        @endif
+    </div>
 </section>
 
 <!-- KPI Metrics -->
@@ -50,13 +56,20 @@
                         </label>
                     </div>
 
-                    <label class="block text-xs font-bold text-slate-700">Audit Client Assignment
-                        <select wire:model="claimClientName" class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-amber-400">
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-xs font-bold text-slate-700">Audit Client Assignment</label>
+                            <button type="button" wire:click="openNewClientModal" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 hover:text-amber-900 hover:underline">
+                                <i data-lucide="plus-circle" class="h-3.5 w-3.5"></i> Add New Client
+                            </button>
+                        </div>
+                        <select wire:model.live="claimClientName" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-amber-400">
                             @foreach($auditClients as $client)
                                 <option value="{{ $client }}">{{ $client }}</option>
                             @endforeach
+                            <option value="__NEW__" class="font-bold text-amber-800 bg-amber-50">+ Add New Client Site...</option>
                         </select>
-                    </label>
+                    </div>
 
                     <label class="block text-xs font-bold text-slate-700">Journey / Route
                         <input type="text" wire:model="claimRoute" maxlength="200" placeholder="Office → Client Audit Site → Return" required class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-amber-400">

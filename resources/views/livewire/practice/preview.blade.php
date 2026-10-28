@@ -208,5 +208,52 @@
                 </div>
             </div>
         @endif
+
+        @if($showAddNewClientModal)
+            <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true" aria-labelledby="add-client-title">
+                <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div class="flex items-center gap-2.5">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-900">
+                                <i data-lucide="building-2" class="h-5 w-5"></i>
+                            </div>
+                            <div>
+                                <h3 id="add-client-title" class="text-base font-extrabold text-slate-900">Add New Audit Client</h3>
+                                <p class="text-xs text-slate-500">Register new client for attendance &amp; conveyance</p>
+                            </div>
+                        </div>
+                        <button type="button" wire:click="closeDialogs" class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                            <i data-lucide="x" class="h-5 w-5"></i>
+                        </button>
+                    </div>
+
+                    <form wire:submit.prevent="saveNewClientSite" class="mt-4 space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700">Client / Company Name <span class="text-rose-500">*</span></label>
+                            <input type="text" wire:model="newClientName" placeholder="e.g. Grameenphone Ltd., Summit Power" required autofocus class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-amber-400 focus:bg-white">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700">Client Site Location / Address (Optional)</label>
+                            <input type="text" wire:model="newClientLocation" placeholder="e.g. Gulshan-2, Dhaka or CEPZ, Chittagong" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-amber-400 focus:bg-white">
+                        </div>
+
+                        <div class="rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs leading-relaxed text-amber-950">
+                            This client will be saved to your firm's client register and will immediately be available in both Client Site Check-in and Conveyance Claims.
+                        </div>
+
+                        <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                            <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition">
+                                Cancel
+                            </button>
+                            <button type="submit" class="inline-flex items-center gap-1.5 rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition">
+                                <i data-lucide="plus" class="h-4 w-4"></i>
+                                Save &amp; Select Client
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endif
     @endif
 </div>

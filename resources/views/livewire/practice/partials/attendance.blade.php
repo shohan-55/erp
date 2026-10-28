@@ -84,9 +84,20 @@
                 @endforeach
             </div>
             @if($workMode === 'client')
-                <label class="mt-4 block text-xs font-bold text-slate-700">Client Site / Audit Location
-                    <input type="text" wire:model="clientSite" @disabled($previewSessionActive) class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm outline-none focus:border-amber-400" placeholder="e.g. Bangladesh Bank, Motijheel">
-                </label>
+                <div class="mt-4 space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold text-slate-700">Audit Client Site / Field Location</label>
+                        <button type="button" wire:click="openNewClientModal" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 hover:text-amber-900 hover:underline">
+                            <i data-lucide="plus-circle" class="h-3.5 w-3.5"></i> Add New Client
+                        </button>
+                    </div>
+                    <select wire:model.live="clientSite" @disabled($previewSessionActive) class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs outline-none focus:border-amber-400 font-medium">
+                        @foreach($auditClients as $c)
+                            <option value="{{ $c }}">{{ $c }}</option>
+                        @endforeach
+                        <option value="__NEW__" class="font-bold text-amber-800">+ Add New Client Site...</option>
+                    </select>
+                </div>
             @endif
             <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-950 flex items-center justify-between gap-2">
                 <div>
@@ -123,9 +134,13 @@
 <section class="min-w-0 overflow-hidden rounded-2xl border border-[#E8EAF0] bg-white shadow-sm">
     <div class="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div><h3 class="text-sm font-extrabold">{{ $previewRole === 'student' ? 'My Attendance Record' : 'Attendance Records & Live GPS Locations' }}</h3><p class="mt-1 text-xs text-slate-500">Office / Client · In & Out Geolocation visible to Manager & Partner</p></div>
-        <div class="flex flex-col gap-2 sm:flex-row">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
             <label class="relative block"><span class="sr-only">Search attendance</span><i data-lucide="search" class="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400"></i><input type="search" wire:model.live.debounce.300ms="search" placeholder="Search name or code" class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-xs outline-none focus:border-amber-400 sm:w-52"></label>
             <select wire:model.change="filter" aria-label="Filter attendance status" class="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs outline-none focus:border-amber-400"><option value="all">All statuses</option><option value="on-time">On time</option><option value="late">Late</option><option value="incomplete">Incomplete</option></select>
+            <button type="button" wire:click="exportAttendanceCsv" title="Export ICAB Attendance Register to CSV" class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm">
+                <i data-lucide="download" class="h-4 w-4 text-emerald-600"></i>
+                <span>Export CSV</span>
+            </button>
         </div>
     </div>
     <div class="hidden overflow-x-auto md:block">
@@ -156,7 +171,15 @@
                                 @endif
                             </div>
                         </td>
-                        <td class="px-4 py-4 text-slate-600">{{ $item['mode'] }}</td>
+                        <td class="px-4 py-4 text-slate-600">
+                            <div class="font-medium text-slate-800">{{ $item['mode'] }}</div>
+                            @if(!empty($item['client_site']))
+                                <div class="mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800">
+                                    <i data-lucide="building-2" class="h-3 w-3 inline text-amber-600"></i>
+                                    <span>{{ $item['client_site'] }}</span>
+                                </div>
+                            @endif
+                        </td>
                         <td class="px-4 py-4">
                             <div class="font-semibold text-slate-800">{{ $item['checkin'] }}</div>
                             <div class="mt-0.5 text-[11px] text-slate-500">
@@ -202,7 +225,13 @@
         @forelse($rows as $item)
             <div wire:key="mobile-att-{{ $item['id'] }}" class="p-4">
                 <div class="flex items-center justify-between gap-3"><p class="text-sm font-bold">{{ $item['name'] }}</p><span class="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">{{ $item['status'] }}</span></div>
-                <p class="mt-2 text-xs text-slate-500">{{ $item['id'] }} · {{ $item['mode'] }} · {{ $item['day'] }}</p>
+                <p class="mt-2 text-xs text-slate-500">
+                    {{ $item['id'] }} · {{ $item['mode'] }}
+                    @if(!empty($item['client_site']))
+                        · <span class="font-bold text-amber-800">{{ $item['client_site'] }}</span>
+                    @endif
+                    · {{ $item['day'] }}
+                </p>
                 <div class="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs">
                     <div>
                         <span>In: <strong>{{ $item['checkin'] }}</strong></span>

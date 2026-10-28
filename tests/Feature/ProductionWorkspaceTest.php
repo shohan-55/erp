@@ -266,4 +266,67 @@ class ProductionWorkspaceTest extends TestCase
 
         $this->assertDatabaseMissing('users', ['id' => $this->student->id]);
     }
+
+    public function test_client_site_can_be_added_on_the_fly_and_persists_to_audit_clients(): void
+    {
+        $this->actingAs($this->partner);
+
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'partner',
+            'section'     => 'attendance',
+        ])
+            ->call('openNewClientModal')
+            ->assertSet('showAddNewClientModal', true)
+            ->set('newClientName', 'Apex Footwear Ltd.')
+            ->set('newClientLocation', 'Kalaikoir, Gazipur')
+            ->call('saveNewClientSite')
+            ->assertSet('showAddNewClientModal', false)
+            ->assertSet('clientSite', 'Apex Footwear Ltd.')
+            ->assertSet('claimClientName', 'Apex Footwear Ltd.');
+
+        $this->assertDatabaseHas('audit_clients', [
+            'firm_id'  => $this->firm->id,
+            'name'     => 'Apex Footwear Ltd.',
+            'location' => 'Kalaikoir, Gazipur',
+        ]);
+    }
+
+    public function test_student_checkin_with_client_site_records_client_site_in_attendance(): void
+    {
+        $this->actingAs($this->student);
+
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'student',
+            'section'     => 'attendance',
+        ])
+            ->set('workMode', 'client')
+            ->set('clientSite', 'Square Pharmaceuticals Audit')
+            ->call('togglePreviewSession')
+            ->assertSet('previewSessionActive', true);
+
+        $this->assertDatabaseHas('attendances', [
+            'firm_id'     => $this->firm->id,
+            'user_id'     => $this->student->id,
+            'client_site' => 'Square Pharmaceuticals Audit',
+        ]);
+    }
+
+    public function test_attendance_and_conveyance_csv_export_returns_streamed_csv_response(): void
+    {
+        $this->actingAs($this->partner);
+
+        $component = Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'partner',
+            'section'     => 'attendance',
+        ]);
+
+        $component->call('exportAttendanceCsv')
+            ->assertFileDownloaded('Attendance_Register_rac_' . date('Y_m_d') . '.csv');
+
+        $component->call('exportConveyanceCsv')
+            ->assertFileDownloaded('Conveyance_Claims_rac_' . date('Y_m_d') . '.csv');
+    }
 }
