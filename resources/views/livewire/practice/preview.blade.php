@@ -24,22 +24,16 @@
 
             <div class="px-4 pt-4">
                 @if(Auth::check() && !Auth::user()->isPlatformAdmin())
-                    <div class="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-3.5 shadow-inner">
-                        <div class="flex items-center gap-3">
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FCDF02] text-xs font-black text-[#17191F] shadow-sm">
-                                {{ strtoupper(substr(Auth::user()->name ?? $previewRole, 0, 1)) }}
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="truncate text-xs font-bold text-white">{{ Auth::user()->name }}</p>
-                                <div class="mt-0.5 flex items-center gap-1.5">
-                                    <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-                                    <span class="truncate text-[10px] font-semibold text-amber-300">{{ $roleLabel }}</span>
-                                </div>
-                            </div>
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-3.5 shadow-inner">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest text-[#FCDF02]">Practice Scope</span>
+                            <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[9px] font-bold text-emerald-300">
+                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Active
+                            </span>
                         </div>
-                        <div class="mt-3 flex items-center justify-between border-t border-white/10 pt-2 text-[10px] text-slate-400">
-                            <span class="truncate">{{ $partnerUnit }}</span>
-                            <span class="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[9px] text-emerald-300">SECURE NODE</span>
+                        <div class="mt-2.5">
+                            <p class="truncate text-xs font-black text-white">{{ $partnerUnit }}</p>
+                            <p class="mt-0.5 truncate text-[10px] text-slate-400">{{ $firm['name'] ?? 'Practice' }} • {{ $firm['designation'] ?? 'Chartered Accountants' }}</p>
                         </div>
                     </div>
                 @else
@@ -59,14 +53,10 @@
                         </div>
                     </div>
                 @endif
-                <div class="mt-3 rounded-xl border border-white/5 bg-white/5 px-3 py-2.5">
-                    <div class="text-[11px] font-bold text-white">{{ $partnerUnit }}</div>
-                    <div class="mt-1 text-[10px] text-slate-400">{{ $firm['name'] ?? 'Practice' }} • Isolated Scope</div>
-                </div>
             </div>
 
             <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-5" aria-label="Workspace modules">
-                <p class="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">Practice</p>
+                <p class="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">Practice Modules</p>
                 @foreach([
                     ['key'=>'dashboard','title'=>'Dashboard','icon'=>'layout-dashboard'],
                     ['key'=>'attendance','title'=>'Attendance','icon'=>'calendar-check-2'],
@@ -86,17 +76,24 @@
                         @if($item['key'] === 'notifications') <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {{ $section === 'notifications' ? 'bg-[#17191F] text-[#FCDF02]' : 'bg-amber-500/20 text-amber-200' }}">3</span> @endif
                     </button>
                 @endforeach
-                <div class="my-4 border-t border-white/10"></div>
-                <a href="{{ url('/logout') }}" class="flex items-center gap-3 rounded-xl px-3.5 py-3 text-[12px] font-medium text-slate-400 hover:bg-white/10 hover:text-white"><i data-lucide="log-out" class="h-[18px] w-[18px]"></i>Switch Account / Sign Out</a>
             </nav>
 
-            <div class="border-t border-white/10 p-4">
-                <div class="flex items-center gap-3 rounded-xl bg-white/5 p-3">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FCDF02] text-xs font-extrabold text-[#17191F]">{{ strtoupper(substr(Auth::user()->name ?? $previewRole,0,1)) }}</div>
+            <div wire:key="sidebar-active-user-card" class="border-t border-white/10 p-3">
+                <div class="flex items-center gap-3 rounded-2xl bg-white/5 p-3 hover:bg-white/10 transition">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FCDF02] text-xs font-black text-[#17191F] shadow-sm">
+                        {{ strtoupper(substr(Auth::user()->name ?? $previewRole, 0, 1)) }}
+                    </div>
                     <div class="min-w-0 flex-1">
                         <p class="truncate text-xs font-bold text-white">{{ Auth::user()->name ?? $roleLabel }}</p>
+                        <div class="mt-0.5 flex items-center gap-1.5">
+                            <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                            <span class="truncate text-[10px] font-semibold text-amber-300">{{ $roleLabel }}</span>
+                        </div>
                         <p class="truncate text-[10px] text-slate-400">{{ Auth::user()->email ?? ($roleLabel . ' • ' . ($firm['name'] ?? 'Practice')) }}</p>
                     </div>
+                    <a href="{{ url('/logout') }}" title="Sign Out" class="rounded-xl p-2 text-slate-400 hover:bg-rose-500/20 hover:text-rose-300 transition">
+                        <i data-lucide="log-out" class="h-4 w-4"></i>
+                    </a>
                 </div>
             </div>
         </aside>
@@ -109,8 +106,8 @@
                     <h1 class="truncate text-lg font-extrabold tracking-tight sm:text-xl">{{ $sectionLabel }}</h1>
                 </div>
                 <div class="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-900 sm:inline-flex">
-                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                    <span>LIVE PRACTICE NODE</span>
+                    <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>PRODUCTION ACTIVE</span>
                 </div>
                 <button type="button" wire:click="setSection('notifications')" class="relative rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50" aria-label="Open notifications">
                     <i data-lucide="bell" class="h-[18px] w-[18px]"></i>

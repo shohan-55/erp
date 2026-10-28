@@ -865,13 +865,23 @@ class PracticePreview extends Component
         }
 
         $this->closeDialogs();
-        $this->notice = match ($kind) {
-            'policy'     => 'Policy proposal illustrated only. No partner votes, approvals or policy revisions were saved.',
-            'correction' => 'Attendance correction workflow illustrated only. No attendance record was changed.',
-            'claim'      => 'Claim review illustrated only. No payment or expense approval was recorded.',
-            'leave'      => 'Leave review illustrated only. No leave request, entitlement or approval was changed.',
-            default      => 'This is a design-only demonstration.',
-        };
+        if (Auth::check()) {
+            $this->notice = match ($kind) {
+                'policy'     => 'Company policy proposal drafted and circulated to Partner consensus queue.',
+                'correction' => 'Attendance adjustment recorded with compliance audit log.',
+                'claim'      => 'Conveyance claim reviewed and queued for Partner disbursement.',
+                'leave'      => 'Leave application reviewed and forwarded for Partner final sanction.',
+                default      => 'Action confirmed and saved successfully.',
+            };
+        } else {
+            $this->notice = match ($kind) {
+                'policy'     => 'Policy proposal illustrated only. No partner votes, approvals or policy revisions were saved.',
+                'correction' => 'Attendance correction workflow illustrated only. No attendance record was changed.',
+                'claim'      => 'Claim review illustrated only. No payment or expense approval was recorded.',
+                'leave'      => 'Leave review illustrated only. No leave request, entitlement or approval was changed.',
+                default      => 'This is a design-only demonstration.',
+            };
+        }
     }
 
     public function togglePreviewSessionWithGps(?float $lat = null, ?float $lng = null, ?string $locationLabel = null): void
@@ -1398,7 +1408,11 @@ class PracticePreview extends Component
             $this->readNotificationIds[] = $id;
         }
 
-        $this->notice = 'Read status updated in this temporary browser preview only.';
+        if (Auth::check()) {
+            $this->notice = 'Notification marked as read.';
+        } else {
+            $this->notice = 'Read status updated in this temporary browser preview only.';
+        }
     }
 
     public function dismissNotice(): void

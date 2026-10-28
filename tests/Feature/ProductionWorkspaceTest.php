@@ -72,7 +72,10 @@ class ProductionWorkspaceTest extends TestCase
         $response = $this->get('/c/rac/dashboard');
         $response->assertOk()
             ->assertSee('A.K.M. Mohitul Haq, FCA')
-            ->assertSee('SECURE NODE')
+            ->assertSee('PRODUCTION ACTIVE')
+            ->assertDontSee('LIVE PRACTICE NODE')
+            ->assertDontSee('SECURE NODE')
+            ->assertDontSee('Isolated Scope')
             ->assertDontSee('aria-label="Practice persona"', false);
     }
 

@@ -11,9 +11,9 @@
             @endif
         </h2>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
-            @if($previewRole === 'partner') Autonomous practice operations for {{ $partnerUnit }}. Multi-partner zero-trust boundary active.
-            @elseif($previewRole === 'manager') Team supervision and operational workflows for assigned articled students under {{ $partnerUnit }}.
-            @else Personal attendance, leave allowance, and client conveyance ledger.
+            @if($previewRole === 'partner') Centralized practice management, staff coordination, and compliance governance for {{ $partnerUnit }}.
+            @elseif($previewRole === 'manager') Team supervision, audit assignments, and operational workflows for assigned articled students under {{ $partnerUnit }}.
+            @else Daily attendance recording, client audit conveyance claims, and ICAB study leave tracking.
             @endif
         </p>
     </div>
