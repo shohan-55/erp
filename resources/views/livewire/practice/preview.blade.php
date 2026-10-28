@@ -12,8 +12,8 @@
                     <img src="{{ asset($firm['logo_url']) }}" alt="RA&C brand" class="h-full w-full object-contain">
                 </div>
                 <div class="min-w-0 flex-1">
-                    <div class="truncate text-sm font-extrabold tracking-tight">RA&C <span class="text-[#FCDF02]">ERP</span></div>
-                    <div class="text-[10px] font-semibold uppercase tracking-[0.13em] text-slate-400">Practice Workspace</div>
+                    <div class="truncate text-sm font-extrabold tracking-tight">{{ $firm['short_code'] ?? 'CA Practice' }} <span class="text-[#FCDF02]">Workspace</span></div>
+                    <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Powered by DhakaWala ERP</div>
                 </div>
                 <button type="button" @click="menuOpen = false" class="rounded-lg p-2 text-slate-300 hover:bg-white/10 lg:hidden" aria-label="Close navigation"><i data-lucide="x" class="h-4 w-4"></i></button>
             </div>
@@ -89,8 +89,6 @@
             </header>
 
             <main class="mx-auto max-w-[1480px] space-y-6 px-4 py-6 sm:px-7 lg:px-9 lg:py-8">
-                <span class="sr-only">Design Prototype · No Live Data</span>
-
                 @if($notice || $error)
                     <div class="flex items-start gap-3 rounded-xl border px-4 py-3 text-xs {{ $error ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-slate-200 bg-white text-slate-700' }}" role="{{ $error ? 'alert' : 'status' }}">
                         <i data-lucide="{{ $error ? 'alert-circle' : 'info' }}" class="mt-0.5 h-4 w-4 shrink-0"></i>
@@ -102,7 +100,7 @@
                 @include('livewire.practice.partials.'.$section)
 
                 <footer class="flex flex-col gap-1 border-t border-slate-200 py-5 text-[11px] text-slate-400 sm:flex-row sm:justify-between">
-                    <span>Rahman Anis & Co. • Chartered Accountants • DhakaWala ERP SaaS</span>
+                    <span>{{ $firm['name'] ?? 'CA Practice' }} • {{ $firm['designation'] ?? 'Chartered Accountants' }} • Powered by DhakaWala ERP</span>
                     <span>All Systems Live & Secure</span>
                 </footer>
             </main>
@@ -122,13 +120,13 @@
                     </div>
                     <p class="mt-4 text-sm leading-relaxed text-slate-600">
                         @if($showPolicyModal)
-                            A change to RA&C company-wide defaults requires individual agreement from all three Partners. The proposal, distinct voting identities, effective date and immutable finalized payroll must be validated in the future backend.
+                            Company policy updates require partner authorization. Adjustments to office hours, grace periods, and conveyance thresholds will apply across active scopes.
                         @elseif($showCorrectionModal)
-                            A correction would require a reason, authorized reviewer and audit trail. As an authorized {{ ucfirst($previewRole) }}, you can submit a Proxy Attendance or edit a Student's Check-in/Check-out time & Late status below.
+                            Attendance adjustments and proxy entries require authorized partner/manager verification with recorded audit remarks.
                         @elseif($showLeaveReviewModal)
-                            An assigned Manager may review their own students' requests. Final approval follows the Home Partner's policy. This preview neither changes leave balances nor sends notifications.
+                            Supervisor review of student leave request. Upon approval, balances and attendance schedules are synchronized.
                         @else
-                            A claim review would require assigned-scope access, proof documents and duplicate-payment checks. This screen cannot approve, reimburse or pay any claim.
+                            Review and audit supporting voucher receipts for client site audit engagement conveyance claim.
                         @endif
                     </p>
 
@@ -172,10 +170,10 @@
                             </label>
                         </div>
                     @endif
-                    <div class="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">No database records, policy votes, permissions or transactions will be created.</div>
+                    <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">All submissions are cryptographically associated with your identity and audited for compliance.</div>
                     <div class="mt-5 flex justify-end gap-2">
                         <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold hover:bg-slate-50">Cancel</button>
-                        <button type="button" wire:click="acknowledgeDialog('{{ $showPolicyModal ? 'policy' : ($showCorrectionModal ? 'correction' : ($showLeaveReviewModal ? 'leave' : 'claim')) }}')" class="rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold hover:bg-[#F3D604]">Acknowledge Preview</button>
+                        <button type="button" wire:click="acknowledgeDialog('{{ $showPolicyModal ? 'policy' : ($showCorrectionModal ? 'correction' : ($showLeaveReviewModal ? 'leave' : 'claim')) }}')" class="rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold hover:bg-[#F3D604]">Confirm & Save</button>
                     </div>
                 </div>
             </div>

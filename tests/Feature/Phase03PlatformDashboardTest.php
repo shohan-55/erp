@@ -8,21 +8,19 @@ use Tests\TestCase;
 
 class Phase03PlatformDashboardTest extends TestCase
 {
-    public function test_platform_dashboard_preview_route_renders_with_explicit_demo_banner(): void
+    public function test_platform_dashboard_route_renders(): void
     {
         $this->get('/platform/dashboard-preview')
             ->assertOk()
             ->assertSee('DhakaWala')
-            ->assertSee('Design Prototype')
-            ->assertSee('No Live Access')
-            ->assertSee('No authentication, tenant provisioning');
+            ->assertSee('CENTRAL OPERATIONS');
     }
 
     public function test_original_platform_login_and_firm_login_still_render(): void
     {
         $this->get('/platform/login')->assertOk()->assertSee('Platform Administration');
-        $this->get('/c/rac/login')->assertOk()->assertSee('Rahman Anis & Co.');
-        $this->get('/')->assertOk()->assertSee('Rahman Anis & Co.');
+        $this->get('/c/rac/login')->assertOk()->assertSee('Rahman Anis');
+        $this->get('/')->assertOk()->assertSee('DhakaWala')->assertSee('Rahman Anis');
     }
 
     public function test_navigation_changes_only_between_known_preview_sections(): void

@@ -13,8 +13,7 @@ class Phase04To10PracticePreviewTest extends TestCase
         foreach (['partner', 'manager', 'student'] as $role) {
             $this->get("/c/rac/preview/{$role}")
                 ->assertOk()
-                ->assertSee('Design Prototype')
-                ->assertSee('No Live Data')
+                ->assertSee('Powered by DhakaWala ERP')
                 ->assertSee('Rahman Anis &amp; Co.', false);
         }
     }
@@ -32,7 +31,7 @@ class Phase04To10PracticePreviewTest extends TestCase
         foreach (['dashboard', 'attendance', 'leave', 'conveyance', 'payroll', 'notifications', 'policies', 'settings'] as $section) {
             $this->get("/c/rac/preview/partner/{$section}")
                 ->assertOk()
-                ->assertSee('Design Prototype');
+                ->assertSee('Powered by DhakaWala ERP');
         }
     }
 

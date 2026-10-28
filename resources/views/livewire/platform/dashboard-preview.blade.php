@@ -87,8 +87,6 @@
         </header>
 
         <main class="mx-auto max-w-[1480px] space-y-6 px-4 py-6 sm:px-7 lg:px-9 lg:py-8">
-            <span class="sr-only">Design Prototype — No Live Access. No authentication, tenant provisioning</span>
-
             @if($previewNotice)
                 <div class="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" role="status">
                     <i data-lucide="info" class="mt-0.5 h-4 w-4 text-amber-700"></i>

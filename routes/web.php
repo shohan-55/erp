@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Livewire\AppShell;
 use App\Livewire\Auth\FirmLogin;
@@ -12,28 +13,27 @@ use App\Livewire\Practice\PracticePreview;
 
 /*
 |--------------------------------------------------------------------------
-| Web Routes - RA&C ERP SaaS
+| Web Routes - DhakaWala ERP SaaS
 |--------------------------------------------------------------------------
-| Phase 01: Core Workspace Shell & Component Library
-| Phase 02: Enterprise Authentication & Account Recovery Experience
-| Phase 03: Real Authentication, RBAC & Firm-scoped Access Control
+| Official Multi-Tenant Enterprise Practice Management Platform
+| Owned and Operated by DhakaWala (erp.dhakawala.com)
 */
 
-// Default login redirect to primary practice node
+// Default login redirect to main DhakaWala ERP Portal
 Route::get('/login', function () {
-    return redirect()->route('firm.login', ['firmSlug' => 'rac']);
+    return redirect()->route('home');
 })->name('login');
 
 // ─── Guest / Auth Recovery Routes ──────────────────────────────────────────
 
-// Phase 02: Platform Super Admin Authentication
+// DhakaWala Platform Super Admin Authentication
 Route::prefix('platform')->middleware('throttle:20,1')->group(function () {
     Route::get('/login', PlatformLogin::class)->name('platform.login');
     Route::get('/forgot-password', ForgotPassword::class)->name('platform.forgot-password');
     Route::get('/reset-password/{token?}', ResetPassword::class)->name('platform.reset-password');
 });
 
-// Phase 02: Multi-Firm CA Practice Authentication (/c/{firm-slug}/*)
+// Multi-Firm CA Practice Authentication (/c/{firm-slug}/*)
 Route::prefix('c/{firmSlug}')->middleware('throttle:20,1')->group(function () {
     Route::get('/login', FirmLogin::class)->name('firm.login');
     Route::get('/forgot-password', ForgotPassword::class)->name('firm.forgot-password');
@@ -44,16 +44,17 @@ Route::prefix('c/{firmSlug}')->middleware('throttle:20,1')->group(function () {
 // Standard Laravel Password Broker Reset Route
 Route::get('/reset-password/{token?}', ResetPassword::class)->name('password.reset');
 
-// ─── Workspace & Preview Routes ────────────────────────────────────────────
+// ─── Workspace & Portal Routes ─────────────────────────────────────────────
 
-// Phase 01: Practice Workspace Shell
+// Production DhakaWala ERP Portal & Login Console
 Route::get('/', AppShell::class)->name('home');
 
-// Phase 03: Platform Dashboard Preview / Prototype
-Route::get('/platform/dashboard-preview', DashboardPreview::class)
-    ->name('platform.dashboard.preview');
+// DhakaWala Platform Administration Hub
+Route::get('/platform/dashboard', DashboardPreview::class)->name('platform.dashboard');
+Route::get('/platform/dashboard-preview', DashboardPreview::class)->name('platform.dashboard.preview');
 
-// Phase 04–10: Practice Module Previews (firm-scoped)
+// CA Firm Practice Workspaces (firm-scoped)
+Route::get('/c/{firmSlug}/dashboard', PracticePreview::class)->name('firm.practice.dashboard');
 Route::get('/c/{firmSlug}/preview/{previewRole?}/{section?}', PracticePreview::class)
     ->where('previewRole', 'partner|manager|student')
     ->where('section', 'dashboard|attendance|leave|conveyance|payroll|notifications|policies|settings')
@@ -62,5 +63,20 @@ Route::get('/c/{firmSlug}/preview/{previewRole?}/{section?}', PracticePreview::c
 // ─── Authenticated Live Routes ─────────────────────────────────────────────
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('/dashboard', AppShell::class)->name('dashboard');
+    Route::get('/dashboard', function () {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        if ($user && $user->isPlatformAdmin()) {
+            return redirect()->route('platform.dashboard');
+        }
+        if ($user && $user->isFirmMember()) {
+            $firmSlug = $user->firm ? $user->firm->slug : 'rac';
+            return redirect()->route('firm.practice.preview', [
+                'firmSlug'    => $firmSlug,
+                'previewRole' => $user->role,
+                'section'     => 'dashboard',
+            ]);
+        }
+        return redirect()->route('home');
+    })->name('dashboard');
 });

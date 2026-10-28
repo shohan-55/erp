@@ -70,7 +70,7 @@
                         <i data-lucide="paperclip" class="mt-0.5 h-5 w-5 shrink-0 text-slate-500"></i>
                         <div>
                             <p class="text-xs font-bold text-slate-700">Receipt / Supporting Ticket Evidence</p>
-                            <p class="mt-1 text-[11px] leading-relaxed text-slate-500">Upload bus ticket, CNG slip, or Uber screenshot. (Optional in this prototype).</p>
+                            <p class="mt-1 text-[11px] leading-relaxed text-slate-500">Upload bus ticket, CNG slip, or Uber screenshot. (Optional for standard claims).</p>
                         </div>
                     </div>
 

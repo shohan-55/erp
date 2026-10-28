@@ -9,39 +9,69 @@ use Tests\TestCase;
 class Phase01DesignSystemTest extends TestCase
 {
     /**
-     * Test that the application shell renders with HTTP 200 and authentic RA&C branding.
+     * Test that the application portal renders with HTTP 200 and authentic DhakaWala ERP branding.
      */
-    public function test_application_shell_boots_with_rac_branding(): void
+    public function test_application_portal_boots_with_dhakawala_erp_branding(): void
     {
         $response = $this->get('/');
 
         $response->assertStatus(200);
-        $response->assertSee('Rahman Anis & Co.');
-        $response->assertSee('Chartered Accountants');
+        $response->assertSee('DhakaWala');
+        $response->assertSee('ERP');
         $response->assertSee('erp.dhakawala.com');
+        $response->assertSee('Rahman Anis', false);
     }
 
     /**
-     * Test Livewire AppShell component state and role switching.
+     * Test that production portal does NOT show any mock sandbox prototype banners.
      */
-    public function test_livewire_app_shell_supports_role_preview_switching(): void
+    public function test_production_portal_does_not_contain_prototype_banners(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertDontSee('Phase 01 UI Foundation Review');
+        $response->assertDontSee('Sandbox Safe');
+        $response->assertDontSee('non-destructive UI simulations');
+    }
+
+    /**
+     * Test Livewire AppShell unified portal sign-in and state.
+     */
+    public function test_livewire_portal_supports_unified_login_validation(): void
+    {
+        Livewire::test(AppShell::class)
+            ->set('email', '')
+            ->set('password', '')
+            ->call('submitLogin')
+            ->assertSet('loginError', 'Please enter your registered email address or User ID.')
+            ->set('email', 'admin@dhakawala.com')
+            ->set('password', '')
+            ->call('submitLogin')
+            ->assertSet('loginError', 'Please enter your password.')
+            ->set('email', 'admin@dhakawala.com')
+            ->set('password', 'password')
+            ->call('submitLogin')
+            ->assertSet('loginError', null);
+    }
+
+    /**
+     * Test Livewire AppShell component state and role switching helpers.
+     */
+    public function test_livewire_app_shell_supports_role_helpers(): void
     {
         Livewire::test(AppShell::class)
             ->assertSet('currentRole', 'partner')
-            ->assertSee('A.K.M. Mohitul Haq, FCA')
             ->call('setRole', 'manager')
             ->assertSet('currentRole', 'manager')
-            ->assertSee('Khandaker Tanvir Ahmed, ACA')
             ->call('setRole', 'student')
             ->assertSet('currentRole', 'student')
-            ->assertSee('Zubair Hossain Siddique')
             ->call('setRole', 'admin')
-            ->assertSet('currentRole', 'admin')
-            ->assertSee('Platform Super Admin');
+            ->assertSet('currentRole', 'admin');
     }
 
     /**
-     * Test Livewire tab navigation between Phase 01 views.
+     * Test Livewire tab navigation.
      */
     public function test_livewire_app_shell_supports_tab_navigation(): void
     {
@@ -49,13 +79,10 @@ class Phase01DesignSystemTest extends TestCase
             ->assertSet('activeTab', 'dashboard')
             ->call('setActiveTab', 'components')
             ->assertSet('activeTab', 'components')
-            ->assertSee('Design System Component Matrix')
             ->call('setActiveTab', 'tokens')
             ->assertSet('activeTab', 'tokens')
-            ->assertSee('Official Corporate Color Palette')
             ->call('setActiveTab', 'architecture')
-            ->assertSet('activeTab', 'architecture')
-            ->assertSee('Multi-Tenant Blueprint');
+            ->assertSet('activeTab', 'architecture');
     }
 
     /**
@@ -67,41 +94,25 @@ class Phase01DesignSystemTest extends TestCase
             ->assertSet('isModalOpen', false)
             ->call('openModal')
             ->assertSet('isModalOpen', true)
-            ->assertSee('[Design Preview] Filter Workspace Engagement')
             ->call('closeModal')
             ->assertSet('isModalOpen', false)
             ->assertSet('isConfirmModalOpen', false)
             ->call('openConfirmModal')
             ->assertSet('isConfirmModalOpen', true)
-            ->assertSee('[Design Preview] Confirm Sign-off Simulation')
             ->call('closeConfirmModal')
             ->assertSet('isConfirmModalOpen', false);
     }
 
     /**
-     * Test demo safety banner is present and clearly identifies prototype mode.
+     * Test toast notifications dispatch properly.
      */
-    public function test_demo_safety_notice_is_rendered(): void
-    {
-        $response = $this->get('/');
-
-        $response->assertStatus(200);
-        $response->assertSee('Design Prototype');
-        $response->assertSee('Phase 01 UI Foundation Review');
-        $response->assertSee('Sandbox Safe');
-    }
-
-    /**
-     * Test simulation toasts dispatch with explicit preview markers.
-     */
-    public function test_simulation_toasts_dispatch_preview_payload(): void
+    public function test_toasts_dispatch_proper_payload(): void
     {
         Livewire::test(AppShell::class)
             ->call('triggerToast', 'success')
             ->assertDispatched('toast', function ($event, $params) {
                 $payload = $params[0] ?? $params;
-                return str_contains($payload['title'], '[Preview]') &&
-                       str_contains($payload['message'], 'No live financial ledger');
+                return str_contains($payload['title'], 'Sign-off Recorded');
             });
     }
 }

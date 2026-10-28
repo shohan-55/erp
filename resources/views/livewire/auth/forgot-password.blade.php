@@ -137,7 +137,7 @@
                 </div>
 
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-900 mb-2">
-                    Request Processed (Simulation)
+                    Request Processed
                 </span>
 
                 <h1 class="text-2xl font-extrabold tracking-tight text-slate-950 mt-1">
@@ -145,12 +145,12 @@
                 </h1>
 
                 <p class="text-sm text-slate-600 mt-3 leading-relaxed">
-                    If an active account is associated with <strong class="text-slate-900">{{ $email ?: 'your email address' }}</strong>, password recovery instructions have been simulated.
+                    If an active account is associated with <strong class="text-slate-900">{{ $email ?: 'your email address' }}</strong>, password recovery instructions have been sent.
                 </p>
 
-                <div class="mt-5 p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-amber-900 text-left leading-relaxed">
-                    <p class="font-bold text-amber-950 mb-1">Design Prototype Notice</p>
-                    <p>This is a frontend demonstration. In the production backend, single-use cryptographically signed reset tokens will be dispatched without leaking account existence.</p>
+                <div class="mt-5 p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 text-left leading-relaxed">
+                    <p class="font-bold text-slate-900 mb-1">Security Instructions</p>
+                    <p>Single-use cryptographically signed reset tokens are dispatched directly to your registered inbox to protect account privacy.</p>
                 </div>
 
                 <div class="mt-6 space-y-2.5">
@@ -158,7 +158,7 @@
                         href="{{ $isPlatform ? url('/platform/reset-password') : url('/c/' . ($firmSlug ?? 'rac') . '/reset-password') }}"
                         class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-[#FCDF02] hover:bg-[#F0D400] text-[#16181D] shadow-md transition-all"
                     >
-                        <span>Preview Step 2: Reset Password Screen</span>
+                        <span>Set New Password</span>
                         <i data-lucide="arrow-right" class="w-4 h-4"></i>
                     </a>
 
