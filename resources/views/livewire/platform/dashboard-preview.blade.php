@@ -587,6 +587,16 @@
                     {{-- Modal Body Form --}}
                     <form wire:submit.prevent="createOrganization" class="flex flex-col flex-1 min-h-0 overflow-hidden">
                         <div class="flex-1 overflow-y-auto p-6 space-y-4 overscroll-contain">
+                            @if($modalError)
+                                <div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800 flex items-start gap-3">
+                                    <i data-lucide="alert-circle" class="h-4 w-4 text-rose-600 flex-shrink-0 mt-0.5"></i>
+                                    <div>
+                                        <p class="font-bold text-rose-900">Provisioning Error</p>
+                                        <p class="mt-0.5 text-rose-700 leading-relaxed">{{ $modalError }}</p>
+                                    </div>
+                                </div>
+                            @endif
+
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {{-- Organization Name --}}
                         <div class="sm:col-span-2">
@@ -727,8 +737,17 @@
                         <button type="button" wire:click="closePreviews" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition">
                             Cancel
                         </button>
-                        <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-2.5 text-xs font-extrabold text-[#16181D] shadow-sm hover:bg-[#F3D604] transition">
-                            <i data-lucide="check" class="h-4 w-4"></i> Create Organization & Provision Workspace
+                        <button type="submit" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-2.5 text-xs font-extrabold text-[#16181D] shadow-sm hover:bg-[#F3D604] transition disabled:opacity-50">
+                            <span wire:loading.remove wire:target="createOrganization" class="inline-flex items-center gap-2">
+                                <i data-lucide="check" class="h-4 w-4"></i> Create Organization & Provision Workspace
+                            </span>
+                            <span wire:loading wire:target="createOrganization" class="inline-flex items-center gap-2">
+                                <svg class="animate-spin h-3.5 w-3.5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                </svg>
+                                Provisioning Workspace...
+                            </span>
                         </button>
                         {{-- Keep hidden preview button for phase 03 test runner --}}
                         <button type="button" wire:click="acknowledgePreview('provision')" class="sr-only">Acknowledge Preview</button>

@@ -24,6 +24,7 @@ class DashboardPreview extends Component
     public bool $showProvisionPreview = false;
     public bool $showSupportPreview = false;
     public ?string $previewNotice = null;
+    public ?string $modalError = null;
 
     // Permanent Deletion Confirmation Modal
     public bool $showDeleteModal = false;
@@ -210,6 +211,7 @@ class DashboardPreview extends Component
     public function openProvisionPreview(): void
     {
         $this->closePreviews();
+        $this->modalError = null;
         $this->showProvisionPreview = true;
     }
 
@@ -223,10 +225,13 @@ class DashboardPreview extends Component
     {
         $this->showProvisionPreview = false;
         $this->showSupportPreview = false;
+        $this->modalError = null;
     }
 
     public function createOrganization(): void
     {
+        $this->modalError = null;
+
         $this->validate([
             'newFirmName' => 'required|string|min:2|max:150',
             'newFirmSlug' => 'required|string|min:2|max:50|alpha_dash',
@@ -240,72 +245,129 @@ class DashboardPreview extends Component
         ]);
 
         $slug = strtolower(trim($this->newFirmSlug));
+        $cleanEmail = strtolower(trim($this->newPartnerEmail));
         $customDomain = ! empty(trim($this->newFirmCustomDomain)) ? strtolower(trim($this->newFirmCustomDomain)) : null;
         $customSubdomain = ! empty(trim($this->newFirmCustomSubdomain)) ? strtolower(trim($this->newFirmCustomSubdomain)) : null;
+        $partnerPass = $this->newPartnerPassword ?: 'Partner@2026';
 
         try {
             if (Schema::hasTable('firms')) {
-                if (Firm::where('slug', $slug)->exists()) {
-                    $this->addError('newFirmSlug', 'This URL slug is already registered by another organization.');
-                    return;
+                // Check if this slug exists
+                $existingFirmWithSlug = Firm::where('slug', $slug)->first();
+                if ($existingFirmWithSlug) {
+                    // Check if it's an incomplete dangling firm from a previous crash (zero users)
+                    $hasUsers = Schema::hasTable('users') && User::where('firm_id', $existingFirmWithSlug->id)->exists();
+                    if (! $hasUsers) {
+                        $this->performSafeFirmDeletion($existingFirmWithSlug->id);
+                    } else {
+                        $this->addError('newFirmSlug', 'This URL slug is already registered by another organization.');
+                        $this->modalError = 'This URL slug is already registered by another organization.';
+                        return;
+                    }
                 }
 
                 if ($customDomain && Firm::where('custom_domain', $customDomain)->exists()) {
                     $this->addError('newFirmCustomDomain', 'This custom domain is already assigned to another organization.');
+                    $this->modalError = 'This custom domain is already assigned to another organization.';
                     return;
                 }
 
                 if ($customSubdomain && Firm::where('custom_subdomain', $customSubdomain)->exists()) {
                     $this->addError('newFirmCustomSubdomain', 'This custom subdomain is already in use.');
+                    $this->modalError = 'This custom subdomain is already in use.';
                     return;
                 }
 
-                $initials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $this->newFirmName) ?: 'DW', 0, 2));
+                // Check partner email conflicts with platform admin or other active firms
+                if (Schema::hasTable('users')) {
+                    $existingUser = User::where('email', $cleanEmail)->first();
+                    if ($existingUser) {
+                        if ($existingUser->isPlatformAdmin()) {
+                            $this->addError('newPartnerEmail', 'This email is already registered as a Platform Administrator.');
+                            $this->modalError = 'Platform Administrator emails cannot be assigned to practice firms. Please use a distinct partner email.';
+                            return;
+                        }
 
-                $firm = Firm::create([
-                    'name' => trim($this->newFirmName),
-                    'slug' => $slug,
-                    'kind' => $this->newFirmKind,
-                    'email' => strtolower(trim($this->newPartnerEmail)),
-                    'status' => 'active',
-                    'workspaces' => 1,
-                    'seats' => $this->newFirmSeats,
-                    'plan' => $this->newFirmPlan,
-                    'region' => trim($this->newFirmRegion),
-                    'initials' => $initials,
-                    'custom_domain' => $customDomain,
-                    'custom_subdomain' => $customSubdomain,
-                ]);
-
-                $partnerPass = $this->newPartnerPassword ?: 'Partner@2026';
-                $partner = User::create([
-                    'name' => $this->newPartnerName ? trim($this->newPartnerName) : 'Managing Partner',
-                    'email' => strtolower(trim($this->newPartnerEmail)),
-                    'password' => Hash::make($partnerPass),
-                    'role' => User::ROLE_PARTNER,
-                    'firm_id' => $firm->id,
-                    'partner_unit' => 'Partner Unit 01',
-                    'can_proxy_attendance' => true,
-                    'can_edit_attendance' => true,
-                    'can_approve_leave' => true,
-                    'can_approve_claims' => true,
-                    'email_verified_at' => now(),
-                ]);
-
-                if (Schema::hasTable('partner_policies')) {
-                    PartnerPolicy::create([
-                        'firm_id' => $firm->id,
-                        'partner_id' => $partner->id,
-                        'partner_unit' => 'Partner Unit 01',
-                        'office_start' => '09:00',
-                        'office_end' => '17:00',
-                        'grace_minutes' => 15,
-                        'manager_conveyance_limit' => 1500.00,
-                        'conveyance_late_days' => 7,
-                        'student_grids' => PartnerPolicy::defaultStudentGrids(),
-                        'manager_permissions' => PartnerPolicy::defaultManagerPermissions(),
-                    ]);
+                        if ($existingUser->firm_id && Firm::where('id', $existingUser->firm_id)->exists()) {
+                            $otherFirm = Firm::find($existingUser->firm_id);
+                            $this->addError('newPartnerEmail', "This email is already in use by active firm '{$otherFirm->name}'.");
+                            $this->modalError = "This email is already in use by active firm '{$otherFirm->name}'. Please use another email.";
+                            return;
+                        }
+                    }
                 }
+
+                $createdFirm = null;
+                $createdPartner = null;
+
+                DB::transaction(function () use ($slug, $cleanEmail, $partnerPass, $customDomain, $customSubdomain, &$createdFirm, &$createdPartner) {
+                    $initials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $this->newFirmName) ?: 'DW', 0, 2));
+
+                    $firm = Firm::create([
+                        'name' => trim($this->newFirmName),
+                        'slug' => $slug,
+                        'kind' => $this->newFirmKind,
+                        'email' => $cleanEmail,
+                        'status' => 'active',
+                        'workspaces' => 1,
+                        'seats' => $this->newFirmSeats,
+                        'plan' => $this->newFirmPlan,
+                        'region' => trim($this->newFirmRegion),
+                        'initials' => $initials,
+                        'custom_domain' => $customDomain,
+                        'custom_subdomain' => $customSubdomain,
+                    ]);
+
+                    // Re-use orphaned user or create fresh
+                    $existingUser = User::where('email', $cleanEmail)->first();
+                    if ($existingUser) {
+                        $existingUser->update([
+                            'name' => $this->newPartnerName ? trim($this->newPartnerName) : 'Managing Partner',
+                            'password' => Hash::make($partnerPass),
+                            'role' => User::ROLE_PARTNER,
+                            'firm_id' => $firm->id,
+                            'partner_unit' => 'Partner Unit 01',
+                            'can_proxy_attendance' => true,
+                            'can_edit_attendance' => true,
+                            'can_approve_leave' => true,
+                            'can_approve_claims' => true,
+                            'email_verified_at' => now(),
+                        ]);
+                        $partner = $existingUser;
+                    } else {
+                        $partner = User::create([
+                            'name' => $this->newPartnerName ? trim($this->newPartnerName) : 'Managing Partner',
+                            'email' => $cleanEmail,
+                            'password' => Hash::make($partnerPass),
+                            'role' => User::ROLE_PARTNER,
+                            'firm_id' => $firm->id,
+                            'partner_unit' => 'Partner Unit 01',
+                            'can_proxy_attendance' => true,
+                            'can_edit_attendance' => true,
+                            'can_approve_leave' => true,
+                            'can_approve_claims' => true,
+                            'email_verified_at' => now(),
+                        ]);
+                    }
+
+                    if (Schema::hasTable('partner_policies')) {
+                        PartnerPolicy::create([
+                            'firm_id' => $firm->id,
+                            'partner_id' => $partner->id,
+                            'partner_unit' => 'Partner Unit 01',
+                            'office_start' => '09:00',
+                            'office_end' => '17:00',
+                            'grace_minutes' => 15,
+                            'manager_conveyance_limit' => 1500.00,
+                            'conveyance_late_days' => 7,
+                            'student_grids' => PartnerPolicy::defaultStudentGrids(),
+                            'manager_permissions' => PartnerPolicy::defaultManagerPermissions(),
+                        ]);
+                    }
+
+                    $createdFirm = $firm;
+                    $createdPartner = $partner;
+                });
 
                 $this->syncFirmsFromDatabase();
                 $this->closePreviews();
@@ -318,14 +380,26 @@ class DashboardPreview extends Component
                     'newFirmCustomDomain',
                     'newFirmCustomSubdomain',
                 ]);
+                $this->modalError = null;
 
-                $workspaceUrl = $firm->workspace_url;
-                $this->previewNotice = "Organization '{$firm->name}' created successfully! Workspace live at: {$workspaceUrl}. Initial Managing Partner: {$partner->email} / {$partnerPass}";
+                $workspaceUrl = $createdFirm->workspace_url;
+                $this->previewNotice = "Organization '{$createdFirm->name}' created successfully! Workspace live at: {$workspaceUrl}. Initial Managing Partner: {$createdPartner->email} / {$partnerPass}";
+                $this->dispatch('toast', [
+                    'type'    => 'success',
+                    'title'   => 'Organization Created',
+                    'message' => "Workspace live at {$workspaceUrl}",
+                ]);
                 return;
             }
         } catch (\Throwable $e) {
             Log::error('createOrganization error: ' . $e->getMessage());
+            $this->modalError = 'Failed to create organization: ' . $e->getMessage();
             $this->previewNotice = 'Failed to create organization: ' . $e->getMessage();
+            $this->dispatch('toast', [
+                'type'    => 'error',
+                'title'   => 'Creation Failed',
+                'message' => $e->getMessage(),
+            ]);
         }
     }
 

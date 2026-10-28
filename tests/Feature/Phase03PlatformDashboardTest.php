@@ -309,5 +309,87 @@ class Phase03PlatformDashboardTest extends TestCase
         $this->assertDatabaseMissing('firms', ['id' => $firm->id]);
         $this->assertDatabaseMissing('users', ['id' => $user->id]);
     }
+
+    public function test_create_organization_succeeds_even_when_orphaned_partner_email_exists(): void
+    {
+        $this->artisan('migrate');
+
+        // Create an old firm, assign user, then delete firm with foreign keys off to simulate orphaned user
+        $oldFirm = Firm::create([
+            'name'       => 'Old Deleted Firm',
+            'slug'       => 'old-deleted-firm',
+            'kind'       => 'Chartered Accountants',
+            'status'     => 'active',
+            'workspaces' => 1,
+            'seats'      => 10,
+            'plan'       => 'Practice',
+            'region'     => 'Dhaka',
+            'initials'   => 'OD',
+        ]);
+
+        $orphan = User::create([
+            'name'     => 'Old Orphan User',
+            'email'    => 'shohan.orphan@example.com',
+            'password' => bcrypt('oldpass'),
+            'role'     => 'partner',
+            'firm_id'  => $oldFirm->id,
+        ]);
+
+        \Illuminate\Support\Facades\DB::statement('PRAGMA foreign_keys = OFF;');
+        $oldFirm->delete();
+        \Illuminate\Support\Facades\DB::statement('PRAGMA foreign_keys = ON;');
+
+        Livewire::test(DashboardPreview::class)
+            ->set('newFirmName', 'A. Qasem & Co.')
+            ->set('newFirmSlug', 'aqasem-resilient')
+            ->set('newPartnerEmail', 'shohan.orphan@example.com')
+            ->set('newPartnerName', 'Ramendra Nath Kar FCA')
+            ->set('newPartnerPassword', 'SecurePass2026!')
+            ->set('newFirmPlan', 'Starter')
+            ->set('newFirmSeats', 20)
+            ->call('createOrganization')
+            ->assertSet('showProvisionPreview', false)
+            ->assertSet('modalError', null)
+            ->assertDispatched('toast');
+
+        $this->assertDatabaseHas('firms', ['slug' => 'aqasem-resilient']);
+        $this->assertDatabaseHas('users', [
+            'email' => 'shohan.orphan@example.com',
+            'name'  => 'Ramendra Nath Kar FCA',
+            'role'  => 'partner',
+        ]);
+    }
+
+    public function test_create_organization_cleans_up_dangling_zero_user_firm_from_failed_attempt(): void
+    {
+        $this->artisan('migrate');
+
+        // Create a dangling firm with 0 users
+        $dangling = Firm::create([
+            'name'       => 'Dangling Firm',
+            'slug'       => 'dangling-firm',
+            'kind'       => 'Chartered Accountants',
+            'status'     => 'active',
+            'workspaces' => 1,
+            'seats'      => 10,
+            'plan'       => 'Practice',
+            'region'     => 'Dhaka',
+            'initials'   => 'DF',
+        ]);
+
+        Livewire::test(DashboardPreview::class)
+            ->set('newFirmName', 'Dangling Firm Recovered')
+            ->set('newFirmSlug', 'dangling-firm')
+            ->set('newPartnerEmail', 'partner.recovered@example.com')
+            ->set('newPartnerName', 'Recovered Partner')
+            ->set('newPartnerPassword', 'Partner@2026')
+            ->call('createOrganization')
+            ->assertSet('showProvisionPreview', false)
+            ->assertSet('modalError', null);
+
+        $this->assertDatabaseHas('firms', ['slug' => 'dangling-firm', 'name' => 'Dangling Firm Recovered']);
+        $this->assertDatabaseHas('users', ['email' => 'partner.recovered@example.com']);
+    }
 }
+
 
