@@ -1,12 +1,12 @@
 <section class="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
     <div>
-        <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">LEAVE MANAGEMENT · PHASE 08</p>
+        <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">LEAVE MANAGEMENT</p>
         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Leave Requests &amp; Multi-Tier Approvals</h2>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">2-Level Hierarchy: Student Application → Manager Verification &amp; Recommendation → Home Partner Final Sanction.</p>
     </div>
     @if($previewRole !== 'student')
         <button type="button" wire:click="openDialog('leave')" class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-3 text-xs font-extrabold hover:bg-[#F3D604]">
-            <i data-lucide="clipboard-check" class="h-4 w-4"></i> Review Leave (Preview)
+            <i data-lucide="clipboard-check" class="h-4 w-4"></i> Review Leave Application
         </button>
     @endif
 </section>
@@ -163,7 +163,7 @@
     <aside class="space-y-5">
         <section class="rounded-2xl border border-[#E8EAF0] bg-[#17191F] p-5 text-white shadow-sm">
             <h3 class="text-sm font-extrabold">ICAB Leave Quota &amp; Policy</h3>
-            <p class="mt-2 text-xs leading-relaxed text-slate-300">Articled Students are governed by ICAB training bylaws and Partner Unit 01 rules.</p>
+            <p class="mt-2 text-xs leading-relaxed text-slate-300">Articled Students are governed by ICAB training bylaws and {{ $partnerUnit }} rules.</p>
             <div class="mt-5 space-y-3 text-xs">
                 <div class="flex justify-between border-b border-white/10 pb-2.5">
                     <span class="text-slate-400">Casual / Annual</span>

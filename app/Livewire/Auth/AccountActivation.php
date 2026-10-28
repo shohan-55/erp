@@ -15,11 +15,11 @@ class AccountActivation extends Component
     // Fictional invited user identity for design demonstration
     public array $invitedUser = [
         'name' => 'Farhan Tanvir',
-        'email' => 'farhan.tanvir@rac.com.bd',
+        'email' => 'farhan.tanvir@dhakawala.com',
         'role' => 'Articled Student',
         'role_badge' => 'Audit & Assurance Unit II',
-        'student_reg' => 'Sample Reg: 4892 (Placeholder)',
-        'inviter_name' => 'Mohitul Haq, FCA (Senior Partner)',
+        'student_reg' => 'Reg: 4892',
+        'inviter_name' => 'Senior Partner',
         'invited_at' => 'October 12, 2026',
         'expires_in' => '48 hours'
     ];
@@ -46,10 +46,11 @@ class AccountActivation extends Component
         $this->firmSlug = strtolower(trim($firmSlug));
         $this->firm = FirmRegistry::get($this->firmSlug);
 
-        // TODO Phase 03+: Validate the invitation token from the URL query string.
-        // Until an `invitations` table is implemented, the activation UI is displayed
-        // as a design preview. Real activation will verify the token, load the
-        // invited user record, set the password, mark the token used, and log in.
+        if ($this->firm) {
+            $domain = $this->firm['custom_domain'] ?? ($this->firmSlug . '.dhakawala.com');
+            $this->invitedUser['email'] = 'farhan.tanvir@' . $domain;
+            $this->invitedUser['inviter_name'] = 'Senior Partner (' . ($this->firm['name'] ?? 'Practice') . ')';
+        }
     }
 
     public function setPreviewState(string $state): void

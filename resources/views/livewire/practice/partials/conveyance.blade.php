@@ -1,12 +1,12 @@
 <section class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
     <div>
-        <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">CONVEYANCE CLAIMS · PHASE 09</p>
+        <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">CONVEYANCE CLAIMS</p>
         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Travel &amp; Conveyance Expenses</h2>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">Audit client tagging, Manager threshold approval (up to ৳{{ number_format($managerConveyanceLimit, 2) }}), amount adjustments, and automatic Partner escalation for excess or late claims.</p>
     </div>
     @if($previewRole !== 'student')
         <button type="button" wire:click="openDialog('claim')" class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-3 text-xs font-extrabold hover:bg-[#F3D604]">
-            <i data-lucide="clipboard-check" class="h-4 w-4"></i> Review Claim (Preview)
+            <i data-lucide="clipboard-check" class="h-4 w-4"></i> Review Conveyance Claim
         </button>
     @endif
 </section>
@@ -16,7 +16,7 @@
     @foreach([
         ['label'=>'Submitted Claims','value'=>$previewRole === 'student' ? '01' : (count($claimQueue) < 10 ? '0' . count($claimQueue) : count($claimQueue)),'icon'=>'receipt','hint'=>'Total claims in queue'],
         ['label'=>'Partner Escalations','value'=>$previewRole === 'student' ? '01' : '02','icon'=>'clock-3','hint'=>'Exceeds ৳' . $managerConveyanceLimit . ' or late'],
-        ['label'=>'Illustrative Paid Claims','value'=>'৳ 0','icon'=>'wallet','hint'=>'No real disbursements'],
+        ['label'=>'Disbursed Conveyance','value'=>'৳ 0','icon'=>'wallet','hint'=>'Total settled claims'],
     ] as $metric)
         <div wire:key="conv-metric-{{ $loop->index }}" class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
             <div class="flex items-center justify-between gap-2">
@@ -75,7 +75,7 @@
                     </div>
 
                     <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-3.5 text-sm font-extrabold hover:bg-[#F3D604]">
-                        <i data-lucide="clipboard-check" class="h-4 w-4"></i> Validate Demo Claim
+                        <i data-lucide="clipboard-check" class="h-4 w-4"></i> Submit Conveyance Claim
                     </button>
                 </form>
             </section>
@@ -155,14 +155,20 @@
 
         <!-- Conveyance Rules Card -->
         <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
-            <h3 class="text-sm font-extrabold">{{ $previewRole === 'student' ? 'My Submitted Claim' : 'Multi-Tier Conveyance Rules' }}</h3>
+            <h3 class="text-sm font-extrabold">{{ $previewRole === 'student' ? 'My Submitted Claims' : 'Multi-Tier Conveyance Rules' }}</h3>
             @if($previewRole === 'student')
-                <div class="mt-4 flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-4">
-                    <div>
-                        <p class="text-xs font-bold">Square Pharmaceuticals Audit · ৳ 550.00</p>
-                        <p class="mt-1 text-[11px] text-slate-500">Exceeds Manager ৳300 limit · Escalated to Partner</p>
-                    </div>
-                    <span class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold text-amber-900">Escalated to Partner</span>
+                <div class="mt-4 space-y-2.5">
+                    @forelse($claimQueue as $req)
+                        <div class="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-4 border border-slate-100">
+                            <div>
+                                <p class="text-xs font-bold">{{ $req['client_name'] }} · ৳ {{ number_format($req['amount'], 2) }}</p>
+                                <p class="mt-1 text-[11px] text-slate-500">{{ $req['route'] }}</p>
+                            </div>
+                            <span class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold text-amber-900">{{ $req['status_label'] }}</span>
+                        </div>
+                    @empty
+                        <p class="text-xs text-slate-400 p-4 text-center">No conveyance claims submitted yet.</p>
+                    @endforelse
                 </div>
             @else
                 <div class="mt-4 grid gap-3 sm:grid-cols-3 text-xs">

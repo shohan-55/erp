@@ -35,13 +35,13 @@ class PracticePreview extends Component
     public array $availablePartnerUnits = ['Partner Unit 01', 'Partner Unit 02'];
 
     // Partner Email Modification
-    public string $partnerEmail = 'mohitul.haq@rahmananis.com';
+    public string $partnerEmail = 'partner@dhakawala.com';
     public string $newPartnerEmail = '';
 
     // Attendance & Live GPS Geolocation state
     public string $workMode = 'office';
     public bool $previewSessionActive = false;
-    public string $clientSite = 'Sample Client Site';
+    public string $clientSite = 'Client Audit Site';
     public ?float $currentLat = null;
     public ?float $currentLng = null;
     public string $currentLocationName = 'EDB Trade Centre, Karwan Bazar, Dhaka';
@@ -132,6 +132,9 @@ class PracticePreview extends Component
         $this->previewRole = in_array($previewRole, self::ROLES, true) ? $previewRole : 'partner';
         $this->section = in_array($section, self::SECTIONS, true) ? $section : 'dashboard';
 
+        $domain = $this->firm['custom_domain'] ?? ($this->firmSlug . '.dhakawala.com');
+        $this->partnerEmail = 'partner@' . $domain;
+
         // Load authenticated user role and partner unit when present
         if (Auth::check()) {
             /** @var User $user */
@@ -163,22 +166,42 @@ class PracticePreview extends Component
     {
         if (in_array($unit, $this->availablePartnerUnits, true)) {
             $this->partnerUnit = $unit;
+
+            if (Schema::hasTable('firms') && Schema::hasTable('users')) {
+                try {
+                    $firmModel = Firm::where('slug', $this->firmSlug)->first();
+                    if ($firmModel) {
+                        $partnerUser = User::where('firm_id', $firmModel->id)
+                            ->where('role', 'partner')
+                            ->where('partner_unit', $unit)
+                            ->first();
+
+                        if ($partnerUser) {
+                            $this->partnerEmail = $partnerUser->email;
+                        } else {
+                            $domain = $firmModel->custom_domain ?: ($firmModel->slug . '.dhakawala.com');
+                            $this->partnerEmail = 'partner.' . Str::slug($unit) . '@' . $domain;
+                        }
+                    }
+                } catch (\Throwable) {}
+            }
+
             if ($unit === 'Partner Unit 02') {
-                $this->partnerEmail = 'anwar.partner@rahmananis.com';
                 $this->officeStart = '09:30';
                 $this->officeEnd = '17:30';
                 $this->graceMinutes = 15;
                 $this->managerConveyanceLimit = 500.00;
                 $this->conveyanceLateDays = 5;
             } else {
-                $this->partnerEmail = 'mohitul.haq@rahmananis.com';
                 $this->officeStart = '10:00';
                 $this->officeEnd = '18:00';
                 $this->graceMinutes = 10;
                 $this->managerConveyanceLimit = 300.00;
                 $this->conveyanceLateDays = 3;
             }
+
             $this->notice = "Switched to {$unit}. Policy rules and employee scope updated.";
+            $this->loadPartnerPolicy();
             $this->loadAttendanceRows();
             $this->loadLeaveQueue();
             $this->loadClaimQueue();
@@ -187,9 +210,15 @@ class PracticePreview extends Component
 
     protected function loadPartnerPolicy(): void
     {
-        if (! app()->runningUnitTests() && ! app()->environment('testing') && Schema::hasTable('partner_policies')) {
+        if (Schema::hasTable('partner_policies')) {
             try {
-                $policy = PartnerPolicy::where('partner_unit', $this->partnerUnit)->first();
+                $firmModel = Firm::where('slug', $this->firmSlug)->first();
+                $query = PartnerPolicy::query();
+                if ($firmModel) {
+                    $query->where('firm_id', $firmModel->id);
+                }
+                $policy = $query->where('partner_unit', $this->partnerUnit)->first();
+
                 if ($policy) {
                     $this->officeStart = $policy->office_start;
                     $this->officeEnd = $policy->office_end;
@@ -219,7 +248,7 @@ class PracticePreview extends Component
             return;
         }
 
-        if (! app()->runningUnitTests() && ! app()->environment('testing') && Schema::hasTable('users')) {
+        if (Schema::hasTable('users')) {
             try {
                 $exists = User::where('email', $target)->where('email', '!=', $this->partnerEmail)->exists();
                 if ($exists) {
@@ -261,20 +290,30 @@ class PracticePreview extends Component
             return;
         }
 
-        if (! app()->runningUnitTests() && ! app()->environment('testing') && Schema::hasTable('partner_policies')) {
+        if (Schema::hasTable('partner_policies')) {
             try {
-                PartnerPolicy::updateOrCreate(
-                    ['partner_unit' => $this->partnerUnit],
-                    [
-                        'office_start'             => $this->officeStart,
-                        'office_end'               => $this->officeEnd,
-                        'grace_minutes'            => $this->graceMinutes,
-                        'manager_conveyance_limit' => $this->managerConveyanceLimit,
-                        'conveyance_late_days'     => $this->conveyanceLateDays,
-                        'student_grids'            => $this->studentGrids,
-                        'manager_permissions'      => $this->managerPermissions,
-                    ]
-                );
+                $firmModel = Firm::where('slug', $this->firmSlug)->first();
+                if ($firmModel) {
+                    $partnerUser = User::where('firm_id', $firmModel->id)->where('role', 'partner')->first();
+                    $partnerId = $partnerUser ? $partnerUser->id : (Auth::id() ?? 1);
+
+                    PartnerPolicy::updateOrCreate(
+                        [
+                            'firm_id'      => $firmModel->id,
+                            'partner_unit' => $this->partnerUnit,
+                        ],
+                        [
+                            'partner_id'               => $partnerId,
+                            'office_start'             => $this->officeStart,
+                            'office_end'               => $this->officeEnd,
+                            'grace_minutes'            => $this->graceMinutes,
+                            'manager_conveyance_limit' => $this->managerConveyanceLimit,
+                            'conveyance_late_days'     => $this->conveyanceLateDays,
+                            'student_grids'            => $this->studentGrids,
+                            'manager_permissions'      => $this->managerPermissions,
+                        ]
+                    );
+                }
             } catch (\Throwable) {
             }
         }
@@ -328,38 +367,48 @@ class PracticePreview extends Component
 
     protected function loadAttendanceRows(): void
     {
-        if (! app()->runningUnitTests() && ! app()->environment('testing') && Schema::hasTable('attendances') && Schema::hasTable('users')) {
+        if (Schema::hasTable('attendances') && Schema::hasTable('users')) {
             $firmModel = Firm::where('slug', $this->firmSlug)->first();
 
             if ($firmModel) {
-                $dbRows = Attendance::with(['user.manager'])
-                    ->where('firm_id', $firmModel->id)
-                    ->whereDate('date', now()->toDateString())
-                    ->get()
-                    ->map(fn (Attendance $a) => [
-                        'id'             => $a->user->student_code ?? ('U-' . $a->user_id),
-                        'name'           => $a->user->name,
-                        'manager'        => $a->user->manager?->name ?? 'Direct Report',
-                        'partner'        => $a->user->partner_unit ?? $this->partnerUnit,
-                        'status'         => $a->status,
-                        'mode'           => ucfirst($a->work_mode),
-                        'day'            => now()->format('D'),
-                        'checkin'        => $a->in_time?->format('H:i') ?? '—',
-                        'checkout'       => $a->out_time?->format('H:i') ?? '—',
-                        'in_lat'         => $a->in_lat,
-                        'in_lng'         => $a->in_lng,
-                        'in_location'    => $a->in_location_name ?? '—',
-                        'out_lat'        => $a->out_lat,
-                        'out_lng'        => $a->out_lng,
-                        'out_location'   => $a->out_location_name ?? '—',
-                        'is_proxy'       => $a->is_proxy,
-                        'edited_by_role' => $a->editor?->role,
-                        'remarks'        => $a->edit_remarks ?? '',
-                    ])
-                    ->toArray();
+                $students = User::where('firm_id', $firmModel->id)
+                    ->where('role', 'student')
+                    ->with('manager')
+                    ->get();
 
-                if (! empty($dbRows)) {
-                    $this->studentRows = $dbRows;
+                if ($students->isNotEmpty()) {
+                    $todayAttendances = Attendance::where('firm_id', $firmModel->id)
+                        ->whereDate('date', now()->toDateString())
+                        ->get()
+                        ->keyBy('user_id');
+
+                    $this->studentRows = $students->map(function (User $s) use ($todayAttendances) {
+                        /** @var Attendance|null $att */
+                        $att = $todayAttendances->get($s->id);
+                        return [
+                            'id'             => $s->student_code ?? ('U-' . $s->id),
+                            'db_id'          => $s->id,
+                            'name'           => $s->name,
+                            'manager'        => $s->manager?->name ?? 'Direct Report',
+                            'partner'        => $s->partner_unit ?? $this->partnerUnit,
+                            'status'         => $att ? $att->status : 'Incomplete',
+                            'mode'           => $att ? ucfirst($att->work_mode) : 'Office',
+                            'day'            => now()->format('D'),
+                            'checkin'        => $att?->in_time?->format('H:i') ?? '—',
+                            'checkout'       => $att?->out_time?->format('H:i') ?? '—',
+                            'in_lat'         => $att?->in_lat,
+                            'in_lng'         => $att?->in_lng,
+                            'in_location'    => $att?->in_location_name ?? '—',
+                            'out_lat'        => $att?->out_lat,
+                            'out_lng'        => $att?->out_lng,
+                            'out_location'   => $att?->out_location_name ?? '—',
+                            'is_proxy'       => $att ? (bool) $att->is_proxy : false,
+                            'edited_by_role' => $att?->editor?->role,
+                            'remarks'        => $att?->edit_remarks ?? '',
+                        ];
+                    })->toArray();
+                } else {
+                    $this->studentRows = [];
                     return;
                 }
             }
@@ -416,6 +465,42 @@ class PracticePreview extends Component
 
     protected function loadLeaveQueue(): void
     {
+        if (Schema::hasTable('leave_requests') && Schema::hasTable('users')) {
+            $firmModel = Firm::where('slug', $this->firmSlug)->first();
+            if ($firmModel) {
+                $dbLeaves = LeaveRequest::with(['user.manager', 'reviewer', 'partner'])
+                    ->where('firm_id', $firmModel->id)
+                    ->get();
+                if ($dbLeaves->isNotEmpty()) {
+                    $this->leaveQueue = $dbLeaves->map(fn (LeaveRequest $lr) => [
+                        'id'              => 'LR-' . $lr->id,
+                        'db_id'           => $lr->id,
+                        'name'            => $lr->user->name,
+                        'student_code'    => $lr->user->student_code ?? ('S-' . $lr->user_id),
+                        'manager'         => $lr->user->manager?->name ?? 'Direct Report',
+                        'partner_unit'    => $lr->user->partner_unit ?? $this->partnerUnit,
+                        'type'            => ucfirst(str_replace('_', ' ', $lr->leave_type)),
+                        'period'          => $lr->start_date?->format('d M') . '–' . $lr->end_date?->format('d M Y'),
+                        'reason'          => $lr->reason,
+                        'status'          => $lr->status,
+                        'status_label'    => match($lr->status) {
+                            'pending_manager' => 'Awaiting Manager',
+                            'pending_partner' => 'Awaiting Partner',
+                            'approved'        => 'Approved',
+                            'rejected'        => 'Rejected',
+                            default           => ucfirst($lr->status),
+                        },
+                        'manager_remarks' => $lr->manager_remarks ?? '',
+                        'partner_remarks' => $lr->partner_remarks ?? '',
+                    ])->toArray();
+                    return;
+                } elseif ($firmModel->slug !== 'rac') {
+                    $this->leaveQueue = [];
+                    return;
+                }
+            }
+        }
+
         $this->leaveQueue = [
             [
                 'id'              => 'LR-101',
@@ -464,6 +549,45 @@ class PracticePreview extends Component
 
     protected function loadClaimQueue(): void
     {
+        if (Schema::hasTable('conveyance_claims') && Schema::hasTable('users')) {
+            $firmModel = Firm::where('slug', $this->firmSlug)->first();
+            if ($firmModel) {
+                $dbClaims = ConveyanceClaim::with(['user.manager', 'reviewer'])
+                    ->where('firm_id', $firmModel->id)
+                    ->get();
+                if ($dbClaims->isNotEmpty()) {
+                    $this->claimQueue = $dbClaims->map(fn (ConveyanceClaim $cc) => [
+                        'id'                => 'CC-' . $cc->id,
+                        'db_id'             => $cc->id,
+                        'name'              => $cc->user->name,
+                        'student_code'      => $cc->user->student_code ?? ('S-' . $cc->user_id),
+                        'manager'           => $cc->user->manager?->name ?? 'Direct Report',
+                        'partner_unit'      => $cc->user->partner_unit ?? $this->partnerUnit,
+                        'client_name'       => $cc->client_name,
+                        'route'             => $cc->route,
+                        'amount'            => (float) $cc->amount,
+                        'original_amount'   => (float) $cc->original_amount,
+                        'adjustment_remark' => $cc->adjustment_remark ?? '',
+                        'is_late'           => (bool) $cc->is_late,
+                        'status'            => $cc->status,
+                        'status_label'      => match($cc->status) {
+                            'pending_manager' => 'Awaiting Manager',
+                            'pending_partner' => 'Escalated to Partner',
+                            'approved'        => 'Approved',
+                            'rejected'        => 'Rejected',
+                            default           => ucfirst($cc->status),
+                        },
+                        'manager_remarks'   => $cc->manager_remarks ?? '',
+                        'partner_remarks'   => $cc->partner_remarks ?? '',
+                    ])->toArray();
+                    return;
+                } elseif ($firmModel->slug !== 'rac') {
+                    $this->claimQueue = [];
+                    return;
+                }
+            }
+        }
+
         $this->claimQueue = [
             [
                 'id'                => 'CC-201',

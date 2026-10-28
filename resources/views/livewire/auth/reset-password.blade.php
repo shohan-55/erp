@@ -51,8 +51,12 @@
         <div class="flex items-center justify-center mb-6">
             @if(!$isPlatform && $firm)
                 <div class="flex flex-col items-center text-center">
-                    <div class="w-14 h-14 rounded-2xl bg-[#16181D] p-2.5 shadow-md mb-2.5 flex items-center justify-center">
-                        <img src="{{ asset($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="w-full h-full object-contain">
+                    <div class="w-14 h-14 rounded-2xl bg-[#16181D] p-2.5 shadow-md mb-2.5 flex items-center justify-center overflow-hidden">
+                        @if(!empty($firm['logo_url']) && file_exists(public_path($firm['logo_url'])))
+                            <img src="{{ asset($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="w-full h-full object-contain">
+                        @else
+                            <span class="text-[#FCDF02] font-extrabold text-base">{{ strtoupper($firm['initials'] ?? 'CA') }}</span>
+                        @endif
                     </div>
                     <h2 class="text-sm font-bold text-slate-950 leading-tight">{{ $firm['name'] }}</h2>
                     <p class="text-[11px] font-medium text-slate-500 uppercase tracking-widest">{{ $firm['designation'] }}</p>

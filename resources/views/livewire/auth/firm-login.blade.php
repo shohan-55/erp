@@ -14,8 +14,12 @@
             <!-- Top Brand Header -->
             <div class="relative z-10">
                 <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl bg-white/5 border border-white/10 p-2 shadow-inner flex items-center justify-center flex-shrink-0">
-                        <img src="{{ asset($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="w-full h-full object-contain">
+                    <div class="w-12 h-12 rounded-xl bg-white/5 border border-white/10 p-2 shadow-inner flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        @if(!empty($firm['logo_url']) && file_exists(public_path($firm['logo_url'])))
+                            <img src="{{ asset($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="w-full h-full object-contain">
+                        @else
+                            <span class="text-[#FCDF02] font-extrabold text-sm">{{ strtoupper($firm['initials'] ?? 'CA') }}</span>
+                        @endif
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
@@ -83,8 +87,12 @@
             <div class="flex items-center justify-between w-full mb-6 gap-2">
                 <!-- Mobile Only Firm Brand Header -->
                 <div class="flex items-center gap-2.5 lg:hidden min-w-0">
-                    <div class="w-9 h-9 rounded-xl bg-slate-900 p-1.5 flex items-center justify-center shadow-md shrink-0">
-                        <img src="{{ asset($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="w-full h-full object-contain">
+                    <div class="w-9 h-9 rounded-xl bg-slate-900 p-1.5 flex items-center justify-center shadow-md shrink-0 overflow-hidden">
+                        @if(!empty($firm['logo_url']) && file_exists(public_path($firm['logo_url'])))
+                            <img src="{{ asset($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="w-full h-full object-contain">
+                        @else
+                            <span class="text-[#FCDF02] font-extrabold text-xs">{{ strtoupper($firm['initials'] ?? 'CA') }}</span>
+                        @endif
                     </div>
                     <div class="truncate">
                         <div class="font-bold text-xs sm:text-sm text-slate-950 leading-tight truncate">{{ $firm['name'] }}</div>
@@ -174,7 +182,7 @@
                                 id="login-email"
                                 wire:model.defer="email"
                                 autocomplete="username"
-                                placeholder="name@rahmananis.com or STU-4128"
+                                placeholder="name@{{ $firm['custom_domain'] ?? ($firm['domain'] ?? ($firmSlug . '.dhakawala.com')) }} or User ID"
                                 class="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#FCDF02] focus:ring-2 focus:ring-[#FCDF02]/40 transition-all font-sans"
                                 required
                             >

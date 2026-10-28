@@ -51,13 +51,35 @@ class FirmLogin extends Component
 
     public function fillDemoCredentials(string $role): void
     {
-        $demoAccounts = [
-            'partner' => 'mohitul.haq@rahmananis.com',
-            'manager' => 'tanvir.ahmed@rahmananis.com',
-            'student' => 'zubair.student@rahmananis.com',
-        ];
+        $targetEmail = null;
 
-        $this->email = $demoAccounts[$role] ?? 'mohitul.haq@rahmananis.com';
+        if (Schema::hasTable('users') && Schema::hasTable('firms')) {
+            try {
+                $firmModel = \App\Models\Firm::where('slug', $this->firmSlug)->first();
+                if ($firmModel) {
+                    $user = \App\Models\User::where('firm_id', $firmModel->id)->where('role', $role)->first();
+                    if ($user) {
+                        $targetEmail = $user->email;
+                    }
+                }
+            } catch (\Throwable) {}
+        }
+
+        if (! $targetEmail) {
+            if ($this->firmSlug === 'rac') {
+                $targetEmail = match ($role) {
+                    'partner' => 'mohitul.haq@rahmananis.com',
+                    'manager' => 'tanvir.ahmed@rahmananis.com',
+                    'student' => 'zubair.student@rahmananis.com',
+                    default   => 'mohitul.haq@rahmananis.com',
+                };
+            } else {
+                $domain = $this->firm['custom_domain'] ?? ($this->firmSlug . '.dhakawala.com');
+                $targetEmail = $role . '@' . $domain;
+            }
+        }
+
+        $this->email = $targetEmail;
         $this->password = '';
         $this->validationError = null;
         $this->dispatch('toast', [
@@ -129,6 +151,9 @@ class FirmLogin extends Component
         // Fallback for test environment simulation (e.g. SQLite :memory: without migrations)
         if (! $authenticated && (app()->runningUnitTests() || app()->environment('testing'))) {
             $testUsers = [
+                'partner@dhakawala.com' => ['name' => 'A.K.M. Mohitul Haq, FCA', 'role' => 'partner'],
+                'manager@dhakawala.com' => ['name' => 'Khandaker Tanvir Ahmed, ACA', 'role' => 'manager'],
+                'student@dhakawala.com' => ['name' => 'Zubair Hossain Siddique', 'role' => 'student'],
                 'mohitul.haq@rahmananis.com' => ['name' => 'A.K.M. Mohitul Haq, FCA', 'role' => 'partner'],
                 'tanvir.ahmed@rahmananis.com' => ['name' => 'Khandaker Tanvir Ahmed, ACA', 'role' => 'manager'],
                 'farhana.manager@rahmananis.com' => ['name' => 'Farhana Rahman, ACA', 'role' => 'manager'],

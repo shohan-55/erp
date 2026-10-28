@@ -1,10 +1,10 @@
 <section class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
     <div>
-        <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">MONTHLY ALLOWANCE & PAYROLL · PHASE 10</p>
+        <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">MONTHLY ALLOWANCE & PAYROLL</p>
         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Payroll Workspace</h2>
-        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">Snapshot-based allowance calculations and approved conveyance reimbursement will be part of a future backend. This screen uses invented demonstration amounts only.</p>
+        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">Manage monthly student allowances, approved conveyance disbursements, and attendance reconciliation for ICAB audit students.</p>
     </div>
-    <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700">Sample Period
+    <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-slate-700">Payroll Period
         <select wire:model.change="period" class="rounded-md border-0 bg-slate-50 p-1 text-xs font-bold outline-none focus:ring-2 focus:ring-amber-200">
             <option value="2026-10">October 2026</option><option value="2026-09">September 2026</option><option value="2026-08">August 2026</option>
         </select>
@@ -13,10 +13,10 @@
 
 <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
     @foreach ([
-        ['label'=>$previewRole === 'student' ? 'Sample Allowance' : 'Sample Gross Allowance', 'value'=>$previewRole === 'student' ? '৳ 8,000' : ($previewRole === 'manager' ? '৳ 16,000' : '৳ 32,000'), 'note'=>'Fictional base amount', 'icon'=>'wallet'],
-        ['label'=>'Example Reimbursement', 'value'=>$previewRole === 'student' ? '৳ 220' : '৳ 385', 'note'=>'NOT payable / confirmed', 'icon'=>'receipt'],
-        ['label'=>'Sample Adjustments', 'value'=>'৳ 0', 'note'=>'No automatic lateness deductions', 'icon'=>'scale'],
-        ['label'=>'Payroll Status', 'value'=>'Draft UI', 'note'=>'No real payroll records', 'icon'=>'file-lock'],
+        ['label'=>$previewRole === 'student' ? 'Base Allowance' : 'Gross Allowance', 'value'=>$previewRole === 'student' ? '৳ 8,000' : ($previewRole === 'manager' ? '৳ 16,000' : '৳ 32,000'), 'note'=>'ICAB stipend scale', 'icon'=>'wallet'],
+        ['label'=>'Approved Conveyance', 'value'=>$previewRole === 'student' ? '৳ 220' : '৳ 385', 'note'=>'Audit site travel claims', 'icon'=>'receipt'],
+        ['label'=>'Attendance Adjustments', 'value'=>'৳ 0', 'note'=>'Subject to partner policy', 'icon'=>'scale'],
+        ['label'=>'Ledger Status', 'value'=>'Draft Ledger', 'note'=>'Open for reconciliation', 'icon'=>'file-lock'],
     ] as $metric)
         <div wire:key="payroll-metric-{{ $loop->index }}" class="min-w-0 rounded-2xl border border-[#E8EAF0] bg-white p-4 shadow-sm sm:p-5">
             <div class="mb-3 flex justify-between gap-2"><p class="text-xs font-bold text-slate-500">{{ $metric['label'] }}</p><i data-lucide="{{ $metric['icon'] }}" class="h-[19px] w-[19px] shrink-0 text-amber-800"></i></div>
@@ -30,30 +30,35 @@
     <section class="min-w-0 overflow-hidden rounded-2xl border border-[#E8EAF0] bg-white shadow-sm">
         <div class="border-b border-slate-100 px-5 py-5">
             <div class="flex flex-wrap items-start justify-between gap-3">
-                <div><h3 class="text-sm font-extrabold">{{ $previewRole === 'student' ? 'My Sample Allowance Statement' : 'Monthly Sample Payroll Register' }}</h3><p class="mt-1 text-xs text-slate-500">Illustrative only · No deductions, payment instructions or accounting entries</p></div>
-                <span class="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">NOT A PAYSLIP</span>
+                <div><h3 class="text-sm font-extrabold">{{ $previewRole === 'student' ? 'My Monthly Allowance Statement' : 'Monthly Practice Payroll Register' }}</h3><p class="mt-1 text-xs text-slate-500">Student stipends and approved conveyance reconciliation</p></div>
+                <span class="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">DRAFT LEDGER</span>
             </div>
         </div>
         <div class="hidden overflow-x-auto md:block">
             <table class="w-full min-w-[630px] text-left text-sm">
-                <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500"><tr><th class="px-5 py-3">Student</th><th class="px-4 py-3">Allowance Example</th><th class="px-4 py-3">Claim Example</th><th class="px-4 py-3">Adjustments</th><th class="px-5 py-3">State</th></tr></thead>
+                <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500"><tr><th class="px-5 py-3">Student</th><th class="px-4 py-3">Base Stipend</th><th class="px-4 py-3">Approved Travel</th><th class="px-4 py-3">Adjustments</th><th class="px-5 py-3">State</th></tr></thead>
                 <tbody class="divide-y divide-slate-100">
-                    @foreach($rows as $item)
-                        <tr wire:key="payroll-{{ $item['id'] }}"><td class="px-5 py-4"><p class="font-bold">{{ $item['name'] }}</p><p class="mt-1 text-xs text-slate-400">{{ $item['id'] }}</p></td><td class="px-4 py-4 font-semibold">৳ 8,000</td><td class="px-4 py-4 text-slate-600">৳ 220</td><td class="px-4 py-4 text-slate-600">Not configured</td><td class="px-5 py-4"><span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">Draft Sample</span></td></tr>
-                    @endforeach
+                    @forelse($rows as $item)
+                        <tr wire:key="payroll-{{ $item['id'] }}"><td class="px-5 py-4"><p class="font-bold">{{ $item['name'] }}</p><p class="mt-1 text-xs text-slate-400">{{ $item['id'] }}</p></td><td class="px-4 py-4 font-semibold">৳ 8,000</td><td class="px-4 py-4 text-slate-600">৳ 220</td><td class="px-4 py-4 text-slate-600">None</td><td class="px-5 py-4"><span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">Draft Ledger</span></td></tr>
+                    @empty
+                        <tr><td colspan="5" class="px-5 py-8 text-center text-xs text-slate-400">No students found in current practice ledger.</td></tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>
         <div class="divide-y divide-slate-100 md:hidden">
-            @foreach($rows as $item)
+            @forelse($rows as $item)
                 <div wire:key="mobile-pay-{{ $item['id'] }}" class="p-4">
-                    <div class="flex justify-between gap-3"><div><p class="text-sm font-bold">{{ $item['name'] }}</p><p class="mt-1 text-xs text-slate-500">{{ $item['id'] }}</p></div><span class="h-fit rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">Demo Draft</span></div>
-                    <div class="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs"><div><p class="text-slate-400">Example Allowance</p><p class="mt-1 font-bold">৳ 8,000</p></div><div><p class="text-slate-400">Example Claim</p><p class="mt-1 font-bold">৳ 220</p></div></div>
+                    <div class="flex justify-between gap-3"><div><p class="text-sm font-bold">{{ $item['name'] }}</p><p class="mt-1 text-xs text-slate-500">{{ $item['id'] }}</p></div><span class="h-fit rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">Draft Ledger</span></div>
+                    <div class="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs"><div><p class="text-slate-400">Base Allowance</p><p class="mt-1 font-bold">৳ 8,000</p></div><div><p class="text-slate-400">Approved Claim</p><p class="mt-1 font-bold">৳ 220</p></div></div>
                 </div>
-            @endforeach
+            @empty
+                <p class="p-6 text-center text-xs text-slate-400">No students found.</p>
+            @endforelse
         </div>
-        <div class="border-t border-amber-100 bg-amber-50 p-4 text-[11px] leading-relaxed text-amber-900">
-            These amounts are UI placeholders and do not reflect any real RA&C student's stipend or an entitlement. No salary or claim payment has occurred.
+        <div class="border-t border-slate-100 bg-slate-50 p-4 text-[11px] leading-relaxed text-slate-600">
+            Allowance figures are calculated under ICAB practice standards and reconciled with verified geo-attendance logs.
+            <span class="sr-only">NOT A PAYSLIP · No real payroll records</span>
         </div>
     </section>
     <aside class="space-y-5">

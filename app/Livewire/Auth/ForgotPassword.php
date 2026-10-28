@@ -59,6 +59,17 @@ class ForgotPassword extends Component
         ]);
     }
 
+    public function fillDemoEmail(): void
+    {
+        if ($this->isPlatform) {
+            $this->email = 'admin@dhakawala.com';
+        } else {
+            $domain = $this->firm['custom_domain'] ?? ($this->firmSlug ? $this->firmSlug . '.dhakawala.com' : 'practice.com');
+            $this->email = 'partner@' . $domain;
+        }
+        $this->validationError = null;
+    }
+
     public function resetForm(): void
     {
         $this->submitted = false;

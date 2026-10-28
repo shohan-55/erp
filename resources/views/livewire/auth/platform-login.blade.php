@@ -17,13 +17,9 @@
         </div>
 
         <div class="flex items-center gap-3 text-xs">
-            <a href="{{ url('/c/rac/login') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 transition-colors">
-                <i data-lucide="building" class="w-3.5 h-3.5 text-[#FCDF02]"></i>
-                <span>CA Firm Login (RA&C)</span>
-            </a>
-            <a href="{{ url('/c/rac/login') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition-colors">
-                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
-                <span>CA Firm Portal</span>
+            <a href="{{ url('/') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 transition-colors">
+                <i data-lucide="home" class="w-3.5 h-3.5 text-[#FCDF02]"></i>
+                <span>DhakaWala ERP Portal</span>
             </a>
         </div>
     </header>

@@ -82,12 +82,14 @@ Route::middleware(['auth'])->group(function () {
             return redirect()->route('platform.dashboard');
         }
         if ($user && $user->isFirmMember()) {
-            $firmSlug = $user->firm ? $user->firm->slug : 'rac';
-            return redirect()->route('firm.practice.preview', [
-                'firmSlug'    => $firmSlug,
-                'previewRole' => $user->role,
-                'section'     => 'dashboard',
-            ]);
+            if ($user->firm) {
+                return redirect()->route('firm.practice.preview', [
+                    'firmSlug'    => $user->firm->slug,
+                    'previewRole' => $user->role,
+                    'section'     => 'dashboard',
+                ]);
+            }
+            return redirect()->route('home');
         }
         return redirect()->route('home');
     })->name('dashboard');

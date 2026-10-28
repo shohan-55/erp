@@ -126,6 +126,41 @@ class DashboardPreview extends Component
         } catch (\Throwable $e) {
             Log::error('syncFirmsFromDatabase error: ' . $e->getMessage());
         }
+
+        $this->syncSupportRequests();
+    }
+
+    protected function syncSupportRequests(): void
+    {
+        if (empty($this->demoFirms)) {
+            $this->demoSupportRequests = [];
+            return;
+        }
+
+        $requests = [];
+        $firstFirm = $this->demoFirms[0]['name'] ?? 'Practice Firm';
+        $requests[] = [
+            'id' => 'TICKET-101',
+            'firm' => $firstFirm,
+            'subject' => 'Request to review practice workspace settings',
+            'scope' => 'Settings only',
+            'approval' => 'Partner approval required',
+            'status' => 'Awaiting approval',
+        ];
+
+        if (count($this->demoFirms) > 1) {
+            $secondFirm = $this->demoFirms[1]['name'] ?? 'Practice Firm';
+            $requests[] = [
+                'id' => 'TICKET-102',
+                'firm' => $secondFirm,
+                'subject' => 'Configuration assistance request',
+                'scope' => 'Setup metadata only',
+                'approval' => 'Partner approval required',
+                'status' => 'Approved by Partner',
+            ];
+        }
+
+        $this->demoSupportRequests = $requests;
     }
 
     public function setSection(string $section): void

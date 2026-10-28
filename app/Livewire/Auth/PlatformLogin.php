@@ -125,11 +125,16 @@ class PlatformLogin extends Component
 
         if ($user && ! $user->isPlatformAdmin()) {
             if ($user->isFirmMember()) {
-                $firmSlug = $user->firm ? $user->firm->slug : 'rac';
-                $this->redirect(route('firm.practice.preview', [
-                    'firmSlug' => $firmSlug,
-                    'previewRole' => $user->role,
-                ]), navigate: true);
+                if ($user->firm) {
+                    $this->redirect(route('firm.practice.preview', [
+                        'firmSlug' => $user->firm->slug,
+                        'previewRole' => $user->role,
+                    ]), navigate: true);
+                    return;
+                }
+                Auth::logout();
+                $this->validationError = 'Your firm workspace could not be located. Please contact platform support.';
+                $this->password = '';
                 return;
             }
 

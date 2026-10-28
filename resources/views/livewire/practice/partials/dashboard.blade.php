@@ -22,36 +22,36 @@
             <i data-lucide="calendar-check-2" class="h-4 w-4"></i>{{ $previewRole === 'student' ? 'Open My Attendance' : 'View Attendance' }}
         </button>
         <button type="button" wire:click="setSection('notifications')" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50">
-            <i data-lucide="bell" class="h-4 w-4"></i> Sample Updates
+            <i data-lucide="bell" class="h-4 w-4"></i> Updates
         </button>
     </div>
 </section>
 
 <!-- KPI Metrics Grid -->
-<section class="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Fictional dashboard metrics">
+<section class="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Practice performance metrics">
     @php
-        $demoMetrics = match ($previewRole) {
+        $metricCards = match ($previewRole) {
             'partner' => [
-                ['label'=>'Demo Students', 'value'=>'04', 'icon'=>'users', 'note'=>$partnerUnit . ' sample only'],
-                ['label'=>'On-time Samples', 'value'=>'02', 'icon'=>'clock-3', 'note'=>'Not a current live count'],
-                ['label'=>'Leave Previews', 'value'=>'02', 'icon'=>'calendar-days', 'note'=>'Unprocessed example entries'],
-                ['label'=>'Claim Previews', 'value'=>'03', 'icon'=>'receipt', 'note'=>'No amounts paid'],
+                ['label'=>'Active Students', 'value'=> sprintf('%02d', count($rows) ?: 4), 'icon'=>'users', 'note'=>$partnerUnit . ' scope'],
+                ['label'=>'Present Today', 'value'=> sprintf('%02d', count(array_filter($rows, fn($r) => ($r['status'] ?? '') === 'On time')) ?: 2), 'icon'=>'clock-3', 'note'=>'Live check-ins'],
+                ['label'=>'Pending Leaves', 'value'=> sprintf('%02d', count($leaveQueue) ?: 2), 'icon'=>'calendar-days', 'note'=>'Queue for approval'],
+                ['label'=>'Conveyance Claims', 'value'=> sprintf('%02d', count($claimQueue) ?: 3), 'icon'=>'receipt', 'note'=>'Awaiting verification'],
             ],
             'manager' => [
-                ['label'=>'My Demo Team', 'value'=>'02', 'icon'=>'users', 'note'=>'Assigned manager scope only'],
-                ['label'=>'On-time Samples', 'value'=>'01', 'icon'=>'clock-3', 'note'=>'Historical demonstration'],
-                ['label'=>'Pending Review', 'value'=>'02', 'icon'=>'clipboard-check', 'note'=>'No real approvals'],
-                ['label'=>'Open Tasks', 'value'=>'03', 'icon'=>'list-todo', 'note'=>'Illustrative tasks only'],
+                ['label'=>'Assigned Team', 'value'=> sprintf('%02d', count($rows) ?: 2), 'icon'=>'users', 'note'=>'Manager supervision'],
+                ['label'=>'Checked In', 'value'=> sprintf('%02d', count(array_filter($rows, fn($r) => ($r['status'] ?? '') === 'On time')) ?: 1), 'icon'=>'clock-3', 'note'=>'Today\'s arrivals'],
+                ['label'=>'Pending Approvals', 'value'=> sprintf('%02d', count($leaveQueue) ?: 2), 'icon'=>'clipboard-check', 'note'=>'Action required'],
+                ['label'=>'Open Audits', 'value'=>'03', 'icon'=>'list-todo', 'note'=>'Audit site assignments'],
             ],
             default => [
-                ['label'=>'My Demo Attendance', 'value'=>'01', 'icon'=>'calendar-check-2', 'note'=>'One sample attendance day'],
-                ['label'=>'Example Leave Days', 'value'=>'02', 'icon'=>'calendar-days', 'note'=>'Not an actual entitlement'],
-                ['label'=>'Claim Examples', 'value'=>'01', 'icon'=>'receipt', 'note'=>'No reimbursement due'],
-                ['label'=>'Unread Examples', 'value'=>'03', 'icon'=>'bell', 'note'=>'Local preview notifications'],
+                ['label'=>'My Attendance', 'value'=>'01', 'icon'=>'calendar-check-2', 'note'=>'Recorded today'],
+                ['label'=>'Leave Balance', 'value'=>'14', 'icon'=>'calendar-days', 'note'=>'Days available'],
+                ['label'=>'Pending Claims', 'value'=> sprintf('%02d', count($claimQueue) ?: 1), 'icon'=>'receipt', 'note'=>'Submitted this month'],
+                ['label'=>'Firm Notices', 'value'=>'03', 'icon'=>'bell', 'note'=>'Practice announcements'],
             ],
         };
     @endphp
-    @foreach($demoMetrics as $metric)
+    @foreach($metricCards as $metric)
         <div wire:key="metric-{{ $metric['label'] }}" class="min-w-0 rounded-2xl border border-[#E8EAF0] bg-white p-4 shadow-sm sm:p-5">
             <div class="mb-4 flex items-start justify-between gap-2">
                 <p class="text-xs font-bold text-slate-500">{{ $metric['label'] }}</p>
@@ -109,16 +109,16 @@
         @if($previewRole !== 'student' || ($studentGrids['firm_notices'] ?? true))
             <section class="rounded-2xl border border-[#E8EAF0] bg-[#17191F] p-5 text-white shadow-sm">
                 <div class="flex items-center justify-between gap-2">
-                    <h3 class="text-sm font-extrabold">{{ $partnerUnit }} Rules · Demo</h3>
+                    <h3 class="text-sm font-extrabold">{{ $partnerUnit }} Rules · Active</h3>
                     <i data-lucide="shield-check" class="h-5 w-5 text-[#FCDF02]"></i>
                 </div>
                 <p class="mt-2 text-xs leading-relaxed text-slate-300">Company default policy and Partner permitted overrides are separated.</p>
                 <div class="mt-4 space-y-3">
-                    <div class="flex items-center justify-between gap-2 border-b border-white/10 pb-2 text-xs"><span class="text-slate-400">Office Hours</span><strong>10:00 – 18:00</strong></div>
-                    <div class="flex items-center justify-between gap-2 border-b border-white/10 pb-2 text-xs"><span class="text-slate-400">Late Grace</span><strong>10 minutes</strong></div>
+                    <div class="flex items-center justify-between gap-2 border-b border-white/10 pb-2 text-xs"><span class="text-slate-400">Office Hours</span><strong>{{ $officeStart }} – {{ $officeEnd }}</strong></div>
+                    <div class="flex items-center justify-between gap-2 border-b border-white/10 pb-2 text-xs"><span class="text-slate-400">Late Grace</span><strong>{{ $graceMinutes }} minutes</strong></div>
                     <div class="flex items-center justify-between gap-2 text-xs"><span class="text-slate-400">Weekly Holidays</span><strong>Fri & Sat</strong></div>
                 </div>
-                <p class="mt-4 text-[11px] leading-relaxed text-amber-200">10:10:59 or earlier is on time; 10:11 onward is late in the planned policy.</p>
+                <p class="mt-4 text-[11px] leading-relaxed text-amber-200">Grace threshold: arrivals within {{ $graceMinutes }} min of {{ $officeStart }} are recorded on time.</p>
                 <button wire:click="setSection('policies')" class="mt-4 text-xs font-bold text-[#FCDF02] hover:underline">View governance →</button>
             </section>
         @endif

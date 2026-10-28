@@ -28,20 +28,28 @@
             </div>
         </div>
 
+        @php
+            $firstFirm = !empty($firms) ? reset($firms) : null;
+            $firstFirmSlug = $firstFirm['slug'] ?? null;
+        @endphp
         <!-- Navigation Actions -->
         <div class="flex items-center gap-2 sm:gap-3 text-xs font-semibold">
-            <a href="{{ url('/c/rac/login') }}" class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors">
-                <i data-lucide="building-2" class="w-3.5 h-3.5 text-[#FCDF02]"></i>
-                <span>CA Firm Portals</span>
-            </a>
+            @if($firstFirmSlug)
+                <a href="{{ url('/c/' . $firstFirmSlug . '/login') }}" class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors">
+                    <i data-lucide="building-2" class="w-3.5 h-3.5 text-[#FCDF02]"></i>
+                    <span>CA Firm Portals</span>
+                </a>
+            @endif
             <a href="{{ url('/platform/login') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-colors">
                 <i data-lucide="shield-check" class="w-3.5 h-3.5 text-amber-400"></i>
                 <span class="hidden sm:inline">Platform Admin</span>
             </a>
-            <a href="{{ url('/c/rac/activate') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FCDF02] hover:bg-[#f0d400] text-[#16181D] font-bold transition-all shadow-sm">
-                <i data-lucide="key" class="w-3.5 h-3.5"></i>
-                <span>Activate Account</span>
-            </a>
+            @if($firstFirmSlug)
+                <a href="{{ url('/c/' . $firstFirmSlug . '/activate') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FCDF02] hover:bg-[#f0d400] text-[#16181D] font-bold transition-all shadow-sm">
+                    <i data-lucide="key" class="w-3.5 h-3.5"></i>
+                    <span>Activate Account</span>
+                </a>
+            @endif
         </div>
     </header>
 
@@ -190,7 +198,7 @@
                                     type="email"
                                     id="portal-email"
                                     required
-                                    placeholder="name@rahmananis.com or admin@dhakawala.com"
+                                    placeholder="name@firm.com or admin@dhakawala.com"
                                     class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#222632] border border-white/10 text-white placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-[#FCDF02] focus:ring-1 focus:ring-[#FCDF02] transition-colors"
                                 >
                             </div>

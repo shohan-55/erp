@@ -33,31 +33,31 @@ class AppShell extends Component
 
     public array $roles = [
         'partner' => [
-            'name'          => 'A.K.M. Mohitul Haq, FCA',
+            'name'          => 'Senior Managing Partner',
             'role_title'    => 'Senior Partner',
             'partner_unit'  => 'Partner Unit 01',
             'partner_group' => 'Partner Unit 01 • Executive Practice',
             'badge'         => 'Principal',
-            'initials'      => 'MH',
-            'email'         => 'mohitul.haq@rahmananis.com',
+            'initials'      => 'MP',
+            'email'         => 'partner@dhakawala.com',
         ],
         'manager' => [
-            'name'          => 'Khandaker Tanvir Ahmed, ACA',
+            'name'          => 'Audit Engagement Manager',
             'role_title'    => 'Audit Manager',
             'partner_unit'  => 'Partner Unit 01',
             'partner_group' => 'Partner Unit 01 • Audit Field Team',
             'badge'         => 'Manager',
-            'initials'      => 'TA',
-            'email'         => 'tanvir.ahmed@rahmananis.com',
+            'initials'      => 'AM',
+            'email'         => 'manager@dhakawala.com',
         ],
         'student' => [
-            'name'          => 'Zubair Hossain Siddique',
+            'name'          => 'Articled Student Member',
             'role_title'    => 'Articled Student (Level 2)',
             'partner_unit'  => 'Partner Unit 01',
             'partner_group' => 'Partner Unit 01 • Field Articled',
             'badge'         => 'Student',
-            'initials'      => 'ZS',
-            'email'         => 'zubair.student@rahmananis.com',
+            'initials'      => 'AS',
+            'email'         => 'student@dhakawala.com',
         ],
         'admin' => [
             'name'          => 'Platform Super Admin',
@@ -82,12 +82,15 @@ class AppShell extends Component
             }
 
             if ($user->isFirmMember()) {
-                $firmSlug = $user->firm ? $user->firm->slug : 'rac';
-                $this->redirect(route('firm.practice.preview', [
-                    'firmSlug'    => $firmSlug,
-                    'previewRole' => $user->role,
-                    'section'     => 'dashboard',
-                ]), navigate: true);
+                if ($user->firm) {
+                    $this->redirect(route('firm.practice.preview', [
+                        'firmSlug'    => $user->firm->slug,
+                        'previewRole' => $user->role,
+                        'section'     => 'dashboard',
+                    ]), navigate: true);
+                    return;
+                }
+                $this->redirect(route('home'), navigate: true);
                 return;
             }
         }
@@ -149,6 +152,9 @@ class AppShell extends Component
         if (! $authenticated && (app()->runningUnitTests() || app()->environment('testing'))) {
             $testUsers = [
                 'admin@dhakawala.com' => ['role' => 'admin', 'name' => 'DhakaWala Platform Admin'],
+                'partner@dhakawala.com' => ['role' => 'partner', 'name' => 'A.K.M. Mohitul Haq, FCA'],
+                'manager@dhakawala.com' => ['role' => 'manager', 'name' => 'Khandaker Tanvir Ahmed, ACA'],
+                'student@dhakawala.com' => ['role' => 'student', 'name' => 'Zubair Hossain Siddique'],
                 'mohitul.haq@rahmananis.com' => ['role' => 'partner', 'name' => 'A.K.M. Mohitul Haq, FCA'],
                 'tanvir.ahmed@rahmananis.com' => ['role' => 'manager', 'name' => 'Khandaker Tanvir Ahmed, ACA'],
                 'zubair.student@rahmananis.com' => ['role' => 'student', 'name' => 'Zubair Hossain Siddique'],
@@ -185,12 +191,15 @@ class AppShell extends Component
         }
 
         if ($user && $user->isFirmMember()) {
-            $firmSlug = $user->firm ? $user->firm->slug : 'rac';
-            $this->redirect(route('firm.practice.preview', [
-                'firmSlug'    => $firmSlug,
-                'previewRole' => $user->role,
-                'section'     => 'dashboard',
-            ]), navigate: true);
+            if ($user->firm) {
+                $this->redirect(route('firm.practice.preview', [
+                    'firmSlug'    => $user->firm->slug,
+                    'previewRole' => $user->role,
+                    'section'     => 'dashboard',
+                ]), navigate: true);
+                return;
+            }
+            $this->redirect(route('home'), navigate: true);
             return;
         }
 

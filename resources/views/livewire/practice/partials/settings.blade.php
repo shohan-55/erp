@@ -38,7 +38,7 @@
             @if($previewRole === 'partner')
                 <form wire:submit.prevent="updatePartnerEmail" class="space-y-3">
                     <label class="block text-xs font-bold text-slate-700">Change Partner Email Address
-                        <input type="email" wire:model="newPartnerEmail" placeholder="Enter new email (e.g. new.partner@rahmananis.com)" required
+                        <input type="email" wire:model="newPartnerEmail" placeholder="Enter new email (e.g. partner@{{ $firm['custom_domain'] ?? (($firm['slug'] ?? 'practice') . '.dhakawala.com') }})" required
                                class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs outline-none focus:border-amber-400">
                     </label>
                     <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604]">

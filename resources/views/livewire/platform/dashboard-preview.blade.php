@@ -52,7 +52,7 @@
             @endforeach
         </nav>
 
-        <div class="border-t border-white/10 p-4">
+        <div class="border-t border-white/10 p-4 space-y-2">
             <div class="flex items-center gap-3 rounded-xl bg-white/5 p-3">
                 <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F5AD16]/20 text-xs font-extrabold text-[#FCDF02]">DW</div>
                 <div class="min-w-0">
@@ -60,6 +60,10 @@
                     <div class="text-[11px] text-slate-400">DhakaWala Cloud Operations</div>
                 </div>
             </div>
+            <a href="{{ url('/logout') }}" class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+                <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                <span>Sign Out of Platform</span>
+            </a>
         </div>
     </aside>
 
@@ -83,7 +87,13 @@
             <div class="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-900 sm:flex">
                 <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> CLUSTER 01 · ACTIVE
             </div>
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-extrabold text-slate-600" aria-label="Preview operator avatar">DW</div>
+            <div class="flex items-center gap-2">
+                <a href="{{ url('/logout') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors" title="Sign Out">
+                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                    <span class="hidden md:inline">Sign Out</span>
+                </a>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-extrabold text-slate-600" aria-label="Preview operator avatar">DW</div>
+            </div>
         </header>
 
         <main class="mx-auto max-w-[1480px] space-y-6 px-4 py-6 sm:px-7 lg:px-9 lg:py-8">
@@ -324,7 +334,7 @@
                         <p class="mt-1 text-xs text-slate-500">Tenant-approved support sessions and active access requests.</p>
                     </div>
                     <div class="divide-y divide-slate-100">
-                        @foreach($demoSupportRequests as $request)
+                        @forelse($demoSupportRequests as $request)
                             <div wire:key="support-{{ $request['id'] }}" class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div class="min-w-0">
                                     <div class="flex flex-wrap items-center gap-2">
@@ -338,7 +348,11 @@
                                     <span class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-900">{{ $request['status'] }}</span>
                                 </div>
                             </div>
-                        @endforeach
+                        @empty
+                            <div class="p-6 text-center text-xs text-slate-400">
+                                No active support authorization requests across tenant practices.
+                            </div>
+                        @endforelse
                     </div>
                 </section>
                 <div class="rounded-xl border border-slate-200 bg-slate-100 p-4 text-xs leading-relaxed text-slate-600">
