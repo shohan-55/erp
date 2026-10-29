@@ -14,6 +14,35 @@
     </div>
 
     <form wire:submit.prevent="updateOwnProfileAndPassword" class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-xs">
+        <!-- Profile Picture Upload & Preview -->
+        <div class="sm:col-span-2 lg:col-span-3 flex items-center gap-4 p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+            <div class="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#17191F] text-white font-extrabold text-base overflow-hidden border border-slate-200 shadow-sm">
+                @if($myAvatar)
+                    <img src="{{ $myAvatar->temporaryUrl() }}" alt="New Avatar Preview" class="h-full w-full object-cover">
+                @elseif(!empty($myAvatarUrl))
+                    <img src="{{ $myAvatarUrl }}" alt="Avatar" class="h-full w-full object-cover">
+                @else
+                    <span class="text-[#FCDF02]">{{ strtoupper(substr(auth()->user()?->name ?? 'U', 0, 1)) }}</span>
+                @endif
+            </div>
+            <div class="flex-1 min-w-0">
+                <label class="block font-extrabold text-slate-900 text-xs">Profile Picture / Avatar Photo (ছবি আপলোড)</label>
+                <p class="text-[11px] text-slate-500 mt-0.5">JPG, PNG, or WebP up to 2MB. Appears on your top header, sidebar, and team roster.</p>
+                <div class="mt-2 flex items-center gap-2">
+                    <input type="file" wire:model="myAvatar" accept="image/*" class="text-[11px] text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-[#16181D] file:text-[#FCDF02] hover:file:bg-slate-800 cursor-pointer">
+                    <span wire:loading wire:target="myAvatar" class="text-[10px] text-amber-800 font-bold animate-pulse">Uploading preview...</span>
+                </div>
+            </div>
+        </div>
+
+        <label class="block font-bold text-slate-700">Full Name
+            <input type="text" wire:model="myName" required placeholder="e.g. Khandaker Tanvir Ahmed, ACA" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+        </label>
+
+        <label class="block font-bold text-slate-700">Account Email Address
+            <input type="email" wire:model="myEmail" required placeholder="user@firm.com" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+        </label>
+
         <label class="block font-bold text-slate-700">Mobile Phone Number
             <input type="text" wire:model="myPhone" placeholder="e.g. +880 1711-XXXXXX" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
         </label>
@@ -46,6 +75,61 @@
         </div>
     </form>
 </section>
+
+@if($previewRole === 'partner')
+<!-- ===================================================================== -->
+<!-- FIRM BRAND COLOR PALETTE SELECTOR (PARTNER CONTROL)                   -->
+<!-- ===================================================================== -->
+<section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
+    <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+        <div class="flex items-start gap-3">
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}">
+                <i data-lucide="palette" class="h-5 w-5"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-extrabold text-slate-900">Firm Brand Color Palette (ফার্ম বা কোম্পানির কালার প্যালেট)</h3>
+                <p class="mt-0.5 text-xs text-slate-500">Select your firm's official brand color palette or custom color. Click any palette below to immediately update the entire workspace and login portal.</p>
+            </div>
+        </div>
+        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-extrabold text-slate-800">
+            <span class="h-3 w-3 rounded-full" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}"></span>
+            <span>{{ $firm['palette_label'] ?? 'Sea Green' }}</span>
+        </span>
+    </div>
+
+    <div class="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+        @foreach(($colorPalettes ?? \App\Models\Firm::colorPalettes()) as $pKey => $pal)
+            <button type="button"
+                    wire:click="selectFirmThemePalette('{{ $pKey }}')"
+                    class="group flex items-center gap-3 rounded-2xl border p-3 text-left transition {{ $firmThemePalette === $pKey ? 'border-slate-900 bg-slate-50 shadow-sm ring-2 ring-slate-900/10' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60' }}">
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-inner border border-black/10 text-white" style="background-color: {{ $pal['primary'] }}">
+                    @if($firmThemePalette === $pKey)
+                        <i data-lucide="check" class="h-4 w-4"></i>
+                    @endif
+                </span>
+                <div class="min-w-0 flex-1">
+                    <p class="truncate text-xs font-extrabold text-slate-900">{{ $pal['label'] }}</p>
+                    <p class="font-mono text-[10px] text-slate-400">{{ $pal['primary'] }}</p>
+                </div>
+            </button>
+        @endforeach
+    </div>
+
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs">
+        <div class="flex items-center gap-3">
+            <input type="color" wire:model.live="firmCustomPrimaryColor" wire:change="$set('firmThemePalette', 'custom')" class="h-9 w-14 cursor-pointer rounded-lg border border-slate-300 bg-white p-0.5">
+            <div>
+                <p class="font-extrabold text-slate-900">Custom Brand Hex Color (পছন্দের যেকোনো কালার কোড)</p>
+                <p class="text-[11px] text-slate-500">Selected Hex: <span class="font-mono font-bold text-slate-800">{{ $firmCustomPrimaryColor }}</span></p>
+            </div>
+        </div>
+        <button type="button" wire:click="saveFirmThemePalette" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] shadow-sm">
+            <i data-lucide="check-circle-2" class="h-4 w-4"></i> Save Brand Color Palette
+        </button>
+    </div>
+</section>
+@endif
+
 
 <section class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
     <div>

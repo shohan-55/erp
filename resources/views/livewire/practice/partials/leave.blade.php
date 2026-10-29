@@ -99,6 +99,11 @@
                                     {{ $request['status'] === 'approved' ? 'bg-emerald-50 text-emerald-700' : ($request['status'] === 'rejected' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-800') }}">
                                     {{ $request['status_label'] }}
                                 </span>
+                                @if($request['status'] === 'approved')
+                                    <button type="button" wire:click="exportLeaveSanctionLetter('{{ $request['id'] }}')" class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100" title="Print Official Leave Sanction Letter">
+                                        <i data-lucide="printer" class="h-3 w-3"></i> Print Letter
+                                    </button>
+                                @endif
 
                                 @if($previewRole === 'manager' && $request['status'] === 'pending_manager')
                                     <button type="button" wire:click="managerRecommendLeave('{{ $request['id'] }}', 'Verified with audit engagement schedule. Recommended.')"

@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
     <defs>
-        <linearGradient id="dw-gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#FCDF02"/>
-            <stop offset="50%" stop-color="#F5AD16"/>
-            <stop offset="100%" stop-color="#D97706"/>
+        <linearGradient id="dw-seagull-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#2DD4BF"/>
+            <stop offset="50%" stop-color="#14B8A6"/>
+            <stop offset="100%" stop-color="#0D9488"/>
         </linearGradient>
         <linearGradient id="dw-dark-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#1E222B"/>
-            <stop offset="100%" stop-color="#111317"/>
+            <stop offset="0%" stop-color="#0F2926"/>
+            <stop offset="100%" stop-color="#091514"/>
         </linearGradient>
         <filter id="dw-shadow" x="-10%" y="-10%" width="130%" height="130%">
             <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.35"/>
@@ -15,18 +15,18 @@
     </defs>
     
     <!-- Outer Rounded Base -->
-    <rect x="8" y="8" width="144" height="144" rx="36" fill="url(#dw-dark-grad)" stroke="#FCDF02" stroke-width="2.5" stroke-opacity="0.3" filter="url(#dw-shadow)"/>
+    <rect x="8" y="8" width="144" height="144" rx="36" fill="url(#dw-dark-grad)" stroke="#14B8A6" stroke-width="2.5" stroke-opacity="0.4" filter="url(#dw-shadow)"/>
     
     <!-- Subtle Inner Glow Ring -->
-    <rect x="14" y="14" width="132" height="132" rx="30" fill="none" stroke="url(#dw-gold-grad)" stroke-width="1" stroke-opacity="0.2"/>
+    <rect x="14" y="14" width="132" height="132" rx="30" fill="none" stroke="url(#dw-seagull-grad)" stroke-width="1" stroke-opacity="0.25"/>
 
     <!-- Geometric "D" & "W" Monogram -->
     <!-- Stylized D Outer Curve -->
-    <path d="M44 40 H74 C96 40 114 56 114 80 C114 104 96 120 74 120 H44 Z" fill="none" stroke="url(#dw-gold-grad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M44 40 H74 C96 40 114 56 114 80 C114 104 96 120 74 120 H44 Z" fill="none" stroke="url(#dw-seagull-grad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
     
     <!-- Stylized Inner W Chevron -->
     <path d="M56 80 L68 102 L80 84 L92 102 L102 80" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
 
-    <!-- Small Golden Node Accent -->
-    <circle cx="114" cy="50" r="6" fill="#FCDF02"/>
+    <!-- Small Sea Green Node Accent -->
+    <circle cx="114" cy="50" r="6" fill="#2DD4BF"/>
 </svg>

@@ -18,6 +18,7 @@
     <!-- Laravel Vite Bundler -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
+    <x-brand-theme-style />
 </head>
 <body class="h-full bg-slate-50 text-slate-900 antialiased selection:bg-[#FCDF02] selection:text-slate-950 font-sans">
     

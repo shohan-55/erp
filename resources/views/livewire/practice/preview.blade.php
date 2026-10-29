@@ -2,6 +2,7 @@
     @if(!$firm)
         <x-auth-unknown-firm :firm-slug="$firmSlug" />
     @else
+        <x-brand-theme-style :firm="$firm" />
         <div x-show="menuOpen" x-cloak @click="menuOpen = false" class="fixed inset-0 z-40 bg-slate-950/60 lg:hidden" aria-hidden="true"></div>
 
         <aside :class="menuOpen ? 'translate-x-0' : '-translate-x-full'"
@@ -57,7 +58,8 @@
 
             <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-5" aria-label="Workspace modules">
                 <p class="px-3 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">Practice Modules</p>
-                @foreach([
+                @php $enabledMods = $firm['enabled_modules'] ?? []; @endphp
+                @foreach(array_filter([
                     ['key'=>'dashboard','title'=>'Dashboard','icon'=>'layout-dashboard'],
                     ['key'=>'attendance','title'=>'Attendance','icon'=>'calendar-check-2'],
                     ['key'=>'leave','title'=>'Leave Requests','icon'=>'calendar-days'],
@@ -67,7 +69,7 @@
                     ['key'=>'notifications','title'=>'Notifications','icon'=>'bell'],
                     ['key'=>'policies','title'=>'Policy & Governance','icon'=>'shield-check'],
                     ['key'=>'settings','title'=>'Workspace Settings','icon'=>'settings-2']
-                ] as $item)
+                ], fn($it) => ($enabledMods[$it['key']] ?? true) !== false) as $item)
                     <button type="button" wire:key="nav-{{ $item['key'] }}" wire:click="setSection('{{ $item['key'] }}')" @click="menuOpen = false" aria-label="{{ $item['title'] }}"
                             @if($section === $item['key']) aria-current="page" @endif
                             class="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[13px] font-semibold transition {{ $section === $item['key'] ? 'bg-[#FCDF02] text-[#17191F] shadow-sm' : 'text-slate-400 hover:bg-white/10 hover:text-white' }}">
@@ -80,8 +82,12 @@
 
             <div wire:key="sidebar-active-user-card" class="border-t border-white/10 p-3">
                 <div class="flex items-center gap-3 rounded-2xl bg-white/5 p-3 hover:bg-white/10 transition">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FCDF02] text-xs font-black text-[#17191F] shadow-sm">
-                        {{ strtoupper(substr(Auth::user()->name ?? $previewRole, 0, 1)) }}
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FCDF02] text-xs font-black text-[#17191F] shadow-sm overflow-hidden">
+                        @if(!empty(Auth::user()->avatar_url ?? $myAvatarUrl))
+                            <img src="{{ Auth::user()->avatar_url ?? $myAvatarUrl }}" alt="Avatar" class="h-full w-full object-cover">
+                        @else
+                            {{ strtoupper(substr(Auth::user()->name ?? $previewRole, 0, 1)) }}
+                        @endif
                     </div>
                     <div class="min-w-0 flex-1">
                         <p class="truncate text-xs font-bold text-white">{{ Auth::user()->name ?? $roleLabel }}</p>
@@ -113,7 +119,7 @@
                     <i data-lucide="bell" class="h-[18px] w-[18px]"></i>
                     @php $hdrUnread = count(array_filter($notificationsList ?? [], fn($n) => !in_array($n['id'], $readNotificationIds ?? [], true))); @endphp @if($hdrUnread > 0)<span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-[#17191F]">{{ $hdrUnread }}</span>@endif
                 </button>
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-[#17191F] text-xs font-extrabold text-[#FCDF02]">{{ strtoupper(substr(Auth::user()->name ?? $previewRole,0,1)) }}</div>
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-[#17191F] text-xs font-extrabold text-[#FCDF02] overflow-hidden">@if(!empty(Auth::user()->avatar_url ?? $myAvatarUrl))<img src="{{ Auth::user()->avatar_url ?? $myAvatarUrl }}" alt="Avatar" class="h-full w-full object-cover">@else{{ strtoupper(substr(Auth::user()->name ?? $previewRole,0,1)) }}@endif</div>
             </header>
 
             <main class="mx-auto max-w-[1480px] space-y-6 px-4 py-6 sm:px-7 lg:px-9 lg:py-8">
@@ -194,8 +200,10 @@
                                     </label>
                                     <label class="block font-bold text-slate-700">Status
                                         <select wire:model="editStatus" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs">
+                                            <option value="Right Time">Right Time (&le; {{ $officeStart }})</option>
                                             <option value="On time">On time</option>
-                                            <option value="Late">Late</option>
+                                            <option value="Late">Late (Grace Window)</option>
+                                            <option value="Late Present">Late Present (&gt; {{ $graceEndFormatted ?? '09:40' }})</option>
                                             <option value="Incomplete">Incomplete</option>
                                         </select>
                                     </label>
@@ -289,6 +297,70 @@
                             <i data-lucide="check" class="h-4 w-4"></i> Mark Read &amp; Dismiss
                         </button>
                     </div>
+                </div>
+            </div>
+        @endif
+
+        @if($showCheckinCelebration && $celebrationData)
+            <div class="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md"
+                 wire:click.self="dismissCelebration" role="dialog" aria-modal="true">
+                <style>
+                    @keyframes erp-pop-in {
+                        0% { transform: scale(0.75); opacity: 0; }
+                        70% { transform: scale(1.04); opacity: 1; }
+                        100% { transform: scale(1); opacity: 1; }
+                    }
+                    @keyframes erp-check-draw {
+                        0% { stroke-dashoffset: 100; }
+                        100% { stroke-dashoffset: 0; }
+                    }
+                    @keyframes erp-pulse-ring {
+                        0% { transform: scale(0.8); opacity: 0.8; }
+                        100% { transform: scale(1.85); opacity: 0; }
+                    }
+                    .erp-anim-card { animation: erp-pop-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+                    .erp-anim-check { stroke-dasharray: 100; stroke-dashoffset: 100; animation: erp-check-draw 0.65s 0.2s ease-out forwards; }
+                    .erp-anim-ring { animation: erp-pulse-ring 1.6s cubic-bezier(0, 0, 0.2, 1) infinite; }
+                </style>
+                <div class="erp-anim-card relative w-full max-w-md overflow-hidden rounded-3xl border-2 border-white/20 bg-[#11141B] p-7 text-center text-white shadow-2xl">
+                    @php
+                        $cTheme = $celebrationData['badge_theme'] ?? 'emerald';
+                        $ringHex = $cTheme === 'emerald' ? '#10B981' : ($cTheme === 'amber' ? '#F59E0B' : '#F43F5E');
+                    @endphp
+                    <div class="relative mx-auto mb-5 flex h-24 w-24 items-center justify-center">
+                        <span class="erp-anim-ring absolute inset-0 rounded-full" style="border: 3px solid {{ $ringHex }};"></span>
+                        <div class="relative z-10 flex h-20 w-20 items-center justify-center rounded-full shadow-lg" style="background-color: {{ $ringHex }};">
+                            <svg class="h-11 w-11 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline class="erp-anim-check" points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <span class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-black uppercase tracking-wider" style="background-color: {{ $ringHex }}25; color: {{ $ringHex }}; border: 1px solid {{ $ringHex }}60;">
+                        ✨ {{ $celebrationData['status'] ?? 'Right Time' }}
+                    </span>
+
+                    <h3 class="mt-3 text-2xl font-black tracking-tight text-white">{{ $celebrationData['title'] ?? 'Attendance Verified!' }}</h3>
+                    <p class="mt-1 text-xs text-slate-300">{{ $celebrationData['subtitle'] ?? '' }}</p>
+
+                    <div class="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4 text-left text-xs space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">Recorded Time</span>
+                            <strong class="font-mono text-sm text-white">{{ $celebrationData['time'] ?? '' }}</strong>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">Duty Mode</span>
+                            <strong class="text-white">{{ $celebrationData['mode'] ?? 'Office' }}</strong>
+                        </div>
+                        <div class="flex items-start justify-between gap-2">
+                            <span class="text-slate-400 shrink-0">GPS Location</span>
+                            <strong class="text-right text-emerald-300">{{ $celebrationData['location'] ?? 'Verified' }}</strong>
+                        </div>
+                    </div>
+
+                    <button type="button" wire:click="dismissCelebration" class="mt-6 w-full rounded-2xl bg-[#FCDF02] py-3 text-xs font-black uppercase tracking-wider text-[#17191F] shadow-lg transition hover:brightness-105">
+                        Continue to Workspace
+                    </button>
                 </div>
             </div>
         @endif

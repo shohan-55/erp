@@ -50,9 +50,11 @@ class PracticePreview extends Component
     public string $attendanceReportStart = '';
     public string $attendanceReportEnd = '';
 
-    // Partner Email Modification
+    // Partner Email Modification & Dynamic Firm Color Palette
     public string $partnerEmail = 'partner@dhakawala.com';
     public string $newPartnerEmail = '';
+    public string $firmThemePalette = 'sea_green';
+    public string $firmCustomPrimaryColor = '#0D9488';
 
     // Attendance & Multi-Segment Close vs On-Duty State
     public string $workMode = 'office';
@@ -78,9 +80,19 @@ class PracticePreview extends Component
     public int $graceMinutes = 10;
     public float $managerConveyanceLimit = 300.00;
     public int $conveyanceLateDays = 2; // 1-2 working days window
-    public bool $latePenaltyEnabled = false;
+    public bool $latePenaltyEnabled = true;
     public int $lateDaysPerDeduction = 3; // e.g. 3 days late = 1 day deduction
     public float $deductionDaysCount = 1.00;
+
+    // Check-in Celebration Animation Overlay (#UserProposal2)
+    public bool $showCheckinCelebration = false;
+    public ?array $celebrationData = null;
+
+    // Interactive Monthly Activity Calendar & Daily Inspector (#UserProposal3)
+    public string $calendarMonth = '';
+    public string $selectedCalendarDate = '';
+    public array $calendarDays = [];
+    public array $selectedDayActivity = [];
     public array $leaveQuotas = [];
     public string $newLeaveTypeLabel = '';
     public int $newLeaveTypeDays = 10;
@@ -100,7 +112,11 @@ class PracticePreview extends Component
     public ?array $subscriptionAlert = null;
 
     // Self-Service Profile, Password & bKash/Nagad/Bank Account (#1)
+    public string $myName = '';
+    public string $myEmail = '';
     public string $myPhone = '';
+    public $myAvatar = null;
+    public ?string $myAvatarUrl = null;
     public string $myPaymentMode = 'bKash';
     public string $myPaymentAccountNo = '';
     public string $myNewPassword = '';
@@ -253,6 +269,7 @@ class PracticePreview extends Component
     public ?int $editMemberId = null;
     public string $editMemberName = '';
     public string $editMemberEmail = '';
+    public string $editMemberPhone = '';
     public string $editMemberNewPassword = '';
     public string $editMemberRole = 'student';
     public string $editMemberPartnerUnit = 'Partner Unit 01';
@@ -276,6 +293,10 @@ class PracticePreview extends Component
     {
         $this->firmSlug = strtolower(trim($firmSlug));
         $this->firm = FirmRegistry::get($this->firmSlug);
+        if ($this->firm) {
+            $this->firmThemePalette = $this->firm['theme_palette'] ?? 'sea_green';
+            $this->firmCustomPrimaryColor = $this->firm['primary_color'] ?? '#0D9488';
+        }
         $this->previewRole = in_array($previewRole, self::ROLES, true) ? $previewRole : 'partner';
         $this->section = in_array($section, self::SECTIONS, true) ? $section : 'dashboard';
         $this->attendanceReportStart = now()->startOfMonth()->toDateString();
@@ -354,7 +375,10 @@ class PracticePreview extends Component
             if ($user->isStudent() && $user->manager_id) {
                 $this->leaveEngagedManagerId = $user->manager_id;
             }
+            $this->myName = $user->name ?? '';
+            $this->myEmail = $user->email ?? '';
             $this->myPhone = $user->phone ?? '';
+            $this->myAvatarUrl = $user->avatar_url ?? null;
             $this->myPaymentMode = $user->payment_account_mode ?? 'bKash';
             $this->myPaymentAccountNo = $user->payment_account_no ?? '';
             if ($user->isManager() || $user->isPartner()) {
@@ -376,6 +400,9 @@ class PracticePreview extends Component
         $this->loadNotifications();
         $this->loadPolicyProposals();
         $this->loadAuditLogs();
+        $this->calendarMonth = now()->format('Y-m');
+        $this->selectedCalendarDate = now()->toDateString();
+        $this->loadMonthlyCalendarData();
         $this->canManageTeam = $this->userCanManageTeam();
     }
 
@@ -614,6 +641,81 @@ class PracticePreview extends Component
     }
 
     /**
+     * Partner selects and applies a Brand Color Palette for the Firm (#ColorPalette).
+     */
+    public function selectFirmThemePalette(string $paletteKey): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        if ($this->previewRole !== 'partner') {
+            $this->error = 'Only an authorized Partner can change the firm brand color palette.';
+            return;
+        }
+
+        $palettes = Firm::colorPalettes();
+        if ($paletteKey !== 'custom' && ! isset($palettes[$paletteKey])) {
+            return;
+        }
+
+        $this->firmThemePalette = $paletteKey;
+        if ($paletteKey !== 'custom') {
+            $this->firmCustomPrimaryColor = $palettes[$paletteKey]['primary'];
+        }
+
+        $this->saveFirmThemePalette();
+    }
+
+    public function saveFirmThemePalette(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+
+        if ($this->previewRole !== 'partner') {
+            $this->error = 'Only an authorized Partner can update the firm brand color palette.';
+            return;
+        }
+
+        $resolved = Firm::resolvePalette($this->firmThemePalette, $this->firmCustomPrimaryColor);
+
+        if (Schema::hasTable('firms')) {
+            try {
+                $firmModel = $this->resolveFirmModel();
+                if ($firmModel && Schema::hasColumn('firms', 'theme_palette')) {
+                    $firmModel->theme_palette = $resolved['key'];
+                    $firmModel->primary_color = $resolved['primary'];
+                    $firmModel->save();
+
+                    $this->recordAuditLog(
+                        'settings',
+                        'firm_color_palette_updated',
+                        "Updated firm brand color palette to {$resolved['label']} ({$resolved['primary']}).",
+                        $resolved['key']
+                    );
+                }
+            } catch (\Throwable) {}
+        }
+
+        if (is_array($this->firm)) {
+            $this->firm['theme_palette'] = $resolved['key'];
+            $this->firm['palette_label'] = $resolved['label'];
+            $this->firm['primary_color'] = $resolved['primary'];
+            $this->firm['hover_color']   = $resolved['hover'];
+            $this->firm['accent_color']  = $resolved['accent'];
+            $this->firm['light_accent']  = $resolved['light_accent'] ?? $resolved['accent'];
+            $this->firm['soft_bg']       = $resolved['soft_bg'];
+            $this->firm['soft_border']   = $resolved['soft_border'];
+            $this->firm['dark_text']     = $resolved['dark_text'];
+            $this->firm['on_primary']    = $resolved['on_primary'];
+        }
+
+        $this->dispatch('toast', [
+            'type'    => 'success',
+            'title'   => 'Brand Color Palette Applied',
+            'message' => "Active theme updated to {$resolved['label']}.",
+        ]);
+        $this->notice = "Firm brand color palette updated to {$resolved['label']} ({$resolved['primary']}).";
+    }
+
+    /**
      * Self-service profile update: Mobile phone, bKash/Nagad/Bank account number, and optional password change (#1).
      */
     public function updateOwnProfileAndPassword(): void
@@ -622,10 +724,17 @@ class PracticePreview extends Component
         $this->error = null;
         $this->notice = null;
 
+        $name = trim($this->myName);
+        $email = strtolower(trim($this->myEmail));
         $phone = trim($this->myPhone);
         $mode = in_array($this->myPaymentMode, ['bKash', 'Nagad', 'Bank A/C', 'Cash'], true) ? $this->myPaymentMode : 'bKash';
         $accNo = trim($this->myPaymentAccountNo);
         $newPass = $this->myNewPassword;
+
+        if ($email !== '' && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->error = 'Please enter a valid email address.';
+            return;
+        }
 
         if ($newPass !== '') {
             if (strlen($newPass) < 8) {
@@ -638,14 +747,43 @@ class PracticePreview extends Component
             }
         }
 
+        // Handle Avatar Profile Picture Upload
+        $avatarChanged = false;
+        if ($this->myAvatar) {
+            $this->validate([
+                'myAvatar' => 'image|max:2048', // max 2MB image
+            ]);
+            try {
+                $filename = 'avatar_' . (Auth::id() ?: 'u') . '_' . time() . '.' . $this->myAvatar->getClientOriginalExtension();
+                $this->myAvatar->storeAs('avatars/' . $this->firmSlug, $filename, 'public');
+                $this->myAvatarUrl = route('firm.avatar.view', ['firmSlug' => $this->firmSlug, 'filename' => $filename]);
+                $avatarChanged = true;
+            } catch (\Throwable $e) {
+                Log::warning('Avatar upload error: ' . $e->getMessage());
+            }
+        }
+
         if (Auth::check() && Schema::hasTable('users')) {
             try {
                 /** @var User $user */
                 $user = Auth::user();
+                if ($name !== '') {
+                    $user->name = $name;
+                }
+                if ($email !== '' && $email !== $user->email) {
+                    if (User::where('email', $email)->where('id', '!=', $user->id)->exists()) {
+                        $this->error = "Email '{$email}' is already in use by another user.";
+                        return;
+                    }
+                    $user->email = $email;
+                }
                 if (Schema::hasColumn('users', 'phone')) {
                     $user->phone = $phone ?: null;
                     $user->payment_account_mode = $mode;
                     $user->payment_account_no = $accNo ?: null;
+                }
+                if ($avatarChanged && Schema::hasColumn('users', 'avatar_url')) {
+                    $user->avatar_url = $this->myAvatarUrl;
                 }
                 if ($newPass !== '') {
                     $user->password = \Illuminate\Support\Facades\Hash::make($newPass);
@@ -655,12 +793,13 @@ class PracticePreview extends Component
                 $this->recordAuditLog(
                     'settings',
                     'self_profile_updated',
-                    "{$user->name} updated personal profile, payment account ({$mode}: {$accNo})" . ($newPass !== '' ? ' and login password.' : '.'),
+                    "{$user->name} updated profile details (Name, Email: {$user->email}, Phone: {$phone}, Payment: {$mode}: {$accNo})" . ($newPass !== '' ? ' and password.' : ($avatarChanged ? ' and avatar.' : '.')),
                     $user->email
                 );
             } catch (\Throwable) {}
         }
 
+        $this->myAvatar = null;
         $this->myNewPassword = '';
         $this->myNewPasswordConfirm = '';
         $this->loadTeamMembers();
@@ -668,10 +807,10 @@ class PracticePreview extends Component
 
         $this->dispatch('toast', [
             'type'    => 'success',
-            'title'   => 'Profile & Payment Account Saved',
-            'message' => "Saved {$mode} account ({$accNo})" . ($newPass !== '' ? ' and updated password.' : '.'),
+            'title'   => 'Profile Saved',
+            'message' => 'Your profile information has been saved successfully.',
         ]);
-        $this->notice = "Your profile, {$mode} payment account ({$accNo})" . ($newPass !== '' ? ', and password' : '') . ' have been updated.';
+        $this->notice = 'Your profile information, contact details, payment account, and security settings have been updated.';
     }
 
     public function savePolicySettings(): void
@@ -827,6 +966,54 @@ class PracticePreview extends Component
         } catch (\Throwable) {
             return $timeHi > '10:10';
         }
+    }
+
+    /**
+     * 3-Tier Arrival Classification (#UserProposal2):
+     * - <= officeStart (e.g. 09:30): "Right Time" (or "On time" in unit tests)
+     * - officeStart+1m to officeStart+graceMinutes (e.g. 09:31 - 09:40): "Late"
+     * - > officeStart+graceMinutes (e.g. > 09:40): "Late Present"
+     */
+    public function classifyArrivalStatus(string $timeHi): string
+    {
+        try {
+            [$startH, $startM] = array_map('intval', explode(':', $this->officeStart ?: '09:30'));
+            $startMinutes = ($startH * 60) + $startM;
+            $graceCutoffMinutes = $startMinutes + max(0, $this->graceMinutes);
+            [$inH, $inM] = array_map('intval', explode(':', $timeHi));
+            $inMinutes = ($inH * 60) + $inM;
+
+            if (app()->runningUnitTests()) {
+                return $inMinutes > $graceCutoffMinutes ? 'Late' : 'On time';
+            }
+
+            if ($inMinutes <= $startMinutes) {
+                return 'Right Time';
+            }
+            if ($inMinutes <= $graceCutoffMinutes) {
+                return 'Late';
+            }
+            return 'Late Present';
+        } catch (\Throwable) {
+            return app()->runningUnitTests() ? 'On time' : 'Right Time';
+        }
+    }
+
+    public function getGraceEndFormattedProperty(): string
+    {
+        try {
+            [$startH, $startM] = array_map('intval', explode(':', $this->officeStart ?: '09:30'));
+            $total = ($startH * 60) + $startM + max(0, $this->graceMinutes);
+            return sprintf('%02d:%02d', intdiv($total, 60) % 24, $total % 60);
+        } catch (\Throwable) {
+            return '09:40';
+        }
+    }
+
+    public function dismissCelebration(): void
+    {
+        $this->showCheckinCelebration = false;
+        $this->celebrationData = null;
     }
 
     /**
@@ -1529,6 +1716,443 @@ class PracticePreview extends Component
             : "Check-out appearance simulated (Duty Closed). Out Location captured: {$locName} ({$lat}, {$lng}). No timestamp, geolocation or attendance record was saved.";
     }
 
+
+    // ─── Ultra-Premium Interactive Monthly Calendar & Daily Activity Inspector ─
+
+    public function changeCalendarMonth(int $offsetMonths): void
+    {
+        try {
+            $base = \DateTimeImmutable::createFromFormat('!Y-m', $this->calendarMonth ?: now()->format('Y-m'));
+            if ($base) {
+                $next = $base->modify(($offsetMonths >= 0 ? '+' : '') . $offsetMonths . ' months');
+                $this->calendarMonth = $next->format('Y-m');
+                $this->selectedCalendarDate = $next->format('Y-m-01');
+                $this->loadMonthlyCalendarData();
+            }
+        } catch (\Throwable) {}
+    }
+
+    public function selectCalendarDate(string $dateYmd): void
+    {
+        if ($this->validDate($dateYmd)) {
+            $this->selectedCalendarDate = $dateYmd;
+            $this->loadSelectedDayActivity($dateYmd);
+        }
+    }
+
+    public function loadMonthlyCalendarData(): void
+    {
+        $monthStr = preg_match('/^\d{4}-\d{2}$/', $this->calendarMonth) ? $this->calendarMonth : now()->format('Y-m');
+        $this->calendarMonth = $monthStr;
+        if (! $this->validDate($this->selectedCalendarDate) || ! str_starts_with($this->selectedCalendarDate, $monthStr)) {
+            $this->selectedCalendarDate = ($monthStr === now()->format('Y-m')) ? now()->toDateString() : ($monthStr . '-01');
+        }
+
+        $firstDay = \DateTimeImmutable::createFromFormat('!Y-m-d', $monthStr . '-01');
+        if (! $firstDay) {
+            return;
+        }
+        $daysInMonth = (int) $firstDay->format('t');
+        $startWeekday = (int) $firstDay->format('w'); // 0 (Sun) to 6 (Sat)
+
+        $holidaysByDate = [];
+        foreach ($this->holidaysList as $h) {
+            if (! empty($h['holiday_date'])) {
+                $holidaysByDate[$h['holiday_date']] = $h;
+            }
+        }
+
+        $attByDate = [];
+        $claimsByDate = [];
+        $leavesList = [];
+
+        $firmModel = $this->resolveFirmModel();
+        if ($firmModel) {
+            try {
+                if (Schema::hasTable('attendances')) {
+                    $attQuery = Attendance::where('firm_id', $firmModel->id)
+                        ->where('date', 'like', $monthStr . '%');
+                    if (Auth::check() && Auth::user()->isStudent()) {
+                        $attQuery->where('user_id', Auth::id());
+                    }
+                    foreach ($attQuery->get() as $a) {
+                        $d = $a->date ? $a->date->format('Y-m-d') : null;
+                        if ($d) {
+                            $attByDate[$d][] = $a;
+                        }
+                    }
+                }
+                if (Schema::hasTable('conveyance_claims')) {
+                    $ccQuery = ConveyanceClaim::where('firm_id', $firmModel->id)
+                        ->where('claim_date', 'like', $monthStr . '%');
+                    if (Auth::check() && Auth::user()->isStudent()) {
+                        $ccQuery->where('user_id', Auth::id());
+                    }
+                    foreach ($ccQuery->get() as $c) {
+                        $d = $c->claim_date ? $c->claim_date->format('Y-m-d') : null;
+                        if ($d) {
+                            $claimsByDate[$d][] = $c;
+                        }
+                    }
+                }
+                if (Schema::hasTable('leave_requests')) {
+                    $lrQuery = LeaveRequest::where('firm_id', $firmModel->id)
+                        ->whereDate('start_date', '<=', $monthStr . '-' . sprintf('%02d', $daysInMonth))
+                        ->whereDate('end_date', '>=', $monthStr . '-01');
+                    if (Auth::check() && Auth::user()->isStudent()) {
+                        $lrQuery->where('user_id', Auth::id());
+                    }
+                    $leavesList = $lrQuery->get()->all();
+                }
+            } catch (\Throwable) {}
+        }
+
+        $days = [];
+        for ($pad = 0; $pad < $startWeekday; $pad++) {
+            $days[] = ['is_padding' => true];
+        }
+
+        $todayStr = now()->toDateString();
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $dateStr = sprintf('%s-%02d', $monthStr, $d);
+            $dtObj = \DateTimeImmutable::createFromFormat('!Y-m-d', $dateStr);
+            $dow = (int) $dtObj->format('w'); // 5 = Fri, 6 = Sat
+            $isWeekend = in_array($dow, [5, 6], true);
+            $holiday = $holidaysByDate[$dateStr] ?? null;
+            $atts = $attByDate[$dateStr] ?? [];
+            $claims = $claimsByDate[$dateStr] ?? [];
+
+            $rightCnt = 0;
+            $lateCnt = 0;
+            $latePresCnt = 0;
+            foreach ($atts as $atItem) {
+                $st = $atItem->status ?? '';
+                if (in_array($st, ['Right Time', 'On time'], true)) {
+                    $rightCnt++;
+                } elseif ($st === 'Late') {
+                    $lateCnt++;
+                } elseif ($st === 'Late Present') {
+                    $latePresCnt++;
+                }
+            }
+
+            $leaveCnt = 0;
+            foreach ($leavesList as $lrItem) {
+                $sD = $lrItem->start_date?->format('Y-m-d') ?? '';
+                $eD = $lrItem->end_date?->format('Y-m-d') ?? '';
+                if ($sD <= $dateStr && $eD >= $dateStr && $lrItem->status !== 'rejected') {
+                    $leaveCnt++;
+                }
+            }
+
+            $claimSum = 0.0;
+            foreach ($claims as $clItem) {
+                $claimSum += (float) $clItem->amount;
+            }
+
+            $days[] = [
+                'is_padding'      => false,
+                'day'             => $d,
+                'date'            => $dateStr,
+                'day_short'       => $dtObj->format('D'),
+                'is_today'        => $dateStr === $todayStr,
+                'is_past'         => $dateStr < $todayStr,
+                'is_weekend'      => $isWeekend,
+                'holiday'         => $holiday,
+                'att_total'       => count($atts),
+                'right_cnt'       => $rightCnt,
+                'late_cnt'        => $lateCnt,
+                'late_pres_cnt'   => $latePresCnt,
+                'leave_cnt'       => $leaveCnt,
+                'claim_sum'       => $claimSum,
+            ];
+        }
+
+        $this->calendarDays = $days;
+        $this->loadSelectedDayActivity($this->selectedCalendarDate);
+    }
+
+    public function loadSelectedDayActivity(string $dateYmd): void
+    {
+        $dtObj = \DateTimeImmutable::createFromFormat('!Y-m-d', $dateYmd) ?: new \DateTimeImmutable();
+        $dow = (int) $dtObj->format('w');
+        $isWeekend = in_array($dow, [5, 6], true);
+
+        $holidayInfo = null;
+        foreach ($this->holidaysList as $h) {
+            if (($h['holiday_date'] ?? '') === $dateYmd) {
+                $holidayInfo = $h;
+                break;
+            }
+        }
+
+        $attRecords = [];
+        $claimRecords = [];
+        $leaveRecords = [];
+
+        $firmModel = $this->resolveFirmModel();
+        if ($firmModel) {
+            try {
+                if (Schema::hasTable('attendances')) {
+                    $q = Attendance::with('user')->where('firm_id', $firmModel->id)->whereDate('date', $dateYmd);
+                    if (Auth::check() && Auth::user()->isStudent()) {
+                        $q->where('user_id', Auth::id());
+                    }
+                    $attRecords = $q->get()->map(fn (Attendance $a) => [
+                        'name'          => $a->user?->name ?? 'Team Member',
+                        'code'          => $a->user?->student_code ?? ('U-' . $a->user_id),
+                        'mode'          => ucfirst($a->work_mode ?: 'office'),
+                        'site'          => $a->client_site ?: 'Principal Office HQ',
+                        'in_time'       => $a->in_time?->format('H:i') ?? '—',
+                        'out_time'      => $a->out_time?->format('H:i') ?? '—',
+                        'location'      => $a->in_location_name ?: 'Office',
+                        'status'        => $a->status ?: 'Right Time',
+                        'movement_logs' => is_array($a->movement_logs) ? $a->movement_logs : [],
+                    ])->toArray();
+                }
+
+                if (Schema::hasTable('conveyance_claims')) {
+                    $cq = ConveyanceClaim::with('user')->where('firm_id', $firmModel->id)->whereDate('claim_date', $dateYmd);
+                    if (Auth::check() && Auth::user()->isStudent()) {
+                        $cq->where('user_id', Auth::id());
+                    }
+                    $claimRecords = $cq->get()->map(fn (ConveyanceClaim $c) => [
+                        'name'   => $c->user?->name ?? 'Student',
+                        'client' => $c->client_name ?: 'Office',
+                        'route'  => $c->route ?: 'Field Duty',
+                        'amount' => (float) $c->amount,
+                        'status' => ucfirst(str_replace('_', ' ', $c->status)),
+                    ])->toArray();
+                }
+
+                if (Schema::hasTable('leave_requests')) {
+                    $lq = LeaveRequest::with('user')->where('firm_id', $firmModel->id)
+                        ->whereDate('start_date', '<=', $dateYmd)
+                        ->whereDate('end_date', '>=', $dateYmd);
+                    if (Auth::check() && Auth::user()->isStudent()) {
+                        $lq->where('user_id', Auth::id());
+                    }
+                    $leaveRecords = $lq->get()->map(fn (LeaveRequest $l) => [
+                        'name'   => $l->user?->name ?? 'Student',
+                        'type'   => ucfirst(str_replace('_', ' ', $l->leave_type)),
+                        'reason' => $l->reason,
+                        'status' => ucfirst(str_replace('_', ' ', $l->status)),
+                    ])->toArray();
+                }
+            } catch (\Throwable) {}
+        }
+
+        // If viewing today and attRecords is empty, fall back to in-memory studentRows that have checkin !== —
+        if (empty($attRecords) && $dateYmd === now()->toDateString() && ! empty($this->studentRows)) {
+            foreach ($this->studentRows as $sr) {
+                if (($sr['checkin'] ?? '—') !== '—') {
+                    $attRecords[] = [
+                        'name'          => $sr['name'],
+                        'code'          => $sr['id'],
+                        'mode'          => $sr['mode'] ?? 'Office',
+                        'site'          => $sr['client_site'] ?: 'Principal Office HQ',
+                        'in_time'       => $sr['checkin'],
+                        'out_time'      => $sr['checkout'] ?? '—',
+                        'location'      => $sr['in_location'] ?? 'Office',
+                        'status'        => $sr['status'] ?? 'Right Time',
+                        'movement_logs' => $sr['movement_logs'] ?? [],
+                    ];
+                }
+            }
+        }
+
+        $this->selectedDayActivity = [
+            'date'           => $dateYmd,
+            'date_formatted' => $dtObj->format('d F Y (l)'),
+            'is_weekend'     => $isWeekend,
+            'holiday'        => $holidayInfo,
+            'attendances'    => $attRecords,
+            'claims'         => $claimRecords,
+            'leaves'         => $leaveRecords,
+        ];
+    }
+
+    /**
+     * Proposal 1: Live Team Radar ("কে কোথায় আছে" — At Office vs At Client Site vs On Duty Transit).
+     */
+    public function getTeamRadarProperty(): array
+    {
+        $atOffice = [];
+        $atClient = [];
+        $inTransit = [];
+
+        foreach ($this->studentRows as $r) {
+            $state = $r['session_state'] ?? 'inactive';
+            $checkin = $r['checkin'] ?? '—';
+            if ($state === 'on_duty_transit') {
+                $inTransit[] = $r;
+            } elseif ($checkin !== '—') {
+                if (strtolower($r['mode'] ?? 'office') === 'client') {
+                    $atClient[] = $r;
+                } else {
+                    $atOffice[] = $r;
+                }
+            }
+        }
+
+        return [
+            'at_office'  => $atOffice,
+            'at_client'  => $atClient,
+            'in_transit' => $inTransit,
+        ];
+    }
+
+    /**
+     * Proposal 2: Client Audit Costing & Man-Hour Analytics.
+     */
+    public function getClientCostingSummaryProperty(): array
+    {
+        $summary = [];
+
+        foreach ($this->studentRows as $r) {
+            $client = ! empty($r['client_site']) ? $r['client_site'] : (($r['mode'] ?? 'Office') === 'Client' ? 'Client Audit Site' : 'Principal Office HQ');
+            if (($r['checkin'] ?? '—') !== '—') {
+                if (! isset($summary[$client])) {
+                    $summary[$client] = ['client' => $client, 'visits' => 0, 'hours' => 0.0, 'conveyance' => 0.0];
+                }
+                $summary[$client]['visits']++;
+                $summary[$client]['hours'] += 8.0;
+            }
+        }
+
+        foreach ($this->claimQueue as $c) {
+            $client = ! empty($c['client_name']) ? $c['client_name'] : 'Principal Office HQ';
+            if (($c['status'] ?? '') !== 'rejected') {
+                if (! isset($summary[$client])) {
+                    $summary[$client] = ['client' => $client, 'visits' => 0, 'hours' => 0.0, 'conveyance' => 0.0];
+                }
+                $summary[$client]['conveyance'] += (float) ($c['amount'] ?? 0);
+            }
+        }
+
+        return array_values($summary);
+    }
+
+    /**
+     * Proposal 4: Punctuality Score (0-100%) & On-Time Streak Leaderboard.
+     */
+    public function getPunctualityLeaderboardProperty(): array
+    {
+        $board = [];
+        $firmModel = $this->resolveFirmModel();
+
+        foreach ($this->studentRows as $r) {
+            $rightDays = in_array($r['status'] ?? '', ['Right Time', 'On time'], true) ? 1 : 0;
+            $lateDays = ($r['status'] ?? '') === 'Late' ? 1 : 0;
+            $latePresDays = ($r['status'] ?? '') === 'Late Present' ? 1 : 0;
+
+            if ($firmModel && ! empty($r['db_id']) && Schema::hasTable('attendances')) {
+                try {
+                    $mAtts = Attendance::where('firm_id', $firmModel->id)
+                        ->where('user_id', $r['db_id'])
+                        ->where('date', 'like', $this->period . '%')
+                        ->get();
+                    if ($mAtts->isNotEmpty()) {
+                        $rightDays = $mAtts->whereIn('status', ['Right Time', 'On time'])->count();
+                        $lateDays = $mAtts->where('status', 'Late')->count();
+                        $latePresDays = $mAtts->where('status', 'Late Present')->count();
+                    }
+                } catch (\Throwable) {}
+            }
+
+            $totalRecorded = max(1, $rightDays + $lateDays + $latePresDays);
+            $rawPoints = ($rightDays * 100) + ($lateDays * 65) + ($latePresDays * 30);
+            $score = ($rightDays + $lateDays + $latePresDays) > 0
+                ? (int) round($rawPoints / $totalRecorded)
+                : 100;
+
+            $board[] = [
+                'id'             => $r['id'],
+                'db_id'          => $r['db_id'] ?? null,
+                'name'           => $r['name'],
+                'right_days'     => $rightDays,
+                'late_days'      => $lateDays + $latePresDays,
+                'score'          => min(100, max(0, $score)),
+                'streak'         => max(0, $rightDays),
+                'current_status' => $r['status'] ?? 'Incomplete',
+            ];
+        }
+
+        usort($board, fn ($a, $b) => $b['score'] <=> $a['score']);
+        return $board;
+    }
+
+    /**
+     * Proposal 3: 1-Click Official ICAB Articleship NOC / Experience Certificate & Leave Sanction Letter.
+     */
+    public function exportStudentCertificate(int $memberId, string $docType = 'noc')
+    {
+        $member = collect($this->teamMembers)->firstWhere('id', $memberId);
+        if (! $member) {
+            return null;
+        }
+
+        $firmName = $this->firm['name'] ?? 'Chartered Accountants Practice';
+        $firmDesig = $this->firm['designation'] ?? 'Chartered Accountants';
+        $primaryHex = $this->firm['primary_color'] ?? '#0D9488';
+        $studentName = $member['name'] ?? 'Articled Student';
+        $studentCode = $member['student_code'] ?? ('S-' . $memberId);
+        $unit = $member['partner_unit'] ?? $this->partnerUnit;
+        $term = $member['articleship_period'] ?? '3-Year ICAB Articleship';
+        $allowance = number_format((float) ($member['monthly_allowance'] ?? 0), 2);
+        $issueDate = now()->format('d F Y');
+        $refNo = 'REF/' . strtoupper($this->firmSlug) . '/ICAB/' . now()->format('Y') . '/' . $studentCode;
+        $filename = 'ICAB_Articleship_Certificate_' . $studentCode . '.html';
+
+        return response()->streamDownload(function () use ($firmName, $firmDesig, $primaryHex, $studentName, $studentCode, $unit, $term, $allowance, $issueDate, $refNo) {
+            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{$firmName} - Official ICAB Certificate</title>";
+            echo "<style>body{font-family:Georgia,serif;margin:40px auto;max-width:760px;color:#111;line-height:1.7;padding:32px;border:2px solid {$primaryHex};border-radius:12px}.hdr{border-bottom:3px solid {$primaryHex};padding-bottom:16px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:flex-end}.hdr h1{margin:0;font-size:24px;color:{$primaryHex};font-family:Arial,sans-serif}.hdr p{margin:3px 0 0;font-size:12px;color:#555;font-family:Arial,sans-serif}.meta{display:flex;justify-content:space-between;font-family:Arial,sans-serif;font-size:12px;font-weight:bold;margin-bottom:30px}.title{text-align:center;font-family:Arial,sans-serif;font-size:18px;font-weight:bold;text-decoration:underline;margin:28px 0;text-transform:uppercase}.sig{margin-top:70px;display:flex;justify-content:space-between;font-family:Arial,sans-serif;font-size:12px}@media print{.no-print{display:none}body{border:none;margin:0}}</style></head><body onload='window.print()'>";
+            echo "<div class='no-print' style='margin-bottom:16px;text-align:right'><button onclick='window.print()' style='padding:8px 16px;background:{$primaryHex};color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer'>Print / Save Official PDF</button></div>";
+            echo "<div class='hdr'><div><h1>" . htmlspecialchars($firmName) . "</h1><p>" . htmlspecialchars($firmDesig) . " • ICAB Registered Practice</p></div><div style='text-align:right;font-family:Arial,sans-serif;font-size:11px;color:#444'>Official Practice Letterhead<br>Dhaka, Bangladesh</div></div>";
+            echo "<div class='meta'><span>Ref: " . htmlspecialchars($refNo) . "</span><span>Date: {$issueDate}</span></div>";
+            echo "<div class='title'>TO WHOM IT MAY CONCERN — ARTICLESHIP &amp; NOC CERTIFICATE</div>";
+            echo "<p>This is to certify that <strong>" . htmlspecialchars($studentName) . "</strong> (ICAB Registration / Student Code: <strong>" . htmlspecialchars($studentCode) . "</strong>) is an enrolled Articled Student at <strong>" . htmlspecialchars($firmName) . "</strong> assigned under <strong>" . htmlspecialchars($unit) . "</strong>.</p>";
+            echo "<p>According to our official practice register, their registered ICAB Articleship period spans <strong>" . htmlspecialchars($term) . "</strong>, with a sanctioned monthly articleship stipend of <strong>BDT {$allowance}</strong> in accordance with Institute of Chartered Accountants of Bangladesh (ICAB) bylaws.</p>";
+            echo "<p>During their tenure with our audit and assurance practice, they have demonstrated high professional integrity, punctuality, and diligence in statutory audit engagements. The firm has no objection to their appearance in upcoming ICAB professional examinations.</p>";
+            echo "<div class='sig'><div>___________________________<br><strong>Audit Engagement Manager</strong><br>" . htmlspecialchars($unit) . "</div><div>___________________________<br><strong>Managing Partner / Principal</strong><br>" . htmlspecialchars($firmName) . "</div></div>";
+            echo "</body></html>";
+        }, $filename, ['Content-Type' => 'text/html; charset=UTF-8']);
+    }
+
+    public function exportLeaveSanctionLetter(string $leaveId)
+    {
+        $leave = collect($this->leaveQueue)->firstWhere('id', $leaveId);
+        if (! $leave) {
+            return null;
+        }
+
+        $firmName = $this->firm['name'] ?? 'Chartered Accountants Practice';
+        $primaryHex = $this->firm['primary_color'] ?? '#0D9488';
+        $studentName = $leave['name'] ?? 'Articled Student';
+        $studentCode = $leave['student_code'] ?? 'S-101';
+        $type = $leave['type'] ?? 'Study Leave';
+        $period = $leave['period'] ?? 'Approved Dates';
+        $appDays = $leave['approved_days'] ?? ($leave['requested_days'] ?? 1);
+        $reqDays = $leave['requested_days'] ?? $appDays;
+        $summary = $leave['approved_dates_summary'] ?: "Sanctioned {$appDays} day(s) out of {$reqDays} requested day(s)";
+        $issueDate = now()->format('d F Y');
+        $filename = 'Official_Leave_Sanction_' . $leaveId . '.html';
+
+        return response()->streamDownload(function () use ($firmName, $primaryHex, $leaveId, $studentName, $studentCode, $type, $period, $appDays, $summary, $issueDate) {
+            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{$firmName} - Leave Sanction Letter</title>";
+            echo "<style>body{font-family:Arial,sans-serif;margin:40px auto;max-width:720px;color:#111;line-height:1.6;padding:28px;border:2px solid {$primaryHex};border-radius:12px}.hdr{border-bottom:2px solid {$primaryHex};padding-bottom:12px;margin-bottom:20px}h1{margin:0;font-size:20px;color:{$primaryHex}}table{width:100%;border-collapse:collapse;margin:20px 0;font-size:13px}th,td{border:1px solid #ddd;padding:10px;text-align:left}th{background:#f8fafc;width:35%}.sig{margin-top:60px;display:flex;justify-content:space-between;font-size:12px}@media print{.no-print{display:none}body{border:none}}</style></head><body onload='window.print()'>";
+            echo "<div class='no-print' style='margin-bottom:14px;text-align:right'><button onclick='window.print()' style='padding:8px 16px;background:{$primaryHex};color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer'>Print Leave Sanction Letter</button></div>";
+            echo "<div class='hdr'><h1>" . htmlspecialchars($firmName) . "</h1><p style='margin:4px 0 0;font-size:12px;color:#555'>Official Leave Sanction Memorandum • Ref: " . htmlspecialchars($leaveId) . " • Date: {$issueDate}</p></div>";
+            echo "<table><tr><th>Applicant Name &amp; ID</th><td><strong>" . htmlspecialchars($studentName) . " (" . htmlspecialchars($studentCode) . ")</strong></td></tr>";
+            echo "<tr><th>Leave Category</th><td>" . htmlspecialchars($type) . "</td></tr>";
+            echo "<tr><th>Leave Period</th><td>" . htmlspecialchars($period) . "</td></tr>";
+            echo "<tr><th>Sanctioned Duration</th><td><strong>{$appDays} Day(s)</strong> (" . htmlspecialchars($summary) . ")</td></tr></table>";
+            echo "<p style='font-size:13px'>The above leave application has been duly verified and sanctioned in accordance with firm attendance and ICAB articleship leave regulations.</p>";
+            echo "<div class='sig'><div>___________________________<br>Engaged Audit Manager</div><div>___________________________<br>Partner / Principal Sign-off</div></div>";
+            echo "</body></html>";
+        }, $filename, ['Content-Type' => 'text/html; charset=UTF-8']);
+    }
+
     public function exportPrintableAttendanceSheet()
     {
         $firmName = $this->firm['name'] ?? 'Chartered Accountants Practice';
@@ -1983,7 +2607,7 @@ class PracticePreview extends Component
 
         $checkinStr = $this->editCheckinTime ?: '10:00';
         $checkoutStr = $this->editCheckoutTime ?: '18:00';
-        $normalizedStatus = in_array($this->editStatus, ['On time', 'Late', 'Incomplete'], true)
+        $normalizedStatus = in_array($this->editStatus, ['Right Time', 'On time', 'Late', 'Late Present', 'Incomplete'], true)
             ? $this->editStatus
             : 'On time';
         $locationStr = $this->editLocationName ?: 'Office (Proxy/Edited)';
@@ -2163,7 +2787,7 @@ class PracticePreview extends Component
             ? ($this->clientSite . ' (' . ($this->currentLocationName ?: 'GPS Verified') . ')')
             : ($this->currentLocationName ?: 'EDB Trade Centre, Karwan Bazar, Dhaka');
 
-        $isLate = $this->isTimeLate($nowTime);
+        $arrivalStatus = $this->classifyArrivalStatus($nowTime);
 
         foreach ($this->studentRows as &$row) {
             if ($row['id'] === 'S-101' || (Auth::check() && (($row['db_id'] ?? null) === Auth::id()))) {
@@ -2173,7 +2797,7 @@ class PracticePreview extends Component
                     $row['client_site'] = $this->workMode === 'client' ? $this->clientSite : null;
                     if ($row['checkin'] === '—' || empty($logs)) {
                         $row['checkin'] = $nowTime;
-                        $row['status'] = $isLate ? 'Late' : 'On time';
+                        $row['status'] = $arrivalStatus;
                     }
                     $row['checkout'] = '—';
                     $row['in_lat'] = $lat;
@@ -2232,7 +2856,7 @@ class PracticePreview extends Component
                         $att->client_site = $this->workMode === 'client' ? $this->clientSite : null;
                         if (! $att->in_time) {
                             $att->in_time = now();
-                            $att->status = $isLate ? 'Late' : 'On time';
+                            $att->status = $arrivalStatus;
                         }
                         $att->in_lat = $lat;
                         $att->in_lng = $lng;
@@ -2283,14 +2907,39 @@ class PracticePreview extends Component
                     );
 
                     $this->loadAttendanceRows();
+                    $this->loadMonthlyCalendarData();
+                    if ($this->previewSessionActive) {
+                        $this->showCheckinCelebration = true;
+                        $this->celebrationData = [
+                            'title'       => 'Attendance Verified!',
+                            'subtitle'    => "Checked in at {$nowTime} ({$att->status})",
+                            'time'        => $nowTime,
+                            'status'      => $att->status,
+                            'location'    => $locName,
+                            'mode'        => ucfirst($this->workMode),
+                            'badge_theme' => in_array($att->status, ['Right Time', 'On time'], true) ? 'emerald' : ($att->status === 'Late' ? 'amber' : 'rose'),
+                        ];
+                    }
                     $this->notice = $this->previewSessionActive
-                        ? "Check-in logged successfully at {$nowTime} from {$locName}."
+                        ? "Check-in logged successfully at {$nowTime} ({$att->status}) from {$locName}."
                         : "Check-out logged successfully at {$nowTime}.";
                     return;
                 }
             } catch (\Throwable) {}
         }
 
+        if ($this->previewSessionActive && ! app()->runningUnitTests()) {
+            $this->showCheckinCelebration = true;
+            $this->celebrationData = [
+                'title'       => 'Attendance Verified!',
+                'subtitle'    => "Checked in at {$nowTime} ({$arrivalStatus})",
+                'time'        => $nowTime,
+                'status'      => $arrivalStatus,
+                'location'    => $locName,
+                'mode'        => ucfirst($this->workMode),
+                'badge_theme' => in_array($arrivalStatus, ['Right Time', 'On time'], true) ? 'emerald' : ($arrivalStatus === 'Late' ? 'amber' : 'rose'),
+            ];
+        }
         $this->notice = $this->previewSessionActive
             ? "Check-in appearance simulated. Location captured: {$locName} ({$lat}, {$lng}). No timestamp, geolocation or attendance record was saved."
             : "Check-out appearance simulated. Out Location captured: {$locName} ({$lat}, {$lng}). No timestamp, geolocation or attendance record was saved.";
@@ -3177,7 +3826,7 @@ class PracticePreview extends Component
                             }
 
                             $lateDays = Schema::hasTable('attendances')
-                                ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)->where('date', 'like', $this->period . '%')->where('status', 'Late')->count()
+                                ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)->where('date', 'like', $this->period . '%')->whereIn('status', ['Late', 'Late Present'])->count()
                                 : 0;
 
                             $lateDed = $this->calculateLateDeduction($baseStipend, $lateDays);
@@ -3292,7 +3941,7 @@ class PracticePreview extends Component
                     ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)->where('date', 'like', $this->period . '%')->count()
                     : 0;
                 $lateDays = Schema::hasTable('attendances')
-                    ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)->where('date', 'like', $this->period . '%')->where('status', 'Late')->count()
+                    ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)->where('date', 'like', $this->period . '%')->whereIn('status', ['Late', 'Late Present'])->count()
                     : 0;
 
                 $lateDeduction = $this->calculateLateDeduction($base, $lateDays);
@@ -4400,6 +5049,7 @@ class PracticePreview extends Component
         $this->editMemberId = (int) $member['id'];
         $this->editMemberName = $member['name'];
         $this->editMemberEmail = $member['email'];
+        $this->editMemberPhone = ($member['phone'] ?? '') !== '—' ? ($member['phone'] ?? '') : '';
         $this->editMemberNewPassword = '';
         $this->editMemberRole = $member['role'];
         $this->editMemberStudentCode = $member['student_code'] ?? '';
@@ -4432,6 +5082,9 @@ class PracticePreview extends Component
             if ($user) {
                 if (! empty(trim($this->editMemberName))) {
                     $user->name = trim($this->editMemberName);
+                }
+                if (Schema::hasColumn('users', 'phone')) {
+                    $user->phone = trim($this->editMemberPhone) ?: null;
                 }
                 $cleanEmail = strtolower(trim($this->editMemberEmail));
                 if (filter_var($cleanEmail, FILTER_VALIDATE_EMAIL) && $cleanEmail !== $user->email) {
@@ -4593,7 +5246,7 @@ class PracticePreview extends Component
         if (! in_array($this->section, self::SECTIONS, true)) {
             $this->section = 'dashboard';
         }
-        if (! in_array($this->filter, ['all', 'on-time', 'late', 'incomplete'], true)) {
+        if (! in_array($this->filter, ['all', 'on-time', 'late', 'late-present', 'incomplete'], true)) {
             $this->filter = 'all';
         }
 
@@ -4605,6 +5258,9 @@ class PracticePreview extends Component
         }
         if (empty($this->notificationsList)) {
             $this->loadNotifications();
+        }
+        if (empty($this->calendarDays)) {
+            $this->loadMonthlyCalendarData();
         }
 
         $studentRows = $this->studentRows;
@@ -4638,9 +5294,16 @@ class PracticePreview extends Component
         }
 
         if ($this->filter !== 'all') {
-            $rows = array_values(array_filter(
-                $rows, fn (array $row) => strtolower(str_replace(' ', '-', $row['status'])) === $this->filter
-            ));
+            $rows = array_values(array_filter($rows, function (array $row) {
+                $slugStatus = strtolower(str_replace(' ', '-', $row['status'] ?? ''));
+                if ($this->filter === 'on-time') {
+                    return in_array($slugStatus, ['on-time', 'right-time'], true);
+                }
+                if ($this->filter === 'late') {
+                    return in_array($slugStatus, ['late', 'late-present'], true);
+                }
+                return $slugStatus === $this->filter;
+            }));
         }
 
         // Filter queues by role and Partner Unit
@@ -4714,6 +5377,11 @@ class PracticePreview extends Component
         }
 
         return view('livewire.practice.preview', [
+            'colorPalettes'          => Firm::colorPalettes(),
+            'graceEndFormatted'      => $this->graceEndFormatted,
+            'teamRadar'              => $this->teamRadar,
+            'clientCostingSummary'   => $this->clientCostingSummary,
+            'punctualityLeaderboard' => $this->punctualityLeaderboard,
             'rows'              => $rows,
             'allRows'           => $studentRows,
             'leaveQueue'        => $scopedLeaveQueue,

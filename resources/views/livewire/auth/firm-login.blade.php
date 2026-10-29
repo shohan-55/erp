@@ -2,6 +2,7 @@
     @if(!$firm)
         <x-auth-unknown-firm :firm-slug="$firmSlug" />
     @else
+        <x-brand-theme-style :firm="$firm" />
         <!-- ==================================================================
              LEFT PANEL — BRANDED CORPORATE EXPERIENCE (Desktop)
              ================================================================== -->

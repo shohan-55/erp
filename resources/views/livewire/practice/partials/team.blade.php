@@ -116,8 +116,12 @@
                     <tr wire:key="member-{{ $member['id'] }}" class="hover:bg-slate-50/70 transition">
                         <td class="py-4 pl-6 pr-3">
                             <div class="flex items-center gap-3">
-                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-extrabold text-xs {{ $member['role'] === 'partner' ? 'bg-[#FCDF02] text-[#17191F]' : ($member['role'] === 'manager' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700') }}">
-                                    {{ strtoupper(substr($member['name'], 0, 1)) }}
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-extrabold text-xs overflow-hidden {{ $member['role'] === 'partner' ? 'bg-[#FCDF02] text-[#17191F]' : ($member['role'] === 'manager' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700') }}">
+                                    @if(!empty($member['avatar_url']))
+                                        <img src="{{ $member['avatar_url'] }}" alt="{{ $member['name'] }}" class="h-full w-full object-cover">
+                                    @else
+                                        {{ strtoupper(substr($member['name'], 0, 1)) }}
+                                    @endif
                                 </div>
                                 <div class="min-w-0">
                                     <div class="flex items-center gap-1.5">
@@ -184,6 +188,12 @@
                         @if($canManageTeam)
                             <td class="py-4 pl-3 pr-6 text-right whitespace-nowrap">
                                 <div class="inline-flex items-center gap-1.5">
+                                    @if(($member['role'] ?? '') === 'student')
+                                        <button type="button" wire:click="exportStudentCertificate({{ $member['id'] }}, 'noc')"
+                                                class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 transition" title="Print Official ICAB Articleship &amp; NOC Certificate">
+                                            <i data-lucide="award" class="h-3.5 w-3.5"></i> ICAB Cert
+                                        </button>
+                                    @endif
                                     <button type="button" wire:click="openEditMemberModal({{ $member['id'] }})"
                                             class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition" title="Modify role & delegated permissions">
                                         Permissions
@@ -364,15 +374,18 @@
                 </div>
 
                 <form wire:submit.prevent="updateMember" class="mt-4 space-y-4 text-xs">
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <label class="block font-bold text-slate-700">Full Name
                             <input type="text" wire:model="editMemberName" required class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
                         </label>
                         <label class="block font-bold text-slate-700">Email Address
                             <input type="email" wire:model="editMemberEmail" required class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
                         </label>
+                        <label class="block font-bold text-slate-700">Phone Number
+                            <input type="text" wire:model="editMemberPhone" placeholder="+880 1711-XXXXXX" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2 outline-none focus:border-amber-400">
+                        </label>
                         <label class="block font-bold text-slate-700">Reset Password (Optional)
-                            <input type="text" wire:model="editMemberNewPassword" placeholder="Min 8 chars to reset" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400 font-mono text-[11px]">
+                            <input type="text" wire:model="editMemberNewPassword" placeholder="Min 8 chars to reset" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2 outline-none focus:border-amber-400 font-mono text-[11px]">
                         </label>
                     </div>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">

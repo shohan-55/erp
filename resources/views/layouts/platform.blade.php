@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
+    <x-brand-theme-style />
     <style>[x-cloak] { display: none !important; }</style>
 </head>
 <body class="min-h-screen bg-[#F7F8FA] text-[#171A21] font-sans antialiased">

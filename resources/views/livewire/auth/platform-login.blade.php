@@ -1,4 +1,5 @@
 <div class="min-h-screen w-full flex flex-col justify-between bg-slate-950 text-slate-100 font-sans selection:bg-[#FCDF02] selection:text-slate-950">
+    <x-brand-theme-style />
     <!-- Top Global Header -->
     <header class="w-full border-b border-slate-800/80 bg-slate-900/60 backdrop-blur px-6 py-4 flex items-center justify-between">
         <div class="flex items-center gap-3">

@@ -141,3 +141,14 @@ Route::get('/c/{firmSlug}/voucher-file/{filename}', function (string $firmSlug, 
     }
     return response()->file($path);
 })->middleware(['auth', 'firm.member'])->name('firm.voucher.view');
+
+// Secure cPanel-compatible Avatar File Viewer (works even without storage:link symlink)
+Route::get('/c/{firmSlug}/avatar-file/{filename}', function (string $firmSlug, string $filename) {
+    $safeSlug = strtolower(trim($firmSlug));
+    $safeFile = basename($filename);
+    $path = storage_path("app/public/avatars/{$safeSlug}/{$safeFile}");
+    if (! file_exists($path)) {
+        abort(404, "Avatar file not found.");
+    }
+    return response()->file($path);
+})->name('firm.avatar.view');

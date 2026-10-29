@@ -1,6 +1,7 @@
 @if(!$isPlatform && !$firm)
     <x-auth-unknown-firm :firm-slug="$firmSlug" />
 @else
+        <x-brand-theme-style :firm="$firm" />
 <div class="min-h-screen w-full flex flex-col justify-between bg-slate-50 font-sans selection:bg-[#FCDF02] selection:text-slate-950 py-8 px-4 sm:px-6">
     <!-- Top Header -->
     <header class="w-full max-w-lg mx-auto flex items-center justify-between mb-8">

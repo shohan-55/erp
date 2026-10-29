@@ -46,12 +46,24 @@ class DashboardPreview extends Component
     public string $newFirmCustomDomain = '';
     public string $newFirmCustomSubdomain = '';
     public bool $newFirmSharedAttendance = true;
+    public string $newFirmThemePalette = 'sea_green';
+    public string $newFirmPrimaryColor = '#0D9488';
 
     // Organization Profile, Domain, Billing & Governance Controls editing
     public string $editFirmName = '';
     public string $editFirmKind = 'Chartered Accountants';
     public string $editFirmPlan = 'Practice';
     public string $editFirmRegion = 'Dhaka';
+    public string $editFirmThemePalette = 'sea_green';
+    public string $editFirmPrimaryColor = '#0D9488';
+    public array $editEnabledModules = [
+        'attendance' => true,
+        'leave'      => true,
+        'conveyance' => true,
+        'payroll'    => true,
+        'team'       => true,
+        'policies'   => true,
+    ];
     public string $editCustomDomain = '';
     public string $editCustomSubdomain = '';
     public string $editFirmSlug = '';
@@ -217,8 +229,16 @@ class DashboardPreview extends Component
                             ? User::where('firm_id', $f->id)->where('role', 'partner')->count()
                             : 0;
 
+                        $resolvedPal = Firm::resolvePalette($f->theme_palette ?? 'sea_green', $f->primary_color ?? null);
                         return [
                             'id' => 'firm-' . $f->slug,
+                            'theme_palette' => $f->theme_palette ?: 'sea_green',
+                            'palette_label' => $resolvedPal['label'],
+                            'primary_color' => $resolvedPal['primary'],
+                            'enabled_modules' => is_array($f->enabled_modules) ? $f->enabled_modules : [
+                                'attendance' => true, 'leave' => true, 'conveyance' => true,
+                                'payroll' => true, 'team' => true, 'policies' => true,
+                            ],
                             'db_id' => $f->id,
                             'name' => $f->name,
                             'slug' => $f->slug,
@@ -417,6 +437,12 @@ class DashboardPreview extends Component
                 $this->selectedFirmId = $firm['id'];
                 $this->editFirmName = $firm['name'] ?? '';
                 $this->editFirmKind = $firm['kind'] ?? 'Chartered Accountants';
+                $this->editFirmThemePalette = $firm['theme_palette'] ?? 'sea_green';
+                $this->editFirmPrimaryColor = $firm['primary_color'] ?? '#0D9488';
+                $this->editEnabledModules = array_merge([
+                    'attendance' => true, 'leave' => true, 'conveyance' => true,
+                    'payroll' => true, 'team' => true, 'policies' => true,
+                ], is_array($firm['enabled_modules'] ?? null) ? $firm['enabled_modules'] : []);
                 $this->editFirmPlan = $firm['plan'] ?? 'Practice';
                 $this->editFirmRegion = $firm['region'] ?? 'Dhaka';
                 $this->editCustomDomain = $firm['custom_domain'] ?? '';
@@ -556,6 +582,11 @@ class DashboardPreview extends Component
                     if (Schema::hasColumn('firms', 'shared_attendance_view')) {
                         $firmData['shared_attendance_view'] = $this->newFirmSharedAttendance;
                     }
+                    if (Schema::hasColumn('firms', 'theme_palette')) {
+                        $resolvedNewPal = Firm::resolvePalette($this->newFirmThemePalette, $this->newFirmPrimaryColor);
+                        $firmData['theme_palette'] = $this->newFirmThemePalette ?: 'sea_green';
+                        $firmData['primary_color'] = $resolvedNewPal['primary'];
+                    }
 
                     $firm = Firm::create($firmData);
 
@@ -602,6 +633,9 @@ class DashboardPreview extends Component
                             'grace_minutes'            => 10,
                             'manager_conveyance_limit' => 300.00,
                             'conveyance_late_days'     => 2,
+                            'late_penalty_enabled'     => true,
+                            'late_days_per_deduction'  => 3,
+                            'deduction_days_count'     => 1.00,
                             'student_grids'            => PartnerPolicy::defaultStudentGrids(),
                             'manager_permissions'      => PartnerPolicy::defaultManagerPermissions(),
                         ]);
@@ -704,6 +738,14 @@ class DashboardPreview extends Component
                     if (Schema::hasColumn('firms', 'shared_attendance_view')) {
                         $updatePayload['shared_attendance_view'] = (bool) $this->editSharedAttendance;
                     }
+                    if (Schema::hasColumn('firms', 'theme_palette')) {
+                        $resolvedEditPal = Firm::resolvePalette($this->editFirmThemePalette, $this->editFirmPrimaryColor);
+                        $updatePayload['theme_palette'] = $this->editFirmThemePalette ?: 'sea_green';
+                        $updatePayload['primary_color'] = $resolvedEditPal['primary'];
+                    }
+                    if (Schema::hasColumn('firms', 'enabled_modules')) {
+                        $updatePayload['enabled_modules'] = $this->editEnabledModules;
+                    }
                     if (Schema::hasColumn('firms', 'is_suspended')) {
                         $updatePayload['is_suspended'] = (bool) $this->editIsSuspended;
                         $updatePayload['status'] = $this->editIsSuspended ? 'suspended' : 'active';
@@ -801,6 +843,9 @@ class DashboardPreview extends Component
                             'grace_minutes'            => 10,
                             'manager_conveyance_limit' => 300.00,
                             'conveyance_late_days'     => 2,
+                            'late_penalty_enabled'     => true,
+                            'late_days_per_deduction'  => 3,
+                            'deduction_days_count'     => 1.00,
                             'student_grids'            => PartnerPolicy::defaultStudentGrids(),
                             'manager_permissions'      => PartnerPolicy::defaultManagerPermissions(),
                         ]
@@ -1057,6 +1102,46 @@ class DashboardPreview extends Component
         } catch (\Throwable $e) {
             $this->previewNotice = 'Failed to create operator: ' . $e->getMessage();
         }
+    }
+
+    public function toggleFirmModule(string $slug, string $modKey): void
+    {
+        if (! $this->authorizePlatformMutation()) {
+            return;
+        }
+        $current = (bool) ($this->editEnabledModules[$modKey] ?? true);
+        $this->editEnabledModules[$modKey] = ! $current;
+        $this->updateDomainSettings($slug);
+    }
+
+    /**
+     * 1-Click Support Enter: DhakaWala Super Admin enters any Firm workspace directly in Support/Admin mode (#Proposal5).
+     */
+    public function enterFirmWorkspaceAsSupport(string $slug): void
+    {
+        if (! $this->authorizePlatformMutation()) {
+            return;
+        }
+        $cleanSlug = strtolower(trim($slug));
+        try {
+            if (Schema::hasTable('firms') && Schema::hasTable('audit_logs')) {
+                $firm = Firm::where('slug', $cleanSlug)->first();
+                if ($firm) {
+                    AuditLog::create([
+                        'firm_id'    => $firm->id,
+                        'actor_id'   => Auth::id(),
+                        'actor_name' => Auth::user()?->name ?? 'DhakaWala Super Admin',
+                        'actor_role' => 'platform_admin',
+                        'module'     => 'support',
+                        'action'     => 'support_workspace_entered',
+                        'target_ref' => $firm->slug,
+                        'summary'    => "DhakaWala Super Admin entered '{$firm->name}' workspace via 1-Click Support Enter.",
+                    ]);
+                }
+            }
+        } catch (\Throwable) {}
+
+        $this->redirect(route('firm.practice.dashboard', ['firmSlug' => $cleanSlug, 'section' => 'dashboard']));
     }
 
     public function toggleSharedAttendance(string $slug): void
@@ -1456,6 +1541,7 @@ class DashboardPreview extends Component
         $seatCount = array_sum(array_column($this->demoFirms, 'seats'));
 
         return view('livewire.platform.dashboard-preview', [
+            'colorPalettes' => Firm::colorPalettes(),
             'filteredFirms' => $filteredFirms,
             'selectedFirm'  => $selectedFirm,
             'activeCount'   => $activeCount,

@@ -19,8 +19,15 @@ class FirmRegistry
             'description'   => 'Manage attendance, leave, conveyance and payroll through a secure, organized workspace designed for professional accounting firms.',
             'office'        => 'Dhaka, Bangladesh',
             'support_email' => 'support@rahmananis.com',
-            'primary_color' => '#FCDF02',
-            'accent_color'  => '#F5AD16',
+            'theme_palette' => 'sea_green',
+            'primary_color' => '#0D9488',
+            'hover_color'   => '#0F766E',
+            'accent_color'  => '#14B8A6',
+            'light_accent'  => '#2DD4BF',
+            'soft_bg'       => '#F0FDFA',
+            'soft_border'   => '#99F6E4',
+            'dark_text'     => '#115E59',
+            'on_primary'    => '#FFFFFF',
             'charcoal_color'=> '#16181D',
             'tenant_node'   => 'erp.dhakawala.com',
             'firm_status'   => 'active',
@@ -47,8 +54,15 @@ class FirmRegistry
             'description'   => 'Manage attendance, leave, conveyance and payroll through a secure, organized workspace.',
             'office'        => 'Dhaka, Bangladesh',
             'support_email' => 'info@samplealpha.com',
-            'primary_color' => '#FCDF02',
-            'accent_color'  => '#F5AD16',
+            'theme_palette' => 'royal_blue',
+            'primary_color' => '#2563EB',
+            'hover_color'   => '#1D4ED8',
+            'accent_color'  => '#3B82F6',
+            'light_accent'  => '#60A5FA',
+            'soft_bg'       => '#EFF6FF',
+            'soft_border'   => '#BFDBFE',
+            'dark_text'     => '#1E40AF',
+            'on_primary'    => '#FFFFFF',
             'charcoal_color'=> '#16181D',
             'tenant_node'   => 'erp.dhakawala.com',
             'firm_status'   => 'active',
@@ -136,10 +150,12 @@ class FirmRegistry
     }
 
     /**
-     * Convert a Firm model to the array shape used by views.
+     * Convert a Firm model to the array shape used by views, including resolved color palette tokens.
      */
     public static function toArray(Firm $firm): array
     {
+        $palette = Firm::resolvePalette($firm->theme_palette ?? 'sea_green', $firm->primary_color ?? null);
+
         return [
             'slug'             => $firm->slug,
             'name'             => $firm->name,
@@ -151,8 +167,16 @@ class FirmRegistry
             'description'      => 'Manage attendance, leave, conveyance and payroll through a secure, organized workspace designed for professional accounting firms.',
             'office'           => ($firm->region ?: 'Dhaka') . ', Bangladesh',
             'support_email'    => $firm->email ?? 'support@dhakawala.com',
-            'primary_color'    => '#FCDF02',
-            'accent_color'     => '#F5AD16',
+            'theme_palette'    => $firm->theme_palette ?: 'sea_green',
+            'palette_label'    => $palette['label'],
+            'primary_color'    => $palette['primary'],
+            'hover_color'      => $palette['hover'],
+            'accent_color'     => $palette['accent'],
+            'light_accent'     => $palette['light_accent'] ?? $palette['accent'],
+            'soft_bg'          => $palette['soft_bg'],
+            'soft_border'      => $palette['soft_border'],
+            'dark_text'        => $palette['dark_text'],
+            'on_primary'       => $palette['on_primary'],
             'charcoal_color'   => '#16181D',
             'tenant_node'      => 'erp.dhakawala.com',
             'firm_status'      => $firm->status,
@@ -164,6 +188,7 @@ class FirmRegistry
             'custom_domain'    => $firm->custom_domain,
             'custom_subdomain' => $firm->custom_subdomain,
             'workspace_url'    => $firm->workspace_url,
+            'enabled_modules'  => is_array($firm->enabled_modules) ? $firm->enabled_modules : ['attendance' => true, 'leave' => true, 'conveyance' => true, 'payroll' => true, 'team' => true, 'policies' => true],
             'features'         => [
                 'Centralized ICAB Articled Student Roster & Compliance',
                 'Client Audit Engagement Attendance & Geo Check-in',

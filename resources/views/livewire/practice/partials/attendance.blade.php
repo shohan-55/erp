@@ -288,7 +288,7 @@
                             </button>
                         </td>
                         <td class="px-4 py-4">
-                            <span class="rounded-full px-2.5 py-1 text-[11px] font-bold {{ $item['status'] === 'On time' ? 'bg-emerald-50 text-emerald-700' : ($item['status'] === 'Late' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-600') }}">{{ $item['status'] }}</span>
+                            <span class="rounded-full px-2.5 py-1 text-[11px] font-bold {{ in_array($item['status'], ['Right Time', 'On time'], true) ? 'bg-emerald-50 text-emerald-700' : ($item['status'] === 'Late' ? 'bg-amber-50 text-amber-800' : ($item['status'] === 'Late Present' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600')) }}">{{ $item['status'] }}</span>
                             @if(!empty($item['correction_requested']))
                                 <div class="mt-1.5 rounded-lg border border-amber-300 bg-amber-50 p-1.5 text-[10px] text-amber-950">
                                     <strong>⏳ Missed Out Request: {{ $item['requested_out_time'] }}</strong><br>
