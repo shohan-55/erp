@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Attendance extends Model
 {
@@ -22,7 +21,15 @@ class Attendance extends Model
         'out_lat',
         'out_lng',
         'out_location_name',
+        'distance_km',
+        'location_mismatch',
         'status',
+        'session_state',
+        'movement_logs',
+        'correction_requested',
+        'requested_out_time',
+        'correction_reason',
+        'correction_status',
         'is_proxy',
         'proxy_by',
         'edited_by',
@@ -30,14 +37,18 @@ class Attendance extends Model
     ];
 
     protected $casts = [
-        'date'     => 'date',
-        'in_time'  => 'datetime',
-        'out_time' => 'datetime',
-        'is_proxy' => 'boolean',
-        'in_lat'   => 'decimal:7',
-        'in_lng'   => 'decimal:7',
-        'out_lat'  => 'decimal:7',
-        'out_lng'  => 'decimal:7',
+        'date'                 => 'date',
+        'in_time'              => 'datetime',
+        'out_time'             => 'datetime',
+        'is_proxy'             => 'boolean',
+        'location_mismatch'    => 'boolean',
+        'correction_requested' => 'boolean',
+        'distance_km'          => 'decimal:2',
+        'movement_logs'        => 'array',
+        'in_lat'               => 'decimal:7',
+        'in_lng'               => 'decimal:7',
+        'out_lat'              => 'decimal:7',
+        'out_lng'              => 'decimal:7',
     ];
 
     public function firm(): BelongsTo

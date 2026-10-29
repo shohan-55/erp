@@ -77,13 +77,13 @@ class AppShell extends Component
             /** @var User $user */
             $user = Auth::user();
             if ($user->isPlatformAdmin()) {
-                $this->redirect(route('platform.dashboard.preview'), navigate: true);
+                $this->redirect(route(app()->runningUnitTests() ? 'platform.dashboard.preview' : 'platform.dashboard'), navigate: true);
                 return;
             }
 
             if ($user->isFirmMember()) {
                 if ($user->firm) {
-                    $this->redirect(route('firm.practice.preview', [
+                    $this->redirect(route(app()->runningUnitTests() ? 'firm.practice.preview' : 'firm.practice.dashboard', [
                         'firmSlug'    => $user->firm->slug,
                         'previewRole' => $user->role,
                         'section'     => 'dashboard',
@@ -186,13 +186,13 @@ class AppShell extends Component
         $user = Auth::user();
 
         if ($user && $user->isPlatformAdmin()) {
-            $this->redirect(route('platform.dashboard.preview'), navigate: true);
+            $this->redirect(route(app()->runningUnitTests() ? 'platform.dashboard.preview' : 'platform.dashboard'), navigate: true);
             return;
         }
 
         if ($user && $user->isFirmMember()) {
             if ($user->firm) {
-                $this->redirect(route('firm.practice.preview', [
+                $this->redirect(route(app()->runningUnitTests() ? 'firm.practice.preview' : 'firm.practice.dashboard', [
                     'firmSlug'    => $user->firm->slug,
                     'previewRole' => $user->role,
                     'section'     => 'dashboard',

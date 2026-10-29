@@ -128,7 +128,15 @@
                                     </div>
                                     <p class="truncate text-[11px] text-slate-500">{{ $member['email'] }}</p>
                                     @if(!empty($member['student_code']))
-                                        <p class="text-[10px] font-mono text-emerald-700 mt-0.5">Code: {{ $member['student_code'] }}</p>
+                                        <p class="text-[10px] font-mono text-emerald-700 mt-0.5">
+                                            Code: {{ $member['student_code'] }}
+                                            @if(!empty($member['articleship_period']) && $member['articleship_period'] !== '—')
+                                                · <span class="text-slate-600 font-sans font-semibold">ICAB Term: {{ $member['articleship_period'] }}</span>
+                                            @endif
+                                        </p>
+                                    @endif
+                                    @if(!empty($member['payment_account_no']) && $member['payment_account_no'] !== '—')
+                                        <p class="text-[10px] text-amber-800 font-semibold mt-0.5">{{ $member['payment_account_mode'] ?? 'bKash' }}: {{ $member['payment_account_no'] }}</p>
                                     @endif
                                 </div>
                             </div>
@@ -268,6 +276,12 @@
                                     @endforeach
                                 </select>
                             </label>
+                            <label class="block font-bold text-slate-700">Articleship Joining Date
+                                <input type="date" wire:model.live="newMemberArticleshipStart" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
+                            </label>
+                            <label class="block font-bold text-slate-700">Articleship Completion (3-Yr)
+                                <input type="date" wire:model="newMemberArticleshipEnd" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
+                            </label>
                         </div>
                     @endif
 
@@ -350,6 +364,17 @@
                 </div>
 
                 <form wire:submit.prevent="updateMember" class="mt-4 space-y-4 text-xs">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <label class="block font-bold text-slate-700">Full Name
+                            <input type="text" wire:model="editMemberName" required class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+                        </label>
+                        <label class="block font-bold text-slate-700">Email Address
+                            <input type="email" wire:model="editMemberEmail" required class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+                        </label>
+                        <label class="block font-bold text-slate-700">Reset Password (Optional)
+                            <input type="text" wire:model="editMemberNewPassword" placeholder="Min 8 chars to reset" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400 font-mono text-[11px]">
+                        </label>
+                    </div>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <label class="block font-bold text-slate-700">Role
                             <select wire:model="editMemberRole" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
@@ -379,6 +404,12 @@
                                         <option value="{{ $mgr['id'] }}">{{ $mgr['name'] }}</option>
                                     @endforeach
                                 </select>
+                            </label>
+                            <label class="block font-bold text-slate-700">Articleship Joining Date
+                                <input type="date" wire:model="editMemberArticleshipStart" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
+                            </label>
+                            <label class="block font-bold text-slate-700">Articleship Completion Date
+                                <input type="date" wire:model="editMemberArticleshipEnd" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
                             </label>
                         </div>
                     @endif

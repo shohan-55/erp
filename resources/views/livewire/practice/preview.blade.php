@@ -73,7 +73,7 @@
                             class="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[13px] font-semibold transition {{ $section === $item['key'] ? 'bg-[#FCDF02] text-[#17191F] shadow-sm' : 'text-slate-400 hover:bg-white/10 hover:text-white' }}">
                         <i data-lucide="{{ $item['icon'] }}" class="h-[18px] w-[18px] shrink-0"></i>
                         <span class="flex-1">{{ $item['title'] }}</span>
-                        @if($item['key'] === 'notifications') <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {{ $section === 'notifications' ? 'bg-[#17191F] text-[#FCDF02]' : 'bg-amber-500/20 text-amber-200' }}">3</span> @endif
+                        @if($item['key'] === 'notifications') @php $unreadCnt = count(array_filter($notificationsList ?? [], fn($n) => !in_array($n['id'], $readNotificationIds ?? [], true))); @endphp @if($unreadCnt > 0) <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {{ $section === 'notifications' ? 'bg-[#17191F] text-[#FCDF02]' : 'bg-amber-500/20 text-amber-200' }}">{{ $unreadCnt }}</span> @endif @endif
                     </button>
                 @endforeach
             </nav>
@@ -102,7 +102,7 @@
             <header class="sticky top-0 z-30 flex min-h-[76px] items-center gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-7 lg:px-9">
                 <button type="button" @click="menuOpen = true" class="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden" aria-label="Open navigation"><i data-lucide="menu" class="h-5 w-5"></i></button>
                 <div class="min-w-0 flex-1">
-                    <div class="truncate text-[11px] font-medium text-slate-400">{{ $firm ? $firm['name'] : 'Practice' }} <span class="mx-1">/</span> {{ $partnerUnit === 'unit_02' ? 'Partner Unit 02' : 'Partner Unit 01' }} <span class="mx-1">/</span> <span class="text-amber-800">{{ $sectionLabel }}</span></div>
+                    <div class="truncate text-[11px] font-medium text-slate-400">{{ $firm ? $firm['name'] : 'Practice' }} <span class="mx-1">/</span> {{ $partnerUnit }} <span class="mx-1">/</span> <span class="text-amber-800">{{ $sectionLabel }}</span></div>
                     <h1 class="truncate text-lg font-extrabold tracking-tight sm:text-xl">{{ $sectionLabel }}</h1>
                 </div>
                 <div class="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-900 sm:inline-flex">
@@ -111,12 +111,21 @@
                 </div>
                 <button type="button" wire:click="setSection('notifications')" class="relative rounded-xl border border-slate-200 p-2.5 text-slate-600 transition hover:bg-slate-50" aria-label="Open notifications">
                     <i data-lucide="bell" class="h-[18px] w-[18px]"></i>
-                    <span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-[#17191F]">3</span>
+                    @php $hdrUnread = count(array_filter($notificationsList ?? [], fn($n) => !in_array($n['id'], $readNotificationIds ?? [], true))); @endphp @if($hdrUnread > 0)<span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-[#17191F]">{{ $hdrUnread }}</span>@endif
                 </button>
                 <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-[#17191F] text-xs font-extrabold text-[#FCDF02]">{{ strtoupper(substr(Auth::user()->name ?? $previewRole,0,1)) }}</div>
             </header>
 
             <main class="mx-auto max-w-[1480px] space-y-6 px-4 py-6 sm:px-7 lg:px-9 lg:py-8">
+                @if(!empty($subscriptionAlert) && $previewRole === 'partner')
+                    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-amber-400 bg-amber-50 px-5 py-3.5 text-xs text-amber-950 shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <span class="rounded-lg bg-[#17191F] px-2.5 py-1 text-[10px] font-extrabold text-[#FCDF02]">DHAKAWALA BILLING ({{ $subscriptionAlert['status'] }})</span>
+                            <span class="font-bold">Subscription Renewal Notice: {{ $subscriptionAlert['cycle'] }} Fee ৳{{ number_format($subscriptionAlert['fee'], 0) }} · Expires {{ $subscriptionAlert['expires_at'] }}.</span>
+                        </div>
+                        <span class="text-[11px] font-semibold text-amber-900">Contact DhakaWala Support to settle invoice</span>
+                    </div>
+                @endif
                 @if($notice || $error)
                     <div class="flex items-start gap-3 rounded-xl border px-4 py-3 text-xs {{ $error ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-slate-200 bg-white text-slate-700' }}" role="{{ $error ? 'alert' : 'status' }}">
                         <i data-lucide="{{ $error ? 'alert-circle' : 'info' }}" class="mt-0.5 h-4 w-4 shrink-0"></i>
@@ -252,6 +261,34 @@
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        @endif
+   
+        @if($activePopupNotification)
+            <div class="fixed inset-0 z-[85] flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="popup-notif-title">
+                <div class="w-full max-w-md rounded-2xl border-2 border-[#FCDF02] bg-white p-6 shadow-2xl">
+                    <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#17191F] text-[#FCDF02]">
+                                <i data-lucide="bell-ring" class="h-5 w-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-800">PRACTICE POPUP NOTICE</p>
+                                <h3 id="popup-notif-title" class="mt-0.5 text-base font-extrabold text-slate-900">{{ $activePopupNotification["title"] ?? "Important Notice" }}</h3>
+                            </div>
+                        </div>
+                        <button type="button" wire:click="dismissPopupNotification" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+                    <p class="mt-4 text-sm leading-relaxed text-slate-700">{{ $activePopupNotification["message"] ?? "" }}</p>
+                    <p class="mt-3 text-[11px] font-semibold text-slate-400">From: {{ $activePopupNotification["sender_name"] ?? "Practice Management" }} · {{ $activePopupNotification["age"] ?? "Just now" }}</p>
+                    <div class="mt-5 flex justify-end gap-2">
+                        <button type="button" wire:click="dismissPopupNotification" class="inline-flex items-center gap-1.5 rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604]">
+                            <i data-lucide="check" class="h-4 w-4"></i> Mark Read &amp; Dismiss
+                        </button>
+                    </div>
                 </div>
             </div>
         @endif

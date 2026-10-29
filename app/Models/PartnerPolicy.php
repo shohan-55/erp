@@ -16,6 +16,10 @@ class PartnerPolicy extends Model
         'grace_minutes',
         'manager_conveyance_limit',
         'conveyance_late_days',
+        'late_penalty_enabled',
+        'late_days_per_deduction',
+        'deduction_days_count',
+        'leave_quotas',
         'student_grids',
         'manager_permissions',
     ];
@@ -24,6 +28,10 @@ class PartnerPolicy extends Model
         'grace_minutes'            => 'integer',
         'manager_conveyance_limit' => 'decimal:2',
         'conveyance_late_days'     => 'integer',
+        'late_penalty_enabled'     => 'boolean',
+        'late_days_per_deduction'  => 'integer',
+        'deduction_days_count'     => 'decimal:2',
+        'leave_quotas'             => 'array',
         'student_grids'            => 'array',
         'manager_permissions'      => 'array',
     ];
@@ -35,6 +43,7 @@ class PartnerPolicy extends Model
             'live_gps_status'    => true,
             'leave_balance'      => true,
             'conveyance_tracker' => true,
+            'payroll_allowance'  => true,
             'client_site_duty'   => true,
             'firm_notices'       => true,
         ];
@@ -48,6 +57,17 @@ class PartnerPolicy extends Model
             'review_leave'        => true,
             'review_claims'       => true,
             'view_team_reports'   => true,
+        ];
+    }
+
+    public static function defaultLeaveQuotas(): array
+    {
+        return [
+            ['key' => 'annual', 'label' => 'Annual / Casual Leave', 'days' => 14],
+            ['key' => 'sick', 'label' => 'Medical / Sick Leave', 'days' => 14],
+            ['key' => 'emergency', 'label' => 'Emergency Family Leave', 'days' => 7],
+            ['key' => 'icab_exam', 'label' => 'ICAB Exam Preparation', 'days' => 30],
+            ['key' => 'icab_study', 'label' => 'ICAB Study Leave', 'days' => 30],
         ];
     }
 

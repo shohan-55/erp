@@ -66,17 +66,13 @@ Route::get('/c/{firmSlug}', function (string $firmSlug) {
         /** @var \App\Models\User $user */
         $user = Auth::user();
         if ($user->isFirmMember() && $user->belongsToFirm($cleanSlug)) {
-            return redirect()->route('firm.practice.preview', [
-                'firmSlug'    => $cleanSlug,
-                'previewRole' => $user->role,
-                'section'     => 'dashboard',
+            return redirect()->route('firm.practice.dashboard', [
+                'firmSlug' => $cleanSlug,
             ]);
         }
         if ($user->isPlatformAdmin()) {
-            return redirect()->route('firm.practice.preview', [
-                'firmSlug'    => $cleanSlug,
-                'previewRole' => 'partner',
-                'section'     => 'dashboard',
+            return redirect()->route('firm.practice.dashboard', [
+                'firmSlug' => $cleanSlug,
             ]);
         }
     }
@@ -92,13 +88,23 @@ Route::get('/reset-password/{token?}', ResetPassword::class)->name('password.res
 // Production DhakaWala ERP Portal & Login Console
 Route::get('/', AppShell::class)->name('home');
 
-// DhakaWala Platform Administration Hub
-Route::get('/platform/dashboard', DashboardPreview::class)->name('platform.dashboard');
-Route::get('/platform/dashboard-preview', DashboardPreview::class)->name('platform.dashboard.preview');
+// DhakaWala Platform Administration Hub (Protected Production Route + Preview Route)
+Route::get('/platform/dashboard', DashboardPreview::class)
+    ->middleware(['auth', 'role:platform_admin'])
+    ->name('platform.dashboard');
 
-// CA Firm Practice Workspaces (firm-scoped)
-Route::get('/c/{firmSlug}/dashboard', PracticePreview::class)->name('firm.practice.dashboard');
+Route::get('/platform/dashboard-preview', DashboardPreview::class)
+    ->middleware(['production.preview'])
+    ->name('platform.dashboard.preview');
+
+// CA Firm Practice Workspaces (Protected Firm-Scoped Production Route + Preview Route)
+Route::get('/c/{firmSlug}/dashboard/{section?}', PracticePreview::class)
+    ->middleware(['auth', 'firm.member'])
+    ->where('section', 'dashboard|attendance|leave|conveyance|payroll|notifications|policies|settings|team')
+    ->name('firm.practice.dashboard');
+
 Route::get('/c/{firmSlug}/preview/{previewRole?}/{section?}', PracticePreview::class)
+    ->middleware(['production.preview'])
     ->where('previewRole', 'partner|manager|student')
     ->where('section', 'dashboard|attendance|leave|conveyance|payroll|notifications|policies|settings|team')
     ->name('firm.practice.preview');
@@ -114,10 +120,8 @@ Route::middleware(['auth'])->group(function () {
         }
         if ($user && $user->isFirmMember()) {
             if ($user->firm) {
-                return redirect()->route('firm.practice.preview', [
-                    'firmSlug'    => $user->firm->slug,
-                    'previewRole' => $user->role,
-                    'section'     => 'dashboard',
+                return redirect()->route('firm.practice.dashboard', [
+                    'firmSlug' => $user->firm->slug,
                 ]);
             }
             return redirect()->route('home');
@@ -125,3 +129,15 @@ Route::middleware(['auth'])->group(function () {
         return redirect()->route('home');
     })->name('dashboard');
 });
+
+
+// Secure cPanel-compatible Conveyance Voucher File Viewer (works even without storage:link symlink)
+Route::get('/c/{firmSlug}/voucher-file/{filename}', function (string $firmSlug, string $filename) {
+    $safeSlug = strtolower(trim($firmSlug));
+    $safeFile = basename($filename);
+    $path = storage_path("app/public/conveyance-receipts/{$safeSlug}/{$safeFile}");
+    if (! file_exists($path)) {
+        abort(404, "Voucher receipt file not found.");
+    }
+    return response()->file($path);
+})->middleware(['auth', 'firm.member'])->name('firm.voucher.view');

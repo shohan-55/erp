@@ -1,6 +1,6 @@
 <section class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
     <div>
-        <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">POLICY & GOVERNANCE</p>
+        <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">POLICY &amp; GOVERNANCE</p>
         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Rules with accountability.</h2>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">Company defaults, independent Partner governance, and versioned rules. Configured for your practice.</p>
     </div>
@@ -50,17 +50,65 @@
                     <div wire:key="vote-step-{{ $step['step'] }}" class="rounded-xl border border-slate-100 bg-slate-50 p-4"><span class="text-2xl font-extrabold text-amber-700">{{ $step['step'] }}</span><h4 class="mt-2 text-xs font-extrabold text-slate-800">{{ $step['title'] }}</h4><p class="mt-2 text-[11px] leading-relaxed text-slate-500">{{ $step['detail'] }}</p></div>
                 @endforeach
             </div>
+
+            @if(!empty($policyProposals))
+                <div class="mt-5 space-y-2.5 border-t border-slate-100 pt-4">
+                    <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-700">Active Policy Proposals</h4>
+                    @foreach($policyProposals as $prop)
+                        <div wire:key="prop-{{ $prop['id'] }}" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs">
+                            <div>
+                                <p class="font-bold text-slate-800">{{ $prop['title'] }}</p>
+                                <p class="text-[11px] text-slate-500">Effective: {{ $prop['effective_date'] }} · Approvals: {{ $prop['approval_count'] }} / {{ $prop['required_votes'] }}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="rounded-full px-2.5 py-1 text-[10px] font-bold {{ $prop['status'] === 'enacted' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900' }}">
+                                    {{ strtoupper(str_replace('_', ' ', $prop['status'])) }}
+                                </span>
+                                @if($previewRole === 'partner' && $prop['status'] === 'pending_consensus')
+                                    <button type="button" wire:click="voteOnPolicyProposal({{ $prop['id'] }})" class="rounded-lg bg-[#17191F] px-3 py-1.5 text-[11px] font-bold text-[#FCDF02] hover:bg-slate-800">
+                                        Cast Partner Vote
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
             <div class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><i data-lucide="shield" class="mt-0.5 h-4 w-4 shrink-0"></i><span><strong>Consensus Audit:</strong> When a policy amendment is proposed, every voting Partner must record approval before activation into production payroll and attendance logic.</span></div>
         </section>
+
+        @if(!empty($auditLogsList))
+            <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div>
+                        <h3 class="text-sm font-extrabold">Immutable Compliance Audit Log</h3>
+                        <p class="text-xs text-slate-500">Recent governance, attendance, and financial decisions</p>
+                    </div>
+                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">{{ count($auditLogsList) }} Entries</span>
+                </div>
+                <div class="mt-3 divide-y divide-slate-100 text-xs">
+                    @foreach($auditLogsList as $log)
+                        <div wire:key="audit-log-{{ $log['id'] }}" class="py-2.5 flex items-start justify-between gap-3">
+                            <div>
+                                <span class="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">{{ $log['module'] }}</span>
+                                <span class="ml-1.5 font-semibold text-slate-800">{{ $log['summary'] }}</span>
+                            </div>
+                            <span class="shrink-0 text-[10px] text-slate-400">{{ $log['time'] }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            </section>
+        @endif
     </div>
     <aside class="space-y-5">
         <section class="rounded-2xl border border-[#E8EAF0] bg-[#17191F] p-5 text-white shadow-sm"><h3 class="text-sm font-extrabold">Partner Workspace Override</h3><p class="mt-2 text-xs leading-relaxed text-slate-300">Each Partner/Principal may change their own permitted workspace rules without affecting other Partners or Company defaults.</p>
             <div class="mt-5 space-y-3">
                 <div class="flex justify-between border-b border-white/10 pb-3 text-xs"><span class="text-slate-400">Home Workspace</span><strong>{{ $partnerUnit }}</strong></div>
-                <div class="flex justify-between border-b border-white/10 pb-3 text-xs"><span class="text-slate-400">Override status</span><strong>Not configured</strong></div>
+                <div class="flex justify-between border-b border-white/10 pb-3 text-xs"><span class="text-slate-400">Override status</span><strong>Active ({{ $officeStart }}–{{ $officeEnd }})</strong></div>
                 <div class="flex justify-between text-xs"><span class="text-slate-400">Policy scope</span><strong>Permitted fields only</strong></div>
             </div>
-            <p class="mt-5 text-[11px] leading-relaxed text-amber-200">Override permission boundaries, effective dates and version history remain backend requirements.</p>
+            <p class="mt-5 text-[11px] leading-relaxed text-amber-200">Override permission boundaries, effective dates and version history are logged in the compliance trail.</p>
         </section>
         <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm"><h3 class="text-sm font-extrabold">Governance Requirements</h3><div class="mt-4 space-y-3">
             @foreach ([

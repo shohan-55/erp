@@ -1,8 +1,8 @@
 <section class="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
     <div>
         <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">LEAVE MANAGEMENT</p>
-        <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Leave Requests &amp; Multi-Tier Approvals</h2>
-        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">2-Level Hierarchy: Student Application → Manager Verification &amp; Recommendation → Home Partner Final Sanction.</p>
+        <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Leave Requests &amp; Partial Approval Workflow</h2>
+        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">Engage your supervising Manager on the form → Manager Verification → Partner Full or Partial Approval ({{ $partnerUnit }} isolated scope).</p>
     </div>
     @if($previewRole !== 'student')
         <button type="button" wire:click="openDialog('leave')" class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-3 text-xs font-extrabold hover:bg-[#F3D604]">
@@ -19,18 +19,27 @@
                     <h3 class="text-base font-extrabold">New Leave Application</h3>
                     <span class="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-800">Application Form</span>
                 </div>
-                <p class="mt-2 text-xs text-slate-500">Select leave category, specify dates, and submit. Application will be routed to your assigned Manager.</p>
+                <p class="mt-2 text-xs text-slate-500">Select your leave category, mention the Manager you are currently engaged with, and specify your dates.</p>
 
                 <form wire:submit.prevent="submitLeaveApplication" class="mt-6 space-y-4" novalidate>
-                    <label class="block text-xs font-bold text-slate-700">Leave Category
-                        <select wire:model="leaveType" class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-amber-400">
-                            <option value="annual">Annual Leave (Casual)</option>
-                            <option value="sick">Sick / Medical Leave</option>
-                            <option value="emergency">Emergency Family Leave</option>
-                            <option value="icab_exam">ICAB Exam Preparation Leave</option>
-                            <option value="icab_study">ICAB Study Leave (Certificate/Professional)</option>
-                        </select>
-                    </label>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <label class="block text-xs font-bold text-slate-700">Leave Category
+                            <select wire:model="leaveType" class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-amber-400">
+                                @foreach($leaveQuotas as $q)
+                                    <option value="{{ $q['key'] }}">{{ $q['label'] }} ({{ $q['days'] }} Days)</option>
+                                @endforeach
+                            </select>
+                        </label>
+
+                        <label class="block text-xs font-bold text-slate-700">Mention Engaged Manager (কাজে যুক্ত ম্যানেজার)
+                            <select wire:model="leaveEngagedManagerId" class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-amber-400">
+                                <option value="">— Assigned / Default Manager —</option>
+                                @foreach($availableManagers as $mgr)
+                                    <option value="{{ $mgr['id'] }}">{{ $mgr['name'] }} ({{ $mgr['partner_unit'] ?? $partnerUnit }})</option>
+                                @endforeach
+                            </select>
+                        </label>
+                    </div>
 
                     <div class="grid gap-3 sm:grid-cols-2">
                         <label class="block text-xs font-bold text-slate-700">Start Date
@@ -56,7 +65,7 @@
                 <div class="border-b border-slate-100 px-5 py-4 flex items-center justify-between">
                     <div>
                         <h3 class="text-sm font-extrabold">{{ $previewRole === 'partner' ? 'Partner Final Approval Queue' : 'Manager Review & Recommendation Queue' }}</h3>
-                        <p class="mt-1 text-xs text-slate-500">{{ $partnerUnit }} · 2-Tier Approval Chain</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ $partnerUnit }} · Supports Full Approve, Partial Approve (আংশিক ছুটি), or Reject</p>
                     </div>
                     <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">{{ count($leaveQueue) }} Requests</span>
                 </div>
@@ -65,12 +74,18 @@
                     @forelse($leaveQueue as $request)
                         <div wire:key="leave-{{ $request['id'] }}" class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
                             <div class="min-w-0">
-                                <div class="flex items-center gap-2">
+                                <div class="flex flex-wrap items-center gap-2">
                                     <p class="text-sm font-bold text-slate-800">{{ $request['name'] }}</p>
                                     <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{{ $request['student_code'] }}</span>
                                     <span class="rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">{{ $request['type'] }}</span>
+                                    <span class="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">Engaged Mgr: {{ $request['manager'] ?? 'Direct' }}</span>
                                 </div>
-                                <p class="mt-1 text-xs text-slate-600">{{ $request['period'] }} · <em>"{{ $request['reason'] }}"</em></p>
+                                <p class="mt-1 text-xs text-slate-600">
+                                    <strong>{{ $request['period'] }}</strong> ({{ $request['requested_days'] ?? 1 }} Days requested) · <em>"{{ $request['reason'] }}"</em>
+                                </p>
+                                @if(!empty($request['approved_dates_summary']))
+                                    <p class="mt-1 text-[11px] font-bold text-amber-900">Partial Schedule: {{ $request['approved_dates_summary'] }}</p>
+                                @endif
                                 @if(!empty($request['manager_remarks']))
                                     <p class="mt-1 text-[11px] font-semibold text-indigo-700"><i data-lucide="message-square" class="inline h-3 w-3 mr-0.5"></i> Manager: {{ $request['manager_remarks'] }}</p>
                                 @endif
@@ -90,6 +105,10 @@
                                             class="rounded-lg bg-[#FCDF02] px-3 py-1.5 text-xs font-bold text-[#17191F] hover:bg-[#F3D604]">
                                         Forward to Partner →
                                     </button>
+                                    <button type="button" wire:click="openPartialLeaveModal('{{ $request['id'] }}')"
+                                            class="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100">
+                                        Partial Approve
+                                    </button>
                                     <button type="button" wire:click="rejectLeave('{{ $request['id'] }}', 'Engagement deadline conflict.')"
                                             class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50">
                                         Reject
@@ -97,7 +116,11 @@
                                 @elseif($previewRole === 'partner' && in_array($request['status'], ['pending_partner', 'pending_manager']))
                                     <button type="button" wire:click="partnerApproveLeave('{{ $request['id'] }}', 'Sanctioned by Partner.')"
                                             class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
-                                        Approve
+                                        Approve Full
+                                    </button>
+                                    <button type="button" wire:click="openPartialLeaveModal('{{ $request['id'] }}')"
+                                            class="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100">
+                                        Partial Approve
                                     </button>
                                     <button type="button" wire:click="rejectLeave('{{ $request['id'] }}', 'Partner rejected due to critical audit.')"
                                             class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50">
@@ -128,8 +151,11 @@
                     @forelse($leaveQueue as $item)
                         <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-3.5 text-xs">
                             <div>
-                                <p class="font-bold text-slate-800">{{ $item['type'] }} ({{ $item['period'] }})</p>
+                                <p class="font-bold text-slate-800">{{ $item['type'] }} ({{ $item['period'] }}) · Mgr: {{ $item['manager'] ?? 'Assigned' }}</p>
                                 <p class="text-[11px] text-slate-500">Reason: {{ $item['reason'] }}</p>
+                                @if(!empty($item['approved_dates_summary']))
+                                    <p class="text-[11px] font-bold text-amber-800 mt-0.5">{{ $item['approved_dates_summary'] }}</p>
+                                @endif
                             </div>
                             <span class="rounded-full px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-900">{{ $item['status_label'] }}</span>
                         </div>
@@ -141,59 +167,86 @@
                 <div class="grid gap-3 sm:grid-cols-3">
                     <div class="rounded-xl bg-slate-50 p-4 border border-slate-100">
                         <span class="text-xs font-extrabold text-amber-800">TIER 1</span>
-                        <p class="mt-1 text-sm font-bold text-slate-800">Student Applies</p>
-                        <p class="mt-1 text-xs text-slate-500">Regular or ICAB Exam Leave submitted with study dates.</p>
+                        <p class="mt-1 text-sm font-bold text-slate-800">Student Mentions Manager</p>
+                        <p class="mt-1 text-xs text-slate-500">Student selects the specific Manager they are engaged with on the audit.</p>
                     </div>
                     <div class="rounded-xl bg-slate-50 p-4 border border-slate-100">
                         <span class="text-xs font-extrabold text-indigo-700">TIER 2</span>
                         <p class="mt-1 text-sm font-bold text-slate-800">Manager Reviews</p>
-                        <p class="mt-1 text-xs text-slate-500">Audit site coverage verified; recommendation forwarded to Partner.</p>
+                        <p class="mt-1 text-xs text-slate-500">Can recommend full leave or modify/exclude middle dates (Partial Approve).</p>
                     </div>
                     <div class="rounded-xl bg-slate-50 p-4 border border-slate-100">
                         <span class="text-xs font-extrabold text-emerald-700">TIER 3</span>
                         <p class="mt-1 text-sm font-bold text-slate-800">Partner Final Sanction</p>
-                        <p class="mt-1 text-xs text-slate-500">Home Partner grants final approval or rejects with reasons.</p>
+                        <p class="mt-1 text-xs text-slate-500">Home Partner grants full/partial approval or rejects with remarks.</p>
                     </div>
                 </div>
             @endif
         </section>
     </div>
 
-    <!-- Aside policy & ICAB quota overview -->
+    <!-- Aside policy & Partner customizable leave quota overview -->
     <aside class="space-y-5">
         <section class="rounded-2xl border border-[#E8EAF0] bg-[#17191F] p-5 text-white shadow-sm">
-            <h3 class="text-sm font-extrabold">ICAB Leave Quota &amp; Policy</h3>
-            <p class="mt-2 text-xs leading-relaxed text-slate-300">Articled Students are governed by ICAB training bylaws and {{ $partnerUnit }} rules.</p>
+            <h3 class="text-sm font-extrabold">Partner Leave Quotas ({{ $partnerUnit }})</h3>
+            <p class="mt-2 text-xs leading-relaxed text-slate-300">Leave categories and annual day limits configured by {{ $partnerUnit }}.</p>
             <div class="mt-5 space-y-3 text-xs">
-                <div class="flex justify-between border-b border-white/10 pb-2.5">
-                    <span class="text-slate-400">Casual / Annual</span>
-                    <strong>14 Days / Year</strong>
-                </div>
-                <div class="flex justify-between border-b border-white/10 pb-2.5">
-                    <span class="text-slate-400">Medical / Sick</span>
-                    <strong>14 Days / Year</strong>
-                </div>
-                <div class="flex justify-between border-b border-white/10 pb-2.5">
-                    <span class="text-slate-400">ICAB Exam Study</span>
-                    <strong class="text-[#FCDF02]">Up to 30 Days (Per Level)</strong>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-400">Approval Hierarchy</span>
-                    <strong class="text-amber-400">Manager → Partner</strong>
-                </div>
+                @foreach($leaveQuotas as $q)
+                    <div class="flex justify-between border-b border-white/10 pb-2.5">
+                        <span class="text-slate-400">{{ $q['label'] }}</span>
+                        <strong class="text-[#FCDF02]">{{ $q['days'] }} Days / Year</strong>
+                    </div>
+                @endforeach
             </div>
         </section>
 
-        <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
-            <div class="flex items-start gap-3">
-                <div class="flex h-11 w-11 shrink-0 self-start items-center justify-center rounded-xl bg-amber-50 text-amber-800">
-                    <i data-lucide="shield-alert" class="h-5 w-5"></i>
-                </div>
-                <div>
-                    <h3 class="text-sm font-extrabold">No Manager-Only Bypass</h3>
-                    <p class="mt-1 text-xs leading-relaxed text-slate-500">Per CA firm governance, a Manager cannot approve leave independently without Partner sanction unless specifically delegated in writing.</p>
-                </div>
-            </div>
-        </section>
+        @if($previewRole === 'partner')
+            <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
+                <h3 class="text-sm font-extrabold">Add Custom Leave Category</h3>
+                <p class="mt-1 text-xs text-slate-500">Partners can add custom leave types and day quotas for their unit.</p>
+                <form wire:submit.prevent="addCustomLeaveType" class="mt-3 space-y-3 text-xs">
+                    <label class="block font-bold text-slate-700">Leave Category Name
+                        <input type="text" wire:model="newLeaveTypeLabel" placeholder="e.g. Marriage / Paternity Leave" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                    </label>
+                    <label class="block font-bold text-slate-700">Allowed Days / Year
+                        <input type="number" wire:model="newLeaveTypeDays" min="1" max="180" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                    </label>
+                    <button type="submit" class="w-full rounded-xl bg-[#17191F] py-2.5 font-extrabold text-[#FCDF02] hover:bg-slate-800">+ Save Leave Category</button>
+                </form>
+            </section>
+        @endif
     </aside>
 </div>
+
+{{-- Partial Leave Approval Modal (আংশিক ছুটি অনুমোদন) --}}
+@if($showPartialLeaveModal)
+    <div class="fixed inset-0 z-[75] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+        <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                    <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-800">PARTIAL LEAVE APPROVAL</p>
+                    <h3 class="mt-1 text-lg font-extrabold text-slate-900">Approve Selected Days ({{ $partialLeaveId }})</h3>
+                </div>
+                <button type="button" wire:click="closeDialogs" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><i data-lucide="x" class="h-4 w-4"></i></button>
+            </div>
+            <form wire:submit.prevent="submitPartialLeaveApproval" class="mt-4 space-y-4 text-xs">
+                <div class="rounded-xl bg-amber-50 p-3 text-amber-950">
+                    Student requested <strong>{{ $partialRequestedDays }} day(s)</strong>. You can reduce or exclude middle dates and approve a partial number of days.
+                </div>
+                <label class="block font-bold text-slate-700">Approved Days Count (out of {{ $partialRequestedDays }})
+                    <input type="number" wire:model="partialApprovedDays" min="1" max="{{ $partialRequestedDays }}" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm font-bold">
+                </label>
+                <label class="block font-bold text-slate-700">Approved Dates / Excluded Middle Dates Note
+                    <input type="text" wire:model="partialApprovedSummary" placeholder="e.g. Approved 2 days (14 & 18 Oct; middle dates cancelled for audit)" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                </label>
+                <label class="block font-bold text-slate-700">Reviewer Remarks
+                    <input type="text" wire:model="partialReviewerRemarks" placeholder="e.g. Partial sanction granted due to inventory count" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                </label>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 px-4 py-2 font-bold text-slate-700">Cancel</button>
+                    <button type="submit" class="rounded-xl bg-[#FCDF02] px-4 py-2 font-extrabold text-[#17191F] hover:bg-[#F3D604]">Confirm Partial Approval</button>
+                </div>
+            </form>
+        </div>
+    </div>
+@endif

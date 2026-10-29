@@ -339,9 +339,43 @@
                         </div>
                     @endforeach
                 </section>
+                <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div>
+                            <h3 class="text-[15px] font-extrabold text-slate-900">Global Platform Broadcast (সব ফার্মে পপআপ নোটিশ পাঠান)</h3>
+                            <p class="mt-0.5 text-xs text-slate-500">Send a popup announcement (maintenance, policy update, or billing alert) to all active firms or a specific firm.</p>
+                        </div>
+                        <span class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold text-amber-900">Popup Broadcast</span>
+                    </div>
+                    <form wire:submit.prevent="sendPlatformBroadcast" class="mt-4 grid gap-3 sm:grid-cols-3 text-xs">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1">Target Organization</label>
+                            <select wire:model="broadcastTargetSlug" class="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs font-semibold">
+                                <option value="all">All Active Organizations (সব ফার্ম)</option>
+                                @foreach($demoFirms as $bf)
+                                    <option value="{{ $bf['slug'] }}">{{ $bf['name'] }} (/c/{{ $bf['slug'] }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block font-bold text-slate-700 mb-1">Broadcast Subject / Title</label>
+                            <input type="text" wire:model="broadcastTitle" placeholder="e.g. DhakaWala Cloud Update / ICAB Holiday Notice" required class="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs">
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="block font-bold text-slate-700 mb-1">Announcement Message</label>
+                            <textarea wire:model="broadcastMessage" rows="2" placeholder="Write the message that will appear as a popup on Partner dashboards..." required class="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs"></textarea>
+                        </div>
+                        <div class="sm:col-span-3 flex justify-end">
+                            <button type="submit" class="inline-flex items-center gap-1.5 rounded-xl bg-[#16181D] px-4 py-2.5 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800 transition">
+                                <i data-lucide="send" class="h-3.5 w-3.5"></i> Dispatch Popup Broadcast
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
                 <section class="overflow-hidden rounded-2xl border border-[#E8EAF0] bg-white shadow-sm">
                     <div class="border-b border-slate-100 px-5 py-5">
-                        <h3 class="text-[15px] font-extrabold">Support Authorization Queue</h3>
+                        <h3 class="text-[15px] font-extrabold">Support Authorization &amp; Platform Audit Queue</h3>
                         <p class="mt-1 text-xs text-slate-500">Tenant-approved support sessions and active access requests.</p>
                     </div>
                     <div class="divide-y divide-slate-100">
@@ -395,6 +429,64 @@
                         </div>
                     @endforeach
                 </section>
+
+                <div class="grid gap-5 lg:grid-cols-2">
+                    <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
+                        <div class="border-b border-slate-100 pb-3">
+                            <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#B08400]">SUPER ADMIN SECURITY</p>
+                            <h3 class="mt-0.5 text-sm font-extrabold text-slate-900">My Profile &amp; Root Password (নিজের পাসওয়ার্ড ও ইমেইল পরিবর্তন)</h3>
+                        </div>
+                        <form wire:submit.prevent="updatePlatformAdminProfile" class="mt-4 space-y-3 text-xs">
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <label class="block font-bold text-slate-700">Operator Name
+                                    <input type="text" wire:model="adminProfileName" required class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                                </label>
+                                <label class="block font-bold text-slate-700">Operator Email
+                                    <input type="email" wire:model="adminProfileEmail" required class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                                </label>
+                                <label class="block font-bold text-slate-700">New Root Password (Optional)
+                                    <input type="password" wire:model="adminNewPassword" placeholder="Min 8 chars to change" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                                </label>
+                                <label class="block font-bold text-slate-700">Confirm New Password
+                                    <input type="password" wire:model="adminNewPasswordConfirm" placeholder="Re-type new password" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                                </label>
+                            </div>
+                            <div class="flex justify-end pt-1">
+                                <button type="submit" class="rounded-xl bg-[#FCDF02] px-4 py-2 text-xs font-extrabold text-[#16181D] hover:bg-[#F3D604]">
+                                    Save Super Admin Profile &amp; Password
+                                </button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
+                        <div class="border-b border-slate-100 pb-3">
+                            <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#B08400]">DHAKAWALA OPERATORS</p>
+                            <h3 class="mt-0.5 text-sm font-extrabold text-slate-900">Platform Super Admin Accounts (নতুন সুপার অ্যাডমিন যোগ করুন)</h3>
+                        </div>
+                        <form wire:submit.prevent="createPlatformOperator" class="mt-3 grid gap-2 sm:grid-cols-3 text-xs">
+                            <input type="text" wire:model="newOperatorName" placeholder="Operator Name" required class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                            <input type="email" wire:model="newOperatorEmail" placeholder="operator@dhakawala.com" required class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                            <div class="flex gap-1.5">
+                                <input type="text" wire:model="newOperatorPassword" placeholder="Password (min 8)" required class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                                <button type="submit" class="shrink-0 rounded-xl bg-[#16181D] px-3 py-2 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800">+ Add</button>
+                            </div>
+                        </form>
+                        <div class="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-100 bg-slate-50/60">
+                            @forelse($platformOperators as $op)
+                                <div class="flex items-center justify-between px-3 py-2 text-xs">
+                                    <div>
+                                        <span class="font-bold text-slate-800">{{ $op['name'] }}</span>
+                                        <span class="ml-1.5 text-slate-500">{{ $op['email'] }}</span>
+                                    </div>
+                                    <span class="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900">Super Admin</span>
+                                </div>
+                            @empty
+                                <p class="p-3 text-xs text-slate-400">No operators loaded.</p>
+                            @endforelse
+                        </div>
+                    </section>
+                </div>
             @endif
 
             <footer class="flex flex-col gap-1 border-t border-slate-200 pb-2 pt-5 text-[11px] text-slate-400 sm:flex-row sm:justify-between">
@@ -409,7 +501,7 @@
              wire:click.self="closeFirmDetail" wire:keydown.escape.window="closeFirmDetail"
              role="dialog" aria-modal="true" aria-labelledby="firm-preview-title">
             <div class="flex min-h-full items-center justify-center">
-                <div class="w-full max-w-lg my-auto max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                <div class="w-full max-w-2xl my-auto max-h-[90vh] flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
                     {{-- Modal Header --}}
                     <div class="flex-shrink-0 flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5 bg-white">
                         <div>
@@ -452,6 +544,101 @@
                             @endforeach
                         </div>
 
+                        {{-- Live Firm Roster & Organization Profile Editing --}}
+                        <div class="border-t border-slate-100 bg-white px-6 py-4 space-y-4">
+                            <div class="grid grid-cols-4 gap-2 text-center text-xs">
+                                <div class="rounded-xl bg-slate-50 p-2.5 border border-slate-200/70">
+                                    <p class="text-[10px] font-bold text-slate-500 uppercase">Partners</p>
+                                    <p class="mt-0.5 text-base font-extrabold text-slate-900">{{ $selectedFirmStats['partners'] ?? 0 }}</p>
+                                </div>
+                                <div class="rounded-xl bg-slate-50 p-2.5 border border-slate-200/70">
+                                    <p class="text-[10px] font-bold text-slate-500 uppercase">Managers</p>
+                                    <p class="mt-0.5 text-base font-extrabold text-slate-900">{{ $selectedFirmStats['managers'] ?? 0 }}</p>
+                                </div>
+                                <div class="rounded-xl bg-slate-50 p-2.5 border border-slate-200/70">
+                                    <p class="text-[10px] font-bold text-slate-500 uppercase">Students</p>
+                                    <p class="mt-0.5 text-base font-extrabold text-slate-900">{{ $selectedFirmStats['students'] ?? 0 }}</p>
+                                </div>
+                                <div class="rounded-xl bg-amber-50 p-2.5 border border-amber-200/70">
+                                    <p class="text-[10px] font-bold text-amber-900 uppercase">Used Seats</p>
+                                    <p class="mt-0.5 text-base font-extrabold text-amber-950">{{ $selectedFirmStats['total'] ?? 0 }} / {{ $selectedFirm['seats'] }}</p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Organization Name</label>
+                                    <input type="text" wire:model="editFirmName" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Category</label>
+                                    <select wire:model="editFirmKind" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800">
+                                        <option value="Chartered Accountants">Chartered Accountants (CA Firm)</option>
+                                        <option value="Cost & Management Accountants">Cost &amp; Management Accountants (CMA)</option>
+                                        <option value="Audit & Tax Consultancy">Audit &amp; Tax Consultancy</option>
+                                        <option value="Corporate Enterprise">Corporate Enterprise</option>
+                                        <option value="NGO & Non-Profit">NGO &amp; Non-Profit</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">SaaS Plan Tier</label>
+                                    <select wire:model="editFirmPlan" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800">
+                                        <option value="Starter">Starter</option>
+                                        <option value="Practice">Practice</option>
+                                        <option value="Enterprise">Enterprise</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Primary Region</label>
+                                    <input type="text" wire:model="editFirmRegion" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800">
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Partner Roster, 1-Click Password Reset & Add New Partner Unit --}}
+                        <div class="border-t border-slate-100 bg-amber-50/40 px-6 py-4 space-y-3 text-xs">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Firm Partners &amp; Partner Units (পার্টনার লিস্ট ও পাসওয়ার্ড রিসেট)</h3>
+                                    <p class="text-[11px] text-slate-500">Add new Partners (isolated Partner Units) or reset an existing Partner's password.</p>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                @forelse($selectedFirmPartners as $fp)
+                                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-2.5">
+                                        <div>
+                                            <span class="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-900">{{ $fp['partner_unit'] }}</span>
+                                            <span class="ml-1.5 font-bold text-slate-900">{{ $fp['name'] }}</span>
+                                            <span class="ml-1 text-[11px] text-slate-500">({{ $fp['email'] }})</span>
+                                        </div>
+                                        <div class="flex items-center gap-1.5">
+                                            <input type="text" wire:model="resetPartnerPasswordInputs.{{ $fp['id'] }}" placeholder="New password" class="w-32 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px]">
+                                            <button type="button" wire:click="resetPartnerPassword({{ $fp['id'] }})" class="rounded-lg bg-slate-900 px-2.5 py-1 text-[10px] font-bold text-[#FCDF02] hover:bg-slate-800">
+                                                Reset Pass
+                                            </button>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="text-[11px] text-slate-400">No partners found for this firm.</p>
+                                @endforelse
+                            </div>
+
+                            <div class="rounded-xl border border-amber-200/80 bg-white p-3 space-y-2">
+                                <p class="text-[11px] font-extrabold text-slate-800">+ Add Additional Partner / New Partner Unit</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <input type="text" wire:model="newAddPartnerName" placeholder="Partner Full Name (e.g. Anwarul Kabir, FCA)" class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
+                                    <input type="email" wire:model="newAddPartnerEmail" placeholder="partner2@firm.com" class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
+                                    <input type="text" wire:model="newAddPartnerUnit" placeholder="Partner Unit 02" class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold">
+                                    <div class="flex gap-1.5">
+                                        <input type="text" wire:model="newAddPartnerPassword" placeholder="Pass (Default: Partner@2026)" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
+                                        <button type="button" wire:click="addPartnerToFirm('{{ $selectedFirm['slug'] }}')" class="shrink-0 rounded-lg bg-[#FCDF02] px-3 py-1.5 text-[11px] font-extrabold text-[#16181D] hover:bg-[#F3D604]">
+                                            + Add Partner
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         {{-- Domain & Host Mapping Settings --}}
                         <div class="border-t border-slate-100 bg-slate-50/70 p-6">
                             <div class="flex items-center gap-2 mb-2">
@@ -476,9 +663,67 @@
                                     @error('editCustomSubdomain') <p class="text-[10px] text-rose-600 mt-1">{{ $message }}</p> @enderror
                                 </div>
                             </div>
-                            <div class="mt-3 flex justify-end">
+                            <div class="mt-4 grid grid-cols-2 gap-3 border-t border-slate-200/80 pt-4">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Partner Units / Workspaces</label>
+                                    <input type="number" wire:model="editFirmWorkspaces" min="1" max="50" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-amber-400">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Seat Allocation Limit</label>
+                                    <input type="number" wire:model="editFirmSeats" min="1" max="500" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none focus:border-amber-400">
+                                </div>
+                            </div>
+                            <div class="mt-3 space-y-2 border-t border-slate-200/80 pt-3 text-xs">
+                                <div class="flex items-center justify-between rounded-xl bg-white p-2.5 border border-slate-200">
+                                    <div>
+                                        <p class="font-bold text-slate-800">Cross-Partner Combined Attendance &amp; Print</p>
+                                        <p class="text-[10px] text-slate-500">Allow all Partners in this firm to view and print monthly attendance together</p>
+                                    </div>
+                                    <button type="button" wire:click="toggleSharedAttendance('{{ $selectedFirm['slug'] }}')" class="rounded-lg px-2.5 py-1 text-[10px] font-extrabold {{ $editSharedAttendance ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700' }}">
+                                        {{ $editSharedAttendance ? 'ALLOWED' : 'ISOLATED' }}
+                                    </button>
+                                </div>
+                                <div class="flex items-center justify-between rounded-xl bg-white p-2.5 border border-slate-200">
+                                    <div>
+                                        <p class="font-bold text-slate-800">Tenant Service Status (Kill Switch)</p>
+                                        <p class="text-[10px] text-slate-500">Suspend or reactivate tenant login &amp; operations</p>
+                                    </div>
+                                    <button type="button" wire:click="toggleFirmSuspension('{{ $selectedFirm['slug'] }}')" class="rounded-lg px-2.5 py-1 text-[10px] font-extrabold {{ !$editIsSuspended ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white' }}">
+                                        {{ !$editIsSuspended ? 'ACTIVE' : 'SUSPENDED' }}
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-slate-200/80 pt-3 text-xs">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-600 mb-1">Fee (BDT)</label>
+                                    <input type="number" wire:model="editSubscriptionFee" step="500" class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-600 mb-1">Billing Cycle</label>
+                                    <select wire:model="editBillingCycle" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold">
+                                        <option value="Monthly">Monthly</option>
+                                        <option value="Annual">Annual</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-600 mb-1">Payment Status</label>
+                                    <select wire:model="editPaymentStatus" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold">
+                                        <option value="paid">PAID</option>
+                                        <option value="due">DUE</option>
+                                        <option value="overdue">OVERDUE</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-600 mb-1">Expiry Date</label>
+                                    <input type="date" wire:model="editSubscriptionExpiresAt" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs">
+                                </div>
+                            </div>
+                            <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+                                <button type="button" wire:click="sendBillingReminder('{{ $selectedFirm['slug'] }}')" class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100">
+                                    Mark Due &amp; Send Renewal Alert
+                                </button>
                                 <button type="button" wire:click="updateDomainSettings('{{ $selectedFirm['slug'] }}')" class="rounded-xl bg-[#16181D] px-4 py-2 text-xs font-bold text-[#FCDF02] hover:bg-slate-800 transition">
-                                    Save Domain Settings
+                                    Save Domain, Billing &amp; Governance Controls
                                 </button>
                             </div>
                         </div>

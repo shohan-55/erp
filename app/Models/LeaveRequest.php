@@ -10,9 +10,13 @@ class LeaveRequest extends Model
     protected $fillable = [
         'firm_id',
         'user_id',
+        'engaged_manager_id',
         'leave_type',
         'start_date',
         'end_date',
+        'requested_days',
+        'approved_days',
+        'approved_dates_summary',
         'reason',
         'status',
         'reviewed_by',
@@ -22,8 +26,10 @@ class LeaveRequest extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date'   => 'date',
+        'start_date'     => 'date',
+        'end_date'       => 'date',
+        'requested_days' => 'integer',
+        'approved_days'  => 'integer',
     ];
 
     public function firm(): BelongsTo
@@ -34,6 +40,11 @@ class LeaveRequest extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function engagedManager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'engaged_manager_id');
     }
 
     public function reviewer(): BelongsTo

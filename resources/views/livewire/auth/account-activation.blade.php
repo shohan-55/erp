@@ -10,6 +10,7 @@
         </a>
 
         <!-- Design Preview State Switcher Tabs -->
+        @if(!app()->environment('production'))
         <div class="flex items-center gap-1 p-1 bg-slate-200/80 rounded-xl border border-slate-300/80 text-[11px] font-semibold">
             <button
                 type="button"
@@ -40,6 +41,7 @@
                 Complete
             </button>
         </div>
+        @endif
     </header>
 
     <!-- Main Card -->
@@ -154,7 +156,7 @@
                 </div>
 
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-900 mb-2">
-                    Account Activated (Preview)
+                    Account Activated
                 </span>
 
                 <h1 class="text-2xl font-extrabold tracking-tight text-slate-950 mt-1">

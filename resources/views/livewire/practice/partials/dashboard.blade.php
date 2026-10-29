@@ -1,3 +1,8 @@
+@php
+    $approvedConveyanceSum = array_sum(array_map(fn($c) => ($c['status'] ?? '') === 'approved' ? (float) ($c['amount'] ?? 0) : 0, $claimQueue));
+    $myPayrollRow = $payrollRows[0] ?? ['base_allowance' => (float)(auth()->user()?->monthly_allowance ?? 0), 'approved_conveyance' => $approvedConveyanceSum, 'adjustment' => 0, 'net_payable' => (float)(auth()->user()?->monthly_allowance ?? 0) + $approvedConveyanceSum];
+@endphp
+
 <section class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
     <div>
         <div class="flex items-center gap-2">
@@ -35,19 +40,19 @@
                 ['label'=>'Active Students', 'value'=> sprintf('%02d', count($rows)), 'icon'=>'users', 'note'=>$partnerUnit . ' scope'],
                 ['label'=>'Present Today', 'value'=> sprintf('%02d', count(array_filter($rows, fn($r) => ($r['status'] ?? '') === 'On time'))), 'icon'=>'clock-3', 'note'=>'Live check-ins'],
                 ['label'=>'Pending Leaves', 'value'=> sprintf('%02d', count($leaveQueue)), 'icon'=>'calendar-days', 'note'=>'Queue for approval'],
-                ['label'=>'Conveyance Claims', 'value'=> sprintf('%02d', count($claimQueue)), 'icon'=>'receipt', 'note'=>'Awaiting verification'],
+                ['label'=>'Approved Conveyance', 'value'=> '৳ ' . number_format($approvedConveyanceSum, 0), 'icon'=>'receipt', 'note'=>count($claimQueue) . ' total claims'],
             ],
             'manager' => [
                 ['label'=>'Assigned Team', 'value'=> sprintf('%02d', count($rows)), 'icon'=>'users', 'note'=>'Manager supervision'],
                 ['label'=>'Checked In', 'value'=> sprintf('%02d', count(array_filter($rows, fn($r) => ($r['status'] ?? '') === 'On time'))), 'icon'=>'clock-3', 'note'=>'Today\'s arrivals'],
                 ['label'=>'Pending Approvals', 'value'=> sprintf('%02d', count($leaveQueue)), 'icon'=>'clipboard-check', 'note'=>'Action required'],
-                ['label'=>'Open Audits', 'value'=> sprintf('%02d', count($claimQueue)), 'icon'=>'list-todo', 'note'=>'Audit site assignments'],
+                ['label'=>'Approved Conveyance', 'value'=> '৳ ' . number_format($approvedConveyanceSum, 0), 'icon'=>'receipt', 'note'=>'Team monthly total'],
             ],
             default => [
                 ['label'=>'My Attendance', 'value'=> sprintf('%02d', count(array_filter($rows, fn($r) => ($r['status'] ?? '') === 'On time'))), 'icon'=>'calendar-check-2', 'note'=>'Recorded today'],
                 ['label'=>'Leave Balance', 'value'=>'14', 'icon'=>'calendar-days', 'note'=>'Days available'],
-                ['label'=>'Pending Claims', 'value'=> sprintf('%02d', count($claimQueue)), 'icon'=>'receipt', 'note'=>'Submitted this month'],
-                ['label'=>'Firm Notices', 'value'=>'03', 'icon'=>'bell', 'note'=>'Practice announcements'],
+                ['label'=>'Approved Conveyance', 'value'=> '৳ ' . number_format($approvedConveyanceSum, 0), 'icon'=>'receipt', 'note'=>count($claimQueue) . ' claims this month'],
+                ['label'=>'Firm Notices', 'value'=>sprintf('%02d', count($notificationsList ?? [])), 'icon'=>'bell', 'note'=>'Practice announcements'],
             ],
         };
     @endphp
@@ -57,7 +62,7 @@
                 <p class="text-xs font-bold text-slate-500">{{ $metric['label'] }}</p>
                 <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-800"><i data-lucide="{{ $metric['icon'] }}" class="h-[18px] w-[18px]"></i></div>
             </div>
-            <div class="text-3xl font-extrabold tracking-tight text-[#17191F]">{{ $metric['value'] }}</div>
+            <div class="text-2xl font-extrabold tracking-tight text-[#17191F] sm:text-3xl">{{ $metric['value'] }}</div>
             <p class="mt-2 text-[11px] leading-relaxed text-slate-400">{{ $metric['note'] }}</p>
         </div>
     @endforeach
@@ -81,7 +86,7 @@
                             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-extrabold text-slate-700">{{ substr($item['id'], -3) }}</div>
                             <div class="min-w-0 flex-1">
                                 <p class="truncate text-sm font-bold text-slate-800">{{ $item['name'] }}</p>
-                                <p class="mt-0.5 text-xs text-slate-500">{{ $item['mode'] }} · {{ $item['day'] }} · In: {{ $item['checkin'] }} | Out: {{ $item['checkout'] }}</p>
+                                <p class="mt-0.5 text-xs text-slate-500">{{ $item['mode'] }} · {{ $item['day'] }} · In: {{ $item['checkin'] }} | Out: {{ $item['checkout'] }} · {{ count($item['movement_logs'] ?? []) ?: 1 }} Leg(s)</p>
                             </div>
                             <span class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold {{ $item['status'] === 'On time' ? 'bg-emerald-50 text-emerald-700' : ($item['status'] === 'Late' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-600') }}">{{ $item['status'] }}</span>
                         </div>
@@ -95,13 +100,30 @@
             </section>
         @endif
 
+        @if($previewRole === 'student' && ($studentGrids['payroll_allowance'] ?? true))
+            <section class="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <span class="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-900 uppercase tracking-wider">Automatic Monthly Allowance ({{ $period }})</span>
+                        <h3 class="mt-1.5 text-base font-extrabold text-slate-900">Net Payable: ৳ {{ number_format($myPayrollRow['net_payable'] ?? 0, 0) }}</h3>
+                        <p class="mt-1 text-xs text-slate-600">
+                            Base Stipend: <strong>৳ {{ number_format($myPayrollRow['base_allowance'] ?? 0, 0) }}</strong> ·
+                            Approved Conveyance: <strong>৳ {{ number_format($myPayrollRow['approved_conveyance'] ?? 0, 0) }}</strong> ·
+                            Late Deduction: <strong>৳ {{ number_format($myPayrollRow['adjustment'] ?? 0, 0) }}</strong>
+                        </p>
+                    </div>
+                    <button type="button" wire:click="setSection('payroll')" class="rounded-xl bg-emerald-700 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-800">View Statement</button>
+                </div>
+            </section>
+        @endif
+
         @if($previewRole === 'student' && ($studentGrids['client_site_duty'] ?? true))
             <section class="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5 shadow-sm">
                 <div class="flex items-start justify-between gap-3">
                     <div>
                         <span class="rounded bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-800 uppercase tracking-wider">Current Engagement</span>
-                        <h3 class="mt-1.5 text-sm font-extrabold text-slate-900">Assigned Client: BEXIMCO Textiles Audit</h3>
-                        <p class="mt-1 text-xs text-slate-600">Location: Dhanmondi R/A, Dhaka · Field Audit Lead: Khandaker Tanvir Ahmed, ACA</p>
+                        <h3 class="mt-1.5 text-sm font-extrabold text-slate-900">Assigned Client / Duty Site: {{ $clientSite ?: 'General Office / Firm HQ' }}</h3>
+                        <p class="mt-1 text-xs text-slate-600">Location: {{ $currentLocationName ?: ($firm['office'] ?? 'Dhaka, Bangladesh') }} · Supervisor: {{ auth()->user()?->manager?->name ?? ($rows[0]['manager'] ?? 'Assigned Manager') }}</p>
                     </div>
                     <button type="button" wire:click="setSection('conveyance')" class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700">Submit Fare</button>
                 </div>
@@ -121,7 +143,7 @@
                 <div class="mt-4 space-y-3">
                     <div class="flex items-center justify-between gap-2 border-b border-white/10 pb-2 text-xs"><span class="text-slate-400">Office Hours</span><strong>{{ $officeStart }} – {{ $officeEnd }}</strong></div>
                     <div class="flex items-center justify-between gap-2 border-b border-white/10 pb-2 text-xs"><span class="text-slate-400">Late Grace</span><strong>{{ $graceMinutes }} minutes</strong></div>
-                    <div class="flex items-center justify-between gap-2 text-xs"><span class="text-slate-400">Weekly Holidays</span><strong>Fri & Sat</strong></div>
+                    <div class="flex items-center justify-between gap-2 text-xs"><span class="text-slate-400">Weekly Holidays</span><strong>Fri &amp; Sat</strong></div>
                 </div>
                 <p class="mt-4 text-[11px] leading-relaxed text-amber-200">Grace threshold: arrivals within {{ $graceMinutes }} min of {{ $officeStart }} are recorded on time.</p>
                 <button wire:click="setSection('policies')" class="mt-4 text-xs font-bold text-[#FCDF02] hover:underline">View governance →</button>

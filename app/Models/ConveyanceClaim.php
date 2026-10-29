@@ -24,13 +24,18 @@ class ConveyanceClaim extends Model
         'manager_remarks',
         'partner_remarks',
         'attachment_name',
+        'transport_items',
+        'other_expense_description',
+        'other_expense_amount',
     ];
 
     protected $casts = [
-        'claim_date'      => 'date',
-        'amount'          => 'decimal:2',
-        'original_amount' => 'decimal:2',
-        'is_late'         => 'boolean',
+        'claim_date'           => 'date',
+        'amount'               => 'decimal:2',
+        'original_amount'      => 'decimal:2',
+        'other_expense_amount' => 'decimal:2',
+        'is_late'              => 'boolean',
+        'transport_items'      => 'array',
     ];
 
     public function firm(): BelongsTo

@@ -32,6 +32,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'phone',
         'password',
         'firm_id',
         'student_code',
@@ -44,24 +45,35 @@ class User extends Authenticatable
         'can_approve_claims',
         'can_manage_team',
         'monthly_allowance',
+        'payment_account_mode',
+        'payment_account_no',
+        'articleship_start_date',
+        'articleship_end_date',
+        'invitation_token',
+        'invitation_sent_at',
+        'email_verified_at',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'invitation_token',
     ];
 
     protected function casts(): array
     {
         return [
-            'email_verified_at'    => 'datetime',
-            'password'             => 'hashed',
-            'can_proxy_attendance' => 'boolean',
-            'can_edit_attendance'  => 'boolean',
-            'can_approve_leave'    => 'boolean',
-            'can_approve_claims'   => 'boolean',
-            'can_manage_team'      => 'boolean',
-            'monthly_allowance'    => 'decimal:2',
+            'email_verified_at'      => 'datetime',
+            'invitation_sent_at'     => 'datetime',
+            'articleship_start_date' => 'date',
+            'articleship_end_date'   => 'date',
+            'password'               => 'hashed',
+            'can_proxy_attendance'   => 'boolean',
+            'can_edit_attendance'    => 'boolean',
+            'can_approve_leave'      => 'boolean',
+            'can_approve_claims'     => 'boolean',
+            'can_manage_team'        => 'boolean',
+            'monthly_allowance'      => 'decimal:2',
         ];
     }
 
@@ -97,6 +109,11 @@ class User extends Authenticatable
         return $this->hasMany(ConveyanceClaim::class);
     }
 
+    public function payrollRecords(): HasMany
+    {
+        return $this->hasMany(PayrollRecord::class);
+    }
+
     public function partnerPolicy(): HasOne
     {
         return $this->hasOne(PartnerPolicy::class, 'partner_id');
@@ -128,21 +145,14 @@ class User extends Authenticatable
 
     public function isFirmMember(): bool
     {
-        return in_array($this->role, [self::ROLE_PARTNER, self::ROLE_MANAGER, self::ROLE_STUDENT]);
+        return in_array($this->role, [self::ROLE_PARTNER, self::ROLE_MANAGER, self::ROLE_STUDENT], true);
     }
 
-    /**
-     * Check if this user is allowed to add, edit, or remove practice members.
-     * Partners always have full permission. Managers or Students require explicit delegation.
-     */
     public function canManageTeam(): bool
     {
         return $this->isPlatformAdmin() || $this->isPartner() || (bool) $this->can_manage_team;
     }
 
-    /**
-     * Check if this user belongs to the given firm slug.
-     */
     public function belongsToFirm(string $slug): bool
     {
         return $this->firm && strtolower($this->firm->slug) === strtolower($slug);

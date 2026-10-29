@@ -23,27 +23,17 @@ return new class extends Migration
                 $table->index(['firm_id', 'name']);
             });
 
-            // Seed default clients for existing firms
+            // Seed only the Principal Office HQ entry for any existing firms (no demo clients)
             $firms = DB::table('firms')->get();
-            $defaultClients = [
-                ['name' => 'BEXIMCO Textiles Audit', 'industry' => 'Textiles & Garments', 'location' => 'Kashimpur, Gazipur'],
-                ['name' => 'Square Pharmaceuticals Audit', 'industry' => 'Pharmaceuticals', 'location' => 'Kaliakair, Gazipur'],
-                ['name' => 'BRAC Bank PLC (Motijheel Branch)', 'industry' => 'Banking & Financial', 'location' => 'Motijheel C/A, Dhaka'],
-                ['name' => 'ACI Logistics Limited (Shwapno)', 'industry' => 'Retail & FMCG', 'location' => 'Tejgaon I/A, Dhaka'],
-                ['name' => 'General Office / Firm HQ', 'industry' => 'Internal Administration', 'location' => 'Firm Principal Office'],
-            ];
-
             foreach ($firms as $firm) {
-                foreach ($defaultClients as $client) {
-                    DB::table('audit_clients')->insert([
-                        'firm_id'    => $firm->id,
-                        'name'       => $client['name'],
-                        'industry'   => $client['industry'],
-                        'location'   => $client['location'],
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
+                DB::table('audit_clients')->insert([
+                    'firm_id'    => $firm->id,
+                    'name'       => 'General Office / Firm HQ',
+                    'industry'   => 'Internal Administration',
+                    'location'   => 'Firm Principal Office',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
             }
         }
     }

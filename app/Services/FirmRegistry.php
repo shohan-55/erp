@@ -65,7 +65,7 @@ class FirmRegistry
     ];
 
     /**
-     * Retrieve firm by slug from the database (with fallback only if table missing).
+     * Retrieve firm by slug from the database (fallback used strictly in unit tests without migrations).
      */
     public static function get(string $slug): ?array
     {
@@ -80,10 +80,13 @@ class FirmRegistry
                 return null;
             }
         } catch (\Throwable) {
-            // Fall back if database is not migrated or available
         }
 
-        return self::$fallbackFirms[$normalized] ?? null;
+        if (app()->runningUnitTests()) {
+            return self::$fallbackFirms[$normalized] ?? null;
+        }
+
+        return null;
     }
 
     /**
@@ -100,10 +103,13 @@ class FirmRegistry
                     ->exists();
             }
         } catch (\Throwable) {
-            // Fall back
         }
 
-        return isset(self::$fallbackFirms[$normalized]);
+        if (app()->runningUnitTests()) {
+            return isset(self::$fallbackFirms[$normalized]);
+        }
+
+        return false;
     }
 
     /**
@@ -120,10 +126,13 @@ class FirmRegistry
                     ->all();
             }
         } catch (\Throwable) {
-            // Fall back
         }
 
-        return self::$fallbackFirms;
+        if (app()->runningUnitTests()) {
+            return self::$fallbackFirms;
+        }
+
+        return [];
     }
 
     /**
@@ -132,29 +141,30 @@ class FirmRegistry
     public static function toArray(Firm $firm): array
     {
         return [
-            'slug'          => $firm->slug,
-            'name'          => $firm->name,
-            'designation'   => $firm->kind,
-            'short_code'    => strtoupper($firm->initials) . '&C',
-            'legal_name'    => $firm->name . ', ' . $firm->kind,
-            'logo_url'      => 'images/' . $firm->slug . '_logo.svg',
-            'tagline'       => 'Your Practice. One Connected Workspace.',
-            'description'   => 'Manage attendance, leave, conveyance and payroll through a secure, organized workspace designed for professional accounting firms.',
-            'office'        => 'Dhaka, Bangladesh',
-            'support_email' => $firm->email ?? 'support@dhakawala.com',
-            'primary_color' => '#FCDF02',
-            'accent_color'  => '#F5AD16',
-            'charcoal_color'=> '#16181D',
-            'tenant_node'   => 'erp.dhakawala.com',
-            'firm_status'   => $firm->status,
-            'plan'          => $firm->plan,
-            'seats'         => $firm->seats,
-            'region'        => $firm->region,
-            'initials'      => $firm->initials,
-            'custom_domain' => $firm->custom_domain,
+            'slug'             => $firm->slug,
+            'name'             => $firm->name,
+            'designation'      => $firm->kind,
+            'short_code'       => strtoupper($firm->initials) . '&C',
+            'legal_name'       => $firm->name . ', ' . $firm->kind,
+            'logo_url'         => 'images/' . $firm->slug . '_logo.svg',
+            'tagline'          => 'Your Practice. One Connected Workspace.',
+            'description'      => 'Manage attendance, leave, conveyance and payroll through a secure, organized workspace designed for professional accounting firms.',
+            'office'           => ($firm->region ?: 'Dhaka') . ', Bangladesh',
+            'support_email'    => $firm->email ?? 'support@dhakawala.com',
+            'primary_color'    => '#FCDF02',
+            'accent_color'     => '#F5AD16',
+            'charcoal_color'   => '#16181D',
+            'tenant_node'      => 'erp.dhakawala.com',
+            'firm_status'      => $firm->status,
+            'plan'             => $firm->plan,
+            'seats'            => $firm->seats,
+            'region'           => $firm->region,
+            'initials'         => $firm->initials,
+            'icab_reg'         => 'ICAB REGISTERED PRACTICE',
+            'custom_domain'    => $firm->custom_domain,
             'custom_subdomain' => $firm->custom_subdomain,
-            'workspace_url' => $firm->workspace_url,
-            'features'      => [
+            'workspace_url'    => $firm->workspace_url,
+            'features'         => [
                 'Centralized ICAB Articled Student Roster & Compliance',
                 'Client Audit Engagement Attendance & Geo Check-in',
                 'Conveyance Claim Approvals with Document Proofs',

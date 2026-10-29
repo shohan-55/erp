@@ -10,6 +10,7 @@
         </a>
 
         <!-- Design Review State Switcher Tabs -->
+        @if(!app()->environment('production'))
         <div class="flex items-center gap-1 p-1 bg-slate-200/80 rounded-xl border border-slate-300/80 text-[11px] font-semibold">
             <button
                 type="button"
@@ -40,6 +41,7 @@
                 Complete
             </button>
         </div>
+        @endif
     </header>
 
     <!-- Main Card -->
@@ -305,7 +307,7 @@
                             <span wire:loading.remove>Save New Password & Continue</span>
                             <span wire:loading class="inline-flex items-center gap-2">
                                 <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
-                                <span>Simulating Password Update...</span>
+                                <span>Updating Password...</span>
                             </span>
                             <i wire:loading.remove data-lucide="arrow-right" class="w-4 h-4"></i>
                         </button>

@@ -11,6 +11,7 @@ class Firm extends Model
         'name',
         'slug',
         'kind',
+        'organization_type',
         'email',
         'status',
         'workspaces',
@@ -20,22 +21,32 @@ class Firm extends Model
         'initials',
         'custom_domain',
         'custom_subdomain',
+        'shared_attendance_view',
+        'is_suspended',
+        'subscription_expires_at',
+        'subscription_fee',
+        'billing_cycle',
+        'payment_status',
+        'enabled_modules',
     ];
 
-    /**
-     * Resolve a firm by host (custom domain or custom subdomain).
-     */
+    protected $casts = [
+        'shared_attendance_view'  => 'boolean',
+        'is_suspended'            => 'boolean',
+        'subscription_expires_at' => 'date',
+        'subscription_fee'        => 'decimal:2',
+        'enabled_modules'         => 'array',
+    ];
+
     public static function findByHost(string $host): ?self
     {
         $cleanHost = strtolower(trim(preg_replace('/:\d+$/', '', $host)));
 
-        // Direct custom domain match
         $firm = static::where('custom_domain', $cleanHost)->first();
         if ($firm) {
             return $firm;
         }
 
-        // Custom subdomain match (e.g. {sub}.dhakawala.com)
         if (str_ends_with($cleanHost, '.dhakawala.com')) {
             $sub = str_replace('.dhakawala.com', '', $cleanHost);
             if ($sub !== 'erp' && $sub !== 'www' && ! empty($sub)) {
@@ -48,9 +59,6 @@ class Firm extends Model
         return null;
     }
 
-    /**
-     * Get computed full workspace URL.
-     */
     public function getWorkspaceUrlAttribute(): string
     {
         if (! empty($this->custom_domain)) {
@@ -62,49 +70,36 @@ class Firm extends Model
         return url('/c/' . $this->slug);
     }
 
-    /**
-     * Get all users belonging to this firm.
-     */
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
     }
 
-    /**
-     * Get all attendance records for this firm.
-     */
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class);
     }
 
-    /**
-     * Get all leave requests for this firm.
-     */
     public function leaveRequests(): HasMany
     {
         return $this->hasMany(LeaveRequest::class);
     }
 
-    /**
-     * Get all conveyance claims for this firm.
-     */
     public function conveyanceClaims(): HasMany
     {
         return $this->hasMany(ConveyanceClaim::class);
     }
 
-    /**
-     * Find a firm by its slug (case-insensitive).
-     */
+    public function holidays(): HasMany
+    {
+        return $this->hasMany(PracticeHoliday::class);
+    }
+
     public static function findBySlug(string $slug): ?self
     {
         return static::where('slug', strtolower(trim($slug)))->first();
     }
 
-    /**
-     * Scope to only active firms.
-     */
     public function scopeActive($query)
     {
         return $query->where('status', 'active');

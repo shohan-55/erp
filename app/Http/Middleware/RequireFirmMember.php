@@ -18,21 +18,24 @@ class RequireFirmMember
      */
     public function handle(Request $request, Closure $next): Response
     {
+        $firmSlug = $request->route('firmSlug');
+
         if (! Auth::check()) {
+            if ($firmSlug) {
+                return redirect()->route('firm.login', ['firmSlug' => $firmSlug]);
+            }
             return redirect()->route('home');
         }
 
         /** @var User $user */
         $user = Auth::user();
 
-        // Platform admins can access any firm workspace in read-only mode.
+        // Platform admins can access any firm workspace in read-only / oversight mode.
         if ($user->isPlatformAdmin()) {
             return $next($request);
         }
 
-        $firmSlug = $request->route('firmSlug');
-
-        if ($firmSlug && ! $user->belongsToFirm($firmSlug)) {
+        if (! $user->isFirmMember() || ($firmSlug && ! $user->belongsToFirm((string) $firmSlug))) {
             abort(403, 'You do not have access to this practice workspace.');
         }
 

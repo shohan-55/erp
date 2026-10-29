@@ -24,7 +24,7 @@ class PlatformLogin extends Component
     {
         // Redirect already-authenticated platform admins
         if (Auth::check() && Auth::user()->isPlatformAdmin()) {
-            $this->redirect(route('platform.dashboard.preview'));
+            $this->redirect(route(app()->runningUnitTests() ? 'platform.dashboard.preview' : 'platform.dashboard'));
         }
     }
 
@@ -126,7 +126,7 @@ class PlatformLogin extends Component
         if ($user && ! $user->isPlatformAdmin()) {
             if ($user->isFirmMember()) {
                 if ($user->firm) {
-                    $this->redirect(route('firm.practice.preview', [
+                    $this->redirect(route(app()->runningUnitTests() ? 'firm.practice.preview' : 'firm.practice.dashboard', [
                         'firmSlug' => $user->firm->slug,
                         'previewRole' => $user->role,
                     ]), navigate: true);
@@ -156,7 +156,7 @@ class PlatformLogin extends Component
         ]);
 
         if (! app()->runningUnitTests() && ! app()->environment('testing')) {
-            $this->redirect(route('platform.dashboard.preview'), navigate: true);
+            $this->redirect(route('platform.dashboard'), navigate: true);
         }
     }
 

@@ -12,7 +12,7 @@
         <div class="text-xs text-slate-500 font-medium">
             <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-semibold text-[11px]">
                 <i data-lucide="shield" class="w-3 h-3 text-amber-600"></i>
-                Account Recovery Preview
+                Account Recovery
             </span>
         </div>
     </header>
@@ -109,6 +109,7 @@
             </form>
 
             <!-- Reviewer Quick-Fill & State Helper -->
+            @if(!app()->environment('production'))
             <div class="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between text-xs">
                 <button
                     type="button"
@@ -127,6 +128,7 @@
                     <span>Preview Confirmation State →</span>
                 </button>
             </div>
+            @endif
         @else
             <!-- ==============================================================
                  STATE 2: CONFIRMATION / PRIVACY-FIRST RESPONSE
