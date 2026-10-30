@@ -53,6 +53,7 @@ class User extends Authenticatable
         'invitation_token',
         'invitation_sent_at',
         'email_verified_at',
+        'is_active',
     ];
 
     protected $hidden = [
@@ -74,6 +75,7 @@ class User extends Authenticatable
             'can_approve_leave'      => 'boolean',
             'can_approve_claims'     => 'boolean',
             'can_manage_team'        => 'boolean',
+            'is_active'              => 'boolean',
             'monthly_allowance'      => 'decimal:2',
         ];
     }
@@ -148,6 +150,12 @@ class User extends Authenticatable
     public function isFirmMember(): bool
     {
         return in_array($this->role, [self::ROLE_PARTNER, self::ROLE_MANAGER, self::ROLE_STUDENT], true);
+    }
+
+    public function isActive(): bool
+    {
+        // Rows created before the is_active column existed must keep working.
+        return $this->is_active === null ? true : (bool) $this->is_active;
     }
 
     public function canManageTeam(): bool

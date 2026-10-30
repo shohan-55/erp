@@ -30,6 +30,18 @@ class RequireFirmMember
         /** @var User $user */
         $user = Auth::user();
 
+        // A deactivated member may still hold an old session cookie. Ending the
+        // session here is what actually revokes access after a staff exit.
+        if (! $user->isActive()) {
+            Auth::logout();
+
+            if ($firmSlug) {
+                return redirect()->route('firm.login', ['firmSlug' => $firmSlug]);
+            }
+
+            return redirect()->route('home');
+        }
+
         // Platform admins can access any firm workspace in read-only / oversight mode.
         if ($user->isPlatformAdmin()) {
             return $next($request);

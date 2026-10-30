@@ -185,6 +185,13 @@ class AppShell extends Component
         /** @var User $user */
         $user = Auth::user();
 
+        if ($user && Schema::hasColumn('users', 'is_active') && ! $user->isActive()) {
+            Auth::logout();
+            $this->loginError = 'This account has been deactivated. Please contact your practice administrator.';
+            $this->password = '';
+            return;
+        }
+
         if ($user && $user->isPlatformAdmin()) {
             $this->redirect(route(app()->runningUnitTests() ? 'platform.dashboard.preview' : 'platform.dashboard'), navigate: true);
             return;

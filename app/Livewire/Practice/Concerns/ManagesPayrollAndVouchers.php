@@ -98,6 +98,7 @@ trait ManagesPayrollAndVouchers
                 try {
                     $students = User::where('firm_id', $firmModel->id)
                         ->where('role', 'student')
+                        ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
                         ->when(Auth::check(), fn ($q) => $q->where('partner_unit', $this->partnerUnit))
                         ->with('manager')
                         ->get();
@@ -222,7 +223,10 @@ trait ManagesPayrollAndVouchers
 
         $firmModel = $this->resolveFirmModel();
         if ($firmModel && Schema::hasTable('payroll_records') && Schema::hasTable('users')) {
-            $students = User::where('firm_id', $firmModel->id)->where('role', 'student')->get();
+            $students = User::where('firm_id', $firmModel->id)
+                ->where('role', 'student')
+                ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
+                ->get();
             foreach ($students as $s) {
                 $existing = PayrollRecord::where('firm_id', $firmModel->id)
                     ->where('user_id', $s->id)

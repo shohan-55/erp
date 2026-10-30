@@ -307,6 +307,7 @@ trait ManagesTeamAndNotifications
                 try {
                     $dbUsers = User::with('manager')
                         ->where('firm_id', $firmModel->id)
+                        ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
                         ->orderByRaw("CASE role WHEN 'partner' THEN 1 WHEN 'manager' THEN 2 WHEN 'student' THEN 3 ELSE 4 END")
                         ->orderBy('name')
                         ->get();
@@ -837,8 +838,25 @@ trait ManagesTeamAndNotifications
                     return;
                 }
 
-                User::where('firm_id', $firmModel->id)->where('manager_id', $user->id)->update(['manager_id' => null]);
                 $userEmail = $user->email;
+
+                // DATA RETENTION: a staff exit must not erase payroll or attendance.
+                // Those records are the firm's financial audit trail, and deleting
+                // the user row used to cascade them away. Members who already have
+                // history are deactivated: they can no longer sign in, but every
+                // record they produced stays intact. Members without history are
+                // still removed completely.
+                if ($this->memberHasFinancialHistory($user)) {
+                    $this->deactivateMember($user);
+                    $this->recordAuditLog('team', 'member_deactivated', "Deactivated practice member {$memberName} ({$userEmail}); financial records retained.", $userEmail);
+                    $this->notice = "{$memberName} has attendance or payroll history, so the account was deactivated and all records were retained.";
+                    $this->closeDialogs();
+                    $this->loadTeamMembers();
+
+                    return;
+                }
+
+                User::where('firm_id', $firmModel->id)->where('manager_id', $user->id)->update(['manager_id' => null]);
                 $user->delete();
                 $this->recordAuditLog('team', 'member_deleted', "Permanently removed practice member {$memberName} ({$userEmail}).", $userEmail);
                 $this->notice = "Member {$memberName} has been permanently removed from the practice.";
@@ -854,4 +872,55 @@ trait ManagesTeamAndNotifications
         $this->loadPayrollRows();
     }
 
+    /**
+     * Does this member own attendance / payroll / leave / claim records?
+     *
+     * Every one of those tables carries a cascading foreign key to users, so a
+     * hard delete silently destroys the firm's financial audit trail.
+     */
+    protected function memberHasFinancialHistory(User $user): bool
+    {
+        $sources = [
+            ['attendances', 'user_id'],
+            ['payroll_records', 'user_id'],
+            ['leave_requests', 'user_id'],
+            ['conveyance_claims', 'user_id'],
+        ];
+
+        foreach ($sources as [$table, $column]) {
+            try {
+                if (Schema::hasTable($table) && Schema::hasColumn($table, $column)) {
+                    if (DB::table($table)->where($column, $user->id)->exists()) {
+                        return true;
+                    }
+                }
+            } catch (\Throwable) {
+                // A missing/renamed table must never block a legitimate removal,
+                // but it also must never silently authorise a destructive delete.
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Disable sign-in for a departed member without deleting their history.
+     */
+    protected function deactivateMember(User $user): void
+    {
+        $user->password = bcrypt(Str::password(40));
+        $user->remember_token = null;
+        if (Schema::hasColumn('users', 'invitation_token')) {
+            $user->invitation_token = null;
+        }
+        if (Schema::hasColumn('users', 'is_active')) {
+            $user->is_active = false;
+        }
+        $user->save();
+
+        if (Schema::hasTable('sessions') && Schema::hasColumn('sessions', 'user_id')) {
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+        }
+    }
 }

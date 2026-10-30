@@ -33,6 +33,7 @@ trait ManagesAttendanceCalendarAndRadar
                 $rolesToLoad = app()->runningUnitTests() ? ['student'] : ['student', 'manager'];
                 $studentsQuery = User::where('firm_id', $firmModel->id)
                     ->whereIn('role', $rolesToLoad)
+                    ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
                     ->with('manager');
 
                 // Partner Unit Isolation unless Cross-Partner Combined Attendance is toggled on
