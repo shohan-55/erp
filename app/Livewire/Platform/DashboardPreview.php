@@ -567,7 +567,9 @@ class DashboardPreview extends Component
         $cleanEmail = strtolower(trim($this->newPartnerEmail));
         $customDomain = ! empty(trim($this->newFirmCustomDomain)) ? strtolower(trim($this->newFirmCustomDomain)) : null;
         $customSubdomain = ! empty(trim($this->newFirmCustomSubdomain)) ? strtolower(trim($this->newFirmCustomSubdomain)) : null;
-        $partnerPass = $this->newPartnerPassword ?: 'Partner@2026';
+        $partnerPass = trim((string) $this->newPartnerPassword) !== ''
+            ? trim($this->newPartnerPassword)
+            : Str::password(14);
 
         try {
             if (Schema::hasTable('firms')) {
@@ -883,7 +885,9 @@ class DashboardPreview extends Component
         $name = trim($this->newAddPartnerName);
         $email = strtolower(trim($this->newAddPartnerEmail));
         $unit = trim($this->newAddPartnerUnit) ?: 'Partner Unit 02';
-        $password = $this->newAddPartnerPassword ?: 'Partner@2026';
+        $password = trim((string) $this->newAddPartnerPassword) !== ''
+            ? trim($this->newAddPartnerPassword)
+            : Str::password(14);
 
         if ($name === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->previewNotice = 'Please provide a valid Partner Name and Email address.';
@@ -1220,7 +1224,10 @@ class DashboardPreview extends Component
             return;
         }
 
-        $newPass = trim($this->resetPartnerPasswordInputs[$partnerUserId] ?? '') ?: 'Partner@2026';
+        $newPass = trim((string) ($this->resetPartnerPasswordInputs[$partnerUserId] ?? ''));
+        if ($newPass === '') {
+            $newPass = Str::password(14);
+        }
         if (strlen($newPass) < 8) {
             $this->previewNotice = 'Partner password must be at least 8 characters.';
             return;

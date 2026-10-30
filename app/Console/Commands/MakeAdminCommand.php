@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class MakeAdminCommand extends Command
 {
@@ -24,10 +25,13 @@ class MakeAdminCommand extends Command
             $user->email = $email;
             $user->name = 'Platform Super Admin';
             $user->role = User::ROLE_PLATFORM_ADMIN;
-            $user->password = Hash::make($password ?: 'password');
+            $plainPassword = $password ?: Str::password(20);
+            $user->password = Hash::make($plainPassword);
             $user->save();
 
-            $this->info("Created new Platform Super Admin: {$email} (Password: " . ($password ?: 'password') . ")");
+            $this->info("Created new Platform Super Admin: {$email}");
+            $this->warn("One-time password: {$plainPassword}");
+            $this->warn('Store it now — change it after the first sign-in.');
             return Command::SUCCESS;
         }
 

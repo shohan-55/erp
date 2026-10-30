@@ -65,7 +65,23 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    // DhakaWala ERP records attendance, leave and payroll in Bangladesh time.
+    // Hard-coding 'UTC' made every stored check-in time six hours off.
+    'timezone' => env('APP_TIMEZONE', 'Asia/Dhaka'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Design Preview Mode
+    |--------------------------------------------------------------------------
+    |
+    | The /preview routes render the workspace without signing in. They are
+    | useful for design review and screenshots, but they must never be exposed
+    | on an environment that holds real firm data. Everything is blocked unless
+    | this flag is explicitly switched on (or the app is running locally/tests).
+    |
+    */
+
+    'demo_mode' => (bool) env('ERP_DEMO_MODE', false),
 
     /*
     |--------------------------------------------------------------------------
