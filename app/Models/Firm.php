@@ -53,6 +53,15 @@ class Firm extends Model
      */
     public static function ensureRuntimeSchemaColumns(): void
     {
+        // The columns this method patches are now created by migration
+        // 2026_10_30_000001. Running DDL inside a web request is unsafe (audit
+        // P1-3.6): it serialises table locks, can race two concurrent requests
+        // and hides migration drift. It is therefore limited to local/testing,
+        // where it still helps a half-migrated developer database.
+        if (! app()->environment('local', 'testing') && ! app()->runningUnitTests()) {
+            return;
+        }
+
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('firms') && ! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'theme_palette')) {
                 \Illuminate\Support\Facades\Schema::table('firms', function (\Illuminate\Database\Schema\Blueprint $table) {
@@ -307,5 +316,36 @@ class Firm extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
+    }
+
+    /**
+     * Has the paid subscription lapsed?
+     *
+     * Audit P1-3.4: `subscription_expires_at` was only ever rendered as a
+     * "due soon" banner — nothing was enforced, so a firm could keep full
+     * write access for years after its last payment.
+     *
+     * A firm with no expiry date on record is treated as active, because
+     * legacy/trial tenants were created before the column existed.
+     */
+    public function isSubscriptionExpired(): bool
+    {
+        $expiresAt = $this->subscription_expires_at;
+
+        if (! $expiresAt) {
+            return false;
+        }
+
+        // The column is cast to a date; a subscription expires at the end of
+        // its final day, not at midnight on that day.
+        return $expiresAt->copy()->endOfDay()->isPast();
+    }
+
+    /**
+     * May this firm's members use the workspace right now?
+     */
+    public function isWorkspaceOperational(): bool
+    {
+        return ! $this->is_suspended && ! $this->isSubscriptionExpired();
     }
 }

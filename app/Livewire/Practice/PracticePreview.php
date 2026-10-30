@@ -330,8 +330,12 @@ class PracticePreview extends Component
 
         $firmModel = $this->resolveFirmModel();
         if ($firmModel) {
-            if (! empty($firmModel->is_suspended)) {
-                abort(403, 'This organization workspace is currently suspended by DhakaWala Platform Administration.');
+            // Enforced for every render, not just the HTTP middleware path,
+            // because Livewire components can also be mounted directly.
+            if (! $firmModel->isWorkspaceOperational()) {
+                abort(403, $firmModel->is_suspended
+                    ? 'This organization workspace is currently suspended by DhakaWala Platform Administration.'
+                    : 'This organization subscription has expired. Please contact DhakaWala billing to restore access.');
             }
             $this->canViewAllPartnersAttendance = (bool) ($firmModel->shared_attendance_view ?? true);
 

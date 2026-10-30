@@ -13,12 +13,14 @@ use App\Models\PayrollRecord;
 use App\Models\PolicyProposal;
 use App\Models\PracticeHoliday;
 use App\Models\PracticeNotification;
+use App\Mail\TeamInvitationMail;
 use App\Models\User;
 use App\Services\FirmRegistry;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -583,8 +585,16 @@ trait ManagesTeamAndNotifications
             }
             $user->save();
 
-            $this->recordAuditLog('team', 'member_enrolled', "Enrolled {$user->name} ({$user->email}) as " . ucfirst($user->role) . ".", $user->email);
-            $this->notice = "Successfully enrolled {$user->name} as " . ucfirst($user->role) . " (Temporary password: {$plainPassword}).";
+            // Deliver the invitation. A mail outage must never roll back a
+            // successful enrolment, so failures are logged and surfaced instead
+            // of thrown (audit P1-3.1: invitations were never emailed at all).
+            $invitationSent = $this->sendInvitationEmail($user, (string) ($firmModel->name ?? 'Practice'), $plainPassword);
+
+            $this->recordAuditLog('team', 'member_enrolled', "Enrolled {$user->name} ({$user->email}) as " . ucfirst($user->role) . '.', $user->email);
+
+            $this->notice = $invitationSent
+                ? "Successfully enrolled {$user->name} as " . ucfirst($user->role) . " and emailed the invitation to {$user->email}."
+                : "Enrolled {$user->name} as " . ucfirst($user->role) . " (Temporary password: {$plainPassword}). The invitation email could not be sent — share the password securely.";
         } else {
             $newId = count($this->teamMembers) + 1;
             $managerName = '—';
@@ -921,6 +931,34 @@ trait ManagesTeamAndNotifications
 
         if (Schema::hasTable('sessions') && Schema::hasColumn('sessions', 'user_id')) {
             DB::table('sessions')->where('user_id', $user->id)->delete();
+        }
+    }
+    /**
+     * Email the activation link to a newly enrolled member.
+     *
+     * Returns false when delivery is impossible so the caller can fall back to
+     * showing the one-time password on screen instead of silently pretending
+     * the invite went out.
+     */
+    protected function sendInvitationEmail(User $user, string $firmName, ?string $plainPassword = null): bool
+    {
+        if (app()->runningUnitTests() || app()->environment('testing')) {
+            return false;
+        }
+
+        try {
+            Mail::to($user->email)->send(new TeamInvitationMail(
+                member: $user,
+                firmName: $firmName,
+                firmSlug: $this->firmSlug,
+                plainPassword: $plainPassword,
+            ));
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('Invitation email failed for ' . $user->email . ': ' . $e->getMessage());
+
+            return false;
         }
     }
 }

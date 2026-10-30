@@ -31,7 +31,10 @@ trait ManagesPayrollAndVouchers
             return 0.00;
         }
         $penaltyUnits = intdiv($lateDaysCount, $this->lateDaysPerDeduction);
-        $dailyStipend = $baseStipend / 30.0;
+        // AUDIT P1-3.4: a flat /30 over-deducts in February (28 days) and
+        // under-deducts in a 31-day month. Use the real length of the payroll
+        // period, falling back to 30 only when the period cannot be parsed.
+        $dailyStipend = $baseStipend / $this->daysInPayrollPeriod();
         return round($penaltyUnits * $dailyStipend * max(0, $this->deductionDaysCount), 2);
     }
 
@@ -44,9 +47,11 @@ trait ManagesPayrollAndVouchers
             return ['absent_days' => 0, 'deduction' => 0.00];
         }
         try {
+            [$periodStart, $periodEnd] = $this->payrollPeriodBounds();
+
             $openHolidays = PracticeHoliday::where('firm_id', $firmId)
                 ->where('is_office_open_override', true)
-                ->where('holiday_date', 'like', $this->period . '%')
+                ->whereBetween('holiday_date', [$periodStart, $periodEnd])
                 ->whereDate('holiday_date', '<=', now()->toDateString())
                 ->where(function ($q) {
                     $q->whereNull('partner_unit')
@@ -128,12 +133,14 @@ trait ManagesPayrollAndVouchers
                                 $approvedTravel = (float) ConveyanceClaim::where('firm_id', $firmModel->id)
                                     ->where('user_id', $s->id)
                                     ->where('status', 'approved')
-                                    ->where('claim_date', 'like', $this->period . '%')
+                                    ->whereBetween('claim_date', [$periodStart, $periodEnd])
                                     ->sum('amount');
                             }
 
                             $lateDays = Schema::hasTable('attendances')
-                                ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)->where('date', 'like', $this->period . '%')->whereIn('status', ['Late', 'Late Present'])->count()
+                                ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)
+                                    ->whereBetween('date', [$periodStart, $periodEnd])
+                                    ->whereIn('status', ['Late', 'Late Present'])->count()
                                 : 0;
 
                             $lateDed = $this->calculateLateDeduction($baseStipend, $lateDays);
@@ -239,19 +246,27 @@ trait ManagesPayrollAndVouchers
                 }
 
                 $base = (float) ($s->monthly_allowance ?: 8000.00);
+
+                // A real date range keeps the (firm_id, user_id, date) index
+                // usable; `LIKE '2026-10%'` on a DATE column could not.
+                [$periodStart, $periodEnd] = $this->payrollPeriodBounds();
+
                 $travel = Schema::hasTable('conveyance_claims')
                     ? (float) ConveyanceClaim::where('firm_id', $firmModel->id)
                         ->where('user_id', $s->id)
                         ->where('status', 'approved')
-                        ->where('claim_date', 'like', $this->period . '%')
+                        ->whereBetween('claim_date', [$periodStart, $periodEnd])
                         ->sum('amount')
                     : 0.00;
 
                 $presentDays = Schema::hasTable('attendances')
-                    ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)->where('date', 'like', $this->period . '%')->count()
+                    ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)
+                        ->whereBetween('date', [$periodStart, $periodEnd])->count()
                     : 0;
                 $lateDays = Schema::hasTable('attendances')
-                    ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)->where('date', 'like', $this->period . '%')->whereIn('status', ['Late', 'Late Present'])->count()
+                    ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)
+                        ->whereBetween('date', [$periodStart, $periodEnd])
+                        ->whereIn('status', ['Late', 'Late Present'])->count()
                     : 0;
 
                 $lateDeduction = $this->calculateLateDeduction($base, $lateDays);
@@ -453,4 +468,29 @@ trait ManagesPayrollAndVouchers
 
     // ─── Targeted Notification Composer & Login Popup Modal ───────────────────
 
+    /**
+     * First and last calendar day of the selected payroll period (Y-m).
+     */
+    protected function payrollPeriodBounds(): array
+    {
+        try {
+            $start = \Carbon\Carbon::createFromFormat('!Y-m', $this->period)->startOfMonth();
+
+            return [$start->toDateString(), $start->copy()->endOfMonth()->toDateString()];
+        } catch (\Throwable) {
+            return [$this->period . '-01', $this->period . '-31'];
+        }
+    }
+
+    /**
+     * Number of days the selected payroll period actually contains.
+     */
+    protected function daysInPayrollPeriod(): int
+    {
+        try {
+            return (int) \Carbon\Carbon::createFromFormat('!Y-m', $this->period)->daysInMonth;
+        } catch (\Throwable) {
+            return 30;
+        }
+    }
 }

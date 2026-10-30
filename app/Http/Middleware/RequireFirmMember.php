@@ -51,6 +51,15 @@ class RequireFirmMember
             abort(403, 'You do not have access to this practice workspace.');
         }
 
+        // Subscription / suspension gate (audit P1-3.4). The tenant workspace
+        // is read-only-blocked once the subscription lapses, so billing is
+        // actually enforced instead of only being displayed as a banner.
+        if ($firmSlug && $user->firm && ! $user->firm->isWorkspaceOperational()) {
+            abort(403, $user->firm->is_suspended
+                ? 'This organization workspace is currently suspended by DhakaWala Platform Administration.'
+                : 'This organization subscription has expired. Please contact DhakaWala billing to restore access.');
+        }
+
         return $next($request);
     }
 }

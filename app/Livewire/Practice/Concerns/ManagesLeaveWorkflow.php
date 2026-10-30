@@ -297,6 +297,31 @@ trait ManagesLeaveWorkflow
             return;
         }
 
+        // QUOTA ENFORCEMENT (audit P1-3.4): the leave quota table was only ever
+        // used to validate a type *label*, so a student could book unlimited
+        // leave. Remaining days are now checked against the policy quota for
+        // the calendar year before the request is created.
+        $quotaDays = $this->quotaDaysForLeaveType($this->leaveType);
+        if ($quotaDays !== null) {
+            $usedDays = $this->usedLeaveDaysForYear($this->leaveStart, $this->leaveType);
+            $remaining = max(0, $quotaDays - $usedDays);
+
+            $probeStart = \DateTimeImmutable::createFromFormat('!Y-m-d', $this->leaveStart);
+            $probeEnd = \DateTimeImmutable::createFromFormat('!Y-m-d', $this->leaveEnd);
+            $probeDays = (int) $probeStart->diff($probeEnd)->days + 1;
+
+            if ($probeDays > $remaining) {
+                $this->error = "Leave quota exceeded: you have {$remaining} of {$quotaDays} day(s) left for this leave type this year, but requested {$probeDays} day(s).";
+                $this->dispatch('toast', [
+                    'type'    => 'error',
+                    'title'   => 'Leave Quota Exceeded',
+                    'message' => "Only {$remaining} day(s) remain for this leave type in " . $probeStart->format('Y') . '.',
+                ]);
+
+                return;
+            }
+        }
+
         $startDt = \DateTimeImmutable::createFromFormat('!Y-m-d', $this->leaveStart);
         $endDt = \DateTimeImmutable::createFromFormat('!Y-m-d', $this->leaveEnd);
         $closedHolidayDates = array_column(
@@ -647,4 +672,47 @@ trait ManagesLeaveWorkflow
 
     // ─── Multi-Tier Conveyance Workflow (Multi-Row Transport Builder & Increase/Decrease) ─
 
+    /**
+     * Policy quota (in days) for a leave type, or null when unset.
+     */
+    protected function quotaDaysForLeaveType(string $type): ?int
+    {
+        foreach ($this->leaveQuotas as $quota) {
+            if (($quota['key'] ?? null) === $type) {
+                return max(0, (int) ($quota['days'] ?? 0));
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Days already consumed (approved or still in flight) for a leave type in
+     * the calendar year that $date falls in.
+     */
+    protected function usedLeaveDaysForYear(string $date, string $type): int
+    {
+        if (! Auth::check() || ! Schema::hasTable('leave_requests')) {
+            return 0;
+        }
+
+        $year = substr($date, 0, 4);
+
+        try {
+            $query = LeaveRequest::where('user_id', Auth::id())
+                ->where('leave_type', $type)
+                ->whereIn('status', ['pending_manager', 'pending_partner', 'approved'])
+                ->where('start_date', '>=', $year . '-01-01')
+                ->where('start_date', '<=', $year . '-12-31');
+
+            return (int) $query->get()->sum(function ($row) {
+                return (int) ($row->approved_days ?: ($row->requested_days ?: 1));
+            });
+        } catch (\Throwable $e) {
+            // Never block a submission because the ledger could not be read.
+            Log::warning('Leave quota lookup failed: ' . $e->getMessage());
+
+            return 0;
+        }
+    }
 }
