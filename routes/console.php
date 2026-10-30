@@ -22,3 +22,17 @@ Schedule::command('erp:backup')
     ->dailyAt('02:00')
     ->withoutOverlapping()
     ->onOneServer();
+
+// Escalate yesterday's unclosed check-ins so payroll and the Partner both see
+// them (audit P1-3.4). Runs after the backup so a failure cannot block it.
+Schedule::command('erp:flag-missed-checkouts')
+    ->dailyAt('02:30')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Remind the platform operator about subscriptions that have lapsed or are
+// about to, instead of letting tenants silently lose access.
+Schedule::command('erp:subscription-expiry-reminder')
+    ->dailyAt('07:00')
+    ->withoutOverlapping()
+    ->onOneServer();

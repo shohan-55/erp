@@ -618,8 +618,9 @@ class DashboardPreview extends Component
 
                 $createdFirm = null;
                 $createdPartner = null;
+                $partnerAdopted = false;
 
-                DB::transaction(function () use ($slug, $cleanEmail, $partnerPass, $customDomain, $customSubdomain, &$createdFirm, &$createdPartner) {
+                DB::transaction(function () use ($slug, $cleanEmail, $partnerPass, $customDomain, $customSubdomain, &$createdFirm, &$createdPartner, &$partnerAdopted) {
                     $initials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $this->newFirmName) ?: 'DW', 0, 2));
 
                     $firmData = [
@@ -670,10 +671,15 @@ class DashboardPreview extends Component
                     $firm = Firm::create($firmData);
 
                     $existingUser = User::where('email', $cleanEmail)->first();
+
                     if ($existingUser) {
+                        // SECURITY (audit P2-4): this path adopts an *orphaned*
+                        // account left behind by an old firm deletion (the guard
+                        // above rejects live accounts). It must not reset that
+                        // person's password — whoever owns the mailbox already
+                        // controls the account.
                         $existingUser->update([
                             'name'                 => $this->newPartnerName ? trim($this->newPartnerName) : 'Managing Partner',
-                            'password'             => Hash::make($partnerPass),
                             'role'                 => User::ROLE_PARTNER,
                             'firm_id'              => $firm->id,
                             'partner_unit'         => 'Partner Unit 01',
@@ -685,6 +691,7 @@ class DashboardPreview extends Component
                             'email_verified_at'    => now(),
                         ]);
                         $partner = $existingUser;
+                        $partnerAdopted = true;
                     } else {
                         $partner = User::create([
                             'name'                 => $this->newPartnerName ? trim($this->newPartnerName) : 'Managing Partner',
@@ -752,7 +759,10 @@ class DashboardPreview extends Component
                 $this->modalError = null;
 
                 $workspaceUrl = $createdFirm->workspace_url;
-                $this->previewNotice = "Organization '{$createdFirm->name}' created! Workspace live at: {$workspaceUrl}. Initial Partner: {$createdPartner->email} / {$partnerPass}";
+                // Only report a password when one was actually set on this account;
+                // an adopted orphan keeps its existing credentials.
+                $partnerCredential = $partnerAdopted ? ' (existing password retained)' : " / {$partnerPass}";
+                $this->previewNotice = "Organization '{$createdFirm->name}' created! Workspace live at: {$workspaceUrl}. Initial Partner: {$createdPartner->email}{$partnerCredential}";
                 $this->dispatch('toast', [
                     'type'    => 'success',
                     'title'   => 'Organization Created',
