@@ -182,6 +182,9 @@ class PracticePreview extends Component
     public array $leaveQueue = [];
     public string $selectedLeaveId = 'LR-101';
     public string $leaveReviewRemarks = '';
+    public bool $showLeaveSubmitConfirmModal = false;
+    public bool $showClaimSubmitConfirmModal = false;
+    public int $formResetIteration = 1;
     public bool $showPartialLeaveModal = false;
     public string $partialLeaveId = '';
     public int $partialRequestedDays = 5;
@@ -648,16 +651,26 @@ class PracticePreview extends Component
         $rows = match ($this->previewRole) {
             'manager' => array_values(array_filter(
                 $studentRows, function (array $row) {
-                    if (Auth::check() && Auth::user()->isManager()) {
-                        return $row['manager'] === Auth::user()->name || (($row['partner'] ?? '') === $this->partnerUnit && ($row['manager'] ?? '') === 'Direct Report');
+                    if (Auth::check()) {
+                        if (Auth::user()->isPlatformAdmin()) {
+                            return true;
+                        }
+                        if (Auth::user()->isManager()) {
+                            return $row['manager'] === Auth::user()->name || (($row['partner'] ?? '') === $this->partnerUnit && ($row['manager'] ?? '') === 'Direct Report') || ($row['db_id'] ?? null) === Auth::id();
+                        }
                     }
                     return $row['manager'] === 'Sample Manager A';
                 }
             )),
             'student' => array_values(array_filter(
                 $studentRows, function (array $row) {
-                    if (Auth::check() && Auth::user()->isStudent()) {
-                        return ($row['db_id'] ?? null) === Auth::id() || (Auth::user()->student_code && $row['id'] === Auth::user()->student_code);
+                    if (Auth::check()) {
+                        if (Auth::user()->isPlatformAdmin()) {
+                            return true;
+                        }
+                        if (Auth::user()->isStudent()) {
+                            return ($row['db_id'] ?? null) === Auth::id() || (Auth::user()->student_code && $row['id'] === Auth::user()->student_code);
+                        }
                     }
                     return $row['id'] === 'S-101';
                 }
@@ -689,40 +702,60 @@ class PracticePreview extends Component
         // Filter queues by role and Partner Unit
         $scopedLeaveQueue = $this->previewRole === 'student'
             ? array_values(array_filter($this->leaveQueue, function ($q) {
-                if (Auth::check() && Auth::user()->isStudent()) {
-                    return ($q['user_id'] ?? null) === Auth::id() || ($q['student_code'] ?? '') === (Auth::user()->student_code ?? 'S-101');
+                if (Auth::check()) {
+                    if (Auth::user()->isPlatformAdmin()) {
+                        return true;
+                    }
+                    if (Auth::user()->isStudent()) {
+                        return ($q['user_id'] ?? null) === Auth::id() || ($q['student_code'] ?? '') === (Auth::user()->student_code ?? 'S-101');
+                    }
                 }
                 return ($q['student_code'] ?? '') === 'S-101';
             }))
             : ($this->previewRole === 'manager'
                 ? array_values(array_filter($this->leaveQueue, function ($q) {
-                    if (Auth::check() && Auth::user()->isManager()) {
-                        return ($q['manager'] ?? '') === Auth::user()->name
-                            || (int) ($q['engaged_manager_id'] ?? 0) === (int) Auth::id()
-                            || ($q['manager'] ?? '') === 'Direct Report'
-                            || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit;
+                    if (Auth::check()) {
+                        if (Auth::user()->isPlatformAdmin()) {
+                            return true;
+                        }
+                        if (Auth::user()->isManager()) {
+                            return ($q['manager'] ?? '') === Auth::user()->name
+                                || (int) ($q['engaged_manager_id'] ?? 0) === (int) Auth::id()
+                                || ($q['manager'] ?? '') === 'Direct Report'
+                                || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit;
+                        }
                     }
                     return ($q['manager'] ?? '') === 'Sample Manager A';
                 }))
-                : array_values(array_filter($this->leaveQueue, fn ($q) => ! Auth::check() || empty($q['partner_unit']) || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit || count($this->availablePartnerUnits) <= 1)));
+                : array_values(array_filter($this->leaveQueue, fn ($q) => ! Auth::check() || Auth::user()->isPlatformAdmin() || empty($q['partner_unit']) || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit || count($this->availablePartnerUnits) <= 1)));
 
         $scopedClaimQueue = $this->previewRole === 'student'
             ? array_values(array_filter($this->claimQueue, function ($q) {
-                if (Auth::check() && Auth::user()->isStudent()) {
-                    return ($q['user_id'] ?? null) === Auth::id() || ($q['student_code'] ?? '') === (Auth::user()->student_code ?? 'S-101');
+                if (Auth::check()) {
+                    if (Auth::user()->isPlatformAdmin()) {
+                        return true;
+                    }
+                    if (Auth::user()->isStudent()) {
+                        return ($q['user_id'] ?? null) === Auth::id() || ($q['student_code'] ?? '') === (Auth::user()->student_code ?? 'S-101');
+                    }
                 }
                 return ($q['student_code'] ?? '') === 'S-101';
             }))
             : ($this->previewRole === 'manager'
                 ? array_values(array_filter($this->claimQueue, function ($q) {
-                    if (Auth::check() && Auth::user()->isManager()) {
-                        return ($q['manager'] ?? '') === Auth::user()->name
-                            || ($q['manager'] ?? '') === 'Direct Report'
-                            || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit;
+                    if (Auth::check()) {
+                        if (Auth::user()->isPlatformAdmin()) {
+                            return true;
+                        }
+                        if (Auth::user()->isManager()) {
+                            return ($q['manager'] ?? '') === Auth::user()->name
+                                || ($q['manager'] ?? '') === 'Direct Report'
+                                || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit;
+                        }
                     }
                     return ($q['manager'] ?? '') === 'Sample Manager A';
                 }))
-                : array_values(array_filter($this->claimQueue, fn ($q) => ! Auth::check() || empty($q['partner_unit']) || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit || count($this->availablePartnerUnits) <= 1)));
+                : array_values(array_filter($this->claimQueue, fn ($q) => ! Auth::check() || Auth::user()->isPlatformAdmin() || empty($q['partner_unit']) || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit || count($this->availablePartnerUnits) <= 1)));
 
         // Compute actionable unread/pending items for Manager & Partner notification badges & Dashboard Inbox
         $pendingLeaveItems = $this->previewRole === 'manager'

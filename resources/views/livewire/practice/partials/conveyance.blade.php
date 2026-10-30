@@ -50,7 +50,7 @@
                 </div>
                 <p class="mt-2 text-xs leading-relaxed text-slate-500">Add each transport change (From, To, Transport Mode, Amount). Claims older than {{ $conveyanceLateDays }} working days require Partner final approval.</p>
 
-                <form wire:submit.prevent="submitConveyanceClaim" class="mt-6 space-y-4" novalidate>
+                <form wire:key="student-claim-form-{{ $formResetIteration ?? 1 }}" wire:submit.prevent="requestClaimSubmissionConfirm" class="mt-6 space-y-4" novalidate>
                     <div class="grid gap-3 sm:grid-cols-2">
                         <label class="block text-xs font-bold text-slate-700">Journey Date
                             <input type="date" wire:model="claimDate" required class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none focus:border-amber-400">
@@ -369,6 +369,63 @@
             </div>
             <div class="mt-5 flex justify-end">
                 <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700">Close Preview</button>
+            </div>
+        </div>
+    </div>
+@endif
+
+{{-- Conveyance Claim Submission Confirmation Popup Modal --}}
+@if($showClaimSubmitConfirmModal ?? false)
+    <div class="fixed inset-0 z-[85] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+        <div class="w-full max-w-md rounded-2xl border-2 border-[#FCDF02] bg-white p-6 shadow-2xl">
+            <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#17191F] text-[#FCDF02]">
+                        <i data-lucide="receipt" class="h-5 w-5"></i>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-800">CONFIRM CONVEYANCE CLAIM</p>
+                        <h3 class="mt-0.5 text-base font-extrabold text-slate-900">Submit Conveyance Claim?</h3>
+                    </div>
+                </div>
+                <button type="button" wire:click="cancelSubmissionConfirm" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <div class="mt-4 space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700">
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-500">Journey Date:</span>
+                    <strong class="text-slate-900">{{ $claimDate }}</strong>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-500">Audit Client:</span>
+                    <strong class="text-slate-900">{{ $claimClientName }}</strong>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-500">Total Claim Amount:</span>
+                    <strong class="text-sm font-black text-emerald-800">৳ {{ number_format((float)($claimAmount ?: 0), 2) }}</strong>
+                </div>
+                <div class="border-t border-slate-200 pt-2">
+                    <span class="text-slate-500 block mb-0.5">Route &amp; Purpose:</span>
+                    <p class="font-semibold text-slate-800">{{ $claimRoute }}</p>
+                    <p class="text-[11px] text-slate-500 italic mt-0.5">"{{ $claimPurpose }}"</p>
+                </div>
+            </div>
+
+            <p class="mt-3 text-xs leading-relaxed text-slate-500">
+                Click <strong>OK, Confirm &amp; Submit</strong> to log this conveyance claim and notify your supervising Manager / Partner.
+            </p>
+
+            <div class="mt-5 flex justify-end gap-2.5">
+                <button type="button" wire:click="cancelSubmissionConfirm" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer">
+                    Cancel / Edit
+                </button>
+                <button type="button" wire:click="confirmAndSubmitConveyanceClaim" wire:loading.attr="disabled" class="inline-flex items-center gap-1.5 rounded-xl bg-[#FCDF02] px-5 py-2.5 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] shadow-md disabled:opacity-50 cursor-pointer">
+                    <i data-lucide="check-circle-2" class="h-4 w-4"></i>
+                    <span wire:loading.remove wire:target="confirmAndSubmitConveyanceClaim">OK, Confirm &amp; Submit</span>
+                    <span wire:loading wire:target="confirmAndSubmitConveyanceClaim">Submitting...</span>
+                </button>
             </div>
         </div>
     </div>

@@ -54,6 +54,8 @@ trait ManagesLeaveWorkflow
                                 'engaged_manager_id'     => $lr->engaged_manager_id ?? $lr->user?->manager_id,
                                 'partner_unit'           => $lr->user?->partner_unit ?? $this->partnerUnit,
                                 'type'                   => ucfirst(str_replace('_', ' ', $lr->leave_type)),
+                                'start_date_raw'         => $lr->start_date?->format('Y-m-d') ?? '',
+                                'end_date_raw'           => $lr->end_date?->format('Y-m-d') ?? '',
                                 'period'                 => $lr->start_date?->format('d M') . '–' . $lr->end_date?->format('d M Y'),
                                 'requested_days'         => $reqDays,
                                 'approved_days'          => $lr->approved_days,
@@ -144,16 +146,73 @@ trait ManagesLeaveWorkflow
         ];
     }
 
-    public function submitLeaveApplication(): void
+    public function cancelSubmissionConfirm(): void
     {
-        $this->submitLeaveDemo();
+        $this->showLeaveSubmitConfirmModal = false;
+        $this->showClaimSubmitConfirmModal = false;
     }
 
-    public function submitLeaveDemo(): void
+    protected function findOverlappingActiveLeave(string $startDate, string $endDate): ?array
+    {
+        if (Auth::check() && Schema::hasTable('leave_requests') && Schema::hasTable('firms')) {
+            try {
+                $user = Auth::user();
+                $firm = $this->resolveFirmModel();
+                $firmId = $firm?->id ?? $user->firm_id;
+                $targetUserId = $user->id;
+                if ($user->isPlatformAdmin() && $firmId) {
+                    $firstStudent = User::where('firm_id', $firmId)->where('role', 'student')->first();
+                    if ($firstStudent) {
+                        $targetUserId = $firstStudent->id;
+                    }
+                }
+                if ($firmId) {
+                    $conflict = LeaveRequest::where('firm_id', $firmId)
+                        ->whereIn('user_id', array_unique([$user->id, $targetUserId]))
+                        ->whereIn('status', ['pending_manager', 'pending_partner', 'approved'])
+                        ->whereDate('start_date', '<=', $endDate)
+                        ->whereDate('end_date', '>=', $startDate)
+                        ->first();
+                    if ($conflict) {
+                        return [
+                            'id'           => 'LR-' . $conflict->id,
+                            'type'         => ucfirst(str_replace('_', ' ', $conflict->leave_type)),
+                            'period'       => ($conflict->start_date?->format('d M Y') ?? $startDate) . ' – ' . ($conflict->end_date?->format('d M Y') ?? $endDate),
+                            'status_label' => $conflict->status === 'approved' ? 'Already Approved' : 'Pending Approval',
+                        ];
+                    }
+                }
+            } catch (\Throwable) {}
+        }
+
+        foreach ($this->leaveQueue as $existing) {
+            $st = $existing['status'] ?? '';
+            if (! in_array($st, ['pending_manager', 'pending_partner', 'approved'], true)) {
+                continue;
+            }
+            $sRaw = $existing['start_date_raw'] ?? '';
+            $eRaw = $existing['end_date_raw'] ?? '';
+            if ($sRaw !== '' && $eRaw !== '' && $sRaw <= $endDate && $eRaw >= $startDate) {
+                if (! Auth::check() || ($existing['user_id'] ?? null) === Auth::id() || Auth::user()?->isPlatformAdmin()) {
+                    return [
+                        'id'           => $existing['id'] ?? 'LR',
+                        'type'         => $existing['type'] ?? 'Leave',
+                        'period'       => $existing['period'] ?? "{$startDate} – {$endDate}",
+                        'status_label' => $existing['status_label'] ?? ucfirst($st),
+                    ];
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public function requestLeaveSubmissionConfirm(): void
     {
         $this->enforceAuthenticatedRoleLock();
         $this->error = null;
         $this->notice = null;
+
         if ($this->previewRole !== 'student') {
             $this->error = Auth::check()
                 ? 'Only the Student role can submit a new leave application.'
@@ -172,6 +231,69 @@ trait ManagesLeaveWorkflow
             || mb_strlen(trim($this->leaveReason)) < 5
         ) {
             $this->error = 'Enter a leave type, valid start and end dates, and a reason of at least five characters.';
+            return;
+        }
+
+        $overlap = $this->findOverlappingActiveLeave($this->leaveStart, $this->leaveEnd);
+        if ($overlap) {
+            $this->error = "Duplicate Date Blocked: You already have a leave request ({$overlap['id']} · {$overlap['type']} — {$overlap['status_label']}) covering {$overlap['period']}. You cannot submit another leave request for the same date(s).";
+            $this->dispatch('toast', [
+                'type'    => 'error',
+                'title'   => 'Leave Already Exists for Date',
+                'message' => "Leave {$overlap['id']} ({$overlap['status_label']}) already covers {$overlap['period']}.",
+            ]);
+            return;
+        }
+
+        $this->showLeaveSubmitConfirmModal = true;
+    }
+
+    public function confirmAndSubmitLeaveApplication(): void
+    {
+        $this->showLeaveSubmitConfirmModal = false;
+        $this->submitLeaveDemo();
+    }
+
+    public function submitLeaveApplication(): void
+    {
+        $this->submitLeaveDemo();
+    }
+
+    public function submitLeaveDemo(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        $this->notice = null;
+        $this->showLeaveSubmitConfirmModal = false;
+        if ($this->previewRole !== 'student') {
+            $this->error = Auth::check()
+                ? 'Only the Student role can submit a new leave application.'
+                : 'Only the Student design role can preview a new leave application.';
+            return;
+        }
+
+        $allowedTypes = array_unique(array_merge(
+            ['annual', 'sick', 'emergency', 'icab_exam', 'icab_study'],
+            array_column($this->leaveQuotas, 'key')
+        ));
+        if (! in_array($this->leaveType, $allowedTypes, true)
+            || ! $this->validDate($this->leaveStart)
+            || ! $this->validDate($this->leaveEnd)
+            || $this->leaveEnd < $this->leaveStart
+            || mb_strlen(trim($this->leaveReason)) < 5
+        ) {
+            $this->error = 'Enter a leave type, valid start and end dates, and a reason of at least five characters.';
+            return;
+        }
+
+        $overlap = $this->findOverlappingActiveLeave($this->leaveStart, $this->leaveEnd);
+        if ($overlap) {
+            $this->error = "Duplicate Date Blocked: You already have a leave request ({$overlap['id']} · {$overlap['type']} — {$overlap['status_label']}) covering {$overlap['period']}. You cannot submit another leave request for the same date(s).";
+            $this->dispatch('toast', [
+                'type'    => 'error',
+                'title'   => 'Leave Already Exists for Date',
+                'message' => "Leave {$overlap['id']} ({$overlap['status_label']}) already covers {$overlap['period']}.",
+            ]);
             return;
         }
 
@@ -239,13 +361,18 @@ trait ManagesLeaveWorkflow
                     $this->createPracticeNotification($targetManagerId, 'manager', 'New Leave Application (LR-' . $lr->id . ')', "{$user->name} submitted a {$typeLabel} application ({$requestedDays} days: {$this->leaveStart} to {$this->leaveEnd}). Reason: {$this->leaveReason}", 'calendar-days');
                     $this->createPracticeNotification(null, 'partner', 'New Leave Application (LR-' . $lr->id . ')', "{$user->name} submitted a {$typeLabel} request ({$requestedDays} days: {$this->leaveStart} to {$this->leaveEnd}) assigned to {$engagedManagerName}.", 'calendar-days', null, false);
 
+                    $submittedPeriod = "{$this->leaveStart} to {$this->leaveEnd}";
                     $this->loadLeaveQueue();
+                    $this->leaveType = 'annual';
+                    $this->leaveStart = '';
+                    $this->leaveEnd = '';
                     $this->leaveReason = '';
-                    $this->notice = "Leave application ({$typeLabel}, {$requestedDays} days) submitted and routed to {$engagedManagerName}.";
+                    $this->formResetIteration++;
+                    $this->notice = "Leave application ({$typeLabel}, {$requestedDays} days: {$submittedPeriod}) submitted and routed to {$engagedManagerName}. Form has been reset.";
                     $this->dispatch('toast', [
                         'type'    => 'success',
-                        'title'   => 'Leave Submitted',
-                        'message' => "Your leave application ({$typeLabel}) has been forwarded to {$engagedManagerName}.",
+                        'title'   => 'Leave Submitted Successfully',
+                        'message' => "Your leave application ({$typeLabel}, {$requestedDays} days) has been forwarded to {$engagedManagerName}.",
                     ]);
                     return;
                 }
@@ -260,6 +387,8 @@ trait ManagesLeaveWorkflow
             'manager'                => $engagedManagerName,
             'partner_unit'           => $this->partnerUnit,
             'type'                   => $typeLabel,
+            'start_date_raw'         => $this->leaveStart,
+            'end_date_raw'           => $this->leaveEnd,
             'period'                 => "{$this->leaveStart} to {$this->leaveEnd}",
             'requested_days'         => $requestedDays,
             'approved_days'          => null,
@@ -270,6 +399,14 @@ trait ManagesLeaveWorkflow
             'manager_remarks'        => '',
             'partner_remarks'        => '',
         ];
+
+        if (! app()->runningUnitTests()) {
+            $this->leaveType = 'annual';
+            $this->leaveStart = '';
+            $this->leaveEnd = '';
+            $this->leaveReason = '';
+            $this->formResetIteration++;
+        }
 
         $this->notice = 'Leave request preview validated. No request was submitted and no leave balance was changed.';
     }

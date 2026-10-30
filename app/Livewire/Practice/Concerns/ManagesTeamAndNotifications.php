@@ -270,6 +270,7 @@ trait ManagesTeamAndNotifications
                                     'student' => 'Articled Student',
                                     default   => ucfirst($u->role),
                                 },
+                                'avatar_url'             => $u->avatar_url ?? null,
                                 'phone'                  => $u->phone ?: '—',
                                 'payment_account_mode'   => $u->payment_account_mode ?: 'bKash',
                                 'payment_account_no'     => $u->payment_account_no ?: '—',

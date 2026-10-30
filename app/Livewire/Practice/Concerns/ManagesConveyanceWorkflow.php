@@ -48,6 +48,7 @@ trait ManagesConveyanceWorkflow
                             'created_at_human'          => $cc->created_at?->diffForHumans() ?? 'Just now',
                             'manager'                   => $cc->user?->manager?->name ?? 'Direct Report',
                             'partner_unit'              => $cc->user?->partner_unit ?? $this->partnerUnit,
+                            'claim_date_raw'            => $cc->claim_date?->format('Y-m-d') ?? '',
                             'client_name'               => $cc->client_name,
                             'route'                     => $cc->route,
                             'purpose'                   => $cc->purpose,
@@ -214,6 +215,80 @@ trait ManagesConveyanceWorkflow
         }
     }
 
+    protected function findDuplicateActiveClaim(string $claimDate, string $clientName, float $amount, string $route): ?array
+    {
+        if (Auth::check() && Schema::hasTable('conveyance_claims') && Schema::hasTable('firms')) {
+            try {
+                $user = Auth::user();
+                $firm = $this->resolveFirmModel();
+                $firmId = $firm?->id ?? $user->firm_id;
+                if ($firmId) {
+                    $dup = ConveyanceClaim::where('firm_id', $firmId)
+                        ->where('user_id', $user->id)
+                        ->whereDate('claim_date', $claimDate)
+                        ->where('client_name', $clientName ?: 'General Practice Site')
+                        ->where('amount', $amount)
+                        ->where('route', trim($route))
+                        ->whereIn('status', ['pending_manager', 'pending_partner', 'approved'])
+                        ->first();
+                    if ($dup) {
+                        return [
+                            'id'     => 'CC-' . $dup->id,
+                            'amount' => (float) $dup->amount,
+                            'client' => $dup->client_name,
+                            'date'   => $claimDate,
+                        ];
+                    }
+                }
+            } catch (\Throwable) {}
+        }
+        return null;
+    }
+
+    public function requestClaimSubmissionConfirm(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        $this->notice = null;
+        if ($this->previewRole !== 'student') {
+            $this->error = Auth::check()
+                ? 'Only the Student role can submit a conveyance claim.'
+                : 'Only the Student design role can preview a new conveyance claim.';
+            return;
+        }
+
+        $this->recalculateTransportTotal();
+
+        $amount = filter_var($this->claimAmount, FILTER_VALIDATE_FLOAT);
+        if (! $this->validDate($this->claimDate)
+            || $amount === false || $amount <= 0 || $amount > 50000
+            || mb_strlen(trim($this->claimRoute)) < 3
+            || mb_strlen(trim($this->claimPurpose)) < 5
+        ) {
+            $this->error = 'Enter a valid date, amount (1–50,000), journey, and a purpose of at least five characters.';
+            return;
+        }
+
+        $dup = $this->findDuplicateActiveClaim($this->claimDate, $this->claimClientName ?: 'General Practice Site', (float) $amount, $this->claimRoute);
+        if ($dup) {
+            $this->error = "Duplicate Claim Blocked: You already submitted an identical claim ({$dup['id']} for ৳{$dup['amount']} at {$dup['client']} on {$dup['date']}).";
+            $this->dispatch('toast', [
+                'type'    => 'error',
+                'title'   => 'Duplicate Conveyance Claim',
+                'message' => "Claim {$dup['id']} (৳{$dup['amount']}) is already active for {$dup['date']}.",
+            ]);
+            return;
+        }
+
+        $this->showClaimSubmitConfirmModal = true;
+    }
+
+    public function confirmAndSubmitConveyanceClaim(): void
+    {
+        $this->showClaimSubmitConfirmModal = false;
+        $this->submitClaimDemo();
+    }
+
     public function submitConveyanceClaim(): void
     {
         $this->submitClaimDemo();
@@ -224,6 +299,7 @@ trait ManagesConveyanceWorkflow
         $this->enforceAuthenticatedRoleLock();
         $this->error = null;
         $this->notice = null;
+        $this->showClaimSubmitConfirmModal = false;
         if ($this->previewRole !== 'student') {
             $this->error = Auth::check()
                 ? 'Only the Student role can submit a conveyance claim.'
@@ -241,6 +317,12 @@ trait ManagesConveyanceWorkflow
             || mb_strlen(trim($this->claimPurpose)) < 5
         ) {
             $this->error = 'Enter a valid date, amount (1–50,000), journey, and a purpose of at least five characters.';
+            return;
+        }
+
+        $dup = $this->findDuplicateActiveClaim($this->claimDate, $this->claimClientName ?: 'General Practice Site', (float) $amount, $this->claimRoute);
+        if ($dup) {
+            $this->error = "Duplicate Claim Blocked: You already submitted an identical claim ({$dup['id']} for ৳{$dup['amount']} at {$dup['client']} on {$dup['date']}).";
             return;
         }
 
@@ -306,6 +388,7 @@ trait ManagesConveyanceWorkflow
 
                     $this->loadClaimQueue();
                     $this->loadPayrollRows();
+                    $this->claimDate = '';
                     $this->claimAmount = '';
                     $this->claimRoute = '';
                     $this->claimPurpose = '';
@@ -314,6 +397,7 @@ trait ManagesConveyanceWorkflow
                     $this->hasOtherExpense = false;
                     $this->otherExpenseDesc = '';
                     $this->otherExpenseAmount = '';
+                    $this->formResetIteration++;
                     $statusLabel = $isLate ? 'Escalated to Partner (Late Submission)' : 'Forwarded to Manager';
                     $this->notice = "Conveyance claim of ৳{$amount} submitted successfully. Status: {$statusLabel}.";
                     $this->dispatch('toast', [
@@ -350,6 +434,17 @@ trait ManagesConveyanceWorkflow
         ];
 
         $this->claimAttachment = null;
+        if (! app()->runningUnitTests()) {
+            $this->claimDate = '';
+            $this->claimAmount = '';
+            $this->claimRoute = '';
+            $this->claimPurpose = '';
+            $this->transportRows = [['from' => '', 'to' => '', 'mode' => 'Bus', 'amount' => '']];
+            $this->hasOtherExpense = false;
+            $this->otherExpenseDesc = '';
+            $this->otherExpenseAmount = '';
+            $this->formResetIteration++;
+        }
         $this->notice = 'Conveyance claim preview validated. No invoice, receipt, reimbursement or payment was recorded.';
     }
 

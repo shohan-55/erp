@@ -203,3 +203,33 @@
     .xl\:grid-cols-\[minmax\(0\,1\.7fr\)_minmax\(300px\,1fr\)\] { grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); }
 }
 
+/* Phase 10 Landing Page & Modal Utilities */
+.bg-\[#090D16\] { background-color: #090D16; }
+.bg-teal-400 { background-color: #2dd4bf; }
+.bg-indigo-400 { background-color: #818cf8; }
+.text-teal-300 { color: #5eead4; }
+.text-teal-400 { color: #2dd4bf; }
+.text-teal-500 { color: #14b8a6; }
+.text-indigo-300 { color: #a5b4fc; }
+.border-white\/5 { border-color: rgb(255 255 255 / 0.05); }
+.focus\:border-teal-400:focus { border-color: #2dd4bf; }
+.hover\:border-teal-400\/40:hover { border-color: rgb(45 212 191 / 0.4); }
+.hover\:bg-white\/5:hover { background-color: rgb(255 255 255 / 0.05); }
+.hover\:brightness-110:hover { filter: brightness(1.1); }
+.leading-\[1\.12\] { line-height: 1.12; }
+.italic { font-style: italic; }
+.pt-10 { padding-top: 2.5rem; }
+.pt-14 { padding-top: 3.5rem; }
+.pb-16 { padding-bottom: 4rem; }
+.mt-16 { margin-top: 4rem; }
+.space-y-7 > :not([hidden]) ~ :not([hidden]) { margin-top: 1.75rem; }
+@media (min-width: 640px) {
+    .sm\:text-5xl { font-size: 3rem; line-height: 1.08; }
+}
+@media (min-width: 1024px) {
+    .lg\:inline-flex { display: inline-flex; }
+    .lg\:gap-12 { gap: 3rem; }
+    .lg\:pt-14 { padding-top: 3.5rem; }
+    .lg\:pb-24 { padding-bottom: 6rem; }
+}
+
