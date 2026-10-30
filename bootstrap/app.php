@@ -22,6 +22,25 @@ return Application::configure(basePath: dirname(__DIR__))
             'production.preview' => RestrictPreviewInProduction::class,
         ]);
 
+        // A guest who follows a link into a tenant workspace must land on that
+        // firm's own login page (/c/rac/login), not the generic /login that
+        // bounces to the marketing home page. Middleware priority makes
+        // Authenticate run before RequireFirmMember, so the redirect is decided
+        // here rather than by route middleware order.
+        $middleware->redirectGuestsTo(function (\Illuminate\Http\Request $request): string {
+            $slug = $request->route('firmSlug');
+
+            if (is_string($slug) && $slug !== '') {
+                return route('firm.login', ['firmSlug' => strtolower(trim($slug))]);
+            }
+
+            if ($request->is('platform') || $request->is('platform/*')) {
+                return route('platform.login');
+            }
+
+            return route('login');
+        });
+
         // Baseline browser security headers on every web response.
         $middleware->web(append: [
             SecurityHeaders::class,

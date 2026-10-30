@@ -298,7 +298,7 @@ class ProductionWorkspaceTest extends TestCase
 
         // Verify locked period rejects retroactive mutation
         $component->call('transitionPayrollPeriod', 'draft')
-            ->assertNotNull('error');
+            ->assertNotSet('error', null);
     }
 
     public function test_partner_can_propose_and_vote_on_company_policy(): void

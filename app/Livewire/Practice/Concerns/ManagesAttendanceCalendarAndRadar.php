@@ -236,11 +236,7 @@ trait ManagesAttendanceCalendarAndRadar
                 $firm = $this->resolveFirmModel();
                 $firmId = $firm?->id ?? $user->firm_id;
                 if ($firmId) {
-                    $att = Attendance::firstOrNew([
-                        'firm_id' => $firmId,
-                        'user_id' => $user->id,
-                        'date'    => now()->toDateString(),
-                    ]);
+                    $att = $this->todayAttendanceFor((int) $firmId, (int) $user->id);
                     if (! $att->in_time) {
                         $att->in_time = now()->setTime(10, 0);
                         $att->status = 'Incomplete';
@@ -432,11 +428,7 @@ trait ManagesAttendanceCalendarAndRadar
                 $firmId = $firm?->id ?? $user->firm_id;
 
                 if ($firmId) {
-                    $att = Attendance::firstOrNew([
-                        'firm_id' => $firmId,
-                        'user_id' => $user->id,
-                        'date'    => now()->toDateString(),
-                    ]);
+                    $att = $this->todayAttendanceFor((int) $firmId, (int) $user->id);
 
                     $att->out_time = now();
                     $att->out_lat = $lat;
@@ -490,6 +482,33 @@ trait ManagesAttendanceCalendarAndRadar
             : "Check-out appearance simulated (Duty Closed). Out Location captured: {$locName} ({$lat}, {$lng}). No timestamp, geolocation or attendance record was saved.";
     }
 
+
+    /**
+     * Today's attendance row for one member, or an unsaved model to create.
+     *
+     * The `date` column holds a date, but Eloquent's date cast serialises it as
+     * `Y-m-d H:i:s` on insert, so an exact match on `'2026-10-30'` never finds
+     * the row and `firstOrNew()` would try to INSERT a duplicate. The unique
+     * (user_id, date) index then rejected it — silently, because the callers
+     * swallow Throwable — and every check-out after the first was lost.
+     */
+    protected function todayAttendanceFor(int $firmId, int $userId): Attendance
+    {
+        $existing = Attendance::where('firm_id', $firmId)
+            ->where('user_id', $userId)
+            ->whereDate('date', now()->toDateString())
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        return new Attendance([
+            'firm_id' => $firmId,
+            'user_id' => $userId,
+            'date'    => now()->toDateString(),
+        ]);
+    }
 
     // ─── Ultra-Premium Interactive Monthly Calendar & Daily Activity Inspector ─
 
@@ -1318,11 +1337,7 @@ trait ManagesAttendanceCalendarAndRadar
                 $firmId = $firm?->id ?? $user->firm_id;
 
                 if ($firmId) {
-                    $att = Attendance::firstOrNew([
-                        'firm_id' => $firmId,
-                        'user_id' => $user->id,
-                        'date'    => now()->toDateString(),
-                    ]);
+                    $att = $this->todayAttendanceFor((int) $firmId, (int) $user->id);
 
                     $logs = is_array($att->movement_logs) ? $att->movement_logs : [];
 

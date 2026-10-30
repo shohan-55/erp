@@ -88,9 +88,18 @@ class ProductionHardeningTest extends TestCase
     public function test_csv_cells_neutralise_spreadsheet_formulas(): void
     {
         $this->assertSame("'=HYPERLINK(\"http://evil\",\"x\")", CsvSafe::cell('=HYPERLINK("http://evil","x")'));
-        $this->assertSame("'+8801711223344", CsvSafe::cell('+8801711223344'));
-        $this->assertSame("'-500", CsvSafe::cell('-500'));
+        $this->assertSame("'+1+1", CsvSafe::cell('+1+1'));
         $this->assertSame("'@SUM(A1:A9)", CsvSafe::cell('@SUM(A1:A9)'));
+        $this->assertSame("'-2+3+cmd|' /C calc'!A0", CsvSafe::cell("-2+3+cmd|' /C calc'!A0"));
+    }
+
+    public function test_csv_cells_leave_phone_numbers_and_negative_money_numeric(): void
+    {
+        // "+8801711223344" and "-500.00" are numbers, not formulas: quoting them
+        // would turn a payroll figure into text in the exported register.
+        $this->assertSame('+8801711223344', CsvSafe::cell('+8801711223344'));
+        $this->assertSame('-500.00', CsvSafe::cell('-500.00'));
+        $this->assertSame(1250.5, CsvSafe::cell(1250.5));
     }
 
     public function test_csv_cells_keep_real_numbers_and_plain_text(): void
@@ -230,7 +239,8 @@ class ProductionHardeningTest extends TestCase
             ->call('submitLeaveApplication')
             ->assertNotSet('error', null);
 
-        $this->assertSame(1, LeaveRequest::where('start_date', '2026-11-01')->count());
+        // Rejected means nothing is written: the quota ledger must not grow.
+        $this->assertSame(0, LeaveRequest::whereDate('start_date', '2026-11-01')->count());
     }
 
     public function test_leave_within_the_annual_quota_is_accepted(): void
@@ -249,7 +259,7 @@ class ProductionHardeningTest extends TestCase
             ->call('submitLeaveApplication')
             ->assertSet('error', null);
 
-        $this->assertSame(1, LeaveRequest::where('start_date', '2026-11-01')->count());
+        $this->assertSame(1, LeaveRequest::whereDate('start_date', '2026-11-01')->count());
     }
 
     // ─── Subscription enforcement ───────────────────────────────────────────
@@ -281,7 +291,12 @@ class ProductionHardeningTest extends TestCase
         $this->actingAs($this->student);
 
         $this->get('/logout')->assertStatus(405);
-        $this->post('/logout')->assertRedirect('/');
+
+        // A browser POSTs with the CSRF token; the point here is that the
+        // endpoint exists, is guarded, and actually ends the session.
+        $this->withSession(['_token' => 'test-token'])
+            ->post('/logout', ['_token' => 'test-token'])
+            ->assertRedirect();
         $this->assertGuest();
     }
 

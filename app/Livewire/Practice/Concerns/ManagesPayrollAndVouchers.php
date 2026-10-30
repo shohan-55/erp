@@ -102,6 +102,8 @@ trait ManagesPayrollAndVouchers
             $firmModel = $this->resolveFirmModel();
             if ($firmModel) {
                 try {
+                    [$periodStart, $periodEnd] = $this->payrollPeriodBounds();
+
                     $students = User::where('firm_id', $firmModel->id)
                         ->where('role', 'student')
                         ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
@@ -121,7 +123,7 @@ trait ManagesPayrollAndVouchers
                         }
                         $this->payrollStatus = $overallStatus;
 
-                        $this->payrollRows = $students->map(function (User $s) use ($firmModel, $existingRecords) {
+                        $this->payrollRows = $students->map(function (User $s) use ($firmModel, $existingRecords, $periodStart, $periodEnd) {
                             /** @var PayrollRecord|null $rec */
                             $rec = $existingRecords->get($s->id);
 
@@ -325,7 +327,10 @@ trait ManagesPayrollAndVouchers
         $this->enforceAuthenticatedRoleLock();
         $this->error = null;
 
-        if (! in_array($targetStatus, ['reviewed', 'approved', 'paid', 'locked'], true)) {
+        // 'draft' is a real transition (un-review a period that was sent back
+        // for correction). It used to fall through the whitelist and return
+        // silently, so a Partner clicking "Reopen" saw nothing happen at all.
+        if (! in_array($targetStatus, ['draft', 'reviewed', 'approved', 'paid', 'locked'], true)) {
             return;
         }
 
@@ -361,6 +366,12 @@ trait ManagesPayrollAndVouchers
                     $rec->paid_at = now();
                 } elseif ($targetStatus === 'locked') {
                     $rec->locked_at = now();
+                } else {
+                    // Back to draft: clear the review stamps so the ledger
+                    // header does not claim an approval that no longer applies.
+                    $rec->reviewed_by = null;
+                    $rec->approved_by = null;
+                    $rec->paid_at = null;
                 }
                 $rec->save();
             }
