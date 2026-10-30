@@ -69,6 +69,13 @@ class PracticePreview extends Component
     public bool $previewSessionActive = false;
     public string $sessionState = 'inactive'; // inactive, active, on_duty_transit, closed
     public bool $showCheckoutModeModal = false;
+    // Two-step final check-out: choosing "Close" opens a review panel, and the
+    // day only ends once the member ticks the confirmation box and confirms.
+    // A single click can therefore never end somebody's duty day by accident
+    // while they are only travelling between client sites.
+    public bool $showFinalCheckoutReview = false;
+    public bool $finalCloseConfirmed = false;
+    public array $finalCheckoutSummary = [];
     public bool $showMovementTimelineModal = false;
     public ?array $selectedTimelineRow = null;
     public string $clientSite = 'Client Audit Site';
@@ -611,6 +618,9 @@ class PracticePreview extends Component
         $this->showDeleteMemberModal = false;
         $this->showAddNewClientModal = false;
         $this->showCheckoutModeModal = false;
+        $this->showFinalCheckoutReview = false;
+        $this->finalCloseConfirmed = false;
+        $this->finalCheckoutSummary = [];
         $this->showMovementTimelineModal = false;
         $this->showPartialLeaveModal = false;
         $this->showClaimAdjustModal = false;

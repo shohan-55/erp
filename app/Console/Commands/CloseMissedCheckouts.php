@@ -19,6 +19,12 @@ use Illuminate\Support\Facades\Schema;
  * attendance record. It flags the row for correction and notifies the student
  * and their manager once, which is what the missed-check-out workflow already
  * expects.
+ *
+ * It looks at `session_state`, not only at `out_time`. Somebody who taps
+ * "On Duty" at 11:00 to travel to a client and never comes back *has* an
+ * out_time (the departure) and no final check-out, so a `whereNull('out_time')`
+ * sweep would call that day complete and payroll would pay for it. Any row
+ * whose session never reached `closed` is flagged instead.
  */
 class CloseMissedCheckouts extends Command
 {
@@ -38,13 +44,22 @@ class CloseMissedCheckouts extends Command
         $from = now()->subDays($days)->toDateString();
 
         $hasCorrectionFlag = Schema::hasColumn('attendances', 'correction_requested');
+        $hasSessionState = Schema::hasColumn('attendances', 'session_state');
 
         try {
             $query = Attendance::query()
                 ->whereNotNull('in_time')
-                ->whereNull('out_time')
                 ->whereDate('date', '<', now()->toDateString())
-                ->whereDate('date', '>=', $from);
+                ->whereDate('date', '>=', $from)
+                ->where(function ($q) use ($hasSessionState) {
+                    $q->whereNull('out_time');
+
+                    if ($hasSessionState) {
+                        // 'active' or 'on_duty_transit' both mean the day was
+                        // never closed. NULL is legacy data handled above.
+                        $q->orWhere('session_state', '!=', 'closed');
+                    }
+                });
 
             if ($hasCorrectionFlag) {
                 $query->where(function ($q) {
@@ -108,7 +123,9 @@ class CloseMissedCheckouts extends Command
             'target_role' => $role,
             'icon'        => 'clock-alert',
             'title'       => 'Missed Check-out — ' . \Illuminate\Support\Carbon::parse($row->date)->format('d M Y'),
-            'message'     => 'A check-in was recorded with no check-out for '
+            'message'     => ($row->session_state === 'on_duty_transit'
+                    ? 'Your duty was left OPEN on '
+                    : 'A check-in was recorded with no check-out for ')
                 . \Illuminate\Support\Carbon::parse($row->date)->format('d M Y')
                 . '. Please submit a correction request with the actual departure time.',
             'is_read'     => false,

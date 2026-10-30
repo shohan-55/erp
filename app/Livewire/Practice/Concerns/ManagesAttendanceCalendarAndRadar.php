@@ -369,16 +369,155 @@ trait ManagesAttendanceCalendarAndRadar
     }
 
     /**
+     * Step 1 of the final check-out: open the review panel with today's legs.
+     *
+     * Nothing is written here — the member still has to confirm.
+     */
+    public function openFinalCheckoutReview(): void
+    {
+        $this->finalCloseConfirmed = false;
+        $this->finalCheckoutSummary = $this->buildFinalCheckoutSummary();
+        $this->showCheckoutModeModal = true;
+        $this->showFinalCheckoutReview = true;
+        $this->error = null;
+    }
+
+    /**
+     * Step 2 (optional): go back to the Close / On-Duty choice.
+     */
+    public function backToCheckoutChoice(): void
+    {
+        $this->showFinalCheckoutReview = false;
+        $this->finalCloseConfirmed = false;
+        $this->showCheckoutModeModal = true;
+    }
+
+    /**
+     * Step 3: the actual close, only reachable once the box is ticked.
+     */
+    public function confirmFinalCheckout(): void
+    {
+        if (! $this->finalCloseConfirmed) {
+            $this->error = 'Tick "I have finished today\'s duty" to confirm the final check-out.';
+            // Re-open the review so the panel never disappears behind an error.
+            $this->finalCheckoutSummary = $this->buildFinalCheckoutSummary();
+            $this->showFinalCheckoutReview = true;
+            $this->showCheckoutModeModal = true;
+            return;
+        }
+
+        $this->confirmCheckoutWithAction('close');
+    }
+
+    /**
+     * Everything the review panel needs to make the consequence obvious:
+     * each leg of today's movement, the first check-in, the elapsed time and
+     * where the member is standing right now.
+     */
+    public function buildFinalCheckoutSummary(): array
+    {
+        $legs = [];
+        $firstIn = null;
+
+        foreach ($this->studentRows as $row) {
+            $isMine = ($row['id'] ?? null) === 'S-101'
+                || (Auth::check() && (($row['db_id'] ?? null) === Auth::id()));
+
+            if (! $isMine) {
+                continue;
+            }
+
+            $legs = is_array($row['movement_logs'] ?? null) ? $row['movement_logs'] : [];
+
+            foreach ($legs as $leg) {
+                $in = $leg['in_time'] ?? null;
+                if (is_string($in) && preg_match('/^\d{1,2}:\d{2}$/', $in)) {
+                    $firstIn = $firstIn === null ? $in : $firstIn;
+                }
+            }
+
+            if ($firstIn === null && ! empty($row['checkin']) && $row['checkin'] !== '—') {
+                $firstIn = $row['checkin'];
+            }
+
+            break;
+        }
+
+        $now = now()->timezone('Asia/Dhaka');
+        $nowTime = $now->format('H:i');
+
+        $elapsed = '—';
+        if ($firstIn !== null) {
+            try {
+                $start = $now->copy()->setTimeFromTimeString($firstIn);
+                if ($start->greaterThan($now)) {
+                    $start->subDay();
+                }
+                $minutes = (int) max(0, $start->diffInMinutes($now));
+                $elapsed = intdiv($minutes, 60) . 'h ' . str_pad((string) ($minutes % 60), 2, '0', STR_PAD_LEFT) . 'm';
+            } catch (\Throwable) {
+                $elapsed = '—';
+            }
+        }
+
+        $location = $this->currentLocationName ?: ($this->workMode === 'client'
+            ? ($this->clientSite . ' (GPS)')
+            : 'EDB Trade Centre, Karwan Bazar, Dhaka');
+
+        return [
+            'legs'          => $legs,
+            'leg_count'     => count($legs),
+            'first_in'      => $firstIn ?? '—',
+            'now_time'      => $nowTime,
+            'elapsed'       => $elapsed,
+            'location'      => $location,
+            'work_mode'     => ucfirst($this->workMode),
+            'client_site'   => $this->workMode === 'client' ? $this->clientSite : null,
+            'was_on_duty'   => $this->sessionState === 'on_duty_transit',
+        ];
+    }
+
+    /**
      * Execute checkout with either 'close' (end of day) or 'on_duty' (moving to another client/office).
+     *
+     * Ending the day is deliberately a two-step action. "Close" first opens a
+     * review panel (every leg of today's movement, the total duty time and the
+     * current location); the day only ends after the member ticks the
+     * confirmation box. Somebody who is only travelling from client A to
+     * client B therefore cannot end their attendance day with one stray click.
+     *
+     * The gate is enforced here, on the server, not just in the Blade view, so
+     * a double submission or a hand-made Livewire call cannot bypass it.
      */
     public function confirmCheckoutWithAction(string $action = 'close'): void
     {
         $this->enforceAuthenticatedRoleLock();
-        $this->showCheckoutModeModal = false;
 
         if (! in_array($action, ['close', 'on_duty'], true)) {
             $action = 'close';
         }
+
+        if ($action === 'close') {
+            // Nothing to close: the day already ended (or never started).
+            if (! $this->previewSessionActive && $this->sessionState !== 'on_duty_transit') {
+                $this->showCheckoutModeModal = false;
+                $this->showFinalCheckoutReview = false;
+                $this->finalCloseConfirmed = false;
+                $this->notice = 'Today\'s duty is already closed. No further check-out was recorded.';
+                return;
+            }
+
+            if (! $this->finalCloseConfirmed) {
+                // Step 1 — show the review instead of closing.
+                $this->openFinalCheckoutReview();
+                return;
+            }
+        }
+
+        $this->showCheckoutModeModal = false;
+        $this->showFinalCheckoutReview = false;
+        $this->finalCloseConfirmed = false;
+        $this->finalCheckoutSummary = [];
 
         $nowTime = now()->timezone('Asia/Dhaka')->format('H:i');
         $lat = $this->currentLat ?? ($this->workMode === 'client' ? 23.7279 : 23.7516);
@@ -1309,7 +1448,13 @@ trait ManagesAttendanceCalendarAndRadar
                         $row['checkin'] = $nowTime;
                         $row['status'] = $arrivalStatus;
                     }
+                    // A new leg means the member is on site again. The previous
+                    // leg's departure is *not* today's check-out, so the daily
+                    // row must not keep showing it while the session is active.
                     $row['checkout'] = '—';
+                    $row['out_location'] = '—';
+                    $row['out_lat'] = null;
+                    $row['out_lng'] = null;
                     $row['in_lat'] = $lat;
                     $row['in_lng'] = $lng;
                     $row['in_location'] = $locName;
@@ -1360,6 +1505,17 @@ trait ManagesAttendanceCalendarAndRadar
                     if ($this->previewSessionActive) {
                         $att->work_mode = $this->workMode;
                         $att->client_site = $this->workMode === 'client' ? $this->clientSite : null;
+
+                        // Coming back on site: the previous leg's out_time is a
+                        // *departure*, not the day's check-out. Leaving it set
+                        // made the register read "active" and "checked out at
+                        // 11:20" at the same time (no DB constraint would catch
+                        // that, so it has to be cleared deliberately).
+                        $att->out_time = null;
+                        $att->out_lat = null;
+                        $att->out_lng = null;
+                        $att->out_location_name = null;
+
                         if (! $att->in_time) {
                             $att->in_time = now();
                             $att->status = $arrivalStatus;

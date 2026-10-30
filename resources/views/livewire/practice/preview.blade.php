@@ -182,6 +182,8 @@
 
                 @include('livewire.practice.partials.'.$section)
 
+                @include('livewire.practice.partials.attendance-modals')
+
                 <footer class="flex flex-col gap-1 border-t border-slate-200 py-5 text-[11px] text-slate-400 sm:flex-row sm:justify-between">
                     <span>{{ $firm['name'] ?? 'CA Practice' }} • {{ $firm['designation'] ?? 'Chartered Accountants' }} • Powered by DhakaWala ERP</span>
                     <span>All Systems Live & Secure</span>

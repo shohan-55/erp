@@ -560,8 +560,16 @@ class ProductionWorkspaceTest extends TestCase
             ->assertSet("previewSessionActive", true)
             ->assertSet("sessionState", "active");
 
-        // 4. End day -> Choose Option A: Close Duty
+        // 4. End day -> Choose Option A: Close Duty.
+        //    Closing is two-step by design: the first call only opens the
+        //    review panel, and the day ends once the member confirms.
         $component->call("confirmCheckoutWithAction", "close")
+            ->assertSet("showFinalCheckoutReview", true)
+            ->assertSet("previewSessionActive", true)
+            ->assertSet("sessionState", "active");
+
+        $component->set("finalCloseConfirmed", true)
+            ->call("confirmFinalCheckout")
             ->assertSet("previewSessionActive", false)
             ->assertSet("sessionState", "closed");
 
