@@ -151,8 +151,9 @@ class FirmLogin extends Component
             }
         }
 
-        // Fallback for test environment simulation (e.g. SQLite :memory: without migrations)
-        if (! $authenticated && (app()->runningUnitTests() || app()->environment('testing'))) {
+        // Demo personas for the design previews. Gated on an explicit flag so a
+        // stray APP_ENV=testing can never open the sign-in form; see config/erp.php.
+        if (! $authenticated && config('erp.allow_test_logins')) {
             $testUsers = [
                 'partner@dhakawala.com' => ['name' => 'A.K.M. Mohitul Haq, FCA', 'role' => 'partner'],
                 'manager@dhakawala.com' => ['name' => 'Khandaker Tanvir Ahmed, ACA', 'role' => 'manager'],

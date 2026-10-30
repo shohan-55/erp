@@ -151,8 +151,9 @@ class AppShell extends Component
             $authenticated = false;
         }
 
-        // Test environment simulation
-        if (! $authenticated && (app()->runningUnitTests() || app()->environment('testing'))) {
+        // Demo personas for the design previews (explicitly flagged, never
+        // implied by APP_ENV). See config/erp.php.
+        if (! $authenticated && config('erp.allow_test_logins')) {
             $testUsers = [
                 'admin@dhakawala.com' => ['role' => 'admin', 'name' => 'DhakaWala Platform Admin'],
                 'partner@dhakawala.com' => ['role' => 'partner', 'name' => 'A.K.M. Mohitul Haq, FCA'],

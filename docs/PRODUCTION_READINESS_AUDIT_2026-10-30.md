@@ -32,17 +32,25 @@
 > no longer overwrites an existing user's password, `deleteOrganization()` no longer
 > resolves slugs through `orWhere('id', …)`, and the stale `public/build` was rebuilt.
 >
+> **Launch hardening — done.** The two *code* blockers left on the pre-launch checklist are
+> closed: the demo sign-in personas no longer activate on `APP_ENV=testing` (explicit
+> `ERP_ALLOW_TEST_LOGINS` flag, default off) and conveyance receipts/avatars now live on the
+> private disk behind authorised routes, with `php artisan erp:privatise-uploads` to move
+> existing files. The remaining pre-launch items are environment work (MySQL rehearsal,
+> backup restore drill, real SMTP, cron, admin 2FA) — see
+> [`LAUNCH_HARDENING_AND_GO_LIVE_2026-10-30.md`](LAUNCH_HARDENING_AND_GO_LIVE_2026-10-30.md).
+>
 > **Still open (honest list):** payment gateway / invoicing / dunning; Policies + Service
 > extraction out of the Livewire monoliths (still 1.9k + 0.9k lines); pagination and
 > `#[Lazy]` for the 70-property public state; removal of per-request
 > `Schema::hasTable/hasColumn` probing and runtime DDL; MySQL service container in CI;
 > soft deletes and tamper-evident audit logs; email-verification enforcement; Sentry /
-> error tracking; private storage with signed URLs for vouchers; i18n and an accessibility
+> error tracking; i18n and an accessibility
 > pass; terms/privacy pages.
 >
 > **Verification (updated 30 October, evening):** the suite has now been executed on a real
-> PHP 8.4.25 runtime — **139 tests, 563 assertions, all green** — together with a fresh
-> `php artisan migrate` (17 migrations), `route:cache`, `config:cache` and `view:cache`.
+> PHP 8.4.25 runtime — **152 tests, 590 assertions, all green** — together with a fresh
+> `php artisan migrate` (19 migrations), `route:cache`, `config:cache` and `view:cache`.
 > That first execution found four genuine application bugs (check-out rows never persisted,
 > the payroll ledger header stuck on `draft`, reopening a payroll period silently doing
 > nothing, guests bounced to the wrong login page) plus two stale test expectations; all are

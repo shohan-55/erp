@@ -288,7 +288,9 @@ trait ManagesPoliciesHolidaysAndSettings
             ]);
             try {
                 $filename = 'avatar_' . (Auth::id() ?: 'u') . '_' . time() . '.' . $this->myAvatar->getClientOriginalExtension();
-                $this->myAvatar->storeAs('avatars/' . $this->firmSlug, $filename, 'public');
+                // Private disk: avatars are personal data and are served by
+                // the authorised avatar route, not the public web root.
+                $this->myAvatar->storeAs('avatars/' . $this->firmSlug, $filename, 'local');
                 $this->myAvatarUrl = route('firm.avatar.view', ['firmSlug' => $this->firmSlug, 'filename' => $filename]);
                 $avatarChanged = true;
             } catch (\Throwable $e) {

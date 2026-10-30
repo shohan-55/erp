@@ -335,7 +335,10 @@ trait ManagesConveyanceWorkflow
             try {
                 $ext = $this->claimAttachment->getClientOriginalExtension() ?: 'pdf';
                 $safeName = 'voucher_' . date('Ymd_His') . '_' . Str::random(6) . '.' . $ext;
-                $this->claimAttachment->storeAs('conveyance-receipts/' . $this->firmSlug, $safeName, 'public');
+                // Receipts carry financial data, so they belong on the private
+                // disk and are only ever served through the authorised route
+                // (previously `storage:link` exposed them to anyone with the URL).
+                $this->claimAttachment->storeAs('conveyance-receipts/' . $this->firmSlug, $safeName, 'local');
                 $storedAttachmentName = $safeName;
             } catch (\Throwable) {
                 $storedAttachmentName = 'voucher_attached.pdf';

@@ -17,7 +17,7 @@ is required.
 Expected output:
 
 ```
-Tests: 139, Assertions: 563
+Tests: 152, Assertions: 590
 OK
 ```
 
@@ -38,9 +38,9 @@ Results:
 
 | Check | Result |
 |---|---|
-| `php artisan test` (full suite) | **139 tests, 563 assertions — OK** |
+| `php artisan test` (full suite) | **152 tests, 590 assertions — OK** |
 | MySQL/PostgreSQL | not exercised: the suite runs on SQLite `:memory:` |
-| `php artisan migrate` (fresh database, all 17 migrations) | OK |
+| `php artisan migrate` (fresh database, all 19 migrations) | OK |
 | `php artisan optimize` / `route:cache` / `config:cache` | route + config + view cache all build |
 | `php artisan view:cache` (compiles every Blade file) | OK |
 | `npm ci && npm run build` (Vite) | OK — assets in `public/build` |

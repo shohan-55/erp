@@ -179,10 +179,10 @@ Route::middleware(['auth'])->group(function () {
 
 // Secure cPanel-compatible Conveyance Voucher File Viewer (works even without storage:link symlink)
 Route::get('/c/{firmSlug}/voucher-file/{filename}', function (string $firmSlug, string $filename) {
-    $safeSlug = strtolower(trim($firmSlug));
-    $safeFile = basename($filename);
-    $path = storage_path("app/public/conveyance-receipts/{$safeSlug}/{$safeFile}");
-    if (! file_exists($path)) {
+    // Private disk; `firm.member` has already proved the caller belongs to
+    // this firm, so a slug from another tenant is a 403 before we get here.
+    $path = \App\Support\FirmFile::locate('conveyance-receipts', $firmSlug, $filename);
+    if (! $path) {
         abort(404, "Voucher receipt file not found.");
     }
     return response()->file($path);
@@ -190,10 +190,8 @@ Route::get('/c/{firmSlug}/voucher-file/{filename}', function (string $firmSlug, 
 
 // Secure cPanel-compatible Avatar File Viewer (works even without storage:link symlink)
 Route::get('/c/{firmSlug}/avatar-file/{filename}', function (string $firmSlug, string $filename) {
-    $safeSlug = strtolower(trim($firmSlug));
-    $safeFile = basename($filename);
-    $path = storage_path("app/public/avatars/{$safeSlug}/{$safeFile}");
-    if (! file_exists($path)) {
+    $path = \App\Support\FirmFile::locate('avatars', $firmSlug, $filename);
+    if (! $path) {
         abort(404, "Avatar file not found.");
     }
     return response()->file($path);

@@ -100,8 +100,8 @@ class PlatformLogin extends Component
             }
         }
 
-        // Fallback for test environment simulation
-        if (! $authenticated && (app()->runningUnitTests() || app()->environment('testing')) && strtolower(trim($this->email)) === 'admin@dhakawala.com') {
+        // Demo platform operator (explicitly flagged, never implied by APP_ENV).
+        if (! $authenticated && config('erp.allow_test_logins') && strtolower(trim($this->email)) === 'admin@dhakawala.com') {
             $authenticated = true;
             $this->simulatedSuccessMessage = "Authenticated as DhakaWala Platform Admin (admin@dhakawala.com)";
             $this->dispatch('toast', [
