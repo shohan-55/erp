@@ -6,6 +6,45 @@
 **Stack:** Laravel 13 · PHP 8.4 · Livewire 4 · Blade · Tailwind 4 · Vite 8
 **Codebase size:** 177 files, ~20,050 lines (PHP + Blade), 24 Blade views, 20 migrations
 
+> ### 📌 Remediation status — updated 30 October 2026
+>
+> This document is the **original snapshot** of the codebase at `16c15ae`; the findings below
+> are kept verbatim so the reasoning stays auditable. What has since been fixed:
+>
+> **P0 (all 7) — fixed.** Invitation-based account takeover, manager→partner escalation,
+> hard-coded super-admin emails, the wrong default timezone, hard-coded passwords, fail-open
+> previews and destructive deletion without a backup. See
+> [`SECURITY_FIXES_2026-10-30.md`](SECURITY_FIXES_2026-10-30.md).
+>
+> **P1 — fixed so far.** Security headers + trusted-proxy-aware sessions; GET→POST logout;
+> email delivery for invitations and password resets (`TeamInvitationMail`, `Mail::raw`);
+> leave-quota enforcement; payroll period bounds and month-length-independent daily rate;
+> partner-unit scoping on attendance/leave/claims; subscription-expiry enforcement
+> (`RequireActiveSubscription`); CSV formula-injection guard (`CsvSafe`); escaped HTML
+> exports; composite indexes on the hot paths; date-range queries instead of `LIKE '2026-10%'`;
+> **TOTP two-factor authentication** for platform, firm and portal sign-in (opt-in, inert
+> until confirmed); scheduled `erp:backup`, `erp:flag-missed-checkouts`,
+> `erp:subscription-expiry-reminder`; `/health` readiness probe; CI on every branch plus
+> Dependabot; the 120 KB inline CSS bundle moved into a cached stylesheet.
+>
+> **P2 — fixed so far.** `LOG_LEVEL=warning`, session encryption, 120-minute sessions,
+> 14-day log retention, `robots.txt` no longer invites crawlers into the app, provisioning
+> no longer overwrites an existing user's password, `deleteOrganization()` no longer
+> resolves slugs through `orWhere('id', …)`, and the stale `public/build` was rebuilt.
+>
+> **Still open (honest list):** payment gateway / invoicing / dunning; Policies + Service
+> extraction out of the Livewire monoliths (still 1.9k + 0.9k lines); pagination and
+> `#[Lazy]` for the 70-property public state; removal of per-request
+> `Schema::hasTable/hasColumn` probing and runtime DDL; MySQL service container in CI;
+> soft deletes and tamper-evident audit logs; email-verification enforcement; Sentry /
+> error tracking; private storage with signed URLs for vouchers; i18n and an accessibility
+> pass; terms/privacy pages.
+>
+> **Verification caveat:** this branch was still developed without a PHP runtime. Every PHP
+> file was parse-checked (`token_get_all`, 117/117), the TOTP implementation was executed
+> against the RFC 6238 vectors in a WASM PHP build, and the full PHPUnit suite must be run
+> once on a real host (`php artisan test`) before merging.
+
 ---
 
 ## 0. Audit Method & Limitations

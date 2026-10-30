@@ -88,22 +88,43 @@ avatar-file route now requires `auth` + `firm.member`.
 
 | Check | Result |
 |-------|--------|
-| PHP syntax (`token_get_all`, `TOKEN_PARSE`) on all PHP files | **103 / 103 OK** |
+| PHP syntax (`token_get_all`, `TOKEN_PARSE`) on all PHP files | **117 / 117 OK** (second pass) |
 | Import / symbol audit (Str, Hash, User::ROLE_*, `can_manage_team`, `firm.member` alias, `RequireFirmMember`) | ✅ all present |
 | Regression tests added | **22** (`SecurityHardeningTest` 16, `DataRetentionAndDeletionTest` 6) |
 | Full PHPUnit suite | ⚠️ **not executed here** — the sandbox has no PHP runtime with `mbstring`/`pdo_sqlite`; the new tests are written against the exact patterns of the existing green tests and run in GitHub Actions (`php artisan test`). |
-| Front-end build | ✅ `npm ci && npm run build` succeeds (Vite 8); committed `public/build` left untouched. |
+| Front-end build | ✅ `npm ci && npm run build` succeeds (Vite 8); rebuilt assets committed in `86582a3`. |
+| TOTP algorithm | ✅ executed against the RFC 6238 reference vectors in a WASM PHP build — 22/22 checks pass |
 
 > **Before merging:** run `php artisan test` once locally. The two areas most worth watching
 > are the invitation tests (they assert the new token-only behaviour) and the Phase 03
 > deletion tests (they now also write a backup file before deleting).
 
-## Still open (P1/P2 from the audit — not touched here)
+## Phase 2 — P1/P2 hardening (same day, second pass)
 
-1. No transactional email (`Mail::` unused): invitations and password resets never reach an inbox.
-2. Manager-visible policy settings let a Manager raise their own conveyance limit / office start time.
-3. `loadPayrollRows()` filters by the viewer's `partner_unit` while `generatePayrollDraft()` writes the whole firm.
-4. N+1 queries in attendance/payroll registers; ~128 KB inline CSS per page.
-5. No 2FA, no email verification, no session listing/revocation UI.
-6. Per-request `Schema::hasTable/hasColumn` probing (~190 calls) and runtime DDL in `Firm::ensureRuntimeSchemaColumns()`.
-7. Remaining hard-coded test-account login shortcuts in `AppShell`/`FirmLogin`/`PlatformLogin` — they are gated to `testing`, but should not ship at all.
+| Commit | What it closes |
+|---|---|
+| `2fbbb56` | Security headers middleware, POST-only logout, session/remember-token hygiene, `CsvSafe` formula-injection guard, escaped HTML exports, voucher/avatar access control |
+| `c7b3b9e` | Leave-quota enforcement, subscription-expiry gate, partner-unit scoping on approvals/attendance edits, real invitation + reset emails, payroll period bounds, composite indexes, date-range queries |
+| `8261ca7` | `/health` readiness probe, scheduled `erp:backup`, `erp:flag-missed-checkouts`, `erp:subscription-expiry-reminder`, provisioning no longer resets existing passwords |
+| `c972ec7` | `ProductionHardeningTest` — 17 regression cases for the above |
+| `86582a3` | `public/build` rebuilt from the current source (was stale) |
+| `0d016dc` | CI on every branch, non-blocking `composer audit` / `npm audit`, Dependabot |
+| `97b0a9a` | **TOTP two-factor authentication** (`app/Support/TwoFactor.php`, `erp:two-factor`, opt-in, inert until confirmed) |
+| `260f116` | 120 KB inline Tailwind bundle → cached `public/css/brand-theme.css` (+ `.htaccess` cache/compression headers) |
+
+### Still open after both passes
+
+1. **Billing** — no payment gateway, invoice, receipt or dunning; `subscription_fee` is a manual
+   ledger field. Subscription *expiry* is now enforced, collection is not.
+2. **Architecture** — `DashboardPreview` (~1.9k lines) and `PracticePreview` (~0.9k lines + traits)
+   still hold business logic; no Policies/Services; the 8 Gates in `AppServiceProvider` remain
+   unused. This is the main long-term risk, not a launch blocker.
+3. **Scale** — no pagination; queues of leave/claims/payroll rows are loaded into public Livewire
+   properties. Fine for a firm of 10–30 seats, not for 200.
+4. **Runtime schema probing** — ~190 `Schema::hasTable/hasColumn` calls per render and
+   `Firm::ensureRuntimeSchemaColumns()` can still issue DDL inside a request.
+5. **Email verification, session listing/revocation UI, per-firm SMTP** — not implemented.
+6. **Testing depth** — CI runs SQLite only; no MySQL job, no coverage gate, no Playwright in this
+   branch. The two remaining `testing`-only login shortcuts in the sign-in components still ship.
+7. **Storage** — vouchers are receipts with financial data and still live on the `public` disk.
+8. **Legal/UX** — no terms/privacy pages, no Bengali i18n layer, no accessibility audit.
