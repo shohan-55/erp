@@ -253,7 +253,9 @@ trait ManagesAttendanceCalendarAndRadar
                     $this->createPracticeNotification($user->manager_id, 'manager', 'Missed Check-out Request', "{$user->name} requested missed check-out time {$outTime}: {$reason}", 'clock-3');
                     $this->loadAttendanceRows();
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) {
+                Log::error('attendance persistence failed: ' . $e->getMessage(), ['user' => Auth::id()]);
+            }
         }
 
         $this->missedOutReason = '';
@@ -333,7 +335,9 @@ trait ManagesAttendanceCalendarAndRadar
                         }
                     }
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) {
+                Log::error('attendance persistence failed: ' . $e->getMessage(), ['user' => Auth::id()]);
+            }
         }
 
         $this->notice = "Approved missed check-out ({$approvedOut}) for {$studentCode}.";
@@ -474,7 +478,9 @@ trait ManagesAttendanceCalendarAndRadar
                         : "Daily duty closed and Check-out logged at {$nowTime}.";
                     return;
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) {
+                Log::error('attendance persistence failed: ' . $e->getMessage(), ['user' => Auth::id()]);
+            }
         }
 
         $this->notice = $action === 'on_duty'
@@ -522,7 +528,9 @@ trait ManagesAttendanceCalendarAndRadar
                 $this->selectedCalendarDate = $next->format('Y-m-01');
                 $this->loadMonthlyCalendarData();
             }
-        } catch (\Throwable) {}
+        } catch (\Throwable $e) {
+            Log::error('attendance persistence failed: ' . $e->getMessage(), ['user' => Auth::id()]);
+        }
     }
 
     public function selectCalendarDate(string $dateYmd): void
@@ -597,7 +605,9 @@ trait ManagesAttendanceCalendarAndRadar
                     }
                     $leavesList = $lrQuery->get()->all();
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) {
+                Log::error('attendance persistence failed: ' . $e->getMessage(), ['user' => Auth::id()]);
+            }
         }
 
         $days = [];
@@ -732,7 +742,9 @@ trait ManagesAttendanceCalendarAndRadar
                         'status' => ucfirst(str_replace('_', ' ', $l->status)),
                     ])->toArray();
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) {
+                Log::error('attendance persistence failed: ' . $e->getMessage(), ['user' => Auth::id()]);
+            }
         }
 
         // If viewing today and attRecords is empty, fall back to in-memory studentRows that have checkin !== —
@@ -850,7 +862,9 @@ trait ManagesAttendanceCalendarAndRadar
                         $lateDays = $mAtts->where('status', 'Late')->count();
                         $latePresDays = $mAtts->where('status', 'Late Present')->count();
                     }
-                } catch (\Throwable) {}
+                } catch (\Throwable $e) {
+                Log::error('attendance persistence failed: ' . $e->getMessage(), ['user' => Auth::id()]);
+            }
             }
 
             $totalRecorded = max(1, $rightDays + $lateDays + $latePresDays);
@@ -1269,7 +1283,9 @@ trait ManagesAttendanceCalendarAndRadar
                         ['location' => $this->currentLocationName ?: 'Client Site', 'created_by' => Auth::id()]
                     );
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) {
+                Log::error('attendance persistence failed: ' . $e->getMessage(), ['user' => Auth::id()]);
+            }
         }
 
         $this->previewSessionActive = ! $this->previewSessionActive;
@@ -1415,7 +1431,9 @@ trait ManagesAttendanceCalendarAndRadar
                         : "Check-out logged successfully at {$nowTime}.";
                     return;
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) {
+                Log::error('attendance persistence failed: ' . $e->getMessage(), ['user' => Auth::id()]);
+            }
         }
 
         if ($this->previewSessionActive && ! app()->runningUnitTests()) {
