@@ -376,6 +376,15 @@ class PracticePreview extends Component
         if (Auth::check()) {
             /** @var User $user */
             $user = Auth::user();
+
+            // A deactivated (departed) member may still hold a session cookie.
+            // is_active exists precisely to retain their payroll history while
+            // removing access, so it has to be enforced here too — the preview
+            // routes are not behind firm.member.
+            if (! $user->isActive()) {
+                abort(403, 'This account has been deactivated. Please contact your practice administrator.');
+            }
+
             if ($user->isFirmMember()) {
                 if ($user->firm && ! $user->belongsToFirm($this->firmSlug)) {
                     abort(403, 'You do not have access to this practice workspace.');
