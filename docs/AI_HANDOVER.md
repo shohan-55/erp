@@ -1,6 +1,6 @@
 # AI / Developer Handover — DhakaWala ERP
 
-**Read this before touching anything.** Last updated: 30 October 2026.
+**Read this before touching anything.** Last updated: 31 October 2026.
 
 This file exists because the project has been worked on by several AI sessions and
 one of them already lost time re-discovering the same facts. Everything below was
@@ -11,7 +11,8 @@ Read order: `BLUEPRINT.md` (product/architecture history) → `CLAUDE.md` (editi
 [`docs/ATTENDANCE_MOVEMENT.md`](ATTENDANCE_MOVEMENT.md) if you touch anything under
 `app/Livewire/Practice/Concerns/ManagesAttendance*`, and
 [`docs/WORKING_DAY_EXCEPTIONS.md`](WORKING_DAY_EXCEPTIONS.md) before changing how
-lateness is classified.
+lateness is classified, and [`docs/LANDING_PAGE.md`](LANDING_PAGE.md) before
+touching the public landing page or its Light/Dark switch.
 
 ---
 
@@ -162,7 +163,15 @@ Minimum bar for any change:
     `effectiveOfficeHoursFor($date)` — never read `$this->officeStart` directly
     for a classification. Pinned by `tests/Feature/WorkingDayExceptionTest.php`;
     rules in [`docs/WORKING_DAY_EXCEPTIONS.md`](WORKING_DAY_EXCEPTIONS.md).
-17. **`Late (Excused)` is a real status and payroll must ignore it.** The ledger
+17. **The landing page paints from tokens, never from raw hex.** Every colour on
+    `/` comes from a `--dw-*` custom property in `resources/css/app.css`; the light
+    palette lives in a `[data-theme="light"] .dw-landing` block. A hard-coded
+    `style="background:#0B1120"` silently breaks Dark/Light — which is exactly why
+    the previous version could never have a light mode. The theme attribute is set
+    by an inline script in the layout `<head>` *before* the stylesheet paints; do
+    not move it into the Vite bundle or the page flashes the wrong palette.
+    Details: [`docs/LANDING_PAGE.md`](LANDING_PAGE.md).
+18. **`Late (Excused)` is a real status and payroll must ignore it.** The ledger
     filters `whereIn('status', ['Late', 'Late Present'])` — that is the guarantee
     that a declared exception can never cost a member money. If you add a new
     late-ish status, it must be excluded here too, and the calendar, leaderboard
@@ -205,6 +214,14 @@ suite, no load test, PHP 8.3 not exercised (8.4 is).
 
 ## 7. Change log (most recent first)
 
+- **2026-10-31 — landing page rebuilt, with a real Light / Dark switch.** `/` was
+  rebuilt from scratch: token-driven palette (`.dw-landing` in `app.css`), a
+  masthead theme switch persisted in `localStorage` and resolved before first
+  paint, a CSS product shot of the real attendance register, and the sign-in form
+  moved out of the hero into its own section (`#portal-login-card`). The Livewire
+  bindings, the `#features` / `#workflow` anchors and the `Rahman Anis` test hook
+  are unchanged. New doc: [`docs/LANDING_PAGE.md`](LANDING_PAGE.md), invariant 17.
+  Suite: **194 tests / 762 assertions**. `public/build` rebuilt.
 - **2026-10-31 — working day exceptions (hartal / late opening / early close).**
   A Partner can now change one date's office hours, widen the grace period, or
   switch lateness off entirely for that date, **without touching the standing
