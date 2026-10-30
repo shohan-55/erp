@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\ConfirmsTwoFactor;
 use App\Models\User;
 use App\Services\FirmRegistry;
 use Illuminate\Support\Facades\Auth;
@@ -12,6 +13,8 @@ use Livewire\Component;
 
 class AppShell extends Component
 {
+    use ConfirmsTwoFactor;
+
     // ─── Unified Portal Authentication ──────────────────────────────────────
     public string $email = '';
     public string $password = '';
@@ -189,6 +192,16 @@ class AppShell extends Component
             Auth::logout();
             $this->loginError = 'This account has been deactivated. Please contact your practice administrator.';
             $this->password = '';
+            return;
+        }
+
+        // ─── Optional second factor (P1-3.2) ──────────────────────────────
+        // Inert unless this account has enrolled a TOTP secret.
+        if ($user && ! $this->twoFactorGate($user)) {
+            // Keep the password: the follow-up submit re-runs Auth::attempt
+            // together with the code, and forcing a retype here only trains
+            // people to paste passwords around.
+            $this->loginError = $this->twoFactorError;
             return;
         }
 

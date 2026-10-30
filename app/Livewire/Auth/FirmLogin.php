@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Auth;
 
+use App\Livewire\Concerns\ConfirmsTwoFactor;
 use App\Models\User;
 use App\Services\FirmRegistry;
 use Illuminate\Support\Facades\Auth;
@@ -13,6 +14,8 @@ use Livewire\Component;
 
 class FirmLogin extends Component
 {
+    use ConfirmsTwoFactor;
+
     // Bound to {firmSlug} route parameter
     public string $firmSlug = 'rac';
     public ?array $firm = null;
@@ -204,6 +207,16 @@ class FirmLogin extends Component
             Auth::logout();
             $this->validationError = 'Platform administrators must log in via the platform portal.';
             $this->password = '';
+            return;
+        }
+
+        // ─── Optional second factor (P1-3.2) ──────────────────────────────
+        // Inert unless this member has enrolled a TOTP secret.
+        if ($user && ! $this->twoFactorGate($user)) {
+            // Keep the password: the follow-up submit re-runs Auth::attempt
+            // together with the code, and forcing a retype here only trains
+            // people to paste passwords around.
+            $this->validationError = $this->twoFactorError;
             return;
         }
 

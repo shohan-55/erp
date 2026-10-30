@@ -54,9 +54,14 @@ class User extends Authenticatable
         'invitation_sent_at',
         'email_verified_at',
         'is_active',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'two_factor_confirmed_at',
     ];
 
     protected $hidden = [
+        'two_factor_secret',
+        'two_factor_recovery_codes',
         'password',
         'remember_token',
         'invitation_token',
@@ -76,6 +81,9 @@ class User extends Authenticatable
             'can_approve_claims'     => 'boolean',
             'can_manage_team'        => 'boolean',
             'is_active'              => 'boolean',
+            'two_factor_confirmed_at' => 'datetime',
+            'two_factor_secret'       => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
             'monthly_allowance'      => 'decimal:2',
         ];
     }
@@ -150,6 +158,17 @@ class User extends Authenticatable
     public function isFirmMember(): bool
     {
         return in_array($this->role, [self::ROLE_PARTNER, self::ROLE_MANAGER, self::ROLE_STUDENT], true);
+    }
+
+    /**
+     * Has this account completed TOTP enrolment?
+     *
+     * Deliberately strict: a secret without a confirmation timestamp is an
+     * abandoned enrolment and must not lock the user out.
+     */
+    public function hasTwoFactorEnabled(): bool
+    {
+        return ! empty($this->two_factor_secret) && $this->two_factor_confirmed_at !== null;
     }
 
     public function isActive(): bool
