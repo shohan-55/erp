@@ -60,6 +60,8 @@ jobs:
         run: |
           sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env
           sed -i 's/^CACHE_STORE=.*/CACHE_STORE=file/' .env
+          # Design preview routes are fail-closed; enable them only for this throwaway CI server.
+          echo 'ERP_DEMO_MODE=true' >> .env
           nohup php artisan serve --host=127.0.0.1 --port=8000 > /tmp/laravel-preview.log 2>&1 &
           for i in $(seq 1 20); do
             if curl --silent --fail http://127.0.0.1:8000/platform/dashboard-preview > /tmp/platform-preview.html; then

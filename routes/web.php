@@ -151,4 +151,4 @@ Route::get('/c/{firmSlug}/avatar-file/{filename}', function (string $firmSlug, s
         abort(404, "Avatar file not found.");
     }
     return response()->file($path);
-})->name('firm.avatar.view');
+})->middleware(['auth', 'firm.member'])->name('firm.avatar.view');
