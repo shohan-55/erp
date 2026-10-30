@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Component;
 
@@ -1548,7 +1549,7 @@ class DashboardPreview extends Component
         } else {
             try {
                 if (Schema::hasTable('firms')) {
-                    $dbFirm = Firm::where('slug', $cleanSlug)->orWhere('id', $cleanSlug)->first();
+                    $dbFirm = $this->resolveFirmBySlug($cleanSlug);
                     $this->firmToDeleteName = $dbFirm ? $dbFirm->name : $cleanSlug;
                 }
             } catch (\Throwable) {
@@ -1601,11 +1602,71 @@ class DashboardPreview extends Component
     }
 
     /**
-     * Safely delete all firm records in transactional order without column assumption.
+     * Resolve a firm strictly by slug.
+     *
+     * "firm-3" is a legacy slug, not a numeric id: the old `orWhere('id', $slug)`
+     * allowed a slug such as "12" to silently target firm id 12.
+     */
+    protected function resolveFirmBySlug(string $slug): ?Firm
+    {
+        $slug = trim($slug);
+
+        if ($slug === '' || ! Schema::hasTable('firms')) {
+            return null;
+        }
+
+        $query = Firm::where('slug', $slug);
+
+        if (str_starts_with($slug, 'firm-')) {
+            $fallback = trim(substr($slug, 5));
+            if ($fallback !== '') {
+                $query->orWhere('slug', $fallback);
+            }
+        }
+
+        return $query->first();
+    }
+
+    /**
+     * Write a verified JSON backup of a tenant to disk before it is destroyed.
+     *
+     * Returns the stored path, or null when the backup could not be written —
+     * callers must abort the deletion in that case.
+     */
+    protected function persistFirmBackupBeforeDeletion(Firm $firm): ?string
+    {
+        try {
+            $payload = $this->compileFirmBackupPayload((string) $firm->slug);
+            $payload['action'] = 'AUTOMATIC_BACKUP_BEFORE_DELETION';
+            $payload['firm_id'] = $firm->id;
+
+            $path = 'backups/firms/firm-' . $firm->id . '-' . now()->format('Y_m_d_His') . '.json';
+            $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+            if ($json === false || ! Storage::disk('local')->put($path, $json)) {
+                return null;
+            }
+
+            return $path;
+        } catch (\Throwable $e) {
+            Log::error('Firm backup before deletion failed: ' . $e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
+     * Delete every record belonging to a firm, atomically.
+     *
+     * The whole cascade runs inside one transaction, so a failure part-way
+     * through can no longer leave a half-deleted tenant behind. Audit logs are
+     * detached (append-only) and any tenant-scoped table added by a future
+     * migration is swept, so no orphaned rows survive.
      */
     protected function performSafeFirmDeletion(int $firmId): void
     {
         $driver = DB::connection()->getDriverName();
+
         if ($driver === 'mysql') {
             DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         } elseif ($driver === 'sqlite') {
@@ -1613,58 +1674,93 @@ class DashboardPreview extends Component
         }
 
         try {
-            $userIds = [];
-            if (Schema::hasTable('users') && Schema::hasColumn('users', 'firm_id')) {
-                $userIds = DB::table('users')->where('firm_id', $firmId)->pluck('id')->all();
-            }
+            DB::transaction(function () use ($firmId): void {
+                $userIds = [];
+                if (Schema::hasTable('users') && Schema::hasColumn('users', 'firm_id')) {
+                    $userIds = DB::table('users')->where('firm_id', $firmId)->pluck('id')->all();
+                }
 
-            if (Schema::hasTable('users') && Schema::hasColumn('users', 'firm_id') && Schema::hasColumn('users', 'manager_id')) {
-                DB::table('users')->where('firm_id', $firmId)->update(['manager_id' => null]);
-            }
+                if (Schema::hasTable('users') && Schema::hasColumn('users', 'firm_id') && Schema::hasColumn('users', 'manager_id')) {
+                    DB::table('users')->where('firm_id', $firmId)->update(['manager_id' => null]);
+                }
 
-            if (Schema::hasTable('sessions') && ! empty($userIds) && Schema::hasColumn('sessions', 'user_id')) {
-                DB::table('sessions')->whereIn('user_id', $userIds)->delete();
-            }
+                if (Schema::hasTable('sessions') && ! empty($userIds) && Schema::hasColumn('sessions', 'user_id')) {
+                    DB::table('sessions')->whereIn('user_id', $userIds)->delete();
+                }
 
-            $firmScopedTables = [
-                'partner_policies',
-                'practice_holidays',
-                'attendances',
-                'leave_requests',
-                'conveyance_claims',
-                'payroll_records',
-                'practice_notifications',
-                'policy_proposals',
-                'audit_logs',
-                'audit_clients',
-            ];
-
-            foreach ($firmScopedTables as $tableName) {
-                if (Schema::hasTable($tableName)) {
-                    if (Schema::hasColumn($tableName, 'firm_id')) {
-                        DB::table($tableName)->where('firm_id', $firmId)->delete();
+                // APPEND-ONLY AUDIT TRAIL: keep the platform's own history even
+                // when the tenant is gone; detach it instead of deleting it.
+                if (Schema::hasTable('audit_logs')) {
+                    if (Schema::hasColumn('audit_logs', 'firm_id')) {
+                        DB::table('audit_logs')->where('firm_id', $firmId)->update(['firm_id' => null]);
                     }
-                    if (! empty($userIds)) {
-                        foreach (['user_id', 'partner_id', 'actor_id', 'proposed_by', 'engaged_manager_id'] as $userCol) {
-                            if (Schema::hasColumn($tableName, $userCol)) {
-                                DB::table($tableName)->whereIn($userCol, $userIds)->delete();
+                    if (! empty($userIds) && Schema::hasColumn('audit_logs', 'actor_id')) {
+                        DB::table('audit_logs')->whereIn('actor_id', $userIds)->update(['actor_id' => null]);
+                    }
+                }
+
+                $firmScopedTables = [
+                    'partner_policies',
+                    'practice_holidays',
+                    'attendances',
+                    'leave_requests',
+                    'conveyance_claims',
+                    'payroll_records',
+                    'practice_notifications',
+                    'policy_proposals',
+                    'audit_clients',
+                ];
+
+                foreach ($firmScopedTables as $tableName) {
+                    if (Schema::hasTable($tableName)) {
+                        if (Schema::hasColumn($tableName, 'firm_id')) {
+                            DB::table($tableName)->where('firm_id', $firmId)->delete();
+                        }
+                        if (! empty($userIds)) {
+                            foreach (['user_id', 'partner_id', 'actor_id', 'proposed_by', 'engaged_manager_id'] as $userCol) {
+                                if (Schema::hasColumn($tableName, $userCol)) {
+                                    DB::table($tableName)->whereIn($userCol, $userIds)->delete();
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            if (Schema::hasTable('users')) {
-                if (Schema::hasColumn('users', 'firm_id')) {
-                    DB::table('users')->where('firm_id', $firmId)->delete();
-                } elseif (! empty($userIds)) {
-                    DB::table('users')->whereIn('id', $userIds)->delete();
+                // Safety net: any other tenant-scoped table must not be orphaned.
+                try {
+                    foreach (Schema::getTableListing() as $listing) {
+                        $tableName = str_contains($listing, '.')
+                            ? substr($listing, strrpos($listing, '.') + 1)
+                            : $listing;
+
+                        if (in_array($tableName, [
+                            'firms', 'users', 'audit_logs', 'sessions', 'migrations',
+                            'password_reset_tokens', 'cache', 'cache_locks',
+                            'jobs', 'job_batches', 'failed_jobs',
+                        ], true)) {
+                            continue;
+                        }
+
+                        if (Schema::hasColumn($tableName, 'firm_id')) {
+                            DB::table($tableName)->where('firm_id', $firmId)->delete();
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('Firm deletion sweep skipped: ' . $e->getMessage());
                 }
-            }
 
-            if (Schema::hasTable('firms')) {
-                DB::table('firms')->where('id', $firmId)->delete();
-            }
+                if (Schema::hasTable('users')) {
+                    if (Schema::hasColumn('users', 'firm_id')) {
+                        DB::table('users')->where('firm_id', $firmId)->delete();
+                    } elseif (! empty($userIds)) {
+                        DB::table('users')->whereIn('id', $userIds)->delete();
+                    }
+                }
+
+                if (Schema::hasTable('firms')) {
+                    DB::table('firms')->where('id', $firmId)->delete();
+                }
+            });
         } finally {
             if ($driver === 'mysql') {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1;');
@@ -1688,14 +1784,28 @@ class DashboardPreview extends Component
 
         try {
             if (Schema::hasTable('firms')) {
-                $dbFirm = Firm::where('slug', $slug)
-                    ->orWhere('id', $slug)
-                    ->when(str_starts_with($slug, 'firm-'), fn ($q) => $q->orWhere('slug', substr($slug, 5)))
-                    ->first();
+                // SECURITY: resolve by slug only. The old `orWhere('id', $slug)`
+                // meant that deleting slug "12" silently targeted firm id 12.
+                $dbFirm = $this->resolveFirmBySlug($slug);
 
                 if ($dbFirm) {
                     $firmName = $dbFirm->name;
                     $firmId = $dbFirm->id;
+
+                    // DISASTER RECOVERY: never destroy a tenant without a verified
+                    // on-disk backup. If the backup cannot be written, nothing is
+                    // deleted and the operator is told why.
+                    $backupPath = $this->persistFirmBackupBeforeDeletion($dbFirm);
+                    if ($backupPath === null) {
+                        $this->previewNotice = 'Deletion aborted: a verified backup could not be written. No data was removed.';
+                        $this->dispatch('toast', [
+                            'type'    => 'error',
+                            'title'   => 'Deletion Aborted',
+                            'message' => 'A verified backup could not be written, so no data was removed.',
+                        ]);
+
+                        return;
+                    }
 
                     $this->performSafeFirmDeletion($firmId);
 
@@ -1757,10 +1867,7 @@ class DashboardPreview extends Component
         ];
 
         if (Schema::hasTable('firms')) {
-            $dbFirm = Firm::where('slug', $slug)
-                ->orWhere('id', $slug)
-                ->when(str_starts_with($slug, 'firm-'), fn ($q) => $q->orWhere('slug', substr($slug, 5)))
-                ->first();
+            $dbFirm = $this->resolveFirmBySlug($slug);
 
             if ($dbFirm) {
                 $firmId = $dbFirm->id;
@@ -1817,12 +1924,15 @@ class DashboardPreview extends Component
 
         try {
             if (Schema::hasTable('firms')) {
-                $dbFirm = Firm::where('slug', $slug)
-                    ->orWhere('id', $slug)
-                    ->when(str_starts_with($slug, 'firm-'), fn ($q) => $q->orWhere('slug', substr($slug, 5)))
-                    ->first();
+                $dbFirm = $this->resolveFirmBySlug($slug);
 
                 if ($dbFirm) {
+                    if ($this->persistFirmBackupBeforeDeletion($dbFirm) === null) {
+                        $this->previewNotice = 'Deletion aborted: a verified backup could not be written. No data was removed.';
+
+                        return null;
+                    }
+
                     $this->performSafeFirmDeletion($dbFirm->id);
                 }
             }
