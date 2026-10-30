@@ -32,6 +32,7 @@ class PracticePreview extends Component
     use Concerns\ManagesConveyanceWorkflow;
     use Concerns\ManagesPayrollAndVouchers;
     use Concerns\ManagesTeamAndNotifications;
+    use Concerns\ManagesUnitScope;
 
 
     public string $firmSlug = 'rac';

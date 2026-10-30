@@ -28,8 +28,10 @@ Route::get('/login', function (\Illuminate\Http\Request $request) {
     return redirect()->route('home');
 })->name('login');
 
-// Unified sign out route
-Route::match(['get', 'post'], '/logout', function (\Illuminate\Http\Request $request) {
+// Unified sign out route.
+// POST only: a GET logout can be triggered by any third-party page (CSRF),
+// which the audit flagged as P1-3.2. Every link is now a CSRF-protected form.
+Route::post('/logout', function (\Illuminate\Http\Request $request) {
     Auth::logout();
     $request->session()->invalidate();
     $request->session()->regenerateToken();

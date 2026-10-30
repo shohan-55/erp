@@ -60,10 +60,13 @@
                     <div class="text-[11px] text-slate-400">DhakaWala Cloud Operations</div>
                 </div>
             </div>
-            <a href="{{ url('/logout') }}" class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
-                <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-                <span>Sign Out of Platform</span>
-            </a>
+            <form method="POST" action="{{ route('logout') }}" class="w-full">
+                @csrf
+                <button type="submit" class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                    <span>Sign Out of Platform</span>
+                </button>
+            </form>
         </div>
     </aside>
 
@@ -88,10 +91,13 @@
                 <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> CLUSTER 01 · ACTIVE
             </div>
             <div class="flex items-center gap-2">
-                <a href="{{ url('/logout') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors" title="Sign Out">
-                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-                    <span class="hidden md:inline">Sign Out</span>
-                </a>
+                <form method="POST" action="{{ route('logout') }}" class="inline-flex">
+                    @csrf
+                    <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors" title="Sign Out">
+                        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                        <span class="hidden md:inline">Sign Out</span>
+                    </button>
+                </form>
                 <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-extrabold text-slate-600" aria-label="Preview operator avatar">DW</div>
             </div>
         </header>

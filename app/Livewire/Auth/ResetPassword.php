@@ -110,8 +110,19 @@ class ResetPassword extends Component
             function ($user, $password) {
                 $user->forceFill([
                     'password'       => Hash::make($password),
-                    'remember_token' => Str::random(60),
+                    'remember_token' => null,
                 ])->save();
+
+                // A reset is a recovery action: every existing session for that
+                // account must die, including the attacker's.
+                try {
+                    if (\Illuminate\Support\Facades\Schema::hasTable('sessions')
+                        && \Illuminate\Support\Facades\Schema::hasColumn('sessions', 'user_id')) {
+                        \Illuminate\Support\Facades\DB::table('sessions')->where('user_id', $user->id)->delete();
+                    }
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Could not revoke sessions after password reset: ' . $e->getMessage());
+                }
 
                 event(new PasswordReset($user));
             }

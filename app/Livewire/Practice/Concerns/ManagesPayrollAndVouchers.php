@@ -14,6 +14,7 @@ use App\Models\PolicyProposal;
 use App\Models\PracticeHoliday;
 use App\Models\PracticeNotification;
 use App\Models\User;
+use App\Support\CsvSafe;
 use App\Services\FirmRegistry;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -385,7 +386,7 @@ trait ManagesPayrollAndVouchers
             fputcsv($handle, $columns);
 
             foreach ($rowsToExport as $row) {
-                fputcsv($handle, [
+                fputcsv($handle, CsvSafe::row([
                     $row['id'] ?? '',
                     $row['name'] ?? '',
                     $row['partner_unit'] ?? '',
@@ -396,7 +397,7 @@ trait ManagesPayrollAndVouchers
                     number_format((float) ($row['adjustment'] ?? 0), 2, '.', ''),
                     number_format((float) ($row['net_payable'] ?? 0), 2, '.', ''),
                     $row['status_label'] ?? 'Draft Ledger',
-                ]);
+                ]));
             }
 
             fclose($handle);
@@ -426,7 +427,7 @@ trait ManagesPayrollAndVouchers
         $filename = ($studentCode ? "Payment_Voucher_{$studentCode}_" : "All_Payment_Vouchers_") . $this->firmSlug . "_{$period}.html";
 
         return response()->streamDownload(function () use ($firmName, $period, $paymentMode, $vouchers) {
-            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{$firmName} - Monthly Allowance Voucher</title>";
+            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>" . htmlspecialchars($firmName, ENT_QUOTES) . " - Monthly Allowance Voucher</title>";
             echo "<style>body{font-family:Arial,sans-serif;margin:20px;color:#111}.voucher{border:2px solid #17191F;border-radius:8px;padding:20px;margin-bottom:28px;page-break-inside:avoid}.hdr{display:flex;justify-content:space-between;border-bottom:2px solid #eee;padding-bottom:10px;margin-bottom:12px}table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f8f8fa}.sig{margin-top:36px;display:flex;justify-content:space-between;font-size:11px}@media print{.no-print{display:none}}</style>";
             echo "</head><body onload='window.print()'>";
             echo "<div class='no-print' style='margin-bottom:14px'><button onclick='window.print()' style='padding:8px 16px;font-weight:bold;cursor:pointer'>Print / Save Voucher PDF</button></div>";

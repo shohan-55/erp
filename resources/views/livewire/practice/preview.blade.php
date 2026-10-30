@@ -118,9 +118,12 @@
                         </div>
                         <p class="truncate text-[10px] text-slate-400">{{ Auth::user()->email ?? ($roleLabel . ' • ' . ($firm['name'] ?? 'Practice')) }}</p>
                     </div>
-                    <a href="{{ url('/logout') }}" title="Sign Out" class="rounded-xl p-2 text-slate-400 hover:bg-rose-500/20 hover:text-rose-300 transition">
-                        <i data-lucide="log-out" class="h-4 w-4"></i>
-                    </a>
+                    <form method="POST" action="{{ route('logout') }}" class="contents">
+                        @csrf
+                        <button type="submit" title="Sign Out" class="rounded-xl p-2 text-slate-400 hover:bg-rose-500/20 hover:text-rose-300 transition">
+                            <i data-lucide="log-out" class="h-4 w-4"></i>
+                        </button>
+                    </form>
                 </div>
             </div>
         </aside>

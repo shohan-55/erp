@@ -458,6 +458,9 @@ trait ManagesLeaveWorkflow
                     $query->where('firm_id', $firmModel->id);
                 }
                 $lr = $query->first();
+                if ($lr && ! $this->guardUserScope(User::find($lr->user_id), 'approve leave for')) {
+                    return;
+                }
                 if ($lr) {
                     if (Schema::hasColumn('leave_requests', 'approved_days')) {
                         $lr->approved_days = $this->partialApprovedDays;
@@ -525,6 +528,9 @@ trait ManagesLeaveWorkflow
                     $query->where('firm_id', $firmModel->id);
                 }
                 $lr = $query->first();
+                if ($lr && ! $this->guardUserScope(User::find($lr->user_id), 'review leave for')) {
+                    return;
+                }
                 if ($lr) {
                     $lr->status = 'pending_partner';
                     $lr->manager_remarks = $remarks ?: 'Manager reviewed and recommended for Partner sanction.';
@@ -614,6 +620,9 @@ trait ManagesLeaveWorkflow
                     $query->where('firm_id', $firmModel->id);
                 }
                 $lr = $query->first();
+                if ($lr && ! $this->guardUserScope(User::find($lr->user_id), 'reject leave for')) {
+                    return;
+                }
                 if ($lr) {
                     $lr->status = 'rejected';
                     $lr->partner_remarks = $reason ?: ('Rejected by ' . ucfirst($this->previewRole));

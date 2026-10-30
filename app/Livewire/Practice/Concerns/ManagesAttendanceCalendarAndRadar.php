@@ -14,6 +14,7 @@ use App\Models\PolicyProposal;
 use App\Models\PracticeHoliday;
 use App\Models\PracticeNotification;
 use App\Models\User;
+use App\Support\CsvSafe;
 use App\Services\FirmRegistry;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -878,7 +879,7 @@ trait ManagesAttendanceCalendarAndRadar
         $filename = 'ICAB_Articleship_Certificate_' . $studentCode . '.html';
 
         return response()->streamDownload(function () use ($firmName, $firmDesig, $primaryHex, $studentName, $studentCode, $unit, $term, $allowance, $issueDate, $refNo) {
-            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{$firmName} - Official ICAB Certificate</title>";
+            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>" . htmlspecialchars($firmName, ENT_QUOTES) . " - Official ICAB Certificate</title>";
             echo "<style>body{font-family:Georgia,serif;margin:40px auto;max-width:760px;color:#111;line-height:1.7;padding:32px;border:2px solid {$primaryHex};border-radius:12px}.hdr{border-bottom:3px solid {$primaryHex};padding-bottom:16px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:flex-end}.hdr h1{margin:0;font-size:24px;color:{$primaryHex};font-family:Arial,sans-serif}.hdr p{margin:3px 0 0;font-size:12px;color:#555;font-family:Arial,sans-serif}.meta{display:flex;justify-content:space-between;font-family:Arial,sans-serif;font-size:12px;font-weight:bold;margin-bottom:30px}.title{text-align:center;font-family:Arial,sans-serif;font-size:18px;font-weight:bold;text-decoration:underline;margin:28px 0;text-transform:uppercase}.sig{margin-top:70px;display:flex;justify-content:space-between;font-family:Arial,sans-serif;font-size:12px}@media print{.no-print{display:none}body{border:none;margin:0}}</style></head><body onload='window.print()'>";
             echo "<div class='no-print' style='margin-bottom:16px;text-align:right'><button onclick='window.print()' style='padding:8px 16px;background:{$primaryHex};color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer'>Print / Save Official PDF</button></div>";
             echo "<div class='hdr'><div><h1>" . htmlspecialchars($firmName) . "</h1><p>" . htmlspecialchars($firmDesig) . " • ICAB Registered Practice</p></div><div style='text-align:right;font-family:Arial,sans-serif;font-size:11px;color:#444'>Official Practice Letterhead<br>Dhaka, Bangladesh</div></div>";
@@ -912,7 +913,7 @@ trait ManagesAttendanceCalendarAndRadar
         $filename = 'Official_Leave_Sanction_' . $leaveId . '.html';
 
         return response()->streamDownload(function () use ($firmName, $primaryHex, $leaveId, $studentName, $studentCode, $type, $period, $appDays, $summary, $issueDate) {
-            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{$firmName} - Leave Sanction Letter</title>";
+            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>" . htmlspecialchars($firmName, ENT_QUOTES) . " - Leave Sanction Letter</title>";
             echo "<style>body{font-family:Arial,sans-serif;margin:40px auto;max-width:720px;color:#111;line-height:1.6;padding:28px;border:2px solid {$primaryHex};border-radius:12px}.hdr{border-bottom:2px solid {$primaryHex};padding-bottom:12px;margin-bottom:20px}h1{margin:0;font-size:20px;color:{$primaryHex}}table{width:100%;border-collapse:collapse;margin:20px 0;font-size:13px}th,td{border:1px solid #ddd;padding:10px;text-align:left}th{background:#f8fafc;width:35%}.sig{margin-top:60px;display:flex;justify-content:space-between;font-size:12px}@media print{.no-print{display:none}body{border:none}}</style></head><body onload='window.print()'>";
             echo "<div class='no-print' style='margin-bottom:14px;text-align:right'><button onclick='window.print()' style='padding:8px 16px;background:{$primaryHex};color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer'>Print Leave Sanction Letter</button></div>";
             echo "<div class='hdr'><h1>" . htmlspecialchars($firmName) . "</h1><p style='margin:4px 0 0;font-size:12px;color:#555'>Official Leave Sanction Memorandum • Ref: " . htmlspecialchars($leaveId) . " • Date: {$issueDate}</p></div>";
@@ -936,7 +937,7 @@ trait ManagesAttendanceCalendarAndRadar
         $filename = 'Printable_Attendance_Sheet_' . $this->firmSlug . '_' . $start . '_to_' . $end . '.html';
 
         return response()->streamDownload(function () use ($firmName, $scopeLabel, $start, $end, $rows) {
-            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{$firmName} - Attendance Sheet</title>";
+            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>" . htmlspecialchars($firmName, ENT_QUOTES) . " - Attendance Sheet</title>";
             echo "<style>body{font-family:Arial,sans-serif;margin:24px;color:#111}h1{margin:0;font-size:20px}p{margin:4px 0;font-size:12px;color:#444}table{width:100%;border-collapse:collapse;margin-top:16px;font-size:12px}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f4f4f6}.sig{margin-top:48px;display:flex;justify-content:space-between;font-size:12px}@media print{.no-print{display:none}}</style>";
             echo "</head><body onload='window.print()'>";
             echo "<div class='no-print' style='margin-bottom:12px'><button onclick='window.print()' style='padding:8px 16px;font-weight:bold;cursor:pointer'>Print / Save as PDF</button></div>";
@@ -1058,6 +1059,10 @@ trait ManagesAttendanceCalendarAndRadar
                             }
                         })
                         ->first();
+
+                    if ($student && ! $this->guardUserScope($student, 'record or edit attendance for')) {
+                        return;
+                    }
 
                     if ($student) {
                         $todayDate = now()->toDateString();
@@ -1446,7 +1451,7 @@ trait ManagesAttendanceCalendarAndRadar
             fputcsv($handle, $columns);
 
             foreach ($rowsToExport as $row) {
-                fputcsv($handle, [
+                fputcsv($handle, CsvSafe::row([
                     $row['id'] ?? '',
                     $row['name'] ?? '',
                     $row['partner'] ?? $this->partnerUnit,
@@ -1461,7 +1466,7 @@ trait ManagesAttendanceCalendarAndRadar
                     $row['status'] ?? '—',
                     !empty($row['is_proxy']) ? ('Proxy by ' . ($row['edited_by_role'] ?? 'Manager')) : (!empty($row['edited_by_role']) ? ('Edited by ' . $row['edited_by_role']) : 'Standard Entry'),
                     $row['remarks'] ?? '',
-                ]);
+                ]));
             }
 
             fclose($handle);
