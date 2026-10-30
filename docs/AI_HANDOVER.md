@@ -7,7 +7,9 @@ one of them already lost time re-discovering the same facts. Everything below wa
 learned the hard way — either from a production incident or from a test run.
 
 Read order: `BLUEPRINT.md` (product/architecture history) → `CLAUDE.md` (editing rules)
-→ **this file** (how the thing is actually deployed and verified).
+→ **this file** (how the thing is actually deployed and verified) →
+[`docs/ATTENDANCE_MOVEMENT.md`](ATTENDANCE_MOVEMENT.md) if you touch anything under
+`app/Livewire/Practice/Concerns/ManagesAttendance*`.
 
 ---
 
@@ -85,7 +87,7 @@ Minimum bar for any change:
 
 | Check | Result expected |
 |---|---|
-| `phpunit tests` | `OK (158 tests, 619 assertions)` or more |
+| `phpunit tests` | `OK (168 tests, 675 assertions)` or more |
 | `token_get_all(…, TOKEN_PARSE)` over `app/ config/ routes/ database/ tests/` | all ok |
 | `php artisan view:cache` | compiles every Blade file |
 | `php artisan route:cache` / `config:cache` | both build |
@@ -121,6 +123,25 @@ Minimum bar for any change:
 9. **Attendance calendar** uses responsive classes, not an inline
    `grid-template-columns: repeat(7, 1fr)`. The inline version is unreadable on a 360px
    phone.
+10. **Ending the duty day is two-step.** `confirmCheckoutWithAction('close')` only
+    opens a review panel; the day ends after `finalCloseConfirmed` is ticked and
+    `confirmFinalCheckout()` is called. The gate is in the component, not the Blade
+    view. A single click must never end someone's day — they are usually travelling
+    between client sites. Pinned by `tests/Feature/FinalCheckoutGuardTest.php`; the
+    rules are in [`docs/ATTENDANCE_MOVEMENT.md`](ATTENDANCE_MOVEMENT.md).
+11. **A new attendance leg clears `out_time` / `out_lat` / `out_lng` /
+    `out_location_name`.** Leaving the office "On Duty" is a departure, not the day's
+    check-out. Without the reset the register reads "active" and "checked out at
+    11:20" at the same time. `in_time` (first arrival) must NOT be cleared — it is
+    what decides Right Time / Late.
+12. **The missed-check-out sweep tests `session_state`, not just `out_time`.**
+    Somebody who went On Duty and never returned has an `out_time`, so
+    `whereNull('out_time')` treats that day as complete. Flag any row whose session
+    never reached `closed`.
+13. **The attendance dialogs live in `partials/attendance-modals.blade.php`** and are
+    included once from `preview.blade.php`. Only one section is rendered per request,
+    so keeping them inside `attendance.blade.php` leaves the dashboard's own "Out"
+    button dead.
 
 ---
 
@@ -159,6 +180,15 @@ suite, no load test, PHP 8.3 not exercised (8.4 is).
 
 ## 7. Change log (most recent first)
 
+- **2026-10-30 (night) — two-step final check-out + movement fixes.** Closing the day
+  now opens a review panel (every leg, first-in, elapsed time, location) and needs a
+  confirmation checkbox, enforced server-side; the checkout dialogs moved out of the
+  attendance partial so the dashboard button works; a re-check-in clears the previous
+  `out_time` instead of leaving a stale departure on the register; the
+  missed-check-out sweep now catches `on_duty_transit` days that were never closed.
+  New: [`docs/ATTENDANCE_MOVEMENT.md`](ATTENDANCE_MOVEMENT.md),
+  `tests/Feature/FinalCheckoutGuardTest.php` (10 tests). Suite: **168 tests / 675
+  assertions**. `public/build` rebuilt (`app-DY4U6nd5.css`) — sync the docroot.
 - **2026-10-30 (evening) — console clarity + phone layout.** Sidebar card
   "Practice Scope" → "Your Unit"; platform KPI strip re-labelled (Firms, Partner Units,
   Seats, Pending Setup) with seat *usage* as well as allocation and plain integers
