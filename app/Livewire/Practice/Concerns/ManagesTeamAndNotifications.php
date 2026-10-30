@@ -238,6 +238,60 @@ trait ManagesTeamAndNotifications
         return $this->previewRole === 'partner';
     }
 
+    /**
+     * Role hierarchy guard for role assignment.
+     *
+     * A Partner (or Platform Super Admin) may assign any firm role. A delegated
+     * Manager may only ever assign the Articled Student role — otherwise they
+     * could mint themselves (or an accomplice) a Partner account.
+     */
+    protected function canManageTargetRole(string $targetRole): bool
+    {
+        if (! Auth::check()) {
+            return $this->previewRole === 'partner';
+        }
+
+        /** @var User $actor */
+        $actor = Auth::user();
+
+        if ($actor->isPlatformAdmin() || $actor->isPartner()) {
+            return in_array($targetRole, [User::ROLE_PARTNER, User::ROLE_MANAGER, User::ROLE_STUDENT], true);
+        }
+
+        if (! $actor->can_manage_team) {
+            return false;
+        }
+
+        return $targetRole === User::ROLE_STUDENT;
+    }
+
+    /**
+     * Role hierarchy guard for editing / deleting an existing account.
+     *
+     * A delegated Manager may only touch Articled Students. Partners and other
+     * Managers are out of scope, so a Manager can never reset a Partner password,
+     * demote a Partner, or delete an account above their own level.
+     */
+    protected function canManageTargetUser(User $target): bool
+    {
+        if (! Auth::check()) {
+            return $this->previewRole === 'partner';
+        }
+
+        /** @var User $actor */
+        $actor = Auth::user();
+
+        if ($actor->isPlatformAdmin() || $actor->isPartner()) {
+            return true;
+        }
+
+        if (! $actor->can_manage_team) {
+            return false;
+        }
+
+        return $target->role === User::ROLE_STUDENT;
+    }
+
     public function getAvailableManagersProperty(): array
     {
         return array_values(array_filter($this->teamMembers, function ($m) {
@@ -477,6 +531,11 @@ trait ManagesTeamAndNotifications
             'newMemberRole'  => 'required|in:partner,manager,student',
         ]);
 
+        if (! $this->canManageTargetRole($this->newMemberRole)) {
+            $this->error = 'Security rule: Only a Partner can enroll Manager or Partner accounts.';
+            return;
+        }
+
         $firmModel = $this->resolveFirmModel();
 
         if ($firmModel && Schema::hasTable('users')) {
@@ -499,7 +558,9 @@ trait ManagesTeamAndNotifications
             $user->firm_id = $firmModel->id;
             $user->name = trim($this->newMemberName);
             $user->email = strtolower(trim($this->newMemberEmail));
-            $plainPassword = $this->newMemberPassword ?: 'Password@123';
+            $plainPassword = trim((string) $this->newMemberPassword) !== ''
+                ? trim($this->newMemberPassword)
+                : Str::password(14);
             $user->password = bcrypt($plainPassword);
             $user->role = $this->newMemberRole;
             $user->partner_unit = $this->newMemberPartnerUnit ?: $this->partnerUnit;
@@ -617,6 +678,21 @@ trait ManagesTeamAndNotifications
         if ($firmModel && Schema::hasTable('users')) {
             $user = User::where('firm_id', $firmModel->id)->where('id', $this->editMemberId)->first();
             if ($user) {
+                if (! $this->canManageTargetUser($user)) {
+                    $this->error = 'Security rule: You cannot modify an account with equal or higher privileges.';
+                    return;
+                }
+
+                if (! $this->canManageTargetRole($this->editMemberRole)) {
+                    $this->error = 'Security rule: Only a Partner can assign the ' . ucfirst($this->editMemberRole) . ' role.';
+                    return;
+                }
+
+                if (Auth::check() && (int) Auth::id() === (int) $user->id && $user->role !== $this->editMemberRole) {
+                    $this->error = 'Security rule: You cannot change your own role.';
+                    return;
+                }
+
                 if (! empty(trim($this->editMemberName))) {
                     $user->name = trim($this->editMemberName);
                 }
@@ -756,6 +832,11 @@ trait ManagesTeamAndNotifications
         if ($firmModel && Schema::hasTable('users')) {
             $user = User::where('firm_id', $firmModel->id)->where('id', $memberId)->first();
             if ($user) {
+                if (! $this->canManageTargetUser($user)) {
+                    $this->error = 'Security rule: You cannot remove an account with equal or higher privileges.';
+                    return;
+                }
+
                 User::where('firm_id', $firmModel->id)->where('manager_id', $user->id)->update(['manager_id' => null]);
                 $userEmail = $user->email;
                 $user->delete();

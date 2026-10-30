@@ -124,9 +124,10 @@ class User extends Authenticatable
 
     public function isPlatformAdmin(): bool
     {
-        return $this->role === self::ROLE_PLATFORM_ADMIN
-            || strtolower($this->email) === 'infobd.sohan@gmail.com'
-            || strtolower($this->email) === 'admin@dhakawala.com';
+        // SECURITY: platform authority is granted by the role column only.
+        // Matching on hard-coded email addresses allowed anyone who could set
+        // their own email to become a platform super admin.
+        return $this->role === self::ROLE_PLATFORM_ADMIN;
     }
 
     public function isPartner(): bool

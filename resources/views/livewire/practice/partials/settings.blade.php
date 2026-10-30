@@ -60,6 +60,10 @@
             <input type="text" wire:model="myPaymentAccountNo" placeholder="e.g. 01711-XXXXXX or A/C #1204..." class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-mono outline-none focus:border-amber-400">
         </label>
 
+        <label class="block font-bold text-slate-700">Current Password (only required to change your email)
+            <input type="password" wire:model="myCurrentPassword" autocomplete="current-password" placeholder="Enter current password before changing the sign-in email" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+        </label>
+
         <label class="block font-bold text-slate-700">New Login Password (Optional)
             <input type="password" wire:model="myNewPassword" placeholder="Leave blank to keep current password" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
         </label>

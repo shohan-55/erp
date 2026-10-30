@@ -128,6 +128,7 @@ class PracticePreview extends Component
     public string $myPaymentAccountNo = '';
     public string $myNewPassword = '';
     public string $myNewPasswordConfirm = '';
+    public string $myCurrentPassword = '';
 
     // Optional Conveyance Voucher Preview Modal (#2)
     public bool $showVoucherPreviewModal = false;

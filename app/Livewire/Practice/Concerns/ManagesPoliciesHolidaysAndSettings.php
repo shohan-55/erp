@@ -268,6 +268,18 @@ trait ManagesPoliciesHolidaysAndSettings
             }
         }
 
+        // SECURITY: changing the sign-in email address is a sensitive action and
+        // requires the current password, so a hijacked session cannot silently
+        // move the account to an attacker-controlled mailbox.
+        $emailIsChanging = Auth::check()
+            && $email !== ''
+            && strtolower((string) Auth::user()->email) !== $email;
+
+        if ($emailIsChanging && ! Hash::check($this->myCurrentPassword, (string) Auth::user()->password)) {
+            $this->error = 'Please enter your current password to change your sign-in email address.';
+            return;
+        }
+
         // Handle Avatar Profile Picture Upload
         $avatarChanged = false;
         if ($this->myAvatar) {
@@ -323,6 +335,7 @@ trait ManagesPoliciesHolidaysAndSettings
         $this->myAvatar = null;
         $this->myNewPassword = '';
         $this->myNewPasswordConfirm = '';
+        $this->myCurrentPassword = '';
         $this->loadTeamMembers();
         $this->loadPayrollRows();
 

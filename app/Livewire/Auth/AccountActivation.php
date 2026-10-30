@@ -13,6 +13,11 @@ use Livewire\Component;
 
 class AccountActivation extends Component
 {
+    /**
+     * Number of days an invitation token stays valid after it was issued.
+     */
+    protected const INVITATION_TTL_DAYS = 7;
+
     // Route parameter {firmSlug}
     public string $firmSlug = 'rac';
     public ?array $firm = null;
@@ -28,7 +33,7 @@ class AccountActivation extends Component
         'student_reg' => 'Reg: 4892',
         'inviter_name' => 'Senior Partner',
         'invited_at' => 'October 12, 2026',
-        'expires_in' => '48 hours'
+        'expires_in' => '7 days'
     ];
 
     // Form inputs
@@ -52,52 +57,106 @@ class AccountActivation extends Component
 
         $this->firmSlug = strtolower(trim($firmSlug));
         $this->firm = FirmRegistry::get($this->firmSlug);
-        $this->token = request()->query('token');
-        $emailParam = request()->query('email');
+        // SECURITY: an invitation may only be resolved from a real invitation token.
+        // The previous "?email=" lookup let any visitor claim any staff account by
+        // knowing an email address, so that path has been removed completely.
+        $queryToken = request()->query('token');
+        $this->token = is_string($queryToken) ? trim($queryToken) : null;
+        if ($this->token === '') {
+            $this->token = null;
+        }
 
         if ($this->firm) {
             $domain = $this->firm['custom_domain'] ?? ($this->firmSlug . '.dhakawala.com');
             $this->invitedUser['email'] = 'farhan.tanvir@' . $domain;
             $this->invitedUser['inviter_name'] = 'Senior Partner (' . ($this->firm['name'] ?? 'Practice') . ')';
 
-            // Resolve real invited database account if token or email is supplied
-            if (($this->token || $emailParam) && Schema::hasTable('users') && Schema::hasTable('firms')) {
-                try {
-                    $firmModel = Firm::where('slug', $this->firmSlug)->first();
-                    if ($firmModel) {
-                        $query = User::where('firm_id', $firmModel->id);
-                        if ($this->token && Schema::hasColumn('users', 'invitation_token')) {
-                            $query->where('invitation_token', $this->token);
-                        } elseif ($emailParam) {
-                            $query->where('email', strtolower(trim((string) $emailParam)));
-                        }
-                        $dbUser = $query->first();
+            $dbUser = $this->resolveInvitationUser();
 
-                        if ($dbUser) {
-                            $this->targetUserId = $dbUser->id;
-                            $this->invitedUser = [
-                                'name'         => $dbUser->name,
-                                'email'        => $dbUser->email,
-                                'role'         => match ($dbUser->role) {
-                                    'partner' => 'Partner / Principal',
-                                    'manager' => 'Audit Manager',
-                                    default   => 'Articled Student',
-                                },
-                                'role_badge'   => $dbUser->partner_unit ?? 'Partner Unit 01',
-                                'student_reg'  => $dbUser->student_code ? ('Code: ' . $dbUser->student_code) : 'Staff Member',
-                                'inviter_name' => 'Managing Partner (' . $firmModel->name . ')',
-                                'invited_at'   => $dbUser->created_at?->format('F d, Y') ?? now()->format('F d, Y'),
-                                'expires_in'   => '48 hours',
-                            ];
-                            $this->previewState = 'valid';
-                        } elseif ($this->token) {
-                            $this->previewState = 'expired';
-                        }
-                    }
-                } catch (\Throwable) {
-                }
+            if ($dbUser) {
+                $firmModel = $this->resolveFirmModelSafe();
+                $this->targetUserId = $dbUser->id;
+                $this->invitedUser = [
+                    'name'         => $dbUser->name,
+                    'email'        => $dbUser->email,
+                    'role'         => match ($dbUser->role) {
+                        'partner' => 'Partner / Principal',
+                        'manager' => 'Audit Manager',
+                        default   => 'Articled Student',
+                    },
+                    'role_badge'   => $dbUser->partner_unit ?? 'Partner Unit 01',
+                    'student_reg'  => $dbUser->student_code ? ('Code: ' . $dbUser->student_code) : 'Staff Member',
+                    'inviter_name' => 'Managing Partner (' . ($firmModel?->name ?? ($this->firm['name'] ?? 'Practice')) . ')',
+                    'invited_at'   => $dbUser->created_at?->format('F d, Y') ?? now()->format('F d, Y'),
+                    'expires_in'   => self::INVITATION_TTL_DAYS . ' days',
+                ];
+                $this->previewState = 'valid';
+            } elseif ($this->token) {
+                // A token was supplied but it is unknown, already used, or expired.
+                $this->previewState = 'expired';
+            } elseif (app()->environment('production')) {
+                // Production must never render a fictional invitation card.
+                $this->previewState = 'expired';
             }
         }
+    }
+
+    /**
+     * Resolve the invited account strictly from the invitation token.
+     *
+     * Returns null when no token was supplied, the token is unknown, already
+     * consumed, belongs to another firm, or is past its validity window.
+     */
+    protected function resolveInvitationUser(): ?User
+    {
+        if (! $this->token) {
+            return null;
+        }
+
+        try {
+            if (! Schema::hasTable('users')
+                || ! Schema::hasTable('firms')
+                || ! Schema::hasColumn('users', 'invitation_token')) {
+                return null;
+            }
+
+            $firmModel = $this->resolveFirmModelSafe();
+            if (! $firmModel) {
+                return null;
+            }
+
+            $dbUser = User::where('firm_id', $firmModel->id)
+                ->where('invitation_token', $this->token)
+                ->first();
+
+            if (! $dbUser || $this->invitationHasExpired($dbUser)) {
+                return null;
+            }
+
+            return $dbUser;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    protected function resolveFirmModelSafe(): ?Firm
+    {
+        try {
+            return Firm::where('slug', $this->firmSlug)->first();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    protected function invitationHasExpired(User $user): bool
+    {
+        $issuedAt = $user->invitation_sent_at ?? $user->created_at;
+
+        if (! $issuedAt) {
+            return false;
+        }
+
+        return $issuedAt->lt(now()->subDays(self::INVITATION_TTL_DAYS));
     }
 
     public function setPreviewState(string $state): void
@@ -150,41 +209,58 @@ class AccountActivation extends Component
             return;
         }
 
-        // Persist real account activation if a database user is matched
-        if ($this->targetUserId && Schema::hasTable('users')) {
+        // SECURITY: re-resolve the account from the token on the server for every
+        // submit. $this->targetUserId is client-visible Livewire state and must
+        // never be trusted as the activation target.
+        $dbUser = $this->resolveInvitationUser();
+
+        if ($this->token && ! $dbUser) {
+            $this->previewState = 'expired';
+            $this->validationError = 'This invitation link is invalid or has expired. Please ask your Partner or Manager to issue a new invitation.';
+            return;
+        }
+
+        if ($dbUser) {
+            $this->targetUserId = $dbUser->id;
+
             try {
-                $dbUser = User::find($this->targetUserId);
-                if ($dbUser) {
-                    $dbUser->password = Hash::make($this->password);
-                    $dbUser->email_verified_at = now();
-                    if (Schema::hasColumn('users', 'invitation_token')) {
-                        $dbUser->invitation_token = null;
-                    }
-                    $dbUser->save();
-
-                    if (Schema::hasTable('audit_logs')) {
-                        AuditLog::create([
-                            'firm_id'    => $dbUser->firm_id,
-                            'actor_id'   => $dbUser->id,
-                            'actor_name' => $dbUser->name,
-                            'actor_role' => $dbUser->role,
-                            'module'     => 'team',
-                            'action'     => 'account_activated',
-                            'target_ref' => $dbUser->email,
-                            'summary'    => "Member {$dbUser->name} completed invitation account activation.",
-                        ]);
-                    }
-
-                    $this->previewState = 'completed';
-                    $this->dispatch('toast', [
-                        'title'   => 'Account Activated',
-                        'message' => "Account activated for {$dbUser->name}. You may now sign in.",
-                        'type'    => 'success',
-                    ]);
-                    return;
+                $dbUser->password = Hash::make($this->password);
+                $dbUser->email_verified_at = now();
+                if (Schema::hasColumn('users', 'invitation_token')) {
+                    $dbUser->invitation_token = null;
                 }
-            } catch (\Throwable) {
+                $dbUser->save();
+
+                if (Schema::hasTable('audit_logs')) {
+                    AuditLog::create([
+                        'firm_id'    => $dbUser->firm_id,
+                        'actor_id'   => $dbUser->id,
+                        'actor_name' => $dbUser->name,
+                        'actor_role' => $dbUser->role,
+                        'module'     => 'team',
+                        'action'     => 'account_activated',
+                        'target_ref' => $dbUser->email,
+                        'summary'    => "Member {$dbUser->name} completed invitation account activation.",
+                    ]);
+                }
+
+                $this->previewState = 'completed';
+                $this->dispatch('toast', [
+                    'title'   => 'Account Activated',
+                    'message' => "Account activated for {$dbUser->name}. You may now sign in.",
+                    'type'    => 'success',
+                ]);
+                return;
+            } catch (\Throwable $e) {
+                $this->validationError = 'We could not activate this account right now. Please try again or contact your practice administrator.';
+                return;
             }
+        }
+
+        if (app()->environment('production')) {
+            $this->previewState = 'expired';
+            $this->validationError = 'A valid invitation link is required to activate an account.';
+            return;
         }
 
         $this->previewState = 'completed';
