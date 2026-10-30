@@ -226,7 +226,7 @@
 {{--     (Partners do not give attendance; they see Firm Executive Pulse)  --}}
 {{-- ===================================================================== --}}
 @if($previewRole === 'partner')
-<section class="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-[#11141C] via-[#171B26] to-[#0D1117] p-6 sm:p-8 text-white shadow-2xl">
+<section style="background: linear-gradient(135deg, #11141C 0%, #171B26 55%, #0D1117 100%); color: #FFFFFF;" class="relative overflow-hidden rounded-3xl border border-slate-800 bg-[#17191F] p-6 sm:p-8 text-white shadow-2xl">
     <div class="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full opacity-20 blur-3xl" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}"></div>
     <div class="relative z-10 flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
         <div class="space-y-2.5 max-w-2xl">
@@ -273,7 +273,7 @@
     @endphp
     @if($uTotal > 0)
         <section class="overflow-hidden rounded-3xl border-2 border-amber-300/90 bg-white shadow-xl">
-            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200/80 bg-gradient-to-r from-[#17191F] via-[#1F2430] to-[#17191F] px-5 py-4 text-white">
+            <div style="background: linear-gradient(90deg, #17191F 0%, #1F2430 50%, #17191F 100%); color: #FFFFFF;" class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200/80 bg-[#17191F] px-5 py-4 text-white">
                 <div class="flex items-center gap-3">
                     <span class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/20 border border-rose-400/40 text-rose-300">
                         <span class="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-rose-500 animate-ping"></span>
@@ -510,12 +510,12 @@
         </div>
 
         {{-- Weekday Header --}}
-        <div class="mt-4 grid grid-cols-7 gap-1.5 text-center text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.375rem;" class="mt-4 grid grid-cols-7 gap-1.5 text-center text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
             <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div class="text-rose-500">Fri</div><div class="text-rose-500">Sat</div>
         </div>
 
         {{-- Calendar Days Grid --}}
-        <div class="mt-2 grid grid-cols-7 gap-1.5">
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.375rem;" class="mt-2 grid grid-cols-7 gap-1.5">
             @foreach($calendarDays as $idx => $cDay)
                 @if(!empty($cDay['is_padding']))
                     <div wire:key="cal-pad-{{ $idx }}" class="h-16 sm:h-20 rounded-2xl bg-slate-50/50"></div>
