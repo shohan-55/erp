@@ -10,8 +10,8 @@
         <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
             <!-- Brand Identity -->
             <div class="flex items-center gap-3.5">
-                <div style="background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%); border: 1px solid rgba(45, 212, 191, 0.4);" class="w-11 h-11 rounded-2xl flex items-center justify-center p-2 shadow-lg">
-                    <img src="{{ asset('images/dhakawala_logo.svg') }}" alt="DhakaWala ERP" class="w-full h-full object-contain">
+                <div style="width: 44px; height: 44px; min-width: 44px; background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%); border: 1px solid rgba(45, 212, 191, 0.4);" class="w-11 h-11 rounded-2xl flex items-center justify-center p-2 shadow-lg shrink-0">
+                    <img src="{{ asset('images/dhakawala_logo.svg') }}" alt="DhakaWala ERP" width="28" height="28" style="width: 28px; height: 28px; object-fit: contain;" class="w-full h-full object-contain">
                 </div>
                 <div>
                     <div class="flex items-center gap-2.5">
