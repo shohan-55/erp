@@ -31,6 +31,49 @@
                 @endforeach
             </div>
             <p class="border-t border-slate-100 bg-amber-50 px-5 py-3 text-xs leading-relaxed text-amber-900">Late calculation: on time through {{ $graceMinutes }} minutes past {{ $officeStart }}. Arrivals thereafter are flagged for review and supervisor remarks.</p>
+
+            @if(in_array($previewRole, ['partner', 'manager']))
+                <form wire:submit.prevent="savePolicySettings" class="border-t border-slate-100 bg-slate-50/70 p-5 space-y-4 text-xs">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-900">⚡ Direct Policy &amp; Late Salary Deduction Editor ({{ $partnerUnit }})</h4>
+                            <p class="text-[11px] text-slate-500">Partners and authorized Managers can immediately update office hours, grace minutes, late deduction rules, and conveyance limits here.</p>
+                        </div>
+                        <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-950">{{ ucfirst($previewRole) }} Control</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <label class="block font-bold text-slate-700">Office Start (HH:MM)
+                            <input type="text" wire:model="officeStart" placeholder="09:30" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 font-bold">
+                        </label>
+                        <label class="block font-bold text-slate-700">Office End (HH:MM)
+                            <input type="text" wire:model="officeEnd" placeholder="18:00" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 font-bold">
+                        </label>
+                        <label class="block font-bold text-slate-700">Grace Window (Min)
+                            <input type="number" wire:model="graceMinutes" min="0" max="120" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 font-bold">
+                        </label>
+                        <label class="block font-bold text-slate-700">Late Days for Cut
+                            <input type="number" wire:model="lateDaysPerDeduction" min="1" max="30" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 font-bold">
+                        </label>
+                        <label class="block font-bold text-slate-700">Salary Cut (Days)
+                            <input type="number" wire:model="deductionDaysCount" min="0.5" max="10" step="0.5" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 font-bold">
+                        </label>
+                        <label class="block font-bold text-slate-700">Mgr Claim Limit (৳)
+                            <input type="number" wire:model="managerConveyanceLimit" min="50" max="10000" step="10" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 font-bold">
+                        </label>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                        <label class="inline-flex items-center gap-2 font-bold text-slate-800 cursor-pointer">
+                            <input type="checkbox" wire:model.live="latePenaltyEnabled" class="rounded border-amber-400 text-amber-600">
+                            <span>Enable Automatic Late Deduction ({{ $lateDaysPerDeduction }} Late Days = {{ $deductionDaysCount }} Day Salary Cut)</span>
+                        </label>
+                        <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-[#17191F] px-4 py-2.5 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800 cursor-pointer">
+                            <i data-lucide="save" class="h-4 w-4"></i> Save &amp; Activate Policy Rules
+                        </button>
+                    </div>
+                </form>
+            @endif
         </section>
 
         <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">

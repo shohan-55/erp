@@ -167,9 +167,18 @@
 
                 <div class="divide-y divide-slate-100">
                     @forelse($claimQueue as $request)
-                        <div wire:key="conv-claim-{{ $request['id'] }}" class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+                        @php
+                            $isUnreadClaim = ($previewRole === 'manager' && in_array($request['status'] ?? '', ['pending_manager', 'Manager Review'], true))
+                                || ($previewRole === 'partner' && in_array($request['status'] ?? '', ['pending_partner', 'Escalated to Partner', 'Escalated to Partner (Late)', 'pending_manager'], true));
+                        @endphp
+                        <div wire:key="conv-claim-{{ $request['id'] }}" class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between transition {{ $isUnreadClaim ? 'bg-amber-50/40 border-l-4 border-l-amber-500' : 'bg-white' }}">
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-2">
+                                    @if($isUnreadClaim)
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#17191F] shadow-2xs animate-pulse">
+                                            <span class="h-1.5 w-1.5 rounded-full bg-[#17191F]"></span> NEW UNREAD
+                                        </span>
+                                    @endif
                                     <p class="text-sm font-bold text-slate-800">{{ $request['name'] }}</p>
                                     <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{{ $request['student_code'] }}</span>
                                     <span class="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">{{ $request['client_name'] }}</span>

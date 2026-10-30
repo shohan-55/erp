@@ -30,6 +30,9 @@ class Firm extends Model
         'enabled_modules',
         'theme_palette',
         'primary_color',
+        'subscription_type',
+        'per_seat_rate',
+        'trial_days',
     ];
 
     protected $casts = [
@@ -43,6 +46,48 @@ class Firm extends Model
     /**
      * Curated enterprise color palettes for CA firms & corporate organizations.
      */
+
+    /**
+     * Self-healing runtime schema guard: ensures theme_palette, primary_color, and subscription columns exist
+     * even if migrations were already run prior to this update.
+     */
+    public static function ensureRuntimeSchemaColumns(): void
+    {
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('firms') && ! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'theme_palette')) {
+                \Illuminate\Support\Facades\Schema::table('firms', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    if (! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'theme_palette')) {
+                        $table->string('theme_palette', 40)->default('sea_green');
+                    }
+                    if (! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'primary_color')) {
+                        $table->string('primary_color', 20)->default('#0D9488');
+                    }
+                    if (! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'subscription_type')) {
+                        $table->string('subscription_type', 20)->default('paid');
+                    }
+                    if (! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'per_seat_rate')) {
+                        $table->decimal('per_seat_rate', 10, 2)->default(500.00);
+                    }
+                    if (! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'trial_days')) {
+                        $table->integer('trial_days')->nullable()->default(14);
+                    }
+                });
+            } elseif (\Illuminate\Support\Facades\Schema::hasTable('firms') && ! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'subscription_type')) {
+                \Illuminate\Support\Facades\Schema::table('firms', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    if (! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'subscription_type')) {
+                        $table->string('subscription_type', 20)->default('paid');
+                    }
+                    if (! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'per_seat_rate')) {
+                        $table->decimal('per_seat_rate', 10, 2)->default(500.00);
+                    }
+                    if (! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'trial_days')) {
+                        $table->integer('trial_days')->nullable()->default(14);
+                    }
+                });
+            }
+        } catch (\Throwable) {}
+    }
+
     public static function colorPalettes(): array
     {
         return [

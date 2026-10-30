@@ -46,7 +46,7 @@
     </section>
 @endif
 
-@if($previewRole === 'student')
+@if($previewRole !== 'partner')
     <div class="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(270px,1fr)]"
          x-data="{
             locText: @entangle('currentLocationName'),
@@ -122,17 +122,21 @@
             @if($workMode === 'client')
                 <div class="mt-4 space-y-1.5">
                     <div class="flex items-center justify-between">
-                        <label class="text-xs font-bold text-slate-700">Audit Client Site / Field Location</label>
-                        <button type="button" wire:click="openNewClientModal" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 hover:text-amber-900 hover:underline">
-                            <i data-lucide="plus-circle" class="h-3.5 w-3.5"></i> Add New Client
-                        </button>
+                        <label class="text-xs font-bold text-slate-700">Client / Company Name (ক্লায়েন্টের নাম লিখুন বা সিলেক্ট করুন) <span class="text-rose-500">*</span></label>
                     </div>
-                    <select wire:model.live="clientSite" @disabled($previewSessionActive) class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs outline-none focus:border-amber-400 font-medium">
+                    <input type="text"
+                           wire:model="clientSite"
+                           list="attendance-audit-clients-list"
+                           @disabled($previewSessionActive)
+                           placeholder="Type Client Name (e.g. Square Pharma, BRAC Bank Audit)..."
+                           class="w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-xs font-bold text-slate-900 outline-none focus:border-amber-400 focus:bg-white">
+                    <datalist id="attendance-audit-clients-list">
                         @foreach($auditClients as $c)
-                            <option value="{{ $c }}">{{ $c }}</option>
+                            @if($c !== 'General Office / Firm HQ')
+                                <option value="{{ $c }}"></option>
+                            @endif
                         @endforeach
-                        <option value="__NEW__" class="font-bold text-amber-800">+ Add New Client Site...</option>
-                    </select>
+                    </datalist>
                 </div>
             @endif
             <div class="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-950 flex items-center justify-between gap-2">

@@ -1,0 +1,13 @@
+# AI Agent Guardrail & Surgical Editing Rules (DhakaWala ERP)
+
+1. ALWAYS read `BLUEPRINT.md` in the project root before planning or editing any file.
+2. NEVER rewrite `app/Livewire/Practice/PracticePreview.php` as a monolith. All domain logic is modularized into 6 isolated traits inside `app/Livewire/Practice/Concerns/`:
+   - `ManagesPoliciesHolidaysAndSettings.php` (Policies, Holidays, Color Palettes, Self-Profile/Avatar)
+   - `ManagesAttendanceCalendarAndRadar.php` (GPS Attendance, 3-Tier Status, Monthly Calendar, Live Team Radar, Client Costing, Punctuality, Official Certificates)
+   - `ManagesLeaveWorkflow.php` (Leave requests, Partial Approval)
+   - `ManagesConveyanceWorkflow.php` (Multi-row Transport Claims, Voucher Lightbox, Claim Adjustments, Audit Clients)
+   - `ManagesPayrollAndVouchers.php` (Monthly Payroll, Late/Holiday Deductions, Payment Vouchers)
+   - `ManagesTeamAndNotifications.php` (Team Roster, Member Permissions, ICAB Articleship Dates, Popup Notifications)
+3. When asked to fix a bug or add a feature, edit ONLY the specific Trait in `app/Livewire/Practice/Concerns/` and the specific Blade partial in `resources/views/livewire/practice/partials/`. Leave all other modules untouched so existing features are never broken.
+4. NEVER add demo/sample firms or fake student records to `DatabaseSeeder.php` or production code paths.
+5. After completing any update, append a dated entry to Section 7 (`Chronological Update & Change Log`) of `BLUEPRINT.md`.

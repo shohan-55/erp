@@ -196,7 +196,7 @@
             </div>
         </div>
 
-        @if($previewRole === 'partner')
+        @if(in_array($previewRole, ['partner', 'manager']))
             <form wire:submit.prevent="savePolicySettings" class="mt-5 space-y-4 text-xs">
                 <div class="grid grid-cols-3 gap-3">
                     <label class="block font-bold text-slate-700">Office Start
@@ -358,7 +358,7 @@
                 <p class="mt-0.5 text-xs text-slate-500">Update annual Government Holidays at the start of the year, add sudden holidays anytime, or declare any Holiday/Weekend as <strong>Office Open (Mandatory Attendance — Absent = Salary Deduction)</strong>.</p>
             </div>
         </div>
-        @if($previewRole === 'partner')
+        @if(in_array($previewRole, ['partner', 'manager']))
             <button type="button" wire:click="seedAnnualGovernmentHolidays" class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#FCDF02] px-3.5 py-2.5 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] shadow-sm">
                 <i data-lucide="refresh-cw" class="h-4 w-4"></i> Load / Sync {{ $holidayYear }} Govt. Holidays
             </button>
@@ -366,7 +366,7 @@
     </div>
 
     <div class="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
-        @if($previewRole === 'partner')
+        @if(in_array($previewRole, ['partner', 'manager']))
             <form wire:submit.prevent="addOrUpdateHoliday" class="space-y-3.5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-xs">
                 <p class="font-extrabold uppercase tracking-wider text-amber-900 text-[11px]">Add Holiday or Declare Holiday Office-Open</p>
 
@@ -434,7 +434,7 @@
                             @endif
                         </div>
                         <div class="flex items-center gap-1.5">
-                            @if($previewRole === 'partner')
+                            @if(in_array($previewRole, ['partner', 'manager']))
                                 <button type="button" wire:click="toggleHolidayOfficeOpenOverride({{ $h['id'] }})"
                                         class="rounded-lg px-2.5 py-1 text-[10px] font-extrabold transition {{ !empty($h['is_office_open_override']) ? 'bg-rose-600 text-white' : 'bg-emerald-50 text-emerald-800 border border-emerald-200' }}">
                                     {{ !empty($h['is_office_open_override']) ? 'OFFICE OPEN (Mandatory)' : 'CLOSED HOLIDAY' }}

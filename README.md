@@ -1,44 +1,35 @@
-# DhakaWala ERP SaaS — Multi-Tenant CA Practice Management Platform
+# DhakaWala ERP SaaS — Multi-Tenant CA Practice & Corporate Management Platform
 
-An enterprise Laravel + Livewire multi-tenant ERP platform tailored for Chartered Accountancy (CA) firms in Bangladesh (such as **Rahman Anis & Co.**).
+An enterprise, ultra-premium Laravel 13 + Livewire 4 multi-tenant ERP platform tailored for Chartered Accountancy (CA) firms and corporate practices in Bangladesh.
+
+> **AI & Developer Guide:** Always read [`BLUEPRINT.md`](./BLUEPRINT.md) before modifying any file. The codebase uses a strict modular Trait + Blade Partial architecture so features remain isolated and regression-free.
 
 ## Technology Stack
 
-Laravel 13 · PHP 8.4 · Livewire 4 · Blade · Tailwind CSS 4 · Vite 8 · Lucide Icons.
+- **Framework:** Laravel 13 · PHP 8.4
+- **Reactive Frontend:** Livewire 4 · Alpine.js · Blade · Tailwind CSS 4 · Vite 8 · Lucide Icons
+- **Database:** PostgreSQL / MySQL / SQLite (with self-healing runtime schema guard `Firm::ensureRuntimeSchemaColumns()`)
 
 ## Core Production Modules
 
-| Module | Capabilities |
+| Module | Key Production Capabilities |
 |---|---|
-| **Multi-Tenant Platform Hub** | Super Admin organization provisioning, custom domain/subdomain routing, full JSON tenant backup & transactional deletion with `RequireRole` & server-side authorization guards |
-| **Role & Tenant Security** | Middleware-protected production routes (`auth`, `firm.member`, `role`, `production.preview`), Livewire hydration role-locking against client-side role spoofing, and strict `firm_id` query isolation |
-| **Office & Client Geo-Attendance** | Live GPS check-in/out, dynamic Partner grace-minute lateness calculation, database-persisted Manager/Partner Proxy & Attendance Edits, and CSV export |
-| **2-Tier Leave Management** | Student leave application (`Annual`, `Sick`, `Emergency`, `ICAB Exam`, `ICAB Study`), Manager verification & recommendation, and Partner final sanction |
-| **Conveyance Claims & Vouchers** | Audit client tagging, supporting voucher/receipt file upload (`JPG`, `PNG`, `PDF`), Manager limit enforcement, automatic escalation for excess or late claims, and CSV export |
-| **Monthly Allowance & Payroll** | Dynamic student stipend + approved conveyance reconciliation, policy snapshot capture, full `Draft → Reviewed → Approved → Paid → Locked` lifecycle, and CSV export |
-| **Governance, Notifications & Audit Trail** | Independent Partner Unit policies, Multi-Partner consensus policy proposals & voting, database-backed in-app notifications, and immutable `audit_logs` |
+| **DhakaWala Super Admin Hub** | Organization provisioning, 1-click Free Trial (`7d`/`14d`/`30d`) & Seat-Based Paid (`Seats × Per-Seat Rate`) billing engine, live Brand Color Palette selector (`Sea Green` default + 8 presets + custom HEX), Company & Partner Email/Name/Unit/Password control, Super Admin Firm Policy override, and full JSON tenant backup |
+| **Top-Deck Live Attendance Command Dock** | Placed at the very top of Manager/Student/Staff dashboards (hidden on Partner dashboard); inline `Office HQ` vs `Client Site` selector with direct Client Name input & auto-suggestions; real-time `Asia/Dhaka` policy-driven color shift (`Emerald Green` Right Time → `Amber Yellow` Grace → `Soft/Dark Crimson Red` Late Present); check-in celebration animation; multi-leg `On-Duty Move` vs `Close Duty` timeline |
+| **Interactive Monthly Calendar & Field Radar** | Full current-month calendar grid showing daily Right Time/Late/Late Present counts, Holidays (`Office Open` overrides), Leaves, and Conveyance; clickable Daily Activity Inspector; Live Field Radar (`Who's Where Right Now`) |
+| **Unread Approval Inbox (Leave & Conveyance)** | Real-time unread badges on Sidebar (`● X New`), Top Header quick-jump pills (`📩 Leave` / `🧾 Claim`), and a dedicated **Unread Approval Inbox** on Manager & Partner dashboards with 1-click Approve, Partial Approve, Adjust (±), Forward, or Reject actions |
+| **Multi-Tier Leave & Conveyance Workflows** | Student leave application mentioning engaged Manager, partial day approvals, multi-leg transport builder (`From → To → Mode → Fare`), optional voucher upload, and automatic escalation for late/excess claims |
+| **Dynamic Monthly Allowance & Payroll** | Automatic calculation of Base Allowance + Approved Conveyance − Late Penalty Deductions (`e.g. 3 Late Days = 1 Day Cut`) − Mandatory Open-Holiday Absence Cuts, with printable Payment Vouchers and CSV exports |
+| **Multi-Role Policy & Governance** | Super Admin, Partner, and Manager policy controls (`Office Start`, `Office End`, `Grace Minutes`, `Late Penalty Rule`, `Manager Conveyance Limit`, `Custom Leave Quotas`, and `Bangladesh Govt. Holidays`) |
 
-## Production & Preview Routes
+## Production Deployment Checklist
 
-| Surface | Route | Protection |
-|---|---|---|
-| Unified Portal & Login | `/` | Public entry (redirects authenticated users) |
-| Platform Super Admin Login | `/platform/login` | Guest / Throttled (`20,1`) |
-| Platform Admin Hub (Production) | `/platform/dashboard` | `auth`, `role:platform_admin` |
-| Firm Member Login | `/c/{firmSlug}/login` | Guest / Throttled (`20,1`) |
-| Account Invitation Activation | `/c/{firmSlug}/activate?token=...` | Token-verified onboarding |
-| Firm Practice Workspace (Production) | `/c/{firmSlug}/dashboard/{section?}` | `auth`, `firm.member` |
-| UI Design Preview Routes | `/c/{firmSlug}/preview/{previewRole?}/{section?}` | Restricted in production via `production.preview` middleware |
-
-## Local Setup & Deployment
-
-~~~sh
-composer install
+```sh
+composer install --optimize-autoloader --no-dev
 cp .env.example .env
 php artisan key:generate
-php artisan migrate --seed
+php artisan migrate --force
 php artisan storage:link
-npm ci
-npm run build
-php artisan serve
-~~~
+npm ci && npm run build
+php artisan optimize:clear
+```

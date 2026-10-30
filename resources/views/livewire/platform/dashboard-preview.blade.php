@@ -166,6 +166,13 @@
                                             {{ $firm['kind'] }} · {{ $firm['plan'] }} Tier
                                         </p>
                                     </div>
+                                    <span class="hidden md:inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-bold text-slate-700">
+                                        <span class="h-2.5 w-2.5 rounded-full" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}"></span>
+                                        <span>{{ explode(' (', $firm['palette_label'] ?? 'Sea Green')[0] }}</span>
+                                    </span>
+                                    @if(($firm['payment_status'] ?? '') === 'trial' || ($firm['billing_cycle'] ?? '') === 'Trial')
+                                        <span class="hidden sm:inline-flex rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-1 text-[10px] font-extrabold text-indigo-800">🎁 TRIAL</span>
+                                    @endif
                                     <span class="hidden rounded-full px-2.5 py-1 text-[10px] font-bold sm:inline-flex {{ $firm['status'] === 'preview-active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800' }}">
                                         {{ $firm['status'] === 'preview-active' ? 'Active' : 'Pending' }}
                                     </span>
@@ -263,8 +270,16 @@
                                         </td>
                                         <td class="px-4 py-4"><span class="rounded-full px-2.5 py-1 text-[11px] font-bold {{ $firm['status']==='preview-active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800' }}">{{ $firm['status']==='preview-active' ? 'Active' : 'Pending' }}</span></td>
                                         <td class="px-4 py-4 font-semibold">{{ $firm['workspaces'] }} <span class="text-xs font-normal text-slate-400">workspace</span></td>
-                                        <td class="px-4 py-4 font-semibold">{{ $firm['seats'] }} <span class="text-xs font-normal text-slate-400">seats</span></td>
-                                        <td class="px-4 py-4 text-slate-600 font-medium">{{ $firm['plan'] }}</td>
+                                        <td class="px-4 py-4 font-semibold">{{ $firm['used_seats'] ?? 0 }} / {{ $firm['seats'] }} <span class="text-xs font-normal text-slate-400">seats</span></td>
+                                        <td class="px-4 py-4">
+                                            <div class="flex flex-col gap-1">
+                                                <span class="text-xs font-bold text-slate-800">{{ $firm['plan'] }} · {{ ($firm['payment_status'] ?? '') === 'trial' ? '🎁 Trial' : ('৳' . number_format((float)($firm['subscription_fee'] ?? 0), 0)) }}</span>
+                                                <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                                                    <span class="h-2 w-2 rounded-full" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}"></span>
+                                                    {{ explode(' (', $firm['palette_label'] ?? 'Sea Green')[0] }}
+                                                </span>
+                                            </div>
+                                        </td>
                                         <td class="px-5 py-4 text-right flex items-center justify-end gap-1.5">
                                             <button type="button" wire:click="enterFirmWorkspaceAsSupport('{{ $firm['slug'] }}')" class="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-extrabold text-white hover:bg-emerald-700 transition shadow-sm" title="1-Click Support Enter into Firm Workspace">
                                                 <i data-lucide="log-in" class="h-3 w-3"></i>
@@ -571,6 +586,10 @@
                                     <input type="text" wire:model="editFirmName" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800">
                                 </div>
                                 <div>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Company Main / Support Email (কোম্পানি ইমেইল)</label>
+                                    <input type="email" wire:model="editFirmEmail" placeholder="info@firm.com" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800">
+                                </div>
+                                <div>
                                     <label class="block text-[11px] font-bold text-slate-700 mb-1">Category</label>
                                     <select wire:model="editFirmKind" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800">
                                         <option value="Chartered Accountants">Chartered Accountants (CA Firm)</option>
@@ -609,9 +628,11 @@
                                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                     @foreach($colorPalettes as $pKey => $pal)
                                         <button type="button"
-                                                wire:click="$set('editFirmThemePalette', '{{ $pKey }}'); $set('editFirmPrimaryColor', '{{ $pal['primary'] }}')"
-                                                class="flex items-center gap-2 rounded-xl border p-2 text-left transition {{ $editFirmThemePalette === $pKey ? 'border-slate-900 bg-white shadow-sm ring-2 ring-slate-900/10' : 'border-slate-200 bg-white/70 hover:bg-white' }}">
-                                            <span class="h-5 w-5 shrink-0 rounded-lg shadow-inner border border-black/10" style="background-color: {{ $pal['primary'] }}"></span>
+                                                wire:click="selectAndApplyFirmPalette('{{ $selectedFirm['slug'] }}', '{{ $pKey }}')"
+                                                class="flex items-center gap-2 rounded-xl border p-2 text-left transition {{ $editFirmThemePalette === $pKey ? 'border-slate-900 bg-white shadow-sm ring-2 ring-slate-900/20' : 'border-slate-200 bg-white/70 hover:bg-white' }}">
+                                            <span class="h-5 w-5 shrink-0 rounded-lg shadow-inner border border-black/10 flex items-center justify-center text-white text-[10px]" style="background-color: {{ $pal['primary'] }}">
+                                                @if($editFirmThemePalette === $pKey) ✓ @endif
+                                            </span>
                                             <span class="truncate text-[10px] font-bold text-slate-800">{{ explode(' (', $pal['label'])[0] }}</span>
                                         </button>
                                     @endforeach
@@ -621,8 +642,8 @@
                                         <input type="color" wire:model.live="editFirmPrimaryColor" wire:change="$set('editFirmThemePalette', 'custom')" class="h-7 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0.5">
                                         <span>Or Pick Custom Hex Color ({{ $editFirmPrimaryColor }})</span>
                                     </label>
-                                    <button type="button" wire:click="updateDomainSettings('{{ $selectedFirm['slug'] }}')" class="rounded-lg bg-slate-900 px-3 py-1.5 text-[10px] font-extrabold text-white hover:bg-slate-800">
-                                        Apply Palette
+                                    <button type="button" wire:click="applyFirmCustomColor('{{ $selectedFirm['slug'] }}')" class="rounded-lg bg-slate-900 px-3.5 py-1.5 text-[10px] font-extrabold text-white hover:bg-slate-800 shadow-sm cursor-pointer">
+                                        ✓ Apply Palette Now
                                     </button>
                                 </div>
                             </div>
@@ -636,19 +657,35 @@
                                     <p class="text-[11px] text-slate-500">Add new Partners (isolated Partner Units) or reset an existing Partner's password.</p>
                                 </div>
                             </div>
-                            <div class="space-y-2">
+                            <div class="space-y-2.5">
                                 @forelse($selectedFirmPartners as $fp)
-                                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-2.5">
-                                        <div>
-                                            <span class="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-900">{{ $fp['partner_unit'] }}</span>
-                                            <span class="ml-1.5 font-bold text-slate-900">{{ $fp['name'] }}</span>
-                                            <span class="ml-1 text-[11px] text-slate-500">({{ $fp['email'] }})</span>
+                                    <div class="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                                        <div class="flex items-center justify-between">
+                                            <span class="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">{{ $fp['partner_unit'] }}</span>
+                                            <span class="text-[10px] font-semibold text-slate-400">Edit Partner Name, Email, Unit or Password</span>
                                         </div>
-                                        <div class="flex items-center gap-1.5">
-                                            <input type="text" wire:model="resetPartnerPasswordInputs.{{ $fp['id'] }}" placeholder="New password" class="w-32 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px]">
-                                            <button type="button" wire:click="resetPartnerPassword({{ $fp['id'] }})" class="rounded-lg bg-slate-900 px-2.5 py-1 text-[10px] font-bold text-[#FCDF02] hover:bg-slate-800">
-                                                Reset Pass
-                                            </button>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Partner Name</label>
+                                                <input type="text" wire:model="editPartnerNames.{{ $fp['id'] }}" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-800">
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Partner Login Email (ইমেইল পরিবর্তন)</label>
+                                                <input type="email" wire:model="editPartnerEmails.{{ $fp['id'] }}" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-800">
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Partner Unit</label>
+                                                <input type="text" wire:model="editPartnerUnits.{{ $fp['id'] }}" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-800">
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-bold text-slate-500 mb-0.5">New Password (Optional)</label>
+                                                <div class="flex gap-1.5">
+                                                    <input type="text" wire:model="resetPartnerPasswordInputs.{{ $fp['id'] }}" placeholder="Leave blank or type new pass" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
+                                                    <button type="button" wire:click="updatePartnerAccount({{ $fp['id'] }})" class="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-[10px] font-extrabold text-white hover:bg-slate-800 cursor-pointer">
+                                                        Save Email &amp; Pass
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 @empty
@@ -669,6 +706,52 @@
                                         </button>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        {{-- Super Admin Firm Policy & Attendance Governance Control --}}
+                        <div class="border-t border-slate-100 bg-emerald-50/40 p-6 space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <p class="text-xs font-extrabold uppercase tracking-wider text-emerald-950">⚙️ Firm Attendance, Grace &amp; Late Salary Cut Policy (Super Admin Control)</p>
+                                    <p class="text-[11px] text-slate-600">Directly configure office hours, grace minutes, late deduction rules, and conveyance limits for this organization.</p>
+                                </div>
+                                <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-900">Super Admin Override</span>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Office Start (HH:MM)</label>
+                                    <input type="text" wire:model="editPolicyOfficeStart" placeholder="09:30" class="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-900">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Office End (HH:MM)</label>
+                                    <input type="text" wire:model="editPolicyOfficeEnd" placeholder="18:00" class="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-900">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Grace Window (Mins)</label>
+                                    <input type="number" wire:model="editPolicyGraceMinutes" min="0" max="120" class="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-900">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Late Days for Cut</label>
+                                    <input type="number" wire:model="editPolicyLateDaysPerDeduction" min="1" max="30" class="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-900">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Salary Cut (Days)</label>
+                                    <input type="number" wire:model="editPolicyDeductionDaysCount" min="0" max="10" step="0.5" class="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-900">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Mgr Claim Limit (৳)</label>
+                                    <input type="number" wire:model="editPolicyConveyanceLimit" min="50" max="50000" step="10" class="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-900">
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                                <label class="inline-flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                                    <input type="checkbox" wire:model="editPolicyLatePenaltyEnabled" class="rounded border-emerald-400 text-emerald-700">
+                                    <span>Enable Auto Late Deduction ({{ $editPolicyLateDaysPerDeduction }} Late = {{ $editPolicyDeductionDaysCount }}d Cut)</span>
+                                </label>
+                                <button type="button" wire:click="saveFirmPolicyFromSuperAdmin('{{ $selectedFirm['slug'] }}')" class="rounded-xl bg-emerald-700 px-3.5 py-2 text-xs font-extrabold text-white hover:bg-emerald-800 shadow-sm cursor-pointer">
+                                    Apply Policy to Firm
+                                </button>
                             </div>
                         </div>
 
@@ -751,29 +834,56 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-slate-200/80 pt-3 text-xs">
-                                <div>
-                                    <label class="block text-[10px] font-bold text-slate-600 mb-1">Fee (BDT)</label>
-                                    <input type="number" wire:model="editSubscriptionFee" step="500" class="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold">
+                            {{-- Mature Trial vs Seat-Based Paid Subscription Engine (#Issue03) --}}
+                            <div class="mt-4 rounded-xl border border-slate-200 bg-white p-3.5 space-y-3 text-xs">
+                                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                                    <div>
+                                        <p class="font-extrabold text-slate-900">Subscription &amp; Seat Billing Engine (ট্রায়াল ও সিট-ভিত্তিক পেইড সাবস্ক্রিপশন)</p>
+                                        <p class="text-[10px] text-slate-500">Grant a Free Trial or calculate subscription fee automatically by Allocated Seats × Per-Seat Rate.</p>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-1">
+                                        <button type="button" wire:click="grantTrialSubscription('{{ $selectedFirm['slug'] }}', 7)" class="rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-extrabold text-indigo-800 hover:bg-indigo-100">🎁 7d Trial</button>
+                                        <button type="button" wire:click="grantTrialSubscription('{{ $selectedFirm['slug'] }}', 14)" class="rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-extrabold text-indigo-800 hover:bg-indigo-100">🎁 14d Trial</button>
+                                        <button type="button" wire:click="grantTrialSubscription('{{ $selectedFirm['slug'] }}', 30)" class="rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-extrabold text-indigo-800 hover:bg-indigo-100">🎁 30d Trial</button>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-slate-600 mb-1">Billing Cycle</label>
-                                    <select wire:model="editBillingCycle" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold">
-                                        <option value="Monthly">Monthly</option>
-                                        <option value="Annual">Annual</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-slate-600 mb-1">Payment Status</label>
-                                    <select wire:model="editPaymentStatus" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold">
-                                        <option value="paid">PAID</option>
-                                        <option value="due">DUE</option>
-                                        <option value="overdue">OVERDUE</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-bold text-slate-600 mb-1">Expiry Date</label>
-                                    <input type="date" wire:model="editSubscriptionExpiresAt" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs">
+
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-600 mb-1">Per-Seat Rate (BDT / Seat)</label>
+                                        <div class="flex gap-1">
+                                            <input type="number" wire:model="editPerSeatRate" step="50" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold">
+                                            <button type="button" wire:click="applySeatBasedSubscription('{{ $selectedFirm['slug'] }}')" class="shrink-0 rounded-lg bg-emerald-600 px-2 py-1 text-[10px] font-extrabold text-white hover:bg-emerald-700" title="Auto-calculate Fee = Seats × Per-Seat Rate">
+                                                Calc ({{ $editFirmSeats }}×)
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-600 mb-1">Total Fee (BDT)</label>
+                                        <input type="number" wire:model="editSubscriptionFee" step="100" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-extrabold text-slate-900">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-600 mb-1">Billing Cycle</label>
+                                        <select wire:model="editBillingCycle" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-semibold">
+                                            <option value="Trial">Free Trial Period</option>
+                                            <option value="Monthly">Monthly (Seat-Based / Fixed)</option>
+                                            <option value="Quarterly">Quarterly (3 Months)</option>
+                                            <option value="Annual">Annual (12 Months)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-slate-600 mb-1">Payment / Trial Status</label>
+                                        <select wire:model="editPaymentStatus" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold">
+                                            <option value="trial">TRIAL (Free Trial Active)</option>
+                                            <option value="paid">PAID (Active Subscription)</option>
+                                            <option value="due">DUE (Payment Pending)</option>
+                                            <option value="overdue">OVERDUE (Past Expiry)</option>
+                                        </select>
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label class="block text-[10px] font-bold text-slate-600 mb-1">Trial / Subscription Expiry Date</label>
+                                        <input type="date" wire:model="editSubscriptionExpiresAt" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold">
+                                    </div>
                                 </div>
                             </div>
                             <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -1060,6 +1170,41 @@
                             </div>
                         </div>
 
+                        {{-- Initial Subscription Mode: Free Trial vs Seat-Based Paid (#Issue03) --}}
+                        <div class="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5 text-xs">
+                            <label class="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+                                Subscription Mode (ট্রায়াল নাকি সিট-ভিত্তিক পেইড সাবস্ক্রিপশন)
+                            </label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button type="button" wire:click="$set('newSubscriptionType', 'trial')"
+                                        class="rounded-xl border p-2.5 text-left font-bold transition {{ $newSubscriptionType === 'trial' ? 'border-indigo-500 bg-indigo-50 text-indigo-950 ring-2 ring-indigo-200' : 'border-slate-200 bg-white text-slate-600' }}">
+                                    🎁 Free Trial Subscription
+                                    <span class="block text-[10px] font-normal text-slate-500">7, 14, or 30 days evaluation</span>
+                                </button>
+                                <button type="button" wire:click="$set('newSubscriptionType', 'paid')"
+                                        class="rounded-xl border p-2.5 text-left font-bold transition {{ $newSubscriptionType === 'paid' ? 'border-emerald-500 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-200' : 'border-slate-200 bg-white text-slate-600' }}">
+                                    💳 Seat-Based Paid Plan
+                                    <span class="block text-[10px] font-normal text-slate-500">Auto-billed by allocated seats</span>
+                                </button>
+                            </div>
+                            @if($newSubscriptionType === 'trial')
+                                <div class="flex items-center justify-between pt-1">
+                                    <span class="font-bold text-slate-700">Trial Duration (Days):</span>
+                                    <div class="flex gap-1.5">
+                                        @foreach([7, 14, 30] as $td)
+                                            <button type="button" wire:click="$set('newTrialDays', {{ $td }})" class="rounded-lg border px-3 py-1 font-extrabold {{ $newTrialDays === $td ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-200 bg-white text-slate-700' }}">{{ $td }} Days</button>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @else
+                                <div class="flex items-center justify-between gap-3 pt-1">
+                                    <label class="font-bold text-slate-700">Per-Seat Rate (BDT):</label>
+                                    <input type="number" wire:model.live="newPerSeatRate" step="50" class="w-28 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold">
+                                    <span class="font-extrabold text-emerald-800">Total: ৳ {{ number_format((int)$newFirmSeats * (float)$newPerSeatRate, 0) }} / mo</span>
+                                </div>
+                            @endif
+                        </div>
+
                         {{-- Initial Firm Brand Color Palette Selector --}}
                         <div class="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5">
                             <div class="flex items-center justify-between">
@@ -1074,7 +1219,7 @@
                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 @foreach($colorPalettes as $pKey => $pal)
                                     <button type="button"
-                                            wire:click="$set('newFirmThemePalette', '{{ $pKey }}'); $set('newFirmPrimaryColor', '{{ $pal['primary'] }}')"
+                                            wire:click="selectNewFirmPalette('{{ $pKey }}')"
                                             class="flex items-center gap-2 rounded-xl border p-2 text-left transition {{ $newFirmThemePalette === $pKey ? 'border-slate-900 bg-white shadow-sm ring-2 ring-slate-900/10' : 'border-slate-200 bg-white/70 hover:bg-white' }}">
                                         <span class="h-5 w-5 shrink-0 rounded-lg shadow-inner border border-black/10" style="background-color: {{ $pal['primary'] }}"></span>
                                         <span class="truncate text-[11px] font-bold text-slate-800">{{ explode(' (', $pal['label'])[0] }}</span>

@@ -72,9 +72,18 @@
 
                 <div class="divide-y divide-slate-100">
                     @forelse($leaveQueue as $request)
-                        <div wire:key="leave-{{ $request['id'] }}" class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+                        @php
+                            $isUnreadLeave = ($previewRole === 'manager' && ($request['status'] ?? '') === 'pending_manager')
+                                || ($previewRole === 'partner' && in_array($request['status'] ?? '', ['pending_partner', 'pending_manager'], true));
+                        @endphp
+                        <div wire:key="leave-{{ $request['id'] }}" class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between transition {{ $isUnreadLeave ? 'bg-rose-50/35 border-l-4 border-l-rose-500' : 'bg-white' }}">
                             <div class="min-w-0">
                                 <div class="flex flex-wrap items-center gap-2">
+                                    @if($isUnreadLeave)
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-2xs animate-pulse">
+                                            <span class="h-1.5 w-1.5 rounded-full bg-white"></span> NEW UNREAD
+                                        </span>
+                                    @endif
                                     <p class="text-sm font-bold text-slate-800">{{ $request['name'] }}</p>
                                     <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">{{ $request['student_code'] }}</span>
                                     <span class="rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">{{ $request['type'] }}</span>
@@ -205,7 +214,7 @@
             </div>
         </section>
 
-        @if($previewRole === 'partner')
+        @if(in_array($previewRole, ['partner', 'manager']))
             <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
                 <h3 class="text-sm font-extrabold">Add Custom Leave Category</h3>
                 <p class="mt-1 text-xs text-slate-500">Partners can add custom leave types and day quotas for their unit.</p>

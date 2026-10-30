@@ -48,12 +48,19 @@ class DashboardPreview extends Component
     public bool $newFirmSharedAttendance = true;
     public string $newFirmThemePalette = 'sea_green';
     public string $newFirmPrimaryColor = '#0D9488';
+    public string $newSubscriptionType = 'paid'; // 'trial' or 'paid'
+    public int $newTrialDays = 14;
+    public float $newPerSeatRate = 500.00;
 
     // Organization Profile, Domain, Billing & Governance Controls editing
     public string $editFirmName = '';
+    public string $editFirmEmail = '';
     public string $editFirmKind = 'Chartered Accountants';
     public string $editFirmPlan = 'Practice';
     public string $editFirmRegion = 'Dhaka';
+    public string $editSubscriptionType = 'paid'; // 'trial' or 'paid'
+    public int $editTrialDays = 14;
+    public float $editPerSeatRate = 500.00;
     public string $editFirmThemePalette = 'sea_green';
     public string $editFirmPrimaryColor = '#0D9488';
     public array $editEnabledModules = [
@@ -75,10 +82,21 @@ class DashboardPreview extends Component
     public string $editBillingCycle = 'Monthly';
     public string $editPaymentStatus = 'paid';
     public string $editSubscriptionExpiresAt = '';
+    public string $editPolicyOfficeStart = '09:30';
+    public string $editPolicyOfficeEnd = '18:00';
+    public int $editPolicyGraceMinutes = 10;
+    public float $editPolicyConveyanceLimit = 300.00;
+    public int $editPolicyConveyanceLateDays = 2;
+    public bool $editPolicyLatePenaltyEnabled = true;
+    public int $editPolicyLateDaysPerDeduction = 3;
+    public float $editPolicyDeductionDaysCount = 1.00;
 
     // Selected Firm Partner Roster, Add New Partner Unit & Partner Password Reset
     public array $selectedFirmPartners = [];
     public array $selectedFirmStats = ['partners' => 0, 'managers' => 0, 'students' => 0, 'total' => 0];
+    public array $editPartnerNames = [];
+    public array $editPartnerEmails = [];
+    public array $editPartnerUnits = [];
     public array $resetPartnerPasswordInputs = [];
     public string $newAddPartnerName = '';
     public string $newAddPartnerEmail = '';
@@ -129,6 +147,7 @@ class DashboardPreview extends Component
             return;
         }
 
+        Firm::ensureRuntimeSchemaColumns();
         $this->syncFirmsFromDatabase();
         $this->loadPlatformOperators();
         $this->loadPlatformAuditLogs();
@@ -242,7 +261,11 @@ class DashboardPreview extends Component
                             'db_id' => $f->id,
                             'name' => $f->name,
                             'slug' => $f->slug,
+                            'email' => $f->email ?? '',
                             'kind' => $f->kind,
+                            'subscription_type' => $f->subscription_type ?: (($f->payment_status ?? '') === 'trial' ? 'trial' : 'paid'),
+                            'per_seat_rate' => (float) ($f->per_seat_rate ?? 500.00),
+                            'trial_days' => (int) ($f->trial_days ?? 14),
                             'status' => ($f->status === 'active' && ! $f->is_suspended) ? 'preview-active' : 'preview-pending',
                             'workspaces' => $f->workspaces ?: max(1, $partnerCount),
                             'seats' => $f->seats ?: 10,
@@ -395,6 +418,14 @@ class DashboardPreview extends Component
                         'total'    => $users->count(),
                     ];
 
+                    $this->editPartnerNames = [];
+                    $this->editPartnerEmails = [];
+                    $this->editPartnerUnits = [];
+                    foreach ($partners as $p) {
+                        $this->editPartnerNames[$p->id] = $p->name;
+                        $this->editPartnerEmails[$p->id] = $p->email;
+                        $this->editPartnerUnits[$p->id] = $p->partner_unit ?: 'Partner Unit 01';
+                    }
                     $this->selectedFirmPartners = $partners->map(fn (User $p) => [
                         'id'           => $p->id,
                         'name'         => $p->name,
@@ -436,7 +467,11 @@ class DashboardPreview extends Component
             if ($firm['id'] === $id || (isset($firm['slug']) && $firm['slug'] === $id)) {
                 $this->selectedFirmId = $firm['id'];
                 $this->editFirmName = $firm['name'] ?? '';
+                $this->editFirmEmail = $firm['email'] ?? '';
                 $this->editFirmKind = $firm['kind'] ?? 'Chartered Accountants';
+                $this->editSubscriptionType = $firm['subscription_type'] ?? 'paid';
+                $this->editPerSeatRate = (float) ($firm['per_seat_rate'] ?? 500.00);
+                $this->editTrialDays = (int) ($firm['trial_days'] ?? 14);
                 $this->editFirmThemePalette = $firm['theme_palette'] ?? 'sea_green';
                 $this->editFirmPrimaryColor = $firm['primary_color'] ?? '#0D9488';
                 $this->editEnabledModules = array_merge([
@@ -458,6 +493,26 @@ class DashboardPreview extends Component
                 $this->editSubscriptionExpiresAt = $firm['subscription_expires_at'] ?? now()->addYear()->toDateString();
                 $this->showProvisionPreview = false;
                 $this->loadSelectedFirmRoster($this->editFirmSlug);
+                try {
+                    if (Schema::hasTable('partner_policies') && Schema::hasTable('firms')) {
+                        $fModel = Firm::where('slug', $this->editFirmSlug)->first();
+                        if ($fModel) {
+                            $pol = PartnerPolicy::where('firm_id', $fModel->id)->first();
+                            if ($pol) {
+                                $this->editPolicyOfficeStart = $pol->office_start ?: '09:30';
+                                $this->editPolicyOfficeEnd = $pol->office_end ?: '18:00';
+                                $this->editPolicyGraceMinutes = (int) ($pol->grace_minutes ?? 10);
+                                $this->editPolicyConveyanceLimit = (float) ($pol->manager_conveyance_limit ?? 300.00);
+                                $this->editPolicyConveyanceLateDays = (int) ($pol->conveyance_late_days ?? 2);
+                                if (Schema::hasColumn('partner_policies', 'late_penalty_enabled')) {
+                                    $this->editPolicyLatePenaltyEnabled = (bool) $pol->late_penalty_enabled;
+                                    $this->editPolicyLateDaysPerDeduction = max(1, (int) ($pol->late_days_per_deduction ?: 3));
+                                    $this->editPolicyDeductionDaysCount = (float) ($pol->deduction_days_count ?: 1.00);
+                                }
+                            }
+                        }
+                    }
+                } catch (\Throwable) {}
                 return;
             }
         }
@@ -582,10 +637,31 @@ class DashboardPreview extends Component
                     if (Schema::hasColumn('firms', 'shared_attendance_view')) {
                         $firmData['shared_attendance_view'] = $this->newFirmSharedAttendance;
                     }
+                    Firm::ensureRuntimeSchemaColumns();
                     if (Schema::hasColumn('firms', 'theme_palette')) {
                         $resolvedNewPal = Firm::resolvePalette($this->newFirmThemePalette, $this->newFirmPrimaryColor);
-                        $firmData['theme_palette'] = $this->newFirmThemePalette ?: 'sea_green';
+                        $firmData['theme_palette'] = $resolvedNewPal['key'];
                         $firmData['primary_color'] = $resolvedNewPal['primary'];
+                    }
+                    if (Schema::hasColumn('firms', 'subscription_fee')) {
+                        if ($this->newSubscriptionType === 'trial') {
+                            $tDays = max(1, (int) $this->newTrialDays);
+                            $firmData['billing_cycle'] = 'Trial';
+                            $firmData['payment_status'] = 'trial';
+                            $firmData['subscription_fee'] = 0.00;
+                            $firmData['subscription_expires_at'] = now()->addDays($tDays)->toDateString();
+                        } else {
+                            $rate = max(0, (float) $this->newPerSeatRate);
+                            $firmData['billing_cycle'] = 'Monthly';
+                            $firmData['payment_status'] = 'paid';
+                            $firmData['subscription_fee'] = round($this->newFirmSeats * $rate, 2);
+                            $firmData['subscription_expires_at'] = now()->addMonth()->toDateString();
+                        }
+                    }
+                    if (Schema::hasColumn('firms', 'subscription_type')) {
+                        $firmData['subscription_type'] = $this->newSubscriptionType;
+                        $firmData['per_seat_rate'] = max(0, (float) $this->newPerSeatRate);
+                        $firmData['trial_days'] = max(1, (int) $this->newTrialDays);
                     }
 
                     $firm = Firm::create($firmData);
@@ -724,8 +800,11 @@ class DashboardPreview extends Component
                         return;
                     }
 
+                    Firm::ensureRuntimeSchemaColumns();
+                    $cleanFirmEmail = strtolower(trim($this->editFirmEmail));
                     $updatePayload = [
                         'name'             => ! empty(trim($this->editFirmName)) ? trim($this->editFirmName) : $firm->name,
+                        'email'            => filter_var($cleanFirmEmail, FILTER_VALIDATE_EMAIL) ? $cleanFirmEmail : $firm->email,
                         'kind'             => ! empty(trim($this->editFirmKind)) ? trim($this->editFirmKind) : $firm->kind,
                         'plan'             => ! empty(trim($this->editFirmPlan)) ? trim($this->editFirmPlan) : $firm->plan,
                         'region'           => ! empty(trim($this->editFirmRegion)) ? trim($this->editFirmRegion) : $firm->region,
@@ -740,7 +819,7 @@ class DashboardPreview extends Component
                     }
                     if (Schema::hasColumn('firms', 'theme_palette')) {
                         $resolvedEditPal = Firm::resolvePalette($this->editFirmThemePalette, $this->editFirmPrimaryColor);
-                        $updatePayload['theme_palette'] = $this->editFirmThemePalette ?: 'sea_green';
+                        $updatePayload['theme_palette'] = $resolvedEditPal['key'];
                         $updatePayload['primary_color'] = $resolvedEditPal['primary'];
                     }
                     if (Schema::hasColumn('firms', 'enabled_modules')) {
@@ -753,7 +832,12 @@ class DashboardPreview extends Component
                     if (Schema::hasColumn('firms', 'subscription_fee')) {
                         $updatePayload['subscription_fee'] = max(0, (float) $this->editSubscriptionFee);
                         $updatePayload['billing_cycle'] = $this->editBillingCycle ?: 'Monthly';
-                        $updatePayload['payment_status'] = in_array($this->editPaymentStatus, ['paid', 'due', 'overdue'], true) ? $this->editPaymentStatus : 'paid';
+                        $updatePayload['payment_status'] = in_array($this->editPaymentStatus, ['trial', 'paid', 'due', 'overdue'], true) ? $this->editPaymentStatus : 'paid';
+                        if (Schema::hasColumn('firms', 'subscription_type')) {
+                            $updatePayload['subscription_type'] = $this->editSubscriptionType;
+                            $updatePayload['per_seat_rate'] = max(0, (float) $this->editPerSeatRate);
+                            $updatePayload['trial_days'] = max(1, (int) $this->editTrialDays);
+                        }
                         if (! empty($this->editSubscriptionExpiresAt)) {
                             $updatePayload['subscription_expires_at'] = $this->editSubscriptionExpiresAt;
                         }
@@ -886,6 +970,250 @@ class DashboardPreview extends Component
     /**
      * 1-Click Partner Password Reset from DhakaWala Super Admin.
      */
+
+    /**
+     * Issue 01 Fix: Dedicated 1-click palette selection for New Organization modal.
+     */
+    public function selectNewFirmPalette(string $paletteKey): void
+    {
+        $palettes = Firm::colorPalettes();
+        if (isset($palettes[$paletteKey])) {
+            $this->newFirmThemePalette = $paletteKey;
+            $this->newFirmPrimaryColor = $palettes[$paletteKey]['primary'];
+        } else {
+            $this->newFirmThemePalette = 'custom';
+        }
+    }
+
+    /**
+     * Issue 01 Fix: 1-Click instant palette selection & database persistence in Manage Organization modal.
+     */
+    public function selectAndApplyFirmPalette(string $slug, string $paletteKey): void
+    {
+        if (! $this->authorizePlatformMutation()) {
+            return;
+        }
+        $palettes = Firm::colorPalettes();
+        if (isset($palettes[$paletteKey])) {
+            $this->editFirmThemePalette = $paletteKey;
+            $this->editFirmPrimaryColor = $palettes[$paletteKey]['primary'];
+        } else {
+            $this->editFirmThemePalette = 'custom';
+        }
+        $this->applyFirmCustomColor($slug);
+    }
+
+    /**
+     * Issue 01 Fix: Directly persist theme_palette & primary_color to the Firm in DB and refresh directory state.
+     */
+    public function applyFirmCustomColor(string $slug): void
+    {
+        if (! $this->authorizePlatformMutation()) {
+            return;
+        }
+        try {
+            Firm::ensureRuntimeSchemaColumns();
+            if (Schema::hasTable('firms')) {
+                $firm = Firm::where('slug', $slug)->first();
+                if ($firm) {
+                    $resolved = Firm::resolvePalette($this->editFirmThemePalette, $this->editFirmPrimaryColor);
+                    $this->editFirmThemePalette = $resolved['key'];
+                    $this->editFirmPrimaryColor = $resolved['primary'];
+                    $firm->theme_palette = $resolved['key'];
+                    $firm->primary_color = $resolved['primary'];
+                    $firm->save();
+
+                    $this->syncFirmsFromDatabase();
+                    $this->selectFirm($firm->slug);
+                    $this->previewNotice = "Brand Color Palette updated to {$resolved['label']} ({$resolved['primary']}) for '{$firm->name}'!";
+                    $this->dispatch('toast', [
+                        'type'    => 'success',
+                        'title'   => 'Palette Applied',
+                        'message' => "{$firm->name} color updated to {$resolved['label']}.",
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            $this->previewNotice = 'Failed to save palette: ' . $e->getMessage();
+        }
+    }
+
+    /**
+     * Issue 02 Fix: Update Partner Name, Email, Partner Unit, and/or Password from DhakaWala Super Admin.
+     */
+    public function updatePartnerAccount(int $partnerUserId): void
+    {
+        if (! $this->authorizePlatformMutation()) {
+            return;
+        }
+
+        $newName = trim($this->editPartnerNames[$partnerUserId] ?? '');
+        $newEmail = strtolower(trim($this->editPartnerEmails[$partnerUserId] ?? ''));
+        $newUnit = trim($this->editPartnerUnits[$partnerUserId] ?? '');
+        $newPass = trim($this->resetPartnerPasswordInputs[$partnerUserId] ?? '');
+
+        if ($newEmail !== '' && ! filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
+            $this->previewNotice = 'Please enter a valid Partner email address.';
+            return;
+        }
+
+        if ($newPass !== '' && strlen($newPass) < 8) {
+            $this->previewNotice = 'New Partner password must be at least 8 characters.';
+            return;
+        }
+
+        try {
+            if (Schema::hasTable('users')) {
+                $partner = User::where('id', $partnerUserId)->where('role', 'partner')->first();
+                if ($partner) {
+                    $oldEmail = $partner->email;
+                    if ($newEmail !== '' && $newEmail !== $partner->email) {
+                        if (User::where('email', $newEmail)->where('id', '!=', $partner->id)->exists()) {
+                            $this->previewNotice = "Email '{$newEmail}' is already assigned to another user.";
+                            return;
+                        }
+                        $partner->email = $newEmail;
+                    }
+                    if ($newName !== '') {
+                        $partner->name = $newName;
+                    }
+                    if ($newUnit !== '') {
+                        $partner->partner_unit = $newUnit;
+                    }
+                    if ($newPass !== '') {
+                        $partner->password = Hash::make($newPass);
+                    }
+                    $partner->save();
+
+                    // Also sync firm primary email if it matched the old partner email
+                    if ($partner->firm_id && Schema::hasTable('firms')) {
+                        $firm = Firm::find($partner->firm_id);
+                        if ($firm && ($firm->email === $oldEmail || empty($firm->email))) {
+                            $firm->email = $partner->email;
+                            $firm->save();
+                            $this->editFirmEmail = $partner->email;
+                        }
+                    }
+
+                    if (Schema::hasTable('audit_logs')) {
+                        AuditLog::create([
+                            'firm_id'    => $partner->firm_id,
+                            'actor_id'   => Auth::id(),
+                            'actor_name' => Auth::user()?->name ?? 'Platform Admin',
+                            'actor_role' => 'platform_admin',
+                            'module'     => 'platform',
+                            'action'     => 'partner_account_updated',
+                            'target_ref' => $partner->email,
+                            'summary'    => "Updated Partner account ({$partner->name}, Email: {$partner->email})" . ($newPass !== '' ? ' and reset password.' : '.'),
+                        ]);
+                    }
+
+                    $this->resetPartnerPasswordInputs[$partnerUserId] = '';
+                    $this->syncFirmsFromDatabase();
+                    if ($this->editFirmSlug) {
+                        $this->loadSelectedFirmRoster($this->editFirmSlug);
+                    }
+                    $this->previewNotice = "Updated Partner ({$partner->name} · {$partner->email})" . ($newPass !== '' ? " & password set to: {$newPass}" : ".");
+                }
+            }
+        } catch (\Throwable $e) {
+            $this->previewNotice = 'Failed to update Partner account: ' . $e->getMessage();
+        }
+    }
+
+    /**
+     * Issue 03: Grant a 1-Click Free Trial Subscription (e.g. 7, 14, or 30 days) to a Firm.
+     */
+    public function grantTrialSubscription(string $slug, int $days = 14): void
+    {
+        if (! $this->authorizePlatformMutation()) {
+            return;
+        }
+        $days = max(1, $days);
+        $this->editSubscriptionType = 'trial';
+        $this->editTrialDays = $days;
+        $this->editBillingCycle = 'Trial';
+        $this->editPaymentStatus = 'trial';
+        $this->editSubscriptionFee = 0.00;
+        $this->editSubscriptionExpiresAt = now()->addDays($days)->toDateString();
+        $this->updateDomainSettings($slug);
+        $this->previewNotice = "Granted {$days}-Day Free Trial subscription (Expires: {$this->editSubscriptionExpiresAt}).";
+    }
+
+    /**
+     * Issue 03: Automatically calculate Seat-Based Paid Subscription Fee (Seats x Per-Seat Rate).
+     */
+    public function saveFirmPolicyFromSuperAdmin(string $slug): void
+    {
+        if (! $this->authorizePlatformMutation()) {
+            return;
+        }
+        try {
+            if (Schema::hasTable('firms') && Schema::hasTable('partner_policies')) {
+                $firm = Firm::where('slug', $slug)->first();
+                if ($firm) {
+                    $partnerUser = User::where('firm_id', $firm->id)->where('role', 'partner')->first();
+                    $partnerId = $partnerUser ? $partnerUser->id : (Auth::id() ?? 1);
+                    $units = ['Partner Unit 01'];
+                    $existingUnits = PartnerPolicy::where('firm_id', $firm->id)->pluck('partner_unit')->unique()->filter()->all();
+                    if (! empty($existingUnits)) {
+                        $units = $existingUnits;
+                    }
+                    foreach ($units as $unitName) {
+                        $payload = [
+                            'partner_id'               => $partnerId,
+                            'office_start'             => trim($this->editPolicyOfficeStart) ?: '09:30',
+                            'office_end'               => trim($this->editPolicyOfficeEnd) ?: '18:00',
+                            'grace_minutes'            => max(0, (int) $this->editPolicyGraceMinutes),
+                            'manager_conveyance_limit' => max(50, (float) $this->editPolicyConveyanceLimit),
+                            'conveyance_late_days'     => max(1, (int) $this->editPolicyConveyanceLateDays),
+                            'student_grids'            => PartnerPolicy::defaultStudentGrids(),
+                            'manager_permissions'      => PartnerPolicy::defaultManagerPermissions(),
+                        ];
+                        if (Schema::hasColumn('partner_policies', 'late_penalty_enabled')) {
+                            $payload['late_penalty_enabled'] = (bool) $this->editPolicyLatePenaltyEnabled;
+                            $payload['late_days_per_deduction'] = max(1, (int) $this->editPolicyLateDaysPerDeduction);
+                            $payload['deduction_days_count'] = max(0, (float) $this->editPolicyDeductionDaysCount);
+                        }
+                        PartnerPolicy::updateOrCreate(
+                            ['firm_id' => $firm->id, 'partner_unit' => $unitName],
+                            $payload
+                        );
+                    }
+                }
+            }
+            $this->previewNotice = "Firm attendance, grace ({$this->editPolicyGraceMinutes}m), and late penalty policy updated for '{$slug}'.";
+            $this->dispatch('toast', [
+                'type'    => 'success',
+                'title'   => 'Firm Policy Updated',
+                'message' => "Hours ({$this->editPolicyOfficeStart}–{$this->editPolicyOfficeEnd}), Grace ({$this->editPolicyGraceMinutes}m) & Late Rules saved.",
+            ]);
+        } catch (\Throwable $e) {
+            $this->modalError = 'Could not update policy: ' . $e->getMessage();
+        }
+    }
+
+    public function applySeatBasedSubscription(string $slug): void
+    {
+        if (! $this->authorizePlatformMutation()) {
+            return;
+        }
+        $this->editSubscriptionType = 'paid';
+        $seats = max(1, (int) $this->editFirmSeats);
+        $rate = max(0, (float) $this->editPerSeatRate);
+        $multiplier = $this->editBillingCycle === 'Annual' ? 12 : ($this->editBillingCycle === 'Quarterly' ? 3 : 1);
+        if ($this->editBillingCycle === 'Trial') {
+            $this->editBillingCycle = 'Monthly';
+            $multiplier = 1;
+        }
+        $this->editSubscriptionFee = round($seats * $rate * $multiplier, 2);
+        if ($this->editPaymentStatus === 'trial') {
+            $this->editPaymentStatus = 'paid';
+        }
+        $this->updateDomainSettings($slug);
+        $this->previewNotice = "Seat-based subscription applied: {$seats} seats × ৳{$rate} = ৳" . number_format($this->editSubscriptionFee, 0) . " ({$this->editBillingCycle}).";
+    }
+
     public function resetPartnerPassword(int $partnerUserId): void
     {
         if (! $this->authorizePlatformMutation()) {

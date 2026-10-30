@@ -75,7 +75,28 @@
                             class="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-left text-[13px] font-semibold transition {{ $section === $item['key'] ? 'bg-[#FCDF02] text-[#17191F] shadow-sm' : 'text-slate-400 hover:bg-white/10 hover:text-white' }}">
                         <i data-lucide="{{ $item['icon'] }}" class="h-[18px] w-[18px] shrink-0"></i>
                         <span class="flex-1">{{ $item['title'] }}</span>
-                        @if($item['key'] === 'notifications') @php $unreadCnt = count(array_filter($notificationsList ?? [], fn($n) => !in_array($n['id'], $readNotificationIds ?? [], true))); @endphp @if($unreadCnt > 0) <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {{ $section === 'notifications' ? 'bg-[#17191F] text-[#FCDF02]' : 'bg-amber-500/20 text-amber-200' }}">{{ $unreadCnt }}</span> @endif @endif
+                        @if($item['key'] === 'dashboard' && ($totalPendingApprovalsCount ?? 0) > 0 && $previewRole !== 'student')
+                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black {{ $section === 'dashboard' ? 'bg-[#17191F] text-[#FCDF02]' : 'bg-rose-500 text-white shadow-sm' }}">
+                                <span class="h-1.5 w-1.5 rounded-full bg-current animate-ping"></span>{{ $totalPendingApprovalsCount }}
+                            </span>
+                        @elseif($item['key'] === 'leave' && ($pendingLeaveCount ?? 0) > 0 && $previewRole !== 'student')
+                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black {{ $section === 'leave' ? 'bg-[#17191F] text-[#FCDF02]' : 'bg-rose-500 text-white shadow-sm animate-pulse' }}">
+                                <span class="h-1.5 w-1.5 rounded-full bg-white"></span>{{ $pendingLeaveCount }} New
+                            </span>
+                        @elseif($item['key'] === 'conveyance' && ($pendingClaimCount ?? 0) > 0 && $previewRole !== 'student')
+                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black {{ $section === 'conveyance' ? 'bg-[#17191F] text-[#FCDF02]' : 'bg-amber-400 text-[#17191F] shadow-sm animate-pulse' }}">
+                                <span class="h-1.5 w-1.5 rounded-full bg-[#17191F]"></span>{{ $pendingClaimCount }} New
+                            </span>
+                        @elseif($item['key'] === 'attendance' && ($pendingCorrectionCount ?? 0) > 0 && $previewRole !== 'student')
+                            <span class="rounded-full px-2 py-0.5 text-[10px] font-black {{ $section === 'attendance' ? 'bg-[#17191F] text-[#FCDF02]' : 'bg-rose-500/25 text-rose-200' }}">
+                                {{ $pendingCorrectionCount }} Fix
+                            </span>
+                        @elseif($item['key'] === 'notifications')
+                            @php $unreadCnt = count(array_filter($notificationsList ?? [], fn($n) => !in_array($n['id'], $readNotificationIds ?? [], true))); @endphp
+                            @if($unreadCnt > 0)
+                                <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold {{ $section === 'notifications' ? 'bg-[#17191F] text-[#FCDF02]' : 'bg-amber-500/20 text-amber-200' }}">{{ $unreadCnt }}</span>
+                            @endif
+                        @endif
                     </button>
                 @endforeach
             </nav>
@@ -111,6 +132,22 @@
                     <div class="truncate text-[11px] font-medium text-slate-400">{{ $firm ? $firm['name'] : 'Practice' }} <span class="mx-1">/</span> {{ $partnerUnit }} <span class="mx-1">/</span> <span class="text-amber-800">{{ $sectionLabel }}</span></div>
                     <h1 class="truncate text-lg font-extrabold tracking-tight sm:text-xl">{{ $sectionLabel }}</h1>
                 </div>
+                @if($previewRole !== 'student' && (($pendingLeaveCount ?? 0) > 0 || ($pendingClaimCount ?? 0) > 0))
+                    <div class="hidden md:flex items-center gap-2">
+                        @if(($pendingLeaveCount ?? 0) > 0)
+                            <button type="button" wire:click="setSection('leave')" class="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-extrabold text-rose-800 shadow-2xs hover:bg-rose-100 transition cursor-pointer" title="View Unread Leave Applications">
+                                <span class="h-2 w-2 rounded-full bg-rose-600 animate-ping"></span>
+                                <span>📩 {{ $pendingLeaveCount }} Leave Request{{ $pendingLeaveCount > 1 ? 's' : '' }}</span>
+                            </button>
+                        @endif
+                        @if(($pendingClaimCount ?? 0) > 0)
+                            <button type="button" wire:click="setSection('conveyance')" class="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-extrabold text-amber-950 shadow-2xs hover:bg-amber-100 transition cursor-pointer" title="View Unread Conveyance Claims">
+                                <span class="h-2 w-2 rounded-full bg-amber-500 animate-ping"></span>
+                                <span>🧾 {{ $pendingClaimCount }} Conveyance Claim{{ $pendingClaimCount > 1 ? 's' : '' }}</span>
+                            </button>
+                        @endif
+                    </div>
+                @endif
                 <div class="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-900 sm:inline-flex">
                     <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
                     <span>PRODUCTION ACTIVE</span>
