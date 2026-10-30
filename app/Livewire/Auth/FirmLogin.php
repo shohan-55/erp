@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Auth;
 
+use App\Livewire\Concerns\ConfirmsTwoFactor;
 use App\Models\User;
 use App\Services\FirmRegistry;
 use Illuminate\Support\Facades\Auth;
@@ -13,6 +14,8 @@ use Livewire\Component;
 
 class FirmLogin extends Component
 {
+    use ConfirmsTwoFactor;
+
     // Bound to {firmSlug} route parameter
     public string $firmSlug = 'rac';
     public ?array $firm = null;
@@ -148,8 +151,9 @@ class FirmLogin extends Component
             }
         }
 
-        // Fallback for test environment simulation (e.g. SQLite :memory: without migrations)
-        if (! $authenticated && (app()->runningUnitTests() || app()->environment('testing'))) {
+        // Demo personas for the design previews. Gated on an explicit flag so a
+        // stray APP_ENV=testing can never open the sign-in form; see config/erp.php.
+        if (! $authenticated && config('erp.allow_test_logins')) {
             $testUsers = [
                 'partner@dhakawala.com' => ['name' => 'A.K.M. Mohitul Haq, FCA', 'role' => 'partner'],
                 'manager@dhakawala.com' => ['name' => 'Khandaker Tanvir Ahmed, ACA', 'role' => 'manager'],
@@ -183,6 +187,14 @@ class FirmLogin extends Component
         /** @var User $user */
         $user = Auth::user();
 
+        // ─── Deactivated staff accounts (retained for payroll history) ────
+        if ($user && Schema::hasTable('users') && Schema::hasColumn('users', 'is_active') && ! $user->isActive()) {
+            Auth::logout();
+            $this->validationError = 'This account has been deactivated. Please contact your practice administrator.';
+            $this->password = '';
+            return;
+        }
+
         // ─── Verify user belongs to this firm ─────────────────────────────
         if ($user && ! $user->belongsToFirm($this->firmSlug)) {
             Auth::logout();
@@ -196,6 +208,16 @@ class FirmLogin extends Component
             Auth::logout();
             $this->validationError = 'Platform administrators must log in via the platform portal.';
             $this->password = '';
+            return;
+        }
+
+        // ─── Optional second factor (P1-3.2) ──────────────────────────────
+        // Inert unless this member has enrolled a TOTP secret.
+        if ($user && ! $this->twoFactorGate($user)) {
+            // Keep the password: the follow-up submit re-runs Auth::attempt
+            // together with the code, and forcing a retype here only trains
+            // people to paste passwords around.
+            $this->validationError = $this->twoFactorError;
             return;
         }
 

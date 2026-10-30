@@ -14,6 +14,7 @@ use App\Models\PolicyProposal;
 use App\Models\PracticeHoliday;
 use App\Models\PracticeNotification;
 use App\Models\User;
+use App\Support\CsvSafe;
 use App\Services\FirmRegistry;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,10 @@ trait ManagesPayrollAndVouchers
             return 0.00;
         }
         $penaltyUnits = intdiv($lateDaysCount, $this->lateDaysPerDeduction);
-        $dailyStipend = $baseStipend / 30.0;
+        // AUDIT P1-3.4: a flat /30 over-deducts in February (28 days) and
+        // under-deducts in a 31-day month. Use the real length of the payroll
+        // period, falling back to 30 only when the period cannot be parsed.
+        $dailyStipend = $baseStipend / $this->daysInPayrollPeriod();
         return round($penaltyUnits * $dailyStipend * max(0, $this->deductionDaysCount), 2);
     }
 
@@ -43,9 +47,11 @@ trait ManagesPayrollAndVouchers
             return ['absent_days' => 0, 'deduction' => 0.00];
         }
         try {
+            [$periodStart, $periodEnd] = $this->payrollPeriodBounds();
+
             $openHolidays = PracticeHoliday::where('firm_id', $firmId)
                 ->where('is_office_open_override', true)
-                ->where('holiday_date', 'like', $this->period . '%')
+                ->whereBetween('holiday_date', [$periodStart, $periodEnd])
                 ->whereDate('holiday_date', '<=', now()->toDateString())
                 ->where(function ($q) {
                     $q->whereNull('partner_unit')
@@ -96,8 +102,11 @@ trait ManagesPayrollAndVouchers
             $firmModel = $this->resolveFirmModel();
             if ($firmModel) {
                 try {
+                    [$periodStart, $periodEnd] = $this->payrollPeriodBounds();
+
                     $students = User::where('firm_id', $firmModel->id)
                         ->where('role', 'student')
+                        ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
                         ->when(Auth::check(), fn ($q) => $q->where('partner_unit', $this->partnerUnit))
                         ->with('manager')
                         ->get();
@@ -114,7 +123,7 @@ trait ManagesPayrollAndVouchers
                         }
                         $this->payrollStatus = $overallStatus;
 
-                        $this->payrollRows = $students->map(function (User $s) use ($firmModel, $existingRecords) {
+                        $this->payrollRows = $students->map(function (User $s) use ($firmModel, $existingRecords, $periodStart, $periodEnd) {
                             /** @var PayrollRecord|null $rec */
                             $rec = $existingRecords->get($s->id);
 
@@ -126,12 +135,14 @@ trait ManagesPayrollAndVouchers
                                 $approvedTravel = (float) ConveyanceClaim::where('firm_id', $firmModel->id)
                                     ->where('user_id', $s->id)
                                     ->where('status', 'approved')
-                                    ->where('claim_date', 'like', $this->period . '%')
+                                    ->whereBetween('claim_date', [$periodStart, $periodEnd])
                                     ->sum('amount');
                             }
 
                             $lateDays = Schema::hasTable('attendances')
-                                ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)->where('date', 'like', $this->period . '%')->whereIn('status', ['Late', 'Late Present'])->count()
+                                ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)
+                                    ->whereBetween('date', [$periodStart, $periodEnd])
+                                    ->whereIn('status', ['Late', 'Late Present'])->count()
                                 : 0;
 
                             $lateDed = $this->calculateLateDeduction($baseStipend, $lateDays);
@@ -222,7 +233,10 @@ trait ManagesPayrollAndVouchers
 
         $firmModel = $this->resolveFirmModel();
         if ($firmModel && Schema::hasTable('payroll_records') && Schema::hasTable('users')) {
-            $students = User::where('firm_id', $firmModel->id)->where('role', 'student')->get();
+            $students = User::where('firm_id', $firmModel->id)
+                ->where('role', 'student')
+                ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
+                ->get();
             foreach ($students as $s) {
                 $existing = PayrollRecord::where('firm_id', $firmModel->id)
                     ->where('user_id', $s->id)
@@ -234,19 +248,27 @@ trait ManagesPayrollAndVouchers
                 }
 
                 $base = (float) ($s->monthly_allowance ?: 8000.00);
+
+                // A real date range keeps the (firm_id, user_id, date) index
+                // usable; `LIKE '2026-10%'` on a DATE column could not.
+                [$periodStart, $periodEnd] = $this->payrollPeriodBounds();
+
                 $travel = Schema::hasTable('conveyance_claims')
                     ? (float) ConveyanceClaim::where('firm_id', $firmModel->id)
                         ->where('user_id', $s->id)
                         ->where('status', 'approved')
-                        ->where('claim_date', 'like', $this->period . '%')
+                        ->whereBetween('claim_date', [$periodStart, $periodEnd])
                         ->sum('amount')
                     : 0.00;
 
                 $presentDays = Schema::hasTable('attendances')
-                    ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)->where('date', 'like', $this->period . '%')->count()
+                    ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)
+                        ->whereBetween('date', [$periodStart, $periodEnd])->count()
                     : 0;
                 $lateDays = Schema::hasTable('attendances')
-                    ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)->where('date', 'like', $this->period . '%')->whereIn('status', ['Late', 'Late Present'])->count()
+                    ? Attendance::where('firm_id', $firmModel->id)->where('user_id', $s->id)
+                        ->whereBetween('date', [$periodStart, $periodEnd])
+                        ->whereIn('status', ['Late', 'Late Present'])->count()
                     : 0;
 
                 $lateDeduction = $this->calculateLateDeduction($base, $lateDays);
@@ -305,7 +327,10 @@ trait ManagesPayrollAndVouchers
         $this->enforceAuthenticatedRoleLock();
         $this->error = null;
 
-        if (! in_array($targetStatus, ['reviewed', 'approved', 'paid', 'locked'], true)) {
+        // 'draft' is a real transition (un-review a period that was sent back
+        // for correction). It used to fall through the whitelist and return
+        // silently, so a Partner clicking "Reopen" saw nothing happen at all.
+        if (! in_array($targetStatus, ['draft', 'reviewed', 'approved', 'paid', 'locked'], true)) {
             return;
         }
 
@@ -341,6 +366,12 @@ trait ManagesPayrollAndVouchers
                     $rec->paid_at = now();
                 } elseif ($targetStatus === 'locked') {
                     $rec->locked_at = now();
+                } else {
+                    // Back to draft: clear the review stamps so the ledger
+                    // header does not claim an approval that no longer applies.
+                    $rec->reviewed_by = null;
+                    $rec->approved_by = null;
+                    $rec->paid_at = null;
                 }
                 $rec->save();
             }
@@ -381,7 +412,7 @@ trait ManagesPayrollAndVouchers
             fputcsv($handle, $columns);
 
             foreach ($rowsToExport as $row) {
-                fputcsv($handle, [
+                fputcsv($handle, CsvSafe::row([
                     $row['id'] ?? '',
                     $row['name'] ?? '',
                     $row['partner_unit'] ?? '',
@@ -392,7 +423,7 @@ trait ManagesPayrollAndVouchers
                     number_format((float) ($row['adjustment'] ?? 0), 2, '.', ''),
                     number_format((float) ($row['net_payable'] ?? 0), 2, '.', ''),
                     $row['status_label'] ?? 'Draft Ledger',
-                ]);
+                ]));
             }
 
             fclose($handle);
@@ -422,7 +453,7 @@ trait ManagesPayrollAndVouchers
         $filename = ($studentCode ? "Payment_Voucher_{$studentCode}_" : "All_Payment_Vouchers_") . $this->firmSlug . "_{$period}.html";
 
         return response()->streamDownload(function () use ($firmName, $period, $paymentMode, $vouchers) {
-            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{$firmName} - Monthly Allowance Voucher</title>";
+            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>" . htmlspecialchars($firmName, ENT_QUOTES) . " - Monthly Allowance Voucher</title>";
             echo "<style>body{font-family:Arial,sans-serif;margin:20px;color:#111}.voucher{border:2px solid #17191F;border-radius:8px;padding:20px;margin-bottom:28px;page-break-inside:avoid}.hdr{display:flex;justify-content:space-between;border-bottom:2px solid #eee;padding-bottom:10px;margin-bottom:12px}table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f8f8fa}.sig{margin-top:36px;display:flex;justify-content:space-between;font-size:11px}@media print{.no-print{display:none}}</style>";
             echo "</head><body onload='window.print()'>";
             echo "<div class='no-print' style='margin-bottom:14px'><button onclick='window.print()' style='padding:8px 16px;font-weight:bold;cursor:pointer'>Print / Save Voucher PDF</button></div>";
@@ -448,4 +479,29 @@ trait ManagesPayrollAndVouchers
 
     // ─── Targeted Notification Composer & Login Popup Modal ───────────────────
 
+    /**
+     * First and last calendar day of the selected payroll period (Y-m).
+     */
+    protected function payrollPeriodBounds(): array
+    {
+        try {
+            $start = \Carbon\Carbon::createFromFormat('!Y-m', $this->period)->startOfMonth();
+
+            return [$start->toDateString(), $start->copy()->endOfMonth()->toDateString()];
+        } catch (\Throwable) {
+            return [$this->period . '-01', $this->period . '-31'];
+        }
+    }
+
+    /**
+     * Number of days the selected payroll period actually contains.
+     */
+    protected function daysInPayrollPeriod(): int
+    {
+        try {
+            return (int) \Carbon\Carbon::createFromFormat('!Y-m', $this->period)->daysInMonth;
+        } catch (\Throwable) {
+            return 30;
+        }
+    }
 }

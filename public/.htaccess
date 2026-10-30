@@ -23,3 +23,31 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+# ─── Static asset delivery ────────────────────────────────────────────────
+# Apache / LiteSpeed. Every asset URL below either carries a content hash
+# (Vite build) or a ?v=<mtime> cache-buster (css/brand-theme.css), so a year
+# is safe: a changed file is a changed URL.
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/javascript "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 6 months"
+    ExpiresByType image/png "access plus 6 months"
+    ExpiresByType image/jpeg "access plus 6 months"
+    ExpiresByType image/webp "access plus 6 months"
+    ExpiresByType image/x-icon "access plus 6 months"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|mjs|png|jpe?g|gif|svg|webp|ico|woff2?)$">
+        Header set Cache-Control "public, max-age=31536000"
+        Header always set X-Content-Type-Options "nosniff"
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>

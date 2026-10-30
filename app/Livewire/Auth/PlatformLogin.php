@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Auth;
 
+use App\Livewire\Concerns\ConfirmsTwoFactor;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -11,6 +12,8 @@ use Livewire\Component;
 
 class PlatformLogin extends Component
 {
+    use ConfirmsTwoFactor;
+
     public string $email = '';
     public string $password = '';
     public bool $remember = false;
@@ -97,8 +100,8 @@ class PlatformLogin extends Component
             }
         }
 
-        // Fallback for test environment simulation
-        if (! $authenticated && (app()->runningUnitTests() || app()->environment('testing')) && strtolower(trim($this->email)) === 'admin@dhakawala.com') {
+        // Demo platform operator (explicitly flagged, never implied by APP_ENV).
+        if (! $authenticated && config('erp.allow_test_logins') && strtolower(trim($this->email)) === 'admin@dhakawala.com') {
             $authenticated = true;
             $this->simulatedSuccessMessage = "Authenticated as DhakaWala Platform Admin (admin@dhakawala.com)";
             $this->dispatch('toast', [
@@ -118,6 +121,16 @@ class PlatformLogin extends Component
 
         /** @var User $user */
         $user = Auth::user();
+
+        // ─── Optional second factor (P1-3.2) ──────────────────────────────
+        // Inert for every account that has not enrolled a TOTP secret.
+        if (! $this->twoFactorGate($user)) {
+            // Keep the password: the follow-up submit re-runs Auth::attempt
+            // together with the code, and forcing a retype here only trains
+            // people to paste passwords around.
+            $this->validationError = $this->twoFactorError;
+            return;
+        }
 
         // ─── Route according to role ──────────────────────────────────────
         RateLimiter::clear('platform-login:' . $throttleKey);

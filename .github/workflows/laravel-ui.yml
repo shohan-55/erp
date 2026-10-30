@@ -5,8 +5,9 @@ on:
   push:
     branches:
       - main
-      - feature/phase-03-platform-dashboard
-      - feature/phases-04-10-practice-suite-ui
+      - 'feature/**'
+      - 'fix/**'
+      - 'arena/**'
 
 permissions:
   contents: read
@@ -49,7 +50,18 @@ jobs:
         run: npm run build
 
       - name: Run full Laravel feature and unit tests
-        run: php artisan test
+        run: php artisan test --stop-on-failure
+
+      # Advisories are reported but do not fail the build yet: the repository
+      # has no triaged baseline, so a fresh advisory must not block a hotfix.
+      # Remove `continue-on-error` once the reports are clean.
+      - name: Dependency vulnerability audit (PHP)
+        continue-on-error: true
+        run: composer audit --no-dev --format=summary
+
+      - name: Dependency vulnerability audit (JS)
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Install Playwright browser for visual verification
         run: |
@@ -60,6 +72,8 @@ jobs:
         run: |
           sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env
           sed -i 's/^CACHE_STORE=.*/CACHE_STORE=file/' .env
+          # Design preview routes are fail-closed; enable them only for this throwaway CI server.
+          echo 'ERP_DEMO_MODE=true' >> .env
           nohup php artisan serve --host=127.0.0.1 --port=8000 > /tmp/laravel-preview.log 2>&1 &
           for i in $(seq 1 20); do
             if curl --silent --fail http://127.0.0.1:8000/platform/dashboard-preview > /tmp/platform-preview.html; then

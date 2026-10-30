@@ -268,6 +268,18 @@ trait ManagesPoliciesHolidaysAndSettings
             }
         }
 
+        // SECURITY: changing the sign-in email address is a sensitive action and
+        // requires the current password, so a hijacked session cannot silently
+        // move the account to an attacker-controlled mailbox.
+        $emailIsChanging = Auth::check()
+            && $email !== ''
+            && strtolower((string) Auth::user()->email) !== $email;
+
+        if ($emailIsChanging && ! Hash::check($this->myCurrentPassword, (string) Auth::user()->password)) {
+            $this->error = 'Please enter your current password to change your sign-in email address.';
+            return;
+        }
+
         // Handle Avatar Profile Picture Upload
         $avatarChanged = false;
         if ($this->myAvatar) {
@@ -276,7 +288,9 @@ trait ManagesPoliciesHolidaysAndSettings
             ]);
             try {
                 $filename = 'avatar_' . (Auth::id() ?: 'u') . '_' . time() . '.' . $this->myAvatar->getClientOriginalExtension();
-                $this->myAvatar->storeAs('avatars/' . $this->firmSlug, $filename, 'public');
+                // Private disk: avatars are personal data and are served by
+                // the authorised avatar route, not the public web root.
+                $this->myAvatar->storeAs('avatars/' . $this->firmSlug, $filename, 'local');
                 $this->myAvatarUrl = route('firm.avatar.view', ['firmSlug' => $this->firmSlug, 'filename' => $filename]);
                 $avatarChanged = true;
             } catch (\Throwable $e) {
@@ -307,9 +321,13 @@ trait ManagesPoliciesHolidaysAndSettings
                     $user->avatar_url = $this->myAvatarUrl;
                 }
                 if ($newPass !== '') {
-                    $user->password = \Illuminate\Support\Facades\Hash::make($newPass);
+                    $user->password = Hash::make($newPass);
                 }
                 $user->save();
+
+                if ($newPass !== '') {
+                    $this->revokeOtherSessions($user);
+                }
 
                 $this->recordAuditLog(
                     'settings',
@@ -323,6 +341,7 @@ trait ManagesPoliciesHolidaysAndSettings
         $this->myAvatar = null;
         $this->myNewPassword = '';
         $this->myNewPasswordConfirm = '';
+        $this->myCurrentPassword = '';
         $this->loadTeamMembers();
         $this->loadPayrollRows();
 
@@ -338,8 +357,13 @@ trait ManagesPoliciesHolidaysAndSettings
     {
         $this->enforceAuthenticatedRoleLock();
 
-        if (! in_array($this->previewRole, ['partner', 'manager'], true)) {
-            $this->error = 'Only an authorized Partner or Manager can modify workspace policy defaults.';
+        // SECURITY (audit P1-3.3): these defaults include the Manager conveyance
+        // ceiling, office hours and the late-deduction formula. A Manager who can
+        // write them can raise their own pay and erase their own deductions, so
+        // only a Partner may save them. Managers still have the (separate)
+        // proposal workflow, which needs Partner consensus.
+        if ($this->previewRole !== 'partner') {
+            $this->error = 'Only a Partner can change workspace policy defaults. Managers can submit a policy proposal instead.';
             return;
         }
 
@@ -936,4 +960,30 @@ trait ManagesPoliciesHolidaysAndSettings
         $this->error = null;
     }
 
+    /**
+     * Invalidate every other signed-in device after a credential change.
+     *
+     * The audit (P1-3.2) found that changing a password left every stolen
+     * session alive, so a compromised laptop kept full access for the whole
+     * session lifetime. This kills the other session rows and the remember-me
+     * token while keeping the device that just made the change signed in.
+     */
+    protected function revokeOtherSessions(User $user): void
+    {
+        try {
+            $user->remember_token = null;
+            $user->saveQuietly();
+
+            if (Schema::hasTable('sessions') && Schema::hasColumn('sessions', 'user_id')) {
+                $currentId = session()->getId();
+
+                DB::table('sessions')
+                    ->where('user_id', $user->id)
+                    ->when($currentId !== '', fn ($q) => $q->where('id', '!=', $currentId))
+                    ->delete();
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Could not revoke other sessions: ' . $e->getMessage());
+        }
+    }
 }

@@ -13,12 +13,14 @@ use App\Models\PayrollRecord;
 use App\Models\PolicyProposal;
 use App\Models\PracticeHoliday;
 use App\Models\PracticeNotification;
+use App\Mail\TeamInvitationMail;
 use App\Models\User;
 use App\Services\FirmRegistry;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -238,6 +240,60 @@ trait ManagesTeamAndNotifications
         return $this->previewRole === 'partner';
     }
 
+    /**
+     * Role hierarchy guard for role assignment.
+     *
+     * A Partner (or Platform Super Admin) may assign any firm role. A delegated
+     * Manager may only ever assign the Articled Student role — otherwise they
+     * could mint themselves (or an accomplice) a Partner account.
+     */
+    protected function canManageTargetRole(string $targetRole): bool
+    {
+        if (! Auth::check()) {
+            return $this->previewRole === 'partner';
+        }
+
+        /** @var User $actor */
+        $actor = Auth::user();
+
+        if ($actor->isPlatformAdmin() || $actor->isPartner()) {
+            return in_array($targetRole, [User::ROLE_PARTNER, User::ROLE_MANAGER, User::ROLE_STUDENT], true);
+        }
+
+        if (! $actor->can_manage_team) {
+            return false;
+        }
+
+        return $targetRole === User::ROLE_STUDENT;
+    }
+
+    /**
+     * Role hierarchy guard for editing / deleting an existing account.
+     *
+     * A delegated Manager may only touch Articled Students. Partners and other
+     * Managers are out of scope, so a Manager can never reset a Partner password,
+     * demote a Partner, or delete an account above their own level.
+     */
+    protected function canManageTargetUser(User $target): bool
+    {
+        if (! Auth::check()) {
+            return $this->previewRole === 'partner';
+        }
+
+        /** @var User $actor */
+        $actor = Auth::user();
+
+        if ($actor->isPlatformAdmin() || $actor->isPartner()) {
+            return true;
+        }
+
+        if (! $actor->can_manage_team) {
+            return false;
+        }
+
+        return $target->role === User::ROLE_STUDENT;
+    }
+
     public function getAvailableManagersProperty(): array
     {
         return array_values(array_filter($this->teamMembers, function ($m) {
@@ -253,6 +309,7 @@ trait ManagesTeamAndNotifications
                 try {
                     $dbUsers = User::with('manager')
                         ->where('firm_id', $firmModel->id)
+                        ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
                         ->orderByRaw("CASE role WHEN 'partner' THEN 1 WHEN 'manager' THEN 2 WHEN 'student' THEN 3 ELSE 4 END")
                         ->orderBy('name')
                         ->get();
@@ -477,6 +534,11 @@ trait ManagesTeamAndNotifications
             'newMemberRole'  => 'required|in:partner,manager,student',
         ]);
 
+        if (! $this->canManageTargetRole($this->newMemberRole)) {
+            $this->error = 'Security rule: Only a Partner can enroll Manager or Partner accounts.';
+            return;
+        }
+
         $firmModel = $this->resolveFirmModel();
 
         if ($firmModel && Schema::hasTable('users')) {
@@ -499,7 +561,9 @@ trait ManagesTeamAndNotifications
             $user->firm_id = $firmModel->id;
             $user->name = trim($this->newMemberName);
             $user->email = strtolower(trim($this->newMemberEmail));
-            $plainPassword = $this->newMemberPassword ?: 'Password@123';
+            $plainPassword = trim((string) $this->newMemberPassword) !== ''
+                ? trim($this->newMemberPassword)
+                : Str::password(14);
             $user->password = bcrypt($plainPassword);
             $user->role = $this->newMemberRole;
             $user->partner_unit = $this->newMemberPartnerUnit ?: $this->partnerUnit;
@@ -521,8 +585,16 @@ trait ManagesTeamAndNotifications
             }
             $user->save();
 
-            $this->recordAuditLog('team', 'member_enrolled', "Enrolled {$user->name} ({$user->email}) as " . ucfirst($user->role) . ".", $user->email);
-            $this->notice = "Successfully enrolled {$user->name} as " . ucfirst($user->role) . " (Temporary password: {$plainPassword}).";
+            // Deliver the invitation. A mail outage must never roll back a
+            // successful enrolment, so failures are logged and surfaced instead
+            // of thrown (audit P1-3.1: invitations were never emailed at all).
+            $invitationSent = $this->sendInvitationEmail($user, (string) ($firmModel->name ?? 'Practice'), $plainPassword);
+
+            $this->recordAuditLog('team', 'member_enrolled', "Enrolled {$user->name} ({$user->email}) as " . ucfirst($user->role) . '.', $user->email);
+
+            $this->notice = $invitationSent
+                ? "Successfully enrolled {$user->name} as " . ucfirst($user->role) . " and emailed the invitation to {$user->email}."
+                : "Enrolled {$user->name} as " . ucfirst($user->role) . " (Temporary password: {$plainPassword}). The invitation email could not be sent — share the password securely.";
         } else {
             $newId = count($this->teamMembers) + 1;
             $managerName = '—';
@@ -617,6 +689,21 @@ trait ManagesTeamAndNotifications
         if ($firmModel && Schema::hasTable('users')) {
             $user = User::where('firm_id', $firmModel->id)->where('id', $this->editMemberId)->first();
             if ($user) {
+                if (! $this->canManageTargetUser($user)) {
+                    $this->error = 'Security rule: You cannot modify an account with equal or higher privileges.';
+                    return;
+                }
+
+                if (! $this->canManageTargetRole($this->editMemberRole)) {
+                    $this->error = 'Security rule: Only a Partner can assign the ' . ucfirst($this->editMemberRole) . ' role.';
+                    return;
+                }
+
+                if (Auth::check() && (int) Auth::id() === (int) $user->id && $user->role !== $this->editMemberRole) {
+                    $this->error = 'Security rule: You cannot change your own role.';
+                    return;
+                }
+
                 if (! empty(trim($this->editMemberName))) {
                     $user->name = trim($this->editMemberName);
                 }
@@ -756,8 +843,30 @@ trait ManagesTeamAndNotifications
         if ($firmModel && Schema::hasTable('users')) {
             $user = User::where('firm_id', $firmModel->id)->where('id', $memberId)->first();
             if ($user) {
-                User::where('firm_id', $firmModel->id)->where('manager_id', $user->id)->update(['manager_id' => null]);
+                if (! $this->canManageTargetUser($user)) {
+                    $this->error = 'Security rule: You cannot remove an account with equal or higher privileges.';
+                    return;
+                }
+
                 $userEmail = $user->email;
+
+                // DATA RETENTION: a staff exit must not erase payroll or attendance.
+                // Those records are the firm's financial audit trail, and deleting
+                // the user row used to cascade them away. Members who already have
+                // history are deactivated: they can no longer sign in, but every
+                // record they produced stays intact. Members without history are
+                // still removed completely.
+                if ($this->memberHasFinancialHistory($user)) {
+                    $this->deactivateMember($user);
+                    $this->recordAuditLog('team', 'member_deactivated', "Deactivated practice member {$memberName} ({$userEmail}); financial records retained.", $userEmail);
+                    $this->notice = "{$memberName} has attendance or payroll history, so the account was deactivated and all records were retained.";
+                    $this->closeDialogs();
+                    $this->loadTeamMembers();
+
+                    return;
+                }
+
+                User::where('firm_id', $firmModel->id)->where('manager_id', $user->id)->update(['manager_id' => null]);
                 $user->delete();
                 $this->recordAuditLog('team', 'member_deleted', "Permanently removed practice member {$memberName} ({$userEmail}).", $userEmail);
                 $this->notice = "Member {$memberName} has been permanently removed from the practice.";
@@ -773,4 +882,83 @@ trait ManagesTeamAndNotifications
         $this->loadPayrollRows();
     }
 
+    /**
+     * Does this member own attendance / payroll / leave / claim records?
+     *
+     * Every one of those tables carries a cascading foreign key to users, so a
+     * hard delete silently destroys the firm's financial audit trail.
+     */
+    protected function memberHasFinancialHistory(User $user): bool
+    {
+        $sources = [
+            ['attendances', 'user_id'],
+            ['payroll_records', 'user_id'],
+            ['leave_requests', 'user_id'],
+            ['conveyance_claims', 'user_id'],
+        ];
+
+        foreach ($sources as [$table, $column]) {
+            try {
+                if (Schema::hasTable($table) && Schema::hasColumn($table, $column)) {
+                    if (DB::table($table)->where($column, $user->id)->exists()) {
+                        return true;
+                    }
+                }
+            } catch (\Throwable) {
+                // A missing/renamed table must never block a legitimate removal,
+                // but it also must never silently authorise a destructive delete.
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Disable sign-in for a departed member without deleting their history.
+     */
+    protected function deactivateMember(User $user): void
+    {
+        $user->password = bcrypt(Str::password(40));
+        $user->remember_token = null;
+        if (Schema::hasColumn('users', 'invitation_token')) {
+            $user->invitation_token = null;
+        }
+        if (Schema::hasColumn('users', 'is_active')) {
+            $user->is_active = false;
+        }
+        $user->save();
+
+        if (Schema::hasTable('sessions') && Schema::hasColumn('sessions', 'user_id')) {
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+        }
+    }
+    /**
+     * Email the activation link to a newly enrolled member.
+     *
+     * Returns false when delivery is impossible so the caller can fall back to
+     * showing the one-time password on screen instead of silently pretending
+     * the invite went out.
+     */
+    protected function sendInvitationEmail(User $user, string $firmName, ?string $plainPassword = null): bool
+    {
+        if (app()->runningUnitTests() || app()->environment('testing')) {
+            return false;
+        }
+
+        try {
+            Mail::to($user->email)->send(new TeamInvitationMail(
+                member: $user,
+                firmName: $firmName,
+                firmSlug: $this->firmSlug,
+                plainPassword: $plainPassword,
+            ));
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('Invitation email failed for ' . $user->email . ': ' . $e->getMessage());
+
+            return false;
+        }
+    }
 }

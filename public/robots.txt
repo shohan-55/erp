@@ -1,2 +1,17 @@
+# DhakaWala ERP holds tenant payroll and attendance data.
+# Crawl the public marketing pages only; never the tenant or admin surfaces.
+
 User-agent: *
-Disallow:
+Disallow: /c/
+Disallow: /platform/
+Disallow: /logout
+Disallow: /login
+Disallow: /activate
+Disallow: /reset-password
+
+Allow: /$
+Allow: /about
+Allow: /pricing
+Allow: /contact
+
+Sitemap: https://erp.dhakawala.com/sitemap.xml

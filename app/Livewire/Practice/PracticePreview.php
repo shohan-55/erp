@@ -32,6 +32,7 @@ class PracticePreview extends Component
     use Concerns\ManagesConveyanceWorkflow;
     use Concerns\ManagesPayrollAndVouchers;
     use Concerns\ManagesTeamAndNotifications;
+    use Concerns\ManagesUnitScope;
 
 
     public string $firmSlug = 'rac';
@@ -128,6 +129,7 @@ class PracticePreview extends Component
     public string $myPaymentAccountNo = '';
     public string $myNewPassword = '';
     public string $myNewPasswordConfirm = '';
+    public string $myCurrentPassword = '';
 
     // Optional Conveyance Voucher Preview Modal (#2)
     public bool $showVoucherPreviewModal = false;
@@ -328,8 +330,12 @@ class PracticePreview extends Component
 
         $firmModel = $this->resolveFirmModel();
         if ($firmModel) {
-            if (! empty($firmModel->is_suspended)) {
-                abort(403, 'This organization workspace is currently suspended by DhakaWala Platform Administration.');
+            // Enforced for every render, not just the HTTP middleware path,
+            // because Livewire components can also be mounted directly.
+            if (! $firmModel->isWorkspaceOperational()) {
+                abort(403, $firmModel->is_suspended
+                    ? 'This organization workspace is currently suspended by DhakaWala Platform Administration.'
+                    : 'This organization subscription has expired. Please contact DhakaWala billing to restore access.');
             }
             $this->canViewAllPartnersAttendance = (bool) ($firmModel->shared_attendance_view ?? true);
 
@@ -370,6 +376,15 @@ class PracticePreview extends Component
         if (Auth::check()) {
             /** @var User $user */
             $user = Auth::user();
+
+            // A deactivated (departed) member may still hold a session cookie.
+            // is_active exists precisely to retain their payroll history while
+            // removing access, so it has to be enforced here too — the preview
+            // routes are not behind firm.member.
+            if (! $user->isActive()) {
+                abort(403, 'This account has been deactivated. Please contact your practice administrator.');
+            }
+
             if ($user->isFirmMember()) {
                 if ($user->firm && ! $user->belongsToFirm($this->firmSlug)) {
                     abort(403, 'You do not have access to this practice workspace.');

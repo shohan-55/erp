@@ -138,6 +138,27 @@
                         </div>
                     </div>
 
+                    <!-- Optional Second Factor (only for enrolled accounts) -->
+                    @if ($requiresTwoFactor)
+                        <div class="pt-1">
+                            <label for="platform-two-factor" class="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                                Authenticator Code
+                            </label>
+                            <input
+                                type="text"
+                                id="platform-two-factor"
+                                wire:model.defer="twoFactorCode"
+                                autocomplete="one-time-code"
+                                maxlength="20"
+                                placeholder="6-digit code or recovery code"
+                                class="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-800 text-slate-100 px-4 py-3 text-sm font-mono tracking-widest outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+                            >
+                            <p class="mt-1.5 text-[11px] text-slate-400">
+                                Enter the current 6-digit code from your authenticator app, or a saved recovery code.
+                            </p>
+                        </div>
+                    @endif
+
                     <!-- Remember Me Option -->
                     <div class="flex items-center justify-between pt-1">
                         <label class="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-300">

@@ -53,9 +53,15 @@ class User extends Authenticatable
         'invitation_token',
         'invitation_sent_at',
         'email_verified_at',
+        'is_active',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'two_factor_confirmed_at',
     ];
 
     protected $hidden = [
+        'two_factor_secret',
+        'two_factor_recovery_codes',
         'password',
         'remember_token',
         'invitation_token',
@@ -74,6 +80,10 @@ class User extends Authenticatable
             'can_approve_leave'      => 'boolean',
             'can_approve_claims'     => 'boolean',
             'can_manage_team'        => 'boolean',
+            'is_active'              => 'boolean',
+            'two_factor_confirmed_at' => 'datetime',
+            'two_factor_secret'       => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
             'monthly_allowance'      => 'decimal:2',
         ];
     }
@@ -124,9 +134,10 @@ class User extends Authenticatable
 
     public function isPlatformAdmin(): bool
     {
-        return $this->role === self::ROLE_PLATFORM_ADMIN
-            || strtolower($this->email) === 'infobd.sohan@gmail.com'
-            || strtolower($this->email) === 'admin@dhakawala.com';
+        // SECURITY: platform authority is granted by the role column only.
+        // Matching on hard-coded email addresses allowed anyone who could set
+        // their own email to become a platform super admin.
+        return $this->role === self::ROLE_PLATFORM_ADMIN;
     }
 
     public function isPartner(): bool
@@ -147,6 +158,23 @@ class User extends Authenticatable
     public function isFirmMember(): bool
     {
         return in_array($this->role, [self::ROLE_PARTNER, self::ROLE_MANAGER, self::ROLE_STUDENT], true);
+    }
+
+    /**
+     * Has this account completed TOTP enrolment?
+     *
+     * Deliberately strict: a secret without a confirmation timestamp is an
+     * abandoned enrolment and must not lock the user out.
+     */
+    public function hasTwoFactorEnabled(): bool
+    {
+        return ! empty($this->two_factor_secret) && $this->two_factor_confirmed_at !== null;
+    }
+
+    public function isActive(): bool
+    {
+        // Rows created before the is_active column existed must keep working.
+        return $this->is_active === null ? true : (bool) $this->is_active;
     }
 
     public function canManageTeam(): bool

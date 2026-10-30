@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\ConfirmsTwoFactor;
 use App\Models\User;
 use App\Services\FirmRegistry;
 use Illuminate\Support\Facades\Auth;
@@ -12,6 +13,8 @@ use Livewire\Component;
 
 class AppShell extends Component
 {
+    use ConfirmsTwoFactor;
+
     // ─── Unified Portal Authentication ──────────────────────────────────────
     public string $email = '';
     public string $password = '';
@@ -148,8 +151,9 @@ class AppShell extends Component
             $authenticated = false;
         }
 
-        // Test environment simulation
-        if (! $authenticated && (app()->runningUnitTests() || app()->environment('testing'))) {
+        // Demo personas for the design previews (explicitly flagged, never
+        // implied by APP_ENV). See config/erp.php.
+        if (! $authenticated && config('erp.allow_test_logins')) {
             $testUsers = [
                 'admin@dhakawala.com' => ['role' => 'admin', 'name' => 'DhakaWala Platform Admin'],
                 'partner@dhakawala.com' => ['role' => 'partner', 'name' => 'A.K.M. Mohitul Haq, FCA'],
@@ -184,6 +188,23 @@ class AppShell extends Component
 
         /** @var User $user */
         $user = Auth::user();
+
+        if ($user && Schema::hasTable('users') && Schema::hasColumn('users', 'is_active') && ! $user->isActive()) {
+            Auth::logout();
+            $this->loginError = 'This account has been deactivated. Please contact your practice administrator.';
+            $this->password = '';
+            return;
+        }
+
+        // ─── Optional second factor (P1-3.2) ──────────────────────────────
+        // Inert unless this account has enrolled a TOTP secret.
+        if ($user && ! $this->twoFactorGate($user)) {
+            // Keep the password: the follow-up submit re-runs Auth::attempt
+            // together with the code, and forcing a retype here only trains
+            // people to paste passwords around.
+            $this->loginError = $this->twoFactorError;
+            return;
+        }
 
         if ($user && $user->isPlatformAdmin()) {
             $this->redirect(route(app()->runningUnitTests() ? 'platform.dashboard.preview' : 'platform.dashboard'), navigate: true);

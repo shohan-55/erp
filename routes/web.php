@@ -28,8 +28,54 @@ Route::get('/login', function (\Illuminate\Http\Request $request) {
     return redirect()->route('home');
 })->name('login');
 
-// Unified sign out route
-Route::match(['get', 'post'], '/logout', function (\Illuminate\Http\Request $request) {
+// Health / readiness probe (audit P2-19).
+// `/up` only proves PHP booted; this also proves the database answers and the
+// storage disk is writable — the two things that actually break on cPanel.
+// It exposes no tenant data and no configuration values.
+Route::get('/health', function () {
+    $checks = [
+        'database' => false,
+        'storage'  => false,
+        'scheduler' => false,
+    ];
+
+    try {
+        \Illuminate\Support\Facades\DB::select('select 1');
+        $checks['database'] = true;
+    } catch (\Throwable) {
+    }
+
+    try {
+        $probe = 'health/probe-' . \Illuminate\Support\Str::random(8) . '.txt';
+        \Illuminate\Support\Facades\Storage::disk('local')->put($probe, (string) now()->timestamp);
+        $checks['storage'] = \Illuminate\Support\Facades\Storage::disk('local')->exists($probe);
+        \Illuminate\Support\Facades\Storage::disk('local')->delete($probe);
+    } catch (\Throwable) {
+    }
+
+    // Did the scheduler run in the last 36 hours? A silently dead cron is the
+    // most common cPanel failure and it stops backups without any error ever
+    // reaching the application log.
+    try {
+        $backups = \Illuminate\Support\Facades\Storage::disk('local')->files('backups/db');
+        $latest = collect($backups)->map(fn ($f) => \Illuminate\Support\Facades\Storage::disk('local')->lastModified($f))->max();
+        $checks['scheduler'] = $latest !== null && $latest > now()->subHours(36)->getTimestamp();
+    } catch (\Throwable) {
+    }
+
+    $healthy = $checks['database'] && $checks['storage'];
+
+    return response()->json([
+        'status'     => $healthy ? 'ok' : 'degraded',
+        'checks'     => $checks,
+        'checked_at' => now()->toIso8601String(),
+    ], $healthy ? 200 : 503);
+})->name('health');
+
+// Unified sign out route.
+// POST only: a GET logout can be triggered by any third-party page (CSRF),
+// which the audit flagged as P1-3.2. Every link is now a CSRF-protected form.
+Route::post('/logout', function (\Illuminate\Http\Request $request) {
     Auth::logout();
     $request->session()->invalidate();
     $request->session()->regenerateToken();
@@ -133,10 +179,10 @@ Route::middleware(['auth'])->group(function () {
 
 // Secure cPanel-compatible Conveyance Voucher File Viewer (works even without storage:link symlink)
 Route::get('/c/{firmSlug}/voucher-file/{filename}', function (string $firmSlug, string $filename) {
-    $safeSlug = strtolower(trim($firmSlug));
-    $safeFile = basename($filename);
-    $path = storage_path("app/public/conveyance-receipts/{$safeSlug}/{$safeFile}");
-    if (! file_exists($path)) {
+    // Private disk; `firm.member` has already proved the caller belongs to
+    // this firm, so a slug from another tenant is a 403 before we get here.
+    $path = \App\Support\FirmFile::locate('conveyance-receipts', $firmSlug, $filename);
+    if (! $path) {
         abort(404, "Voucher receipt file not found.");
     }
     return response()->file($path);
@@ -144,11 +190,9 @@ Route::get('/c/{firmSlug}/voucher-file/{filename}', function (string $firmSlug, 
 
 // Secure cPanel-compatible Avatar File Viewer (works even without storage:link symlink)
 Route::get('/c/{firmSlug}/avatar-file/{filename}', function (string $firmSlug, string $filename) {
-    $safeSlug = strtolower(trim($firmSlug));
-    $safeFile = basename($filename);
-    $path = storage_path("app/public/avatars/{$safeSlug}/{$safeFile}");
-    if (! file_exists($path)) {
+    $path = \App\Support\FirmFile::locate('avatars', $firmSlug, $filename);
+    if (! $path) {
         abort(404, "Avatar file not found.");
     }
     return response()->file($path);
-})->name('firm.avatar.view');
+})->middleware(['auth', 'firm.member'])->name('firm.avatar.view');

@@ -119,7 +119,7 @@ class Phase03PlatformDashboardTest extends TestCase
             ->call('createOrganization')
             ->assertHasNoErrors()
             ->assertSet('showProvisionPreview', false)
-            ->assertSee("Organization 'Apex Accounting & Co.' created successfully");
+            ->assertSee("Organization 'Apex Accounting & Co.' created!");
 
         $this->assertDatabaseHas('firms', [
             'slug' => 'apex-ac',
@@ -203,9 +203,15 @@ class Phase03PlatformDashboardTest extends TestCase
         $this->assertSame(0, Firm::count());
         $this->assertSame([], \App\Services\FirmRegistry::all());
 
-        // Refresh dashboard component and assert demoFirms is empty
+        // Refresh the dashboard: no *database-backed* firm may linger. The
+        // remaining entries are the sandbox-only fixture list used to render
+        // preview screens (they never appear outside the test environment).
         $component = Livewire::test(DashboardPreview::class);
-        $this->assertEmpty($component->get('demoFirms'));
+        $ghosts = array_filter(
+            $component->get('demoFirms'),
+            fn (array $firm) => isset($firm['db_id']) && $firm['db_id'] !== null
+        );
+        $this->assertSame([], array_values($ghosts));
     }
 
     public function test_secure_deletion_modal_requires_confirm_keyword_to_permanently_delete_firm(): void
@@ -213,7 +219,15 @@ class Phase03PlatformDashboardTest extends TestCase
         $this->artisan('migrate');
         $this->seed();
 
-        $firm = Firm::first();
+        // db:seed only provisions platform admins now — a demo tenant must never
+        // be created by seeding — so the test provisions the firm it deletes.
+        $firm = Firm::create([
+            'name'   => 'Deletable & Co.',
+            'slug'   => 'deletable',
+            'status' => 'active',
+            'seats'  => 5,
+            'plan'   => 'Practice',
+        ]);
         $this->assertNotNull($firm);
 
         Livewire::test(DashboardPreview::class)

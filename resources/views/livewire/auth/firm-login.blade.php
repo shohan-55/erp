@@ -224,6 +224,27 @@
                         </div>
                     </div>
 
+                    <!-- Optional Second Factor (only for enrolled accounts) -->
+                    @if ($requiresTwoFactor)
+                        <div class="pt-1">
+                            <label for="firm-two-factor" class="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                Authenticator Code
+                            </label>
+                            <input
+                                type="text"
+                                id="firm-two-factor"
+                                wire:model.defer="twoFactorCode"
+                                autocomplete="one-time-code"
+                                maxlength="20"
+                                placeholder="6-digit code or recovery code"
+                                class="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-mono tracking-widest outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                            >
+                            <p class="mt-1.5 text-[11px] text-slate-500">
+                                Enter the current code from your authenticator app, or a saved recovery code.
+                            </p>
+                        </div>
+                    @endif
+
                     <!-- Remember Me & Policy Note -->
                     <div class="flex items-start justify-between gap-3 pt-1">
                         <label class="flex items-start gap-2.5 cursor-pointer select-none">

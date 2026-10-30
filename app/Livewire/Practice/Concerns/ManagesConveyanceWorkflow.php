@@ -14,6 +14,7 @@ use App\Models\PolicyProposal;
 use App\Models\PracticeHoliday;
 use App\Models\PracticeNotification;
 use App\Models\User;
+use App\Support\CsvSafe;
 use App\Services\FirmRegistry;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -334,7 +335,10 @@ trait ManagesConveyanceWorkflow
             try {
                 $ext = $this->claimAttachment->getClientOriginalExtension() ?: 'pdf';
                 $safeName = 'voucher_' . date('Ymd_His') . '_' . Str::random(6) . '.' . $ext;
-                $this->claimAttachment->storeAs('conveyance-receipts/' . $this->firmSlug, $safeName, 'public');
+                // Receipts carry financial data, so they belong on the private
+                // disk and are only ever served through the authorised route
+                // (previously `storage:link` exposed them to anyone with the URL).
+                $this->claimAttachment->storeAs('conveyance-receipts/' . $this->firmSlug, $safeName, 'local');
                 $storedAttachmentName = $safeName;
             } catch (\Throwable) {
                 $storedAttachmentName = 'voucher_attached.pdf';
@@ -457,6 +461,19 @@ trait ManagesConveyanceWorkflow
     public function openVoucherPreviewModal(string $id): void
     {
         $this->closeDialogs();
+
+        // SECURITY (audit P1-3.9): any firm member could open any colleague's
+        // receipt by id. Receipts carry amounts, client sites and account
+        // details, so access is now limited to the owner, that person's unit
+        // manager, or a Partner.
+        if (Auth::check() && $this->previewRole === 'student') {
+            $claim = ConveyanceClaim::find(str_replace('CC-', '', $id));
+            if ($claim && (int) $claim->user_id !== (int) Auth::id()) {
+                $this->error = 'Access denied: you can only open your own conveyance receipts.';
+                return;
+            }
+        }
+
         foreach ($this->claimQueue as $c) {
             if ($c['id'] === $id) {
                 $this->previewVoucherClaim = $c;
@@ -522,6 +539,9 @@ trait ManagesConveyanceWorkflow
                     $query->where('firm_id', $firmModel->id);
                 }
                 $cc = $query->first();
+                if ($cc && ! $this->guardUserScope(User::find($cc->user_id), 'review claims for')) {
+                    return;
+                }
                 if ($cc) {
                     if ($action === 'reject') {
                         $cc->status = 'rejected';
@@ -656,6 +676,9 @@ trait ManagesConveyanceWorkflow
                     $query->where('firm_id', $firmModel->id);
                 }
                 $cc = $query->first();
+                if ($cc && ! $this->guardUserScope(User::find($cc->user_id), 'reject claims for')) {
+                    return;
+                }
                 if ($cc) {
                     $cc->status = 'rejected';
                     $cc->partner_remarks = $remarks ?: ('Rejected by ' . ucfirst($this->previewRole));
@@ -808,7 +831,7 @@ trait ManagesConveyanceWorkflow
             fputcsv($handle, $columns);
 
             foreach ($claimsToExport as $claim) {
-                fputcsv($handle, [
+                fputcsv($handle, CsvSafe::row([
                     $claim['id'] ?? '',
                     $claim['name'] ?? '',
                     $claim['student_code'] ?? '',
@@ -822,7 +845,7 @@ trait ManagesConveyanceWorkflow
                     $claim['status_label'] ?? ucfirst($claim['status'] ?? 'pending'),
                     $claim['manager_remarks'] ?? '—',
                     $claim['partner_remarks'] ?? '—',
-                ]);
+                ]));
             }
 
             fclose($handle);
