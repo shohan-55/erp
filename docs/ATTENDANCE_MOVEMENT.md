@@ -33,6 +33,13 @@ Each leg is stored in `attendances.movement_logs` (JSON array) as
 | `on_duty_transit` | left a site, travelling | **yes** (arrives at next site) | yes (via review) |
 | `closed` | day finished | no | no |
 
+> **Lateness is not fixed at check-in time.** A declared *working day
+> exception* (hartal, storm, half-day) can change that date's hours and even
+> excuse lateness outright; see
+> [`docs/WORKING_DAY_EXCEPTIONS.md`](WORKING_DAY_EXCEPTIONS.md). The status can
+> be re-derived from the stored `in_time`, but the arrival time itself never
+> moves.
+
 The **last leg is always the current one**; every earlier leg keeps its own
 `out_time`/`out_action` forever.
 

@@ -511,7 +511,9 @@
 
         {{-- Weekday Header --}}
         <div class="mt-4 grid grid-cols-7 gap-1 text-center text-[9px] font-extrabold uppercase tracking-wider text-slate-400 sm:gap-1.5 sm:text-[11px]">
-            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div class="text-rose-500">Fri</div><div class="text-rose-500">Sat</div>
+            @foreach(\App\Models\Firm::WEEKDAY_SHORT as $dowIdx => $dowLabel)
+                <div class="{{ in_array($dowIdx, array_map('intval', $weeklyOffDays ?: []), true) ? 'text-rose-500' : '' }}">{{ $dowLabel }}</div>
+            @endforeach
         </div>
 
         {{-- Calendar Days Grid --}}
@@ -522,26 +524,31 @@
                 @else
                     @php
                         $isSelected = ($selectedCalendarDate ?? '') === $cDay['date'];
-                        $hasHoliday = !empty($cDay['holiday']);
+                        $isException = !empty($cDay['holiday']['is_working_day_exception']);
+                        $hasHoliday = !empty($cDay['holiday']) && !$isException;
                         $isOpenOverride = $hasHoliday && !empty($cDay['holiday']['is_office_open_override']);
                         $cellBg = $isSelected
                             ? 'border-2 border-slate-900 bg-amber-50/80 shadow-md scale-[1.02]'
                             : ($hasHoliday
                                 ? ($isOpenOverride ? 'border border-amber-300 bg-amber-50/50' : 'border border-rose-200 bg-rose-50/60')
-                                : ($cDay['is_weekend'] ? 'border border-slate-100 bg-slate-50/80' : 'border border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/50'));
+                                : ($isException
+                                    ? 'border border-teal-300 bg-teal-50/60'
+                                    : ($cDay['is_weekend'] ? 'border border-slate-100 bg-slate-50/80' : 'border border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/50')));
                     @endphp
                     <button type="button"
                             wire:key="cal-day-{{ $cDay['date'] }}"
                             wire:click="selectCalendarDate('{{ $cDay['date'] }}')"
                             class="flex min-h-[3.25rem] flex-col justify-between rounded-xl p-1 text-left transition cursor-pointer sm:h-20 sm:rounded-2xl sm:p-2 {{ $cellBg }}">
                         <div class="flex items-center justify-between w-full">
-                            <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-md text-[10px] font-black sm:h-5 sm:w-5 sm:rounded-lg sm:text-xs {{ $cDay['is_today'] ? 'bg-[#17191F] text-[#FCDF02]' : ($hasHoliday || $cDay['is_weekend'] ? 'text-rose-700' : 'text-slate-800') }}">
+                            <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-md text-[10px] font-black sm:h-5 sm:w-5 sm:rounded-lg sm:text-xs {{ $cDay['is_today'] ? 'bg-[#17191F] text-[#FCDF02]' : ($hasHoliday || $cDay['is_weekend'] ? 'text-rose-700' : ($isException ? 'text-teal-800' : 'text-slate-800')) }}">
                                 {{ $cDay['day'] }}
                             </span>
                             @if($hasHoliday)
                                 <span class="hidden rounded px-1 py-0.2 text-[8px] font-extrabold uppercase sm:inline {{ $isOpenOverride ? 'bg-amber-200 text-amber-950' : 'bg-rose-200 text-rose-900' }}">
                                     {{ $isOpenOverride ? 'OPEN' : 'HOL' }}
                                 </span>
+                            @elseif($isException)
+                                <span class="hidden rounded bg-teal-200 px-1 py-0.2 text-[8px] font-extrabold uppercase text-teal-950 sm:inline" title="{{ $cDay['holiday']['title'] }}">SHIFT</span>
                             @elseif($cDay['is_weekend'])
                                 <span class="hidden text-[8px] font-bold text-slate-400 sm:inline">Off</span>
                             @endif
@@ -552,6 +559,8 @@
                                 <p class="truncate text-[9px] font-bold {{ $isOpenOverride ? 'text-amber-900' : 'text-rose-800' }}" title="{{ $cDay['holiday']['title'] }}">
                                     {{ $cDay['holiday']['title'] }}
                                 </p>
+                            @elseif($isException)
+                                <p class="truncate text-[9px] font-bold text-teal-800" title="{{ $cDay['holiday']['title'] }}">{{ $cDay['holiday']['title'] }}</p>
                             @endif
                             <div class="flex flex-wrap items-center gap-0.5">
                                 @if(($cDay['right_cnt'] ?? 0) > 0)
@@ -559,6 +568,9 @@
                                 @endif
                                 @if(($cDay['late_cnt'] ?? 0) > 0)
                                     <span class="inline-flex items-center rounded bg-amber-100 px-1 py-0.2 text-[8px] font-extrabold text-amber-900" title="Late">{{ $cDay['late_cnt'] }}L</span>
+                                @endif
+                                @if(($cDay['excused_cnt'] ?? 0) > 0)
+                                    <span class="inline-flex items-center rounded bg-teal-100 px-1 py-0.2 text-[8px] font-extrabold text-teal-800" title="Late (Excused)">{{ $cDay['excused_cnt'] }}E</span>
                                 @endif
                                 @if(($cDay['late_pres_cnt'] ?? 0) > 0)
                                     <span class="inline-flex items-center rounded bg-rose-100 px-1 py-0.2 text-[8px] font-extrabold text-rose-800" title="Late Present">{{ $cDay['late_pres_cnt'] }}LP</span>
@@ -602,6 +614,15 @@
             {{-- Holiday Banner if any --}}
             @if(!empty($selectedDayActivity['holiday']))
                 @php $hol = $selectedDayActivity['holiday']; @endphp
+                @if(!empty($hol['is_working_day_exception']))
+                    <div class="mt-3 rounded-2xl border border-teal-300 bg-teal-50 p-3.5 text-xs text-teal-950">
+                        <div class="flex items-center justify-between font-extrabold">
+                            <span>{{ $hol['title'] }}</span>
+                            <span class="rounded bg-teal-200 px-2 py-0.5 text-[10px] text-teal-950">SHIFTED TIMING</span>
+                        </div>
+                        <p class="mt-1 text-[11px]">{{ $hol['effect_label'] ?? '' }}{{ !empty($hol['override_reason']) ? ' · ' . $hol['override_reason'] : '' }}</p>
+                    </div>
+                @else
                 <div class="mt-3 rounded-2xl border p-3.5 text-xs {{ !empty($hol['is_office_open_override']) ? 'border-amber-300 bg-amber-50 text-amber-950' : 'border-rose-200 bg-rose-50 text-rose-900' }}">
                     <div class="flex items-center justify-between font-extrabold">
                         <span>{{ $hol['title'] }}</span>
@@ -613,6 +634,7 @@
                         <p class="mt-1 text-[11px]">Mandatory attendance enforced ({{ $hol['absent_deduction_days'] ?? 1 }} day salary deduction if absent).</p>
                     @endif
                 </div>
+                @endif
             @elseif(!empty($selectedDayActivity['is_weekend']))
                 <div class="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 font-semibold">
                     Weekly Practice Holiday ({{ $weeklyOffSummary }}).
@@ -627,7 +649,7 @@
                         <div class="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3 text-xs">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="font-bold text-slate-900">{{ $dayAtt['name'] }} <span class="text-[10px] font-mono text-slate-400">({{ $dayAtt['code'] }})</span></span>
-                                <span class="rounded-full px-2 py-0.5 text-[10px] font-extrabold {{ in_array($dayAtt['status'], ['Right Time', 'On time'], true) ? 'bg-emerald-100 text-emerald-800' : ($dayAtt['status'] === 'Late' ? 'bg-amber-100 text-amber-900' : 'bg-rose-100 text-rose-800') }}">
+                                <span class="rounded-full px-2 py-0.5 text-[10px] font-extrabold {{ in_array($dayAtt['status'], ['Right Time', 'On time'], true) ? 'bg-emerald-100 text-emerald-800' : ($dayAtt['status'] === 'Late' ? 'bg-amber-100 text-amber-900' : ($dayAtt['status'] === 'Late (Excused)' ? 'bg-teal-100 text-teal-800' : 'bg-rose-100 text-rose-800')) }}">
                                     {{ $dayAtt['status'] }}
                                 </span>
                             </div>

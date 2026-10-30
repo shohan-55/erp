@@ -783,6 +783,7 @@ trait ManagesAttendanceCalendarAndRadar
             $rightCnt = 0;
             $lateCnt = 0;
             $latePresCnt = 0;
+            $excusedCnt = 0;
             foreach ($atts as $atItem) {
                 $st = $atItem->status ?? '';
                 if (in_array($st, ['Right Time', 'On time'], true)) {
@@ -791,6 +792,10 @@ trait ManagesAttendanceCalendarAndRadar
                     $lateCnt++;
                 } elseif ($st === 'Late Present') {
                     $latePresCnt++;
+                } elseif ($st === 'Late (Excused)') {
+                    // Declared exception (hartal / storm / delayed opening):
+                    // recorded honestly, never counted against the member.
+                    $excusedCnt++;
                 }
             }
 
@@ -821,6 +826,7 @@ trait ManagesAttendanceCalendarAndRadar
                 'right_cnt'       => $rightCnt,
                 'late_cnt'        => $lateCnt,
                 'late_pres_cnt'   => $latePresCnt,
+                'excused_cnt'     => $excusedCnt,
                 'leave_cnt'       => $leaveCnt,
                 'claim_sum'       => $claimSum,
             ];
@@ -1005,6 +1011,7 @@ trait ManagesAttendanceCalendarAndRadar
             $rightDays = in_array($r['status'] ?? '', ['Right Time', 'On time'], true) ? 1 : 0;
             $lateDays = ($r['status'] ?? '') === 'Late' ? 1 : 0;
             $latePresDays = ($r['status'] ?? '') === 'Late Present' ? 1 : 0;
+            $excusedDays = ($r['status'] ?? '') === 'Late (Excused)' ? 1 : 0;
 
             if ($firmModel && ! empty($r['db_id']) && Schema::hasTable('attendances')) {
                 try {
@@ -1016,15 +1023,18 @@ trait ManagesAttendanceCalendarAndRadar
                         $rightDays = $mAtts->whereIn('status', ['Right Time', 'On time'])->count();
                         $lateDays = $mAtts->where('status', 'Late')->count();
                         $latePresDays = $mAtts->where('status', 'Late Present')->count();
+                        $excusedDays = $mAtts->where('status', 'Late (Excused)')->count();
                     }
                 } catch (\Throwable $e) {
                 Log::error('attendance persistence failed: ' . $e->getMessage(), ['user' => Auth::id()]);
             }
             }
 
-            $totalRecorded = max(1, $rightDays + $lateDays + $latePresDays);
-            $rawPoints = ($rightDays * 100) + ($lateDays * 65) + ($latePresDays * 30);
-            $score = ($rightDays + $lateDays + $latePresDays) > 0
+            // An excused late arrival scores full marks: the firm itself
+            // declared that lateness on that date was not the member's fault.
+            $totalRecorded = max(1, $rightDays + $lateDays + $latePresDays + $excusedDays);
+            $rawPoints = ($rightDays * 100) + ($excusedDays * 100) + ($lateDays * 65) + ($latePresDays * 30);
+            $score = ($rightDays + $lateDays + $latePresDays + $excusedDays) > 0
                 ? (int) round($rawPoints / $totalRecorded)
                 : 100;
 
@@ -1034,6 +1044,7 @@ trait ManagesAttendanceCalendarAndRadar
                 'name'           => $r['name'],
                 'right_days'     => $rightDays,
                 'late_days'      => $lateDays + $latePresDays,
+                'excused_days'   => $excusedDays,
                 'score'          => min(100, max(0, $score)),
                 'streak'         => max(0, $rightDays),
                 'current_status' => $r['status'] ?? 'Incomplete',
@@ -1226,7 +1237,7 @@ trait ManagesAttendanceCalendarAndRadar
 
         $checkinStr = $this->editCheckinTime ?: '10:00';
         $checkoutStr = $this->editCheckoutTime ?: '18:00';
-        $normalizedStatus = in_array($this->editStatus, ['Right Time', 'On time', 'Late', 'Late Present', 'Incomplete'], true)
+        $normalizedStatus = in_array($this->editStatus, ['Right Time', 'On time', 'Late', 'Late Present', 'Late (Excused)', 'Incomplete'], true)
             ? $this->editStatus
             : 'On time';
         $locationStr = $this->editLocationName ?: 'Office (Proxy/Edited)';
@@ -1595,7 +1606,12 @@ trait ManagesAttendanceCalendarAndRadar
                             'status'      => $att->status,
                             'location'    => $locName,
                             'mode'        => ucfirst($this->workMode),
-                            'badge_theme' => in_array($att->status, ['Right Time', 'On time'], true) ? 'emerald' : ($att->status === 'Late' ? 'amber' : 'rose'),
+                            'badge_theme' => match (true) {
+                                    in_array($att->status, ['Right Time', 'On time'], true) => 'emerald',
+                                    $att->status === 'Late' => 'amber',
+                                    $att->status === 'Late (Excused)' => 'teal',
+                                    default => 'rose',
+                                },
                         ];
                     }
                     $this->notice = $this->previewSessionActive
@@ -1617,7 +1633,12 @@ trait ManagesAttendanceCalendarAndRadar
                 'status'      => $arrivalStatus,
                 'location'    => $locName,
                 'mode'        => ucfirst($this->workMode),
-                'badge_theme' => in_array($arrivalStatus, ['Right Time', 'On time'], true) ? 'emerald' : ($arrivalStatus === 'Late' ? 'amber' : 'rose'),
+                'badge_theme' => match (true) {
+                                        in_array($arrivalStatus, ['Right Time', 'On time'], true) => 'emerald',
+                                        $arrivalStatus === 'Late' => 'amber',
+                                        $arrivalStatus === 'Late (Excused)' => 'teal',
+                                        default => 'rose',
+                                    },
             ];
         }
         $this->notice = $this->previewSessionActive
