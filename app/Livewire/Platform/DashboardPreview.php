@@ -1994,6 +1994,7 @@ class DashboardPreview extends Component
         $pendingCount = count(array_filter($this->demoFirms, fn (array $firm) => $firm['status'] === 'preview-pending'));
         $workspaceCount = array_sum(array_column($this->demoFirms, 'workspaces'));
         $seatCount = array_sum(array_column($this->demoFirms, 'seats'));
+        $usedSeatCount = array_sum(array_column($this->demoFirms, 'used_seats'));
 
         return view('livewire.platform.dashboard-preview', [
             'colorPalettes' => Firm::colorPalettes(),
@@ -2003,10 +2004,19 @@ class DashboardPreview extends Component
             'pendingCount'  => $pendingCount,
             'seatCount'     => $seatCount,
             'metrics'       => [
-                'firms'      => sprintf('%02d', count($this->demoFirms)),
-                'workspaces' => sprintf('%02d', $workspaceCount),
-                'seats'      => sprintf('%02d', $seatCount),
-                'pending'    => sprintf('%02d', $pendingCount),
+                // Plain integers: the KPI strip used to zero-pad these
+                // ("00", "01"), which reads like a mock-up rather than a
+                // live count on a production console.
+                'firms'      => count($this->demoFirms),
+                'workspaces' => (int) $workspaceCount,
+                'seats'      => (int) $seatCount,
+                'pending'    => $pendingCount,
+                // Seats is an allocation figure; without the usage half the
+                // number looked wrong to a real operator ("20 seats" when one
+                // person is enrolled).
+                'seatDetail' => $usedSeatCount > 0
+                    ? number_format($usedSeatCount) . ' in use of ' . number_format((int) $seatCount) . ' allocated'
+                    : number_format((int) $seatCount) . ' allocated',
             ],
         ])->layout('layouts.platform', [
             'title' => 'DhakaWala Platform Administration — Central Operations',

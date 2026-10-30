@@ -202,7 +202,7 @@
 
         @if(in_array($previewRole, ['partner', 'manager']))
             <form wire:submit.prevent="savePolicySettings" class="mt-5 space-y-4 text-xs">
-                <div class="grid grid-cols-3 gap-3">
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <label class="block font-bold text-slate-700">Office Start
                         <input type="text" wire:model="officeStart" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
                     </label>

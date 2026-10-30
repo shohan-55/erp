@@ -15,7 +15,8 @@ class Phase03PlatformDashboardTest extends TestCase
         $this->get('/platform/dashboard-preview')
             ->assertOk()
             ->assertSee('DhakaWala')
-            ->assertSee('CENTRAL OPERATIONS');
+            ->assertSee('Platform Overview')
+            ->assertSee('Manage every firm from here.');
     }
 
     public function test_original_platform_login_and_firm_login_still_render(): void

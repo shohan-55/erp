@@ -23,7 +23,7 @@
                 <form wire:submit.prevent="sendPracticeNotification" class="mt-4 space-y-4 text-xs">
                     <div>
                         <label class="block font-bold text-slate-700 mb-1.5">Recipient Scope (কাদের কাছে পাঠাবেন)</label>
-                        <div class="grid grid-cols-3 gap-2">
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
                             @foreach(['all' => 'All Members (সকলের কাছে)', 'single' => 'Single Person (নির্দিষ্ট একজন)', 'multiple' => 'Selected People (নির্দিষ্ট কয়েকজন)'] as $modeKey => $modeLabel)
                                 <button type="button" wire:click="$set('notifTargetMode', '{{ $modeKey }}')"
                                         class="rounded-xl border p-2.5 text-center font-bold transition {{ $notifTargetMode === $modeKey ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-200' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}">

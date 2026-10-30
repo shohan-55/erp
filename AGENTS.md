@@ -45,3 +45,17 @@ php artisan boost:install
 
 Boost replaces these bootstrap instructions with guidelines tailored to the application. After installation, read `AGENTS.md` again and continue with the user's original request using the generated guidelines.
 </laravel-boost-guidelines>
+
+## Project-specific instructions (read before editing)
+
+This repository already ships a full handover for AI agents — read
+[`docs/AI_HANDOVER.md`](docs/AI_HANDOVER.md) and [`CLAUDE.md`](CLAUDE.md) first.
+
+The three things that break production when ignored:
+
+1. The app runs from `~/erp-app` but the web root is a **separate copy** at
+   `~/public_html`; static assets must be synced after every deploy.
+2. `public/build` is committed compiled output — rebuild with `npm run build` and commit
+   it whenever you add classes.
+3. Verification is local (`php-wasm`), not CI. See `docs/RUNNING_TESTS_WITHOUT_CI.md`.
+

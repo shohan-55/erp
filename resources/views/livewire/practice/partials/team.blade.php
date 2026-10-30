@@ -38,7 +38,7 @@
             <span class="text-xs font-bold text-slate-500">Total Roster</span>
             <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-800"><i data-lucide="users" class="h-4 w-4"></i></div>
         </div>
-        <p class="mt-2 text-2xl font-black text-[#17191F]">{{ sprintf('%02d', $totalCount) }}</p>
+        <p class="mt-2 text-2xl font-black text-[#17191F]">{{ number_format($totalCount) }}</p>
         <p class="text-[10px] text-slate-400">Enrolled practice staff</p>
     </div>
     <div class="rounded-2xl border border-[#E8EAF0] bg-white p-4 shadow-sm">
@@ -46,7 +46,7 @@
             <span class="text-xs font-bold text-slate-500">Partners</span>
             <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-900"><i data-lucide="shield" class="h-4 w-4"></i></div>
         </div>
-        <p class="mt-2 text-2xl font-black text-[#17191F]">{{ sprintf('%02d', $partnerCount) }}</p>
+        <p class="mt-2 text-2xl font-black text-[#17191F]">{{ number_format($partnerCount) }}</p>
         <p class="text-[10px] text-slate-400">Principals / Partners</p>
     </div>
     <div class="rounded-2xl border border-[#E8EAF0] bg-white p-4 shadow-sm">
@@ -54,7 +54,7 @@
             <span class="text-xs font-bold text-slate-500">Audit Managers</span>
             <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700"><i data-lucide="briefcase" class="h-4 w-4"></i></div>
         </div>
-        <p class="mt-2 text-2xl font-black text-[#17191F]">{{ sprintf('%02d', $managerCount) }}</p>
+        <p class="mt-2 text-2xl font-black text-[#17191F]">{{ number_format($managerCount) }}</p>
         <p class="text-[10px] text-slate-400">Supervisors</p>
     </div>
     <div class="rounded-2xl border border-[#E8EAF0] bg-white p-4 shadow-sm">
@@ -62,7 +62,7 @@
             <span class="text-xs font-bold text-slate-500">Articled Students</span>
             <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700"><i data-lucide="graduation-cap" class="h-4 w-4"></i></div>
         </div>
-        <p class="mt-2 text-2xl font-black text-[#17191F]">{{ sprintf('%02d', $studentCount) }}</p>
+        <p class="mt-2 text-2xl font-black text-[#17191F]">{{ number_format($studentCount) }}</p>
         <p class="text-[10px] text-slate-400">ICAB Trainees</p>
     </div>
 </section>
