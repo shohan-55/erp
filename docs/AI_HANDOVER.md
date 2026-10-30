@@ -217,7 +217,7 @@ suite, no load test, PHP 8.3 not exercised (8.4 is).
   teal ("SHIFT"), never red, and the dashboard shows a "Today's Office Timing"
   banner. New docs: [`docs/WORKING_DAY_EXCEPTIONS.md`](WORKING_DAY_EXCEPTIONS.md);
   invariants 16–17. New test file (16 tests). Suite: **194 tests / 762
-  assertions**. `public/build` rebuilt (`app-CtBIPaz5.css`).
+  assertions**. `public/build` rebuilt (`app-CtBIPaz5.css`). PR #101 → merge `c1c81e7`.
 - **2026-10-30 (late night) — flexible weekly holiday + easy profile.**- **2026-10-30 (late night) — flexible weekly holiday + easy profile.** The Friday +
   Saturday weekend was hardcoded in the attendance calendar; it is now
   `firms.weekly_off_days` (JSON, NULL = Fri + Sat), editable by a Partner in
