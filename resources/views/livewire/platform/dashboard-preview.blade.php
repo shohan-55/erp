@@ -24,8 +24,8 @@
             <div class="flex items-center gap-2 rounded-xl border border-[#FCDF02]/20 bg-[#FCDF02]/10 px-3 py-2.5">
                 <i data-lucide="shield-check" class="h-4 w-4 shrink-0 text-[#FCDF02]"></i>
                 <div class="min-w-0">
-                    <div class="text-[11px] font-semibold text-white">Central Operations</div>
-                    <div class="text-[10px] text-slate-400">Zero-Trust Cluster Active</div>
+                    <div class="text-[11px] font-semibold text-white">Platform Administration</div>
+                    <div class="text-[10px] text-slate-400">DhakaWala Super Admin</div>
                 </div>
             </div>
         </div>
@@ -88,7 +88,7 @@
                 </h1>
             </div>
             <div class="hidden items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-900 sm:flex">
-                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> CLUSTER 01 · ACTIVE
+                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> ALL SYSTEMS OPERATIONAL
             </div>
             <div class="flex items-center gap-2">
                 <form method="POST" action="{{ route('logout') }}" class="inline-flex">
@@ -114,8 +114,8 @@
             @if($section === 'overview')
                 <section class="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
                     <div class="space-y-1.5">
-                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#B08400]">CENTRAL OPERATIONS</p>
-                        <h2 class="text-2xl font-extrabold tracking-tight text-[#20232A] sm:text-3xl">One platform. Clear boundaries.</h2>
+                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[#B08400]">PLATFORM</p>
+                        <h2 class="text-2xl font-extrabold tracking-tight text-[#20232A] sm:text-3xl">Manage every firm from here.</h2>
                         <p class="max-w-2xl text-sm leading-relaxed text-slate-500">Manage the SaaS platform without automatically viewing a firm's private records, attendance, payroll or documents.</p>
                     </div>
                     <button wire:click="openProvisionPreview" type="button"
@@ -126,10 +126,10 @@
 
                 <section class="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4" aria-label="Platform metrics">
                     @foreach ([
-                        ['title'=>'Total Organizations', 'value'=>$metrics['firms'], 'icon'=>'building-2', 'detail'=>'Registered practice tenants'],
-                        ['title'=>'Active Workspaces', 'value'=>$metrics['workspaces'], 'icon'=>'network', 'detail'=>'Dedicated practice nodes'],
-                        ['title'=>'Allocated Seats', 'value'=>$metrics['seats'], 'icon'=>'users', 'detail'=>'Authorized user licenses'],
-                        ['title'=>'Pending Activation', 'value'=>$metrics['pending'], 'icon'=>'hourglass', 'detail'=>'Tenants awaiting setup'],
+                        ['title'=>'Firms', 'value'=>$metrics['firms'], 'icon'=>'building-2', 'detail'=>'Firms on the platform'],
+                        ['title'=>'Partner Units', 'value'=>$metrics['workspaces'], 'icon'=>'network', 'detail'=>'Units across all firms'],
+                        ['title'=>'Seats', 'value'=>$metrics['seats'], 'icon'=>'users', 'detail'=>$metrics['seatDetail']],
+                        ['title'=>'Pending Setup', 'value'=>$metrics['pending'], 'icon'=>'hourglass', 'detail'=>'Firms awaiting activation'],
                     ] as $metric)
                         <div class="relative overflow-hidden rounded-2xl border border-[#E8EAF0] bg-white p-4 shadow-sm sm:p-5" wire:key="metric-{{ $metric['title'] }}">
                             <div class="mb-4 flex items-center justify-between gap-2">
@@ -219,10 +219,10 @@
                                 <h3 class="text-sm font-extrabold">Platform Health</h3>
                                 <i data-lucide="activity" class="h-5 w-5 text-[#FCDF02]"></i>
                             </div>
-                            <p class="text-xs leading-relaxed text-slate-300">Cluster infrastructure, database replication, and background workers are fully operational.</p>
-                            <span class="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-300">
-                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Cluster 01 · All Systems Healthy
-                            </span>
+                            <p class="text-xs leading-relaxed text-slate-300">Application health, database connectivity and the scheduled jobs are checked by the <span class="font-semibold text-white">/health</span> probe. Open it in a new tab for the live result.</p>
+                            <a href="{{ url('/health') }}" target="_blank" rel="noopener" class="mt-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/20">
+                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Open health check <i data-lucide="arrow-up-right" class="h-3 w-3"></i>
+                            </a>
                         </section>
                     </div>
                 </div>
@@ -441,7 +441,7 @@
                         <div wire:key="service-{{ $service['title'] }}" class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
                             <div class="flex items-center justify-between gap-3">
                                 <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#17191F] text-[#FCDF02]"><i data-lucide="{{ $service['icon'] }}" class="h-5 w-5"></i></div>
-                                <span class="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">Cluster 01 · Active</span>
+                                <span class="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">Active</span>
                                 <span class="sr-only">Not connected</span>
                             </div>
                             <h3 class="mt-4 text-sm font-extrabold">{{ $service['title'] }}</h3>
@@ -1283,7 +1283,7 @@
                     </div>
                     <p class="mt-3 text-sm leading-relaxed text-slate-500">Support access requires an explicit firm scope, operational reason, time duration, and independent approval from the tenant Managing Partner. Access is strictly read-only and audited.</p>
                     <div class="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900">
-                        Zero-Trust Session Guard: Support sessions automatically expire after 60 minutes and all actions are recorded in immutable logs.
+                        Session Guard: support sessions follow the platform session lifetime ({{ (int) config('session.lifetime') }} minutes) and are recorded in the platform audit log.
                         <span class="sr-only">No access request will be sent</span>
                     </div>
                     <div class="mt-5 flex justify-end gap-2">

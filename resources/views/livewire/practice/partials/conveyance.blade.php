@@ -24,8 +24,8 @@
 @endphp
 <section class="grid gap-4 sm:grid-cols-3">
     @foreach([
-        ['label'=>'Submitted Claims','value'=>sprintf('%02d', count($claimQueue)),'icon'=>'receipt','hint'=>'Total claims in queue'],
-        ['label'=>'Partner Escalations','value'=>sprintf('%02d', $escalatedCount),'icon'=>'clock-3','hint'=>'Older than ' . $conveyanceLateDays . ' days or escalated'],
+        ['label'=>'Submitted Claims','value'=>number_format(count($claimQueue)),'icon'=>'receipt','hint'=>'Total claims in queue'],
+        ['label'=>'Partner Escalations','value'=>number_format($escalatedCount),'icon'=>'clock-3','hint'=>'Older than ' . $conveyanceLateDays . ' days or escalated'],
         ['label'=>'This Month Approved Conveyance','value'=>'৳ ' . number_format($settledTotal, 0),'icon'=>'wallet','hint'=>'Added directly to Student Payroll'],
     ] as $metric)
         <div wire:key="conv-metric-{{ $loop->index }}" class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">

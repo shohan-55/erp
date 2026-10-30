@@ -24,12 +24,24 @@ An enterprise, ultra-premium Laravel 13 + Livewire 4 multi-tenant ERP platform t
 
 ## Production Deployment Checklist
 
+> **This project deploys to a split cPanel layout** — the app lives in `~/erp-app`,
+> the web root is a separate copy in `~/public_html`. Read
+> [`docs/AI_HANDOVER.md`](docs/AI_HANDOVER.md) §1 before deploying; skipping the asset
+> sync leaves the site unstyled.
+
 ```sh
 composer install --optimize-autoloader --no-dev
 cp .env.example .env
 php artisan key:generate
 php artisan migrate --force
-php artisan storage:link
-npm ci && npm run build
 php artisan optimize:clear
 ```
+
+`public/build` is committed, so the server does **not** need Node.js — but if you
+compiled different assets locally, run `npm ci && npm run build` and commit the result.
+After `git pull` on the host, copy `public/build`, `public/images` and `public/css` into
+the web root (one line in `docs/AI_HANDOVER.md` §1).
+
+`php artisan storage:link` is **no longer part of the deployment**: conveyance receipts
+and avatars are stored on the private disk and served through authorised routes. Running
+`storage:link` only re-exposes legacy `storage/app/public` files.

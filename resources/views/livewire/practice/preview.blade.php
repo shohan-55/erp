@@ -27,7 +27,7 @@
                 @if(Auth::check() && !Auth::user()->isPlatformAdmin())
                     <div class="rounded-2xl border border-white/10 bg-white/5 p-3.5 shadow-inner">
                         <div class="flex items-center justify-between">
-                            <span class="text-[10px] font-extrabold uppercase tracking-widest text-[#FCDF02]">Practice Scope</span>
+                            <span class="text-[10px] font-extrabold uppercase tracking-widest text-[#FCDF02]">Your Unit</span>
                             <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[9px] font-bold text-emerald-300">
                                 <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Active
                             </span>
@@ -231,7 +231,7 @@
                                         </select>
                                     </label>
                                 </div>
-                                <div class="grid grid-cols-3 gap-2">
+                                <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
                                     <label class="block font-bold text-slate-700">Check-in Time
                                         <input type="text" wire:model="editCheckinTime" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs" placeholder="10:00">
                                     </label>

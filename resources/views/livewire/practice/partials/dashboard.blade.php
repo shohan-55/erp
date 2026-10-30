@@ -445,22 +445,22 @@
     @php
         $metricCards = match ($previewRole) {
             'partner' => [
-                ['label'=>'Enrolled Students', 'value'=> sprintf('%02d', count($rows)), 'icon'=>'users', 'note'=>$partnerUnit . ' active roster', 'accent'=>'from-emerald-500 to-teal-600'],
-                ['label'=>'Right Time Today', 'value'=> sprintf('%02d', $onTimeRowsCount), 'icon'=>'check-circle-2', 'note'=>$lateRowsCount . ' Late / Late Present', 'accent'=>'from-blue-500 to-indigo-600'],
-                ['label'=>'Pending Leave Queue', 'value'=> sprintf('%02d', count($leaveQueue)), 'icon'=>'calendar-clock', 'note'=>'Awaiting Partner sign-off', 'accent'=>'from-amber-500 to-orange-600'],
+                ['label'=>'Enrolled Students', 'value'=> number_format(count($rows)), 'icon'=>'users', 'note'=>$partnerUnit . ' active roster', 'accent'=>'from-emerald-500 to-teal-600'],
+                ['label'=>'Right Time Today', 'value'=> number_format($onTimeRowsCount), 'icon'=>'check-circle-2', 'note'=>$lateRowsCount . ' Late / Late Present', 'accent'=>'from-blue-500 to-indigo-600'],
+                ['label'=>'Pending Leave Queue', 'value'=> number_format(count($leaveQueue)), 'icon'=>'calendar-clock', 'note'=>'Awaiting Partner sign-off', 'accent'=>'from-amber-500 to-orange-600'],
                 ['label'=>'Approved Conveyance', 'value'=> '৳ ' . number_format($approvedConveyanceSum, 0), 'icon'=>'receipt', 'note'=>count($claimQueue) . ' claims this month', 'accent'=>'from-purple-500 to-indigo-600'],
             ],
             'manager' => [
-                ['label'=>'Supervised Team', 'value'=> sprintf('%02d', count($rows)), 'icon'=>'users', 'note'=>'Assigned under ' . $partnerUnit, 'accent'=>'from-emerald-500 to-teal-600'],
-                ['label'=>'Right Time Today', 'value'=> sprintf('%02d', $onTimeRowsCount), 'icon'=>'clock-3', 'note'=>$lateRowsCount . ' Late arrivals today', 'accent'=>'from-blue-500 to-indigo-600'],
-                ['label'=>'Pending Approvals', 'value'=> sprintf('%02d', count($leaveQueue)), 'icon'=>'clipboard-check', 'note'=>'Leave & claim reviews', 'accent'=>'from-amber-500 to-orange-600'],
+                ['label'=>'Supervised Team', 'value'=> number_format(count($rows)), 'icon'=>'users', 'note'=>'Assigned under ' . $partnerUnit, 'accent'=>'from-emerald-500 to-teal-600'],
+                ['label'=>'Right Time Today', 'value'=> number_format($onTimeRowsCount), 'icon'=>'clock-3', 'note'=>$lateRowsCount . ' Late arrivals today', 'accent'=>'from-blue-500 to-indigo-600'],
+                ['label'=>'Pending Approvals', 'value'=> number_format(count($leaveQueue)), 'icon'=>'clipboard-check', 'note'=>'Leave & claim reviews', 'accent'=>'from-amber-500 to-orange-600'],
                 ['label'=>'Team Conveyance', 'value'=> '৳ ' . number_format($approvedConveyanceSum, 0), 'icon'=>'receipt', 'note'=>'Approved monthly total', 'accent'=>'from-purple-500 to-indigo-600'],
             ],
             default => [
                 ['label'=>'My Net Stipend', 'value'=> '৳ ' . number_format($myPayrollRow['net_payable'] ?? 0, 0), 'icon'=>'wallet', 'note'=>'Base + Approved Conveyance', 'accent'=>'from-emerald-500 to-teal-600'],
                 ['label'=>'Punctuality Score', 'value'=> ($myPunctuality['score'] ?? 100) . '%', 'icon'=>'flame', 'note'=> ($myPunctuality['streak'] ?? 0) . ' Day Right-Time Streak 🔥', 'accent'=>'from-amber-500 to-orange-600'],
                 ['label'=>'Approved Conveyance', 'value'=> '৳ ' . number_format($approvedConveyanceSum, 0), 'icon'=>'receipt', 'note'=>count($claimQueue) . ' claims this month', 'accent'=>'from-blue-500 to-indigo-600'],
-                ['label'=>'Practice Notices', 'value'=>sprintf('%02d', count($notificationsList ?? [])), 'icon'=>'bell-ring', 'note'=>'Official announcements', 'accent'=>'from-purple-500 to-indigo-600'],
+                ['label'=>'Practice Notices', 'value'=>number_format(count($notificationsList ?? [])), 'icon'=>'bell-ring', 'note'=>'Official announcements', 'accent'=>'from-purple-500 to-indigo-600'],
             ],
         };
     @endphp
@@ -510,15 +510,15 @@
         </div>
 
         {{-- Weekday Header --}}
-        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.375rem;" class="mt-4 grid grid-cols-7 gap-1.5 text-center text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+        <div class="mt-4 grid grid-cols-7 gap-1 text-center text-[9px] font-extrabold uppercase tracking-wider text-slate-400 sm:gap-1.5 sm:text-[11px]">
             <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div class="text-rose-500">Fri</div><div class="text-rose-500">Sat</div>
         </div>
 
         {{-- Calendar Days Grid --}}
-        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.375rem;" class="mt-2 grid grid-cols-7 gap-1.5">
+        <div class="mt-2 grid grid-cols-7 gap-1 sm:gap-1.5">
             @foreach($calendarDays as $idx => $cDay)
                 @if(!empty($cDay['is_padding']))
-                    <div wire:key="cal-pad-{{ $idx }}" class="h-16 sm:h-20 rounded-2xl bg-slate-50/50"></div>
+                    <div wire:key="cal-pad-{{ $idx }}" class="min-h-[3.25rem] rounded-xl bg-slate-50/50 sm:h-20 sm:rounded-2xl"></div>
                 @else
                     @php
                         $isSelected = ($selectedCalendarDate ?? '') === $cDay['date'];
@@ -533,17 +533,17 @@
                     <button type="button"
                             wire:key="cal-day-{{ $cDay['date'] }}"
                             wire:click="selectCalendarDate('{{ $cDay['date'] }}')"
-                            class="flex h-16 sm:h-20 flex-col justify-between rounded-2xl p-1.5 sm:p-2 text-left transition cursor-pointer {{ $cellBg }}">
+                            class="flex min-h-[3.25rem] flex-col justify-between rounded-xl p-1 text-left transition cursor-pointer sm:h-20 sm:rounded-2xl sm:p-2 {{ $cellBg }}">
                         <div class="flex items-center justify-between w-full">
-                            <span class="inline-flex h-5 w-5 items-center justify-center rounded-lg text-xs font-black {{ $cDay['is_today'] ? 'bg-[#17191F] text-[#FCDF02]' : ($hasHoliday || $cDay['is_weekend'] ? 'text-rose-700' : 'text-slate-800') }}">
+                            <span class="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-md text-[10px] font-black sm:h-5 sm:w-5 sm:rounded-lg sm:text-xs {{ $cDay['is_today'] ? 'bg-[#17191F] text-[#FCDF02]' : ($hasHoliday || $cDay['is_weekend'] ? 'text-rose-700' : 'text-slate-800') }}">
                                 {{ $cDay['day'] }}
                             </span>
                             @if($hasHoliday)
-                                <span class="rounded px-1 py-0.2 text-[8px] font-extrabold uppercase {{ $isOpenOverride ? 'bg-amber-200 text-amber-950' : 'bg-rose-200 text-rose-900' }}">
+                                <span class="hidden rounded px-1 py-0.2 text-[8px] font-extrabold uppercase sm:inline {{ $isOpenOverride ? 'bg-amber-200 text-amber-950' : 'bg-rose-200 text-rose-900' }}">
                                     {{ $isOpenOverride ? 'OPEN' : 'HOL' }}
                                 </span>
                             @elseif($cDay['is_weekend'])
-                                <span class="text-[8px] font-bold text-slate-400">Off</span>
+                                <span class="hidden text-[8px] font-bold text-slate-400 sm:inline">Off</span>
                             @endif
                         </div>
 
@@ -567,7 +567,7 @@
                                     <span class="inline-flex items-center rounded bg-indigo-100 px-1 py-0.2 text-[8px] font-extrabold text-indigo-800" title="On Leave">{{ $cDay['leave_cnt'] }}Lv</span>
                                 @endif
                                 @if(($cDay['claim_sum'] ?? 0) > 0)
-                                    <span class="inline-flex items-center rounded bg-teal-100 px-1 py-0.2 text-[8px] font-extrabold text-teal-900">৳{{ number_format($cDay['claim_sum'], 0) }}</span>
+                                    <span class="hidden items-center rounded bg-teal-100 px-1 py-0.2 text-[8px] font-extrabold text-teal-900 sm:inline-flex">৳{{ number_format($cDay['claim_sum'], 0) }}</span>
                                 @endif
                             </div>
                         </div>
