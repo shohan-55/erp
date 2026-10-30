@@ -353,6 +353,85 @@ trait ManagesPoliciesHolidaysAndSettings
         $this->notice = 'Your profile information, contact details, payment account, and security settings have been updated.';
     }
 
+    /**
+     * The header avatar and the sidebar user card both land here, so a member
+     * never has to hunt for Workspace Settings to change their own photo, phone
+     * or password. The blade view scrolls the profile card into view.
+     */
+    public function openMyProfile(): void
+    {
+        $this->setSection('settings');
+        $this->dispatch('profile-focus');
+    }
+
+    /**
+     * Save the firm's weekly off days (0 = Sunday … 6 = Saturday).
+     *
+     * Partner-only: this decides which days the whole firm sees as holidays, so
+     * it is a policy decision, not a personal preference. Managers keep the
+     * separate proposal workflow.
+     */
+    public function saveWeeklyOffDays(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        $this->notice = null;
+
+        if ($this->previewRole !== 'partner') {
+            $this->error = 'Only a Partner can change the firm\'s weekly off days. Managers can submit a policy proposal instead.';
+            return;
+        }
+
+        if (! Schema::hasTable('firms') || ! Schema::hasColumn('firms', 'weekly_off_days')) {
+            $this->error = 'The weekly holiday setting is not installed yet. Run "php artisan migrate --force" on the server, then try again.';
+            return;
+        }
+
+        // Checkbox values arrive as strings ("5"), so normalise to ints.
+        $days = Firm::normaliseWeeklyOffDays(array_values((array) $this->weeklyOffDayDraft));
+
+        if (count($days) >= 7) {
+            $this->error = 'A firm cannot close all seven days. Leave at least one working day.';
+            return;
+        }
+
+        $firmModel = $this->resolveFirmModel();
+        if (! $firmModel) {
+            $this->error = 'Workspace not found. Please reload the page.';
+            return;
+        }
+
+        try {
+            $firmModel->weekly_off_days = $days;
+            $firmModel->save();
+        } catch (\Throwable $e) {
+            Log::error('weekly off days save failed: ' . $e->getMessage(), ['firm' => $firmModel->slug]);
+            $this->error = 'Could not save the weekly holiday pattern. Please try again.';
+            return;
+        }
+
+        $this->weeklyOffDays = $days;
+        $this->weeklyOffDayDraft = $days;
+        $this->weeklyOffSummary = Firm::describeWeeklyOffDays($days);
+
+        $this->recordAuditLog(
+            'settings',
+            'weekly_off_days_updated',
+            "Weekly off days set to: {$this->weeklyOffSummary}.",
+            $firmModel->slug
+        );
+
+        // Repaint the calendar immediately so the new weekend is visible.
+        $this->loadMonthlyCalendarData();
+
+        $this->dispatch('toast', [
+            'type'    => 'success',
+            'title'   => 'Weekly Holiday Saved',
+            'message' => "Weekly off days: {$this->weeklyOffSummary}.",
+        ]);
+        $this->notice = "Weekly holiday updated: {$this->weeklyOffSummary}. The attendance calendar and the policy summary now follow this pattern.";
+    }
+
     public function savePolicySettings(): void
     {
         $this->enforceAuthenticatedRoleLock();

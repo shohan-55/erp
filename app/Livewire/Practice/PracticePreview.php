@@ -112,6 +112,13 @@ class PracticePreview extends Component
     public string $newLeaveTypeLabel = '';
     public int $newLeaveTypeDays = 10;
 
+    // Weekly off days for this firm (0 = Sunday … 6 = Saturday). NULL in the
+    // database means the Dhaka default, Friday + Saturday; a firm that works
+    // Saturday and closes Sunday changes it in Workspace Settings.
+    public array $weeklyOffDays = Firm::DEFAULT_WEEKLY_OFF_DAYS;
+    public array $weeklyOffDayDraft = Firm::DEFAULT_WEEKLY_OFF_DAYS;
+    public string $weeklyOffSummary = 'Friday & Saturday';
+
     // Holiday Calendar & Partner "Office Open on Holiday" Override (#2)
     public array $holidaysList = [];
     public int $holidayYear = 2026;
@@ -345,6 +352,12 @@ class PracticePreview extends Component
                     : 'This organization subscription has expired. Please contact DhakaWala billing to restore access.');
             }
             $this->canViewAllPartnersAttendance = (bool) ($firmModel->shared_attendance_view ?? true);
+
+            // Weekly holiday pattern: per firm, defaulting to Friday + Saturday
+            // for every tenant that has never opened the setting.
+            $this->weeklyOffDays = $firmModel->weeklyOffDayIndexes();
+            $this->weeklyOffDayDraft = $this->weeklyOffDays;
+            $this->weeklyOffSummary = Firm::describeWeeklyOffDays($this->weeklyOffDays);
 
             try {
                 $units = [];

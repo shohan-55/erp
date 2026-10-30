@@ -680,6 +680,19 @@ trait ManagesAttendanceCalendarAndRadar
         }
     }
 
+    /**
+     * Is this weekday one of the firm's weekly off days?
+     *
+     * `$weeklyOffDays` holds 0–6 (0 = Sunday). An empty list is meaningful: it
+     * is a firm that works all seven days, so nothing is a weekend.
+     */
+    protected function isWeeklyOffDay(int $weekday): bool
+    {
+        $offDays = array_map('intval', $this->weeklyOffDays ?: []);
+
+        return in_array($weekday, $offDays, true);
+    }
+
     public function loadMonthlyCalendarData(): void
     {
         $monthStr = preg_match('/^\d{4}-\d{2}$/', $this->calendarMonth) ? $this->calendarMonth : now()->format('Y-m');
@@ -758,8 +771,11 @@ trait ManagesAttendanceCalendarAndRadar
         for ($d = 1; $d <= $daysInMonth; $d++) {
             $dateStr = sprintf('%s-%02d', $monthStr, $d);
             $dtObj = \DateTimeImmutable::createFromFormat('!Y-m-d', $dateStr);
-            $dow = (int) $dtObj->format('w'); // 5 = Fri, 6 = Sat
-            $isWeekend = in_array($dow, [5, 6], true);
+            $dow = (int) $dtObj->format('w'); // 0 = Sun … 6 = Sat
+            // The weekend belongs to the firm, not to the codebase: a practice
+            // that works Saturday and closes Sunday sets that in Workspace
+            // Settings. Never hardcode [5, 6] here again.
+            $isWeekend = $this->isWeeklyOffDay($dow);
             $holiday = $holidaysByDate[$dateStr] ?? null;
             $atts = $attByDate[$dateStr] ?? [];
             $claims = $claimsByDate[$dateStr] ?? [];
@@ -818,7 +834,7 @@ trait ManagesAttendanceCalendarAndRadar
     {
         $dtObj = \DateTimeImmutable::createFromFormat('!Y-m-d', $dateYmd) ?: new \DateTimeImmutable();
         $dow = (int) $dtObj->format('w');
-        $isWeekend = in_array($dow, [5, 6], true);
+        $isWeekend = $this->isWeeklyOffDay($dow);
 
         $holidayInfo = null;
         foreach ($this->holidaysList as $h) {

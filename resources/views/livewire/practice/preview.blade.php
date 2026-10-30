@@ -103,21 +103,28 @@
 
             <div wire:key="sidebar-active-user-card" class="border-t border-white/10 p-3">
                 <div class="flex items-center gap-3 rounded-2xl bg-white/5 p-3 hover:bg-white/10 transition">
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FCDF02] text-xs font-black text-[#17191F] shadow-sm overflow-hidden">
-                        @if(!empty(Auth::user()->avatar_url ?? $myAvatarUrl))
-                            <img src="{{ Auth::user()->avatar_url ?? $myAvatarUrl }}" alt="Avatar" class="h-full w-full object-cover">
-                        @else
-                            {{ strtoupper(substr(Auth::user()->name ?? $previewRole, 0, 1)) }}
-                        @endif
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <p class="truncate text-xs font-bold text-white">{{ Auth::user()->name ?? $roleLabel }}</p>
-                        <div class="mt-0.5 flex items-center gap-1.5">
-                            <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-                            <span class="truncate text-[10px] font-semibold text-amber-300">{{ $roleLabel }}</span>
-                        </div>
-                        <p class="truncate text-[10px] text-slate-400">{{ Auth::user()->email ?? ($roleLabel . ' • ' . ($firm['name'] ?? 'Practice')) }}</p>
-                    </div>
+                    <button type="button" wire:click="openMyProfile" @click="menuOpen = false" title="My profile — photo, phone & password"
+                            aria-label="Open my profile"
+                            class="group flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#FCDF02] text-xs font-black text-[#17191F] shadow-sm ring-amber-300 transition group-hover:ring-2">
+                            @if(!empty(Auth::user()->avatar_url ?? $myAvatarUrl))
+                                <img src="{{ Auth::user()->avatar_url ?? $myAvatarUrl }}" alt="Avatar" class="h-full w-full object-cover">
+                            @else
+                                {{ strtoupper(substr(Auth::user()->name ?? $previewRole, 0, 1)) }}
+                            @endif
+                        </span>
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-xs font-bold text-white">{{ Auth::user()->name ?? $roleLabel }}</span>
+                            <span class="mt-0.5 flex items-center gap-1.5">
+                                <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                                <span class="truncate text-[10px] font-semibold text-amber-300">{{ $roleLabel }}</span>
+                            </span>
+                            <span class="block truncate text-[10px] text-slate-400">{{ Auth::user()->email ?? ($roleLabel . ' • ' . ($firm['name'] ?? 'Practice')) }}</span>
+                            <span class="mt-1 flex items-center gap-1 text-[10px] font-extrabold text-[#FCDF02] opacity-80 group-hover:opacity-100">
+                                <i data-lucide="pencil" class="h-3 w-3"></i> My profile
+                            </span>
+                        </span>
+                    </button>
                     <form method="POST" action="{{ route('logout') }}" class="contents">
                         @csrf
                         <button type="submit" title="Sign Out" class="rounded-xl p-2 text-slate-400 hover:bg-rose-500/20 hover:text-rose-300 transition">
@@ -159,7 +166,11 @@
                     <i data-lucide="bell" class="h-[18px] w-[18px]"></i>
                     @php $hdrUnread = count(array_filter($notificationsList ?? [], fn($n) => !in_array($n['id'], $readNotificationIds ?? [], true))); @endphp @if($hdrUnread > 0)<span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-[#17191F]">{{ $hdrUnread }}</span>@endif
                 </button>
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-[#17191F] text-xs font-extrabold text-[#FCDF02] overflow-hidden">@if(!empty(Auth::user()->avatar_url ?? $myAvatarUrl))<img src="{{ Auth::user()->avatar_url ?? $myAvatarUrl }}" alt="Avatar" class="h-full w-full object-cover">@else{{ strtoupper(substr(Auth::user()->name ?? $previewRole,0,1)) }}@endif</div>
+                <button type="button" wire:click="openMyProfile" title="My profile — photo, phone, password"
+                        aria-label="Open my profile"
+                        class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-[#17191F] text-xs font-extrabold text-[#FCDF02] transition hover:ring-2 hover:ring-amber-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
+                    @if(!empty(Auth::user()->avatar_url ?? $myAvatarUrl))<img src="{{ Auth::user()->avatar_url ?? $myAvatarUrl }}" alt="Avatar" class="h-full w-full object-cover">@else{{ strtoupper(substr(Auth::user()->name ?? $previewRole,0,1)) }}@endif
+                </button>
             </header>
 
             <main class="mx-auto max-w-[1480px] space-y-6 px-4 py-6 sm:px-7 lg:px-9 lg:py-8">
