@@ -38,6 +38,39 @@ The **last leg is always the current one**; every earlier leg keeps its own
 
 ---
 
+## 1a. The weekly holiday belongs to the firm
+
+The weekend is **not** hardcoded. `firms.weekly_off_days` holds a JSON list of
+weekday numbers (0 = Sunday … 6 = Saturday); `NULL` means the platform default,
+**Friday + Saturday** — the usual Dhaka CA-firm weekend.
+
+| Stored value | Meaning |
+|---|---|
+| `NULL` | never configured → Friday + Saturday (every pre-existing tenant) |
+| `[5]` | closes Friday only |
+| `[0]` | works Saturday, closes Sunday |
+| `[]` | genuinely open all seven days |
+
+Where to change it: **Workspace Settings → Weekly Off Days** (Partner only;
+Managers can submit a policy proposal instead). It is deliberately *not* per
+partner unit: the calendar, the notification copy and the policy summary show one
+firm-wide pattern.
+
+Never write `in_array($dow, [5, 6])` again. Use the component helper:
+
+```php
+$isWeekend = $this->isWeeklyOffDay($dow);   // reads $this->weeklyOffDays
+```
+
+The model normalises everything through `Firm::normaliseWeeklyOffDays()` and
+formats it with `Firm::describeWeeklyOffDays()` / `shortWeeklyOffDays()`.
+
+**Not covered:** a per-partner-unit weekend, and a rotary/weekly-alternating
+weekend (some firms close the 2nd and 4th Saturday). Add those as new fields,
+not as more `if` statements.
+
+---
+
 ## 2. What the user sees
 
 - **Out** (dashboard dock or attendance page) opens a chooser:

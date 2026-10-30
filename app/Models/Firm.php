@@ -15,6 +15,7 @@ class Firm extends Model
         'email',
         'status',
         'workspaces',
+        'weekly_off_days',
         'seats',
         'plan',
         'region',
@@ -41,7 +42,117 @@ class Firm extends Model
         'subscription_expires_at' => 'date',
         'subscription_fee'        => 'decimal:2',
         'enabled_modules'         => 'array',
+        'weekly_off_days'         => 'array',
     ];
+
+    /**
+     * Friday + Saturday: the default weekend for a Dhaka CA practice. A firm
+     * that works Saturday and closes Sunday overrides this in Workspace
+     * Settings; NULL in the database means "use this default".
+     */
+    public const DEFAULT_WEEKLY_OFF_DAYS = [5, 6];
+
+    /** 0 = Sunday … 6 = Saturday, matching DateTime::format('w'). */
+    public const WEEKDAY_LABELS = [
+        0 => 'Sunday',
+        1 => 'Monday',
+        2 => 'Tuesday',
+        3 => 'Wednesday',
+        4 => 'Thursday',
+        5 => 'Friday',
+        6 => 'Saturday',
+    ];
+
+    public const WEEKDAY_SHORT = [
+        0 => 'Sun',
+        1 => 'Mon',
+        2 => 'Tue',
+        3 => 'Wed',
+        4 => 'Thu',
+        5 => 'Fri',
+        6 => 'Sat',
+    ];
+
+    /**
+     * Turn whatever is stored (JSON string from MySQL, array from the cast,
+     * comma list from a form, null for "not configured") into a clean, sorted
+     * list of weekday integers.
+     *
+     * null  → the platform default (Friday + Saturday)
+     * []    → a firm that genuinely works all seven days
+     */
+    public static function normaliseWeeklyOffDays(mixed $value): array
+    {
+        if ($value === null) {
+            return self::DEFAULT_WEEKLY_OFF_DAYS;
+        }
+
+        if (is_string($value)) {
+            $value = trim($value);
+            if ($value === '') {
+                return [];
+            }
+            $decoded = json_decode($value, true);
+            $value = is_array($decoded) ? $decoded : explode(',', $value);
+        }
+
+        if (! is_array($value)) {
+            return self::DEFAULT_WEEKLY_OFF_DAYS;
+        }
+
+        $days = [];
+        foreach ($value as $day) {
+            if (! is_numeric($day)) {
+                continue;
+            }
+            $index = (int) $day;
+            if ($index >= 0 && $index <= 6) {
+                $days[$index] = $index;
+            }
+        }
+
+        ksort($days);
+
+        return array_values($days);
+    }
+
+    /** The weekday numbers this firm closes on. */
+    public function weeklyOffDayIndexes(): array
+    {
+        return self::normaliseWeeklyOffDays($this->weekly_off_days);
+    }
+
+    /** "Friday & Saturday" / "Sunday" / "Friday, Saturday & Sunday". */
+    public static function describeWeeklyOffDays(array $days): string
+    {
+        $days = self::normaliseWeeklyOffDays($days);
+
+        if ($days === []) {
+            return 'No weekly off — open all 7 days';
+        }
+
+        $labels = array_map(fn (int $d) => self::WEEKDAY_LABELS[$d] ?? (string) $d, $days);
+
+        if (count($labels) === 1) {
+            return $labels[0];
+        }
+
+        $last = array_pop($labels);
+
+        return implode(', ', $labels) . ' & ' . $last;
+    }
+
+    /** Short chip form: "Fri & Sat". */
+    public static function shortWeeklyOffDays(array $days): string
+    {
+        $days = self::normaliseWeeklyOffDays($days);
+
+        if ($days === []) {
+            return 'All 7 days open';
+        }
+
+        return implode(' & ', array_map(fn (int $d) => self::WEEKDAY_SHORT[$d] ?? (string) $d, $days));
+    }
 
     /**
      * Curated enterprise color palettes for CA firms & corporate organizations.

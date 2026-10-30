@@ -2,7 +2,10 @@
 <!-- ===================================================================== -->
 <!-- SELF-SERVICE PROFILE, PASSWORD & bKash/BANK ACCOUNT UPDATE (#1)       -->
 <!-- ===================================================================== -->
-<section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
+<section id="my-profile"
+         x-data
+         @profile-focus.window="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'start' }))"
+         class="scroll-mt-24 rounded-2xl border-2 border-emerald-200 bg-white p-5 shadow-sm sm:p-6">
     <div class="flex items-start gap-3 border-b border-slate-100 pb-4">
         <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
             <i data-lucide="user-cog" class="h-5 w-5"></i>
@@ -347,6 +350,53 @@
         </div>
     </section>
 </div>
+
+<!-- ===================================================================== -->
+<!-- WEEKLY OFF DAYS (per firm) — Bangladesh firms do not all close Fri+Sat -->
+<!-- ===================================================================== -->
+<section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6" wire:key="weekly-off-days-card">
+    <div class="flex flex-col justify-between gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
+        <div class="flex items-start gap-3">
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-white">
+                <i data-lucide="calendar-off" class="h-5 w-5"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-extrabold text-slate-900">Weekly Off Days &mdash; {{ $weeklyOffSummary }}</h3>
+                <p class="mt-0.5 text-xs text-slate-500">The recurring weekend for this firm. The attendance calendar marks these weekdays as off, and the policy summary shows them to every member. A government or sudden holiday is still added in the calendar below.</p>
+            </div>
+        </div>
+        <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1.5 text-[11px] font-extrabold text-rose-800">
+            <i data-lucide="calendar-days" class="h-3.5 w-3.5"></i>
+            {{ count($weeklyOffDays) }} off {{ count($weeklyOffDays) === 1 ? 'day' : 'days' }} / week
+        </span>
+    </div>
+
+    @if($previewRole === 'partner')
+        <form wire:submit.prevent="saveWeeklyOffDays" class="mt-5 space-y-4 text-xs">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                @foreach(\App\Models\Firm::WEEKDAY_LABELS as $dow => $dayLabel)
+                    <label class="cursor-pointer select-none" wire:key="weekly-off-{{ $dow }}">
+                        <input type="checkbox" wire:model.live="weeklyOffDayDraft" value="{{ $dow }}" class="peer sr-only">
+                        <span class="flex flex-col items-center justify-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 text-[11px] font-extrabold text-slate-600 transition hover:border-slate-300 peer-checked:border-rose-400 peer-checked:bg-rose-50 peer-checked:text-rose-900 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-400">
+                            <i data-lucide="{{ in_array($dow, $weeklyOffDayDraft, true) || in_array((string) $dow, $weeklyOffDayDraft, true) ? 'calendar-off' : 'calendar-check' }}" class="h-4 w-4"></i>
+                            {{ \App\Models\Firm::WEEKDAY_SHORT[$dow] }}
+                        </span>
+                    </label>
+                @endforeach
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold text-[#17191F] shadow-sm hover:bg-[#F3D604]">
+                    <i data-lucide="save" class="h-4 w-4"></i> Save Weekly Holiday
+                </button>
+                <p class="text-[11px] text-slate-500">Currently saved: <strong class="text-slate-700">{{ $weeklyOffSummary }}</strong>. Tick a day to make it a weekly holiday; untick every day for a firm that works all seven.</p>
+            </div>
+        </form>
+    @else
+        <p class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-600">
+            Only a Partner can change the weekly holiday. Current pattern: <strong>{{ $weeklyOffSummary }}</strong>.
+        </p>
+    @endif
+</section>
 
 <!-- ===================================================================== -->
 <!-- GOVERNMENT HOLIDAY CALENDAR & PARTNER "OFFICE OPEN" OVERRIDE (#2)     -->

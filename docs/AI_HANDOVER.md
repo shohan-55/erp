@@ -87,7 +87,7 @@ Minimum bar for any change:
 
 | Check | Result expected |
 |---|---|
-| `phpunit tests` | `OK (168 tests, 675 assertions)` or more |
+| `phpunit tests` | `OK (178 tests, 717 assertions)` or more |
 | `token_get_all(…, TOKEN_PARSE)` over `app/ config/ routes/ database/ tests/` | all ok |
 | `php artisan view:cache` | compiles every Blade file |
 | `php artisan route:cache` / `config:cache` | both build |
@@ -142,6 +142,16 @@ Minimum bar for any change:
     included once from `preview.blade.php`. Only one section is rendered per request,
     so keeping them inside `attendance.blade.php` leaves the dashboard's own "Out"
     button dead.
+14. **The weekly holiday is per firm, never hardcoded.** `firms.weekly_off_days` is a
+    JSON list of 0–6 (0 = Sunday); `NULL` means Friday + Saturday. Read it through
+    `$this->isWeeklyOffDay($dow)` (component) or `Firm::normaliseWeeklyOffDays()`
+    (model). `in_array($dow, [5, 6])` must not appear anywhere in the codebase —
+    a Bangladesh firm that works Saturday and closes Sunday is normal, and it used
+    to see the wrong days marked off.
+15. **Profile edits are reachable from the header avatar and the sidebar user card**
+    (`openMyProfile()` → Settings section + `profile-focus` scroll event). Do not
+    remove those shortcuts and bury the form behind "Workspace Settings" again —
+    the first question every new firm asks is "where do I change my photo/phone".
 
 ---
 
@@ -180,7 +190,19 @@ suite, no load test, PHP 8.3 not exercised (8.4 is).
 
 ## 7. Change log (most recent first)
 
-- **2026-10-30 (night) — two-step final check-out + movement fixes.** Closing the day
+- **2026-10-30 (late night) — flexible weekly holiday + easy profile.** The Friday +
+  Saturday weekend was hardcoded in the attendance calendar; it is now
+  `firms.weekly_off_days` (JSON, NULL = Fri + Sat), editable by a Partner in
+  **Workspace Settings → Weekly Off Days**, with a live calendar repaint, an audit log
+  entry and a refusal to close all seven days. **Migration
+  `2026_10_30_000006` — deploy now needs `php artisan migrate --force`.** The policy
+  page and the dashboard's selected-day panel read the same value. Separately, the
+  header avatar and the sidebar user card now open **My Profile** directly
+  (`openMyProfile()`), which scrolls to the self-service card (photo, name, email,
+  phone, bKash/bank account, password). New test file:
+  `tests/Feature/WeeklyOffDaysAndProfileShortcutTest.php` (10 tests). Suite:
+  **178 tests / 717 assertions**. `public/build` rebuilt (`app-DHscBtWp.css`).
+- **2026-10-30 (night) — two-step final check-out + movement fixes.**- **2026-10-30 (night) — two-step final check-out + movement fixes.** Closing the day
   now opens a review panel (every leg, first-in, elapsed time, location) and needs a
   confirmation checkbox, enforced server-side; the checkout dialogs moved out of the
   attendance partial so the dashboard button works; a re-check-in clears the previous

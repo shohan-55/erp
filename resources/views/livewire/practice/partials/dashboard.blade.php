@@ -615,7 +615,7 @@
                 </div>
             @elseif(!empty($selectedDayActivity['is_weekend']))
                 <div class="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 font-semibold">
-                    Weekly Practice Holiday (Friday / Saturday).
+                    Weekly Practice Holiday ({{ $weeklyOffSummary }}).
                 </div>
             @endif
 

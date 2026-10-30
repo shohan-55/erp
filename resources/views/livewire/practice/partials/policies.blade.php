@@ -23,7 +23,7 @@
                     ['title'=>'Office Start','value'=>$officeStart . ' AM','icon'=>'clock'],
                     ['title'=>'Office End','value'=>$officeEnd . ' PM','icon'=>'clock-3'],
                     ['title'=>'Late Grace','value'=>$graceMinutes . ' min','icon'=>'timer'],
-                    ['title'=>'Weekly Holiday','value'=>'Fri & Sat','icon'=>'calendar-off'],
+                    ['title'=>'Weekly Holiday','value'=>$weeklyOffSummary,'icon'=>'calendar-off'],
                     ['title'=>'Timezone','value'=>'Asia/Dhaka','icon'=>'globe-2'],
                     ['title'=>'Payroll Penalty','value'=>'Configured in Policy','icon'=>'shield-check']
                 ] as $policy)
