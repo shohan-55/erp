@@ -16,6 +16,10 @@ class PracticeHoliday extends Model
         'is_office_open_override',
         'absent_deduction_days',
         'override_reason',
+        'office_start_override',
+        'office_end_override',
+        'grace_minutes_override',
+        'late_exempt',
         'created_by',
     ];
 
@@ -25,6 +29,8 @@ class PracticeHoliday extends Model
             'holiday_date'            => 'date',
             'is_office_open_override' => 'boolean',
             'absent_deduction_days'   => 'decimal:2',
+            'grace_minutes_override'  => 'integer',
+            'late_exempt'             => 'boolean',
         ];
     }
 
@@ -36,6 +42,58 @@ class PracticeHoliday extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * A working day exception is a date whose hours differ from the standing
+     * policy — a hartal, a flood, a half-day before Eid. It is a *working* day,
+     * not a holiday, so the calendar must never paint it as one.
+     */
+    public const CATEGORY_EXCEPTION = 'exception';
+
+    public function isWorkingDayException(): bool
+    {
+        return $this->category === self::CATEGORY_EXCEPTION;
+    }
+
+    /** "12:00 – 16:00", "from 12:00", "until 16:00" or null when no hours were shifted. */
+    public function shiftWindowLabel(): ?string
+    {
+        $start = $this->office_start_override ?: null;
+        $end = $this->office_end_override ?: null;
+
+        if ($start && $end) {
+            return "{$start} – {$end}";
+        }
+        if ($start) {
+            return "from {$start}";
+        }
+        if ($end) {
+            return "until {$end}";
+        }
+
+        return null;
+    }
+
+    /**
+     * One line an operator (or an auditor) can read a year later:
+     * "12:00 – 16:00 · grace 60 min · late not counted".
+     */
+    public function effectLabel(): string
+    {
+        $parts = [];
+
+        if ($window = $this->shiftWindowLabel()) {
+            $parts[] = $window;
+        }
+        if ($this->grace_minutes_override !== null) {
+            $parts[] = 'grace ' . (int) $this->grace_minutes_override . ' min';
+        }
+        if ($this->late_exempt) {
+            $parts[] = 'late not counted';
+        }
+
+        return $parts === [] ? 'No timing change declared' : implode(' · ', $parts);
     }
 
     /**

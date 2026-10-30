@@ -581,56 +581,527 @@ trait ManagesPoliciesHolidaysAndSettings
 
     protected function isTimeLate(string $timeHi): bool
     {
-        try {
-            [$startH, $startM] = array_map('intval', explode(':', $this->officeStart ?: '10:00'));
-            $cutoffTotalMinutes = ($startH * 60) + $startM + max(0, $this->graceMinutes);
-            [$inH, $inM] = array_map('intval', explode(':', $timeHi));
-            $inTotalMinutes = ($inH * 60) + $inM;
-            return $inTotalMinutes > $cutoffTotalMinutes;
-        } catch (\Throwable) {
-            return $timeHi > '10:10';
-        }
+        return $this->classifyArrivalStatus($timeHi) !== 'Right Time';
     }
 
     /**
-     * 3-Tier Arrival Classification (#UserProposal2):
-     * - <= officeStart (e.g. 09:30): "Right Time" (or "On time" in unit tests)
-     * - officeStart+1m to officeStart+graceMinutes (e.g. 09:31 - 09:40): "Late"
-     * - > officeStart+graceMinutes (e.g. > 09:40): "Late Present"
+     * Pure 3-tier arrival classification. No database, no state — everything it
+     * needs is passed in, so a "what would happen if I saved this exception?"
+     * preview uses exactly the same arithmetic as a real check-in.
+     *
+     * - <= start                       → "Right Time"
+     * - start+1m … start+grace         → "Late"
+     * - > start+grace                  → "Late Present"
+     * - > start+grace AND lateExempt   → "Late (Excused)"
      */
-    public function classifyArrivalStatus(string $timeHi): string
+    protected function classifyWithHours(string $timeHi, string $startHi, int $graceMinutes, bool $lateExempt): string
     {
         try {
-            [$startH, $startM] = array_map('intval', explode(':', $this->officeStart ?: '09:30'));
+            [$startH, $startM] = array_map('intval', explode(':', $startHi ?: '10:00'));
             $startMinutes = ($startH * 60) + $startM;
-            $graceCutoffMinutes = $startMinutes + max(0, $this->graceMinutes);
+            $graceCutoffMinutes = $startMinutes + max(0, $graceMinutes);
             [$inH, $inM] = array_map('intval', explode(':', $timeHi));
             $inMinutes = ($inH * 60) + $inM;
-
-            if (app()->runningUnitTests()) {
-                return $inMinutes > $graceCutoffMinutes ? 'Late' : 'On time';
-            }
-
-            if ($inMinutes <= $startMinutes) {
-                return 'Right Time';
-            }
-            if ($inMinutes <= $graceCutoffMinutes) {
-                return 'Late';
-            }
-            return 'Late Present';
         } catch (\Throwable) {
-            return app()->runningUnitTests() ? 'On time' : 'Right Time';
+            return 'Right Time';
         }
+
+        // A declared exception (hartal, flood, delayed opening) excuses lateness
+        // outright. The arrival is still recorded honestly as late — it is just
+        // never counted, so payroll cannot deduct for it.
+        if ($lateExempt && $inMinutes > $graceCutoffMinutes) {
+            return 'Late (Excused)';
+        }
+
+        if (app()->runningUnitTests()) {
+            return $inMinutes > $graceCutoffMinutes ? 'Late' : 'On time';
+        }
+
+        if ($inMinutes <= $startMinutes) {
+            return 'Right Time';
+        }
+        if ($inMinutes <= $graceCutoffMinutes) {
+            return 'Late';
+        }
+
+        return 'Late Present';
+    }
+
+    /**
+     * 3-Tier Arrival Classification (#UserProposal2), now date-aware.
+     *
+     * The office hours used are the *effective* ones for that date: the standing
+     * policy from Workspace Settings, replaced by a one-day exception when the
+     * Partner declared one (hartal, storm, half-day).
+     */
+    public function classifyArrivalStatus(string $timeHi, ?string $dateYmd = null): string
+    {
+        $hours = $this->effectiveOfficeHoursFor($dateYmd);
+
+        return $this->classifyWithHours($timeHi, $hours['start'], (int) $hours['grace'], (bool) $hours['late_exempt']);
     }
 
     public function getGraceEndFormattedProperty(): string
     {
         try {
-            [$startH, $startM] = array_map('intval', explode(':', $this->officeStart ?: '09:30'));
-            $total = ($startH * 60) + $startM + max(0, $this->graceMinutes);
+            $hours = $this->effectiveOfficeHoursFor();
+            [$startH, $startM] = array_map('intval', explode(':', $hours['start'] ?: '09:30'));
+            $total = ($startH * 60) + $startM + max(0, (int) $hours['grace']);
+
             return sprintf('%02d:%02d', intdiv($total, 60) % 24, $total % 60);
         } catch (\Throwable) {
             return '09:40';
+        }
+    }
+
+    // ─── Working Day Exceptions (hartal / late opening / early close) ───────
+
+    /**
+     * The exception declared for one date, if any.
+     *
+     * A unit-specific exception beats the firm-wide one, because a single
+     * Partner Unit is allowed to keep a different schedule.
+     */
+    public function workingDayExceptionFor(?string $dateYmd = null): ?array
+    {
+        $date = $dateYmd ?: now()->timezone('Asia/Dhaka')->toDateString();
+
+        if (Schema::hasTable('practice_holidays')) {
+            try {
+                $firmModel = $this->resolveFirmModel();
+                if ($firmModel) {
+                    $row = PracticeHoliday::where('firm_id', $firmModel->id)
+                        ->whereDate('holiday_date', $date)
+                        ->where('category', PracticeHoliday::CATEGORY_EXCEPTION)
+                        ->where(function ($q) {
+                            $q->whereNull('partner_unit')
+                                ->orWhere('partner_unit', $this->partnerUnit);
+                        })
+                        // Unit-specific first: false sorts before true on both
+                        // MySQL and SQLite, so `partner_unit IS NULL` ascending
+                        // puts the unit row at the top.
+                        ->orderByRaw('partner_unit IS NULL')
+                        ->first();
+
+                    if ($row) {
+                        return $this->normaliseWorkingDayException($row);
+                    }
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        foreach ($this->holidaysList as $h) {
+            if (($h['holiday_date'] ?? '') !== $date || empty($h['is_working_day_exception'])) {
+                continue;
+            }
+            $unit = $h['partner_unit'] ?? 'All Units';
+            if ($unit !== 'All Units' && $unit !== $this->partnerUnit) {
+                continue;
+            }
+
+            return $this->normaliseWorkingDayException($h);
+        }
+
+        return null;
+    }
+
+    /** One shape whether the source is an Eloquent row or the in-memory array. */
+    protected function normaliseWorkingDayException(PracticeHoliday|array $row): array
+    {
+        $get = fn (string $key) => $row instanceof PracticeHoliday ? ($row->{$key} ?? null) : ($row[$key] ?? null);
+
+        $unit = $row instanceof PracticeHoliday
+            ? ($row->partner_unit ?: 'All Units')
+            : ($row['partner_unit'] ?? 'All Units');
+
+        $start = trim((string) ($get('office_start_override') ?? '')) ?: null;
+        $end = trim((string) ($get('office_end_override') ?? '')) ?: null;
+        $grace = $get('grace_minutes_override');
+
+        return [
+            'id'            => (int) ($get('id') ?? 0),
+            'date'          => $row instanceof PracticeHoliday
+                ? ($row->holiday_date?->format('Y-m-d') ?? '')
+                : (string) ($row['holiday_date'] ?? ''),
+            'title'         => (string) ($get('title') ?? ''),
+            'reason'        => (string) ($get('override_reason') ?? ''),
+            'partner_unit'  => $unit,
+            'start'         => $start,
+            'end'           => $end,
+            'grace'         => $grace === null || $grace === '' ? null : (int) $grace,
+            'late_exempt'   => (bool) ($get('late_exempt') ?? false),
+        ];
+    }
+
+    /**
+     * The hours actually in force on a date: standing policy, overridden by that
+     * date's exception. Every lateness decision must go through here.
+     */
+    public function effectiveOfficeHoursFor(?string $dateYmd = null): array
+    {
+        $date = $dateYmd ?: now()->timezone('Asia/Dhaka')->toDateString();
+        $exception = $this->workingDayExceptionFor($date);
+
+        $start = ($exception['start'] ?? null) ?: ($this->officeStart ?: '10:00');
+        $end = ($exception['end'] ?? null) ?: ($this->officeEnd ?: '18:00');
+        $grace = $exception !== null && $exception['grace'] !== null
+            ? (int) $exception['grace']
+            : max(0, (int) $this->graceMinutes);
+        $lateExempt = (bool) ($exception['late_exempt'] ?? false);
+
+        $parts = [];
+        if ($exception !== null) {
+            if ($exception['start'] || $exception['end']) {
+                $parts[] = 'Office ' . $start . ' – ' . $end;
+            }
+            if ($lateExempt) {
+                $parts[] = 'lateness not counted';
+            }
+            if ($exception['grace'] !== null) {
+                $parts[] = 'grace ' . $grace . ' min';
+            }
+        }
+
+        return [
+            'date'         => $date,
+            'start'        => $start,
+            'end'          => $end,
+            'grace'        => $grace,
+            'late_exempt'  => $lateExempt,
+            'is_exception' => $exception !== null,
+            'title'        => (string) ($exception['title'] ?? ''),
+            'reason'       => (string) ($exception['reason'] ?? ''),
+            'label'        => implode(' · ', $parts),
+        ];
+    }
+
+    /** Refresh the banner data for today after any exception change. */
+    public function refreshTodayWorkException(): void
+    {
+        $hours = $this->effectiveOfficeHoursFor();
+        $this->todayWorkException = $hours['is_exception'] ? $hours : [];
+        $this->todayWorkHoursLabel = $hours['start'] . ' – ' . $hours['end'];
+    }
+
+    /**
+     * Every attendance row on this date, re-derived from its recorded check-in
+     * time under the given hours. Nothing is invented: a row with no `in_time`
+     * is skipped, and the stored arrival is never moved.
+     *
+     * @return array{scanned:int, changed:int, rows:array<int, array{name:string, from:string, to:string, in_time:string}>}
+     */
+    protected function reclassifyDateStatuses(string $dateYmd, string $startHi, int $graceMinutes, bool $lateExempt, bool $dryRun): array
+    {
+        $result = ['scanned' => 0, 'changed' => 0, 'rows' => []];
+
+        if (! Schema::hasTable('attendances') || ! Schema::hasTable('users')) {
+            return $result;
+        }
+
+        try {
+            $firmModel = $this->resolveFirmModel();
+            if (! $firmModel) {
+                return $result;
+            }
+
+            $rows = Attendance::where('firm_id', $firmModel->id)
+                ->whereDate('date', $dateYmd)
+                ->get();
+
+            if ($rows->isEmpty()) {
+                return $result;
+            }
+
+            $names = User::whereIn('id', $rows->pluck('user_id')->all())->pluck('name', 'id');
+
+            foreach ($rows as $att) {
+                if (empty($att->in_time)) {
+                    continue;
+                }
+
+                $result['scanned']++;
+                $inHi = $att->in_time instanceof \DateTimeInterface
+                    ? $att->in_time->format('H:i')
+                    : substr((string) $att->in_time, 11, 5);
+
+                $newStatus = $this->classifyWithHours($inHi, $startHi, $graceMinutes, $lateExempt);
+                $oldStatus = (string) ($att->status ?: 'Right Time');
+
+                if ($oldStatus === $newStatus) {
+                    continue;
+                }
+
+                $result['changed']++;
+                $result['rows'][] = [
+                    'name'    => (string) ($names[$att->user_id] ?? ('User #' . $att->user_id)),
+                    'from'    => $oldStatus,
+                    'to'      => $newStatus,
+                    'in_time' => $inHi,
+                ];
+
+                if (! $dryRun) {
+                    $att->status = $newStatus;
+                    $att->save();
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error('working-day-exception reclassify failed: ' . $e->getMessage(), ['date' => $dateYmd]);
+        }
+
+        return $result;
+    }
+
+    /** Draft hours from the form, used by the preview and by save. */
+    protected function draftExceptionHours(): array
+    {
+        return [
+            'start'       => trim($this->newExceptionStart) ?: ($this->officeStart ?: '10:00'),
+            'end'         => trim($this->newExceptionEnd) ?: ($this->officeEnd ?: '18:00'),
+            'grace'       => $this->newExceptionGrace === '' ? max(0, (int) $this->graceMinutes) : max(0, (int) $this->newExceptionGrace),
+            'late_exempt' => $this->newExceptionLateExempt,
+        ];
+    }
+
+    /**
+     * "If I save this, whose status changes?" — shown before anything is written,
+     * so a Partner is never surprised by a silent rewrite of the register.
+     */
+    public function previewWorkingDayException(): void
+    {
+        $this->error = null;
+
+        if (! $this->validDate($this->newExceptionDate)) {
+            $this->exceptionImpact = ['error' => 'Pick a date first, then preview the impact.'];
+            return;
+        }
+
+        $draft = $this->draftExceptionHours();
+        $impact = $this->reclassifyDateStatuses(
+            $this->newExceptionDate,
+            $draft['start'],
+            (int) $draft['grace'],
+            (bool) $draft['late_exempt'],
+            true
+        );
+
+        $this->exceptionImpact = $impact + [
+            'date'        => $this->newExceptionDate,
+            'start'       => $draft['start'],
+            'end'         => $draft['end'],
+            'grace'       => (int) $draft['grace'],
+            'late_exempt' => (bool) $draft['late_exempt'],
+        ];
+    }
+
+    public function saveWorkingDayException(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        $this->notice = null;
+        $this->exceptionImpact = [];
+
+        if ($this->previewRole !== 'partner') {
+            $this->error = 'Only a Partner can change office hours or excuse lateness for a date. Managers can submit a policy proposal instead.';
+            return;
+        }
+
+        if (! Schema::hasTable('practice_holidays') || ! Schema::hasColumn('practice_holidays', 'late_exempt')) {
+            $this->error = 'The working-day exception columns are missing. Run "php artisan migrate --force" on the server, then try again.';
+            return;
+        }
+
+        if (! $this->validDate($this->newExceptionDate)) {
+            $this->error = 'Please choose a valid date for the working day exception.';
+            return;
+        }
+
+        if (mb_strlen(trim($this->newExceptionTitle)) < 2) {
+            $this->error = 'Give the exception a short name, e.g. "Hartal — office opens at 12:00".';
+            return;
+        }
+
+        $timePattern = '/^([01]?\d|2[0-3]):[0-5]\d$/';
+        $start = trim($this->newExceptionStart);
+        $end = trim($this->newExceptionEnd);
+
+        if ($start !== '' && ! preg_match($timePattern, $start)) {
+            $this->error = 'Office start must look like 12:00 (24-hour clock).';
+            return;
+        }
+        if ($end !== '' && ! preg_match($timePattern, $end)) {
+            $this->error = 'Office end must look like 16:00 (24-hour clock).';
+            return;
+        }
+        if ($start !== '' && $end !== '' && $end <= $start) {
+            $this->error = 'Office end must be later than office start.';
+            return;
+        }
+
+        $grace = trim($this->newExceptionGrace);
+        if ($grace !== '' && (! ctype_digit($grace) || (int) $grace > 240)) {
+            $this->error = 'Grace period must be a whole number of minutes between 0 and 240.';
+            return;
+        }
+
+        if ($start === '' && $end === '' && $grace === '' && ! $this->newExceptionLateExempt) {
+            $this->error = 'A working day exception needs at least one effect: a start time, an end time, a grace period, or "lateness not counted".';
+            return;
+        }
+
+        $firmModel = $this->resolveFirmModel();
+        if (! $firmModel) {
+            $this->error = 'Workspace not found. Please reload the page.';
+            return;
+        }
+
+        $unit = $this->newExceptionAllUnits ? null : $this->partnerUnit;
+        $draft = $this->draftExceptionHours();
+
+        try {
+            $row = PracticeHoliday::updateOrCreate(
+                [
+                    'firm_id'      => $firmModel->id,
+                    'holiday_date' => $this->newExceptionDate,
+                    'partner_unit' => $unit,
+                ],
+                [
+                    'title'                   => trim($this->newExceptionTitle),
+                    'category'                => PracticeHoliday::CATEGORY_EXCEPTION,
+                    'is_office_open_override' => false,
+                    'absent_deduction_days'   => 0,
+                    'override_reason'         => trim($this->newExceptionReason) ?: null,
+                    'office_start_override'   => $start !== '' ? $start : null,
+                    'office_end_override'     => $end !== '' ? $end : null,
+                    'grace_minutes_override'  => $grace !== '' ? (int) $grace : null,
+                    'late_exempt'             => $this->newExceptionLateExempt,
+                    'created_by'              => Auth::id(),
+                ]
+            );
+        } catch (\Throwable $e) {
+            Log::error('working-day-exception save failed: ' . $e->getMessage());
+            $this->error = 'Could not save the working day exception. Please try again.';
+            return;
+        }
+
+        // Rewrite today's / that day's register from the recorded check-in times
+        // so the exception actually reaches the people it was declared for.
+        $impact = $this->reclassifyDateStatuses(
+            $this->newExceptionDate,
+            $draft['start'],
+            (int) $draft['grace'],
+            (bool) $draft['late_exempt'],
+            false
+        );
+        $this->exceptionImpact = $impact + [
+            'date'        => $this->newExceptionDate,
+            'start'       => $draft['start'],
+            'end'         => $draft['end'],
+            'grace'       => (int) $draft['grace'],
+            'late_exempt' => (bool) $draft['late_exempt'],
+            'saved'       => true,
+        ];
+
+        $this->recordAuditLog(
+            'policy',
+            'working_day_exception_saved',
+            "Working day exception for {$this->newExceptionDate} ({$row->title}): {$row->effectLabel()}."
+                . ($impact['changed'] > 0 ? " Re-classified {$impact['changed']} attendance row(s)." : ''),
+            $this->newExceptionDate
+        );
+
+        if ($impact['changed'] > 0) {
+            $this->createPracticeNotification(
+                null,
+                null,
+                'Office Timing Updated for ' . $this->newExceptionDate,
+                "Partner declared a working day exception: {$row->title} ({$row->effectLabel()}). Your attendance for that date has been re-checked under the new timing.",
+                'clock-3',
+                null,
+                true
+            );
+        }
+
+        $reopen = $this->payrollPeriodLockedFor(substr($this->newExceptionDate, 0, 7));
+
+        $this->newExceptionDate = '';
+        $this->newExceptionTitle = '';
+        $this->newExceptionStart = '';
+        $this->newExceptionEnd = '';
+        $this->newExceptionGrace = '';
+        $this->newExceptionLateExempt = false;
+        $this->newExceptionReason = '';
+        $this->newExceptionAllUnits = true;
+
+        $this->loadHolidays();
+        $this->refreshTodayWorkException();
+        $this->loadMonthlyCalendarData();
+        $this->loadAttendanceRows();
+        $this->loadPayrollRows();
+
+        $this->dispatch('toast', [
+            'type'    => 'success',
+            'title'   => 'Working Day Exception Saved',
+            'message' => "{$row->title} — {$row->effectLabel()}.",
+        ]);
+
+        $this->notice = "Working day exception saved for {$row->title}: {$row->effectLabel()}."
+            . ($impact['changed'] > 0 ? " {$impact['changed']} attendance record(s) re-classified." : '')
+            . ($reopen ? " Note: this month's payroll has already been reviewed or paid — reopen the payroll period before regenerating it." : '');
+    }
+
+    public function deleteWorkingDayException(int $holidayId): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+
+        if ($this->previewRole !== 'partner') {
+            $this->error = 'Only a Partner can remove a working day exception.';
+            return;
+        }
+
+        $firmModel = $this->resolveFirmModel();
+        $date = null;
+
+        if ($firmModel && Schema::hasTable('practice_holidays')) {
+            try {
+                $row = PracticeHoliday::where('firm_id', $firmModel->id)->where('id', $holidayId)->first();
+                if ($row) {
+                    $date = $row->holiday_date?->format('Y-m-d');
+                    $title = $row->title;
+                    $row->delete();
+                    $this->recordAuditLog('policy', 'working_day_exception_removed', "Removed working day exception for {$date} ({$title}).", $date);
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        $this->loadHolidays();
+        $this->refreshTodayWorkException();
+        $this->loadMonthlyCalendarData();
+        $this->notice = $date
+            ? "Working day exception for {$date} removed. Attendance rows keep their current status — adjust them manually if needed."
+            : 'Working day exception removed.';
+    }
+
+    /** Is this month's payroll already reviewed/approved/paid? */
+    protected function payrollPeriodLockedFor(string $yearMonth): bool
+    {
+        if (! Schema::hasTable('payroll_records')) {
+            return false;
+        }
+
+        try {
+            $firmModel = $this->resolveFirmModel();
+            if (! $firmModel) {
+                return false;
+            }
+
+            return PayrollRecord::where('firm_id', $firmModel->id)
+                ->where('period', $yearMonth)
+                ->whereIn('status', ['reviewed', 'approved', 'paid'])
+                ->exists();
+        } catch (\Throwable) {
+            return false;
         }
     }
 
@@ -705,6 +1176,14 @@ trait ManagesPoliciesHolidaysAndSettings
                             'is_office_open_override' => (bool) $h->is_office_open_override,
                             'absent_deduction_days'   => (float) $h->absent_deduction_days,
                             'override_reason'         => $h->override_reason ?? '',
+                            // Working day exceptions are *working* days with
+                            // different hours — never painted as holidays.
+                            'is_working_day_exception' => $h->isWorkingDayException(),
+                            'late_exempt'             => (bool) $h->late_exempt,
+                            'office_start_override'   => $h->office_start_override,
+                            'office_end_override'     => $h->office_end_override,
+                            'grace_minutes_override'  => $h->grace_minutes_override,
+                            'effect_label'            => $h->effectLabel(),
                         ])->toArray();
                         return;
                     }
@@ -724,6 +1203,12 @@ trait ManagesPoliciesHolidaysAndSettings
                 'is_office_open_override' => false,
                 'absent_deduction_days'   => 1.00,
                 'override_reason'         => '',
+                'is_working_day_exception' => false,
+                'late_exempt'             => false,
+                'office_start_override'   => null,
+                'office_end_override'     => null,
+                'grace_minutes_override'  => null,
+                'effect_label'            => '',
             ];
         }, $defaults, array_keys($defaults));
     }
@@ -821,6 +1306,12 @@ trait ManagesPoliciesHolidaysAndSettings
                 'is_office_open_override' => $this->newHolidayIsOfficeOpen,
                 'absent_deduction_days'   => (float) $this->newHolidayAbsentCutDays,
                 'override_reason'         => trim($this->newHolidayOverrideReason),
+                'is_working_day_exception' => false,
+                'late_exempt'             => false,
+                'office_start_override'   => null,
+                'office_end_override'     => null,
+                'grace_minutes_override'  => null,
+                'effect_label'            => '',
             ];
         }
 

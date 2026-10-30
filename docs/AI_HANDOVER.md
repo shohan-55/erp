@@ -9,7 +9,9 @@ learned the hard way — either from a production incident or from a test run.
 Read order: `BLUEPRINT.md` (product/architecture history) → `CLAUDE.md` (editing rules)
 → **this file** (how the thing is actually deployed and verified) →
 [`docs/ATTENDANCE_MOVEMENT.md`](ATTENDANCE_MOVEMENT.md) if you touch anything under
-`app/Livewire/Practice/Concerns/ManagesAttendance*`.
+`app/Livewire/Practice/Concerns/ManagesAttendance*`, and
+[`docs/WORKING_DAY_EXCEPTIONS.md`](WORKING_DAY_EXCEPTIONS.md) before changing how
+lateness is classified.
 
 ---
 
@@ -87,7 +89,7 @@ Minimum bar for any change:
 
 | Check | Result expected |
 |---|---|
-| `phpunit tests` | `OK (178 tests, 717 assertions)` or more |
+| `phpunit tests` | `OK (194 tests, 762 assertions)` or more |
 | `token_get_all(…, TOKEN_PARSE)` over `app/ config/ routes/ database/ tests/` | all ok |
 | `php artisan view:cache` | compiles every Blade file |
 | `php artisan route:cache` / `config:cache` | both build |
@@ -152,6 +154,19 @@ Minimum bar for any change:
     (`openMyProfile()` → Settings section + `profile-focus` scroll event). Do not
     remove those shortcuts and bury the form behind "Workspace Settings" again —
     the first question every new firm asks is "where do I change my photo/phone".
+16. **One date's hours live in an exception, never in the policy.** A hartal, a
+    flood or an Eid half-day must be a `practice_holidays` row with
+    `category='exception'`. Editing `partner_policies.office_start` instead is
+    retroactive: it re-derives every past day and silently changes payroll that
+    was already approved. Every lateness decision goes through
+    `effectiveOfficeHoursFor($date)` — never read `$this->officeStart` directly
+    for a classification. Pinned by `tests/Feature/WorkingDayExceptionTest.php`;
+    rules in [`docs/WORKING_DAY_EXCEPTIONS.md`](WORKING_DAY_EXCEPTIONS.md).
+17. **`Late (Excused)` is a real status and payroll must ignore it.** The ledger
+    filters `whereIn('status', ['Late', 'Late Present'])` — that is the guarantee
+    that a declared exception can never cost a member money. If you add a new
+    late-ish status, it must be excluded here too, and the calendar, leaderboard
+    and badges must know about it.
 
 ---
 
@@ -190,7 +205,20 @@ suite, no load test, PHP 8.3 not exercised (8.4 is).
 
 ## 7. Change log (most recent first)
 
-- **2026-10-30 (late night) — flexible weekly holiday + easy profile.** The Friday +
+- **2026-10-31 — working day exceptions (hartal / late opening / early close).**
+  A Partner can now change one date's office hours, widen the grace period, or
+  switch lateness off entirely for that date, **without touching the standing
+  policy** — because editing the policy is retroactive and rewrites approved pay.
+  Implemented as `practice_holidays.category = 'exception'` with four new nullable
+  columns (**migration `2026_10_31_000001` — deploy needs
+  `php artisan migrate --force`**). New status `Late (Excused)`, which payroll
+  never counts. Saving re-derives that date's attendance from each stored
+  `in_time`, with a preview first and an audit entry. The calendar paints the day
+  teal ("SHIFT"), never red, and the dashboard shows a "Today's Office Timing"
+  banner. New docs: [`docs/WORKING_DAY_EXCEPTIONS.md`](WORKING_DAY_EXCEPTIONS.md);
+  invariants 16–17. New test file (16 tests). Suite: **194 tests / 762
+  assertions**. `public/build` rebuilt (`app-CtBIPaz5.css`).
+- **2026-10-30 (late night) — flexible weekly holiday + easy profile.**- **2026-10-30 (late night) — flexible weekly holiday + easy profile.** The Friday +
   Saturday weekend was hardcoded in the attendance calendar; it is now
   `firms.weekly_off_days` (JSON, NULL = Fri + Sat), editable by a Partner in
   **Workspace Settings → Weekly Off Days**, with a live calendar repaint, an audit log

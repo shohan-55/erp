@@ -399,6 +399,144 @@
 </section>
 
 <!-- ===================================================================== -->
+<!-- WORKING DAY EXCEPTION — one date whose hours differ from the policy    -->
+<!-- ===================================================================== -->
+<section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6" wire:key="working-day-exception-card">
+    <div class="flex flex-col justify-between gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
+        <div class="flex items-start gap-3">
+            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-600 text-white">
+                <i data-lucide="clock-3" class="h-5 w-5"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-extrabold text-slate-900">Working Day Exception &mdash; one date, different hours</h3>
+                <p class="mt-0.5 text-xs text-slate-500">For a hartal, storm, flood or an Eid half-day: shift that one date's office hours, widen the grace period, or switch lateness off for the day. The standing policy is <strong>never edited</strong>, so past days and already-approved payroll stay exactly as they were.</p>
+            </div>
+        </div>
+        <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1.5 text-[11px] font-extrabold text-teal-800">
+            <i data-lucide="calendar-clock" class="h-3.5 w-3.5"></i>
+            Policy: {{ $officeStart }} &ndash; {{ $officeEnd }} &middot; grace {{ $graceMinutes }}m
+        </span>
+    </div>
+
+    @if($previewRole === 'partner')
+        <form wire:submit.prevent="saveWorkingDayException" class="mt-5 space-y-3.5 text-xs">
+            <div class="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                <label class="block font-bold text-slate-700">Date *
+                    <input type="date" wire:model="newExceptionDate" required class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs outline-none focus:border-teal-400">
+                </label>
+                <label class="block font-bold text-slate-700">Office starts (optional)
+                    <input type="text" wire:model="newExceptionStart" placeholder="e.g. 12:00" inputmode="numeric" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-mono text-xs outline-none focus:border-teal-400">
+                </label>
+                <label class="block font-bold text-slate-700">Office ends (optional)
+                    <input type="text" wire:model="newExceptionEnd" placeholder="e.g. 16:00" inputmode="numeric" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-mono text-xs outline-none focus:border-teal-400">
+                </label>
+                <label class="block font-bold text-slate-700">Grace minutes (optional)
+                    <input type="number" wire:model="newExceptionGrace" min="0" max="240" placeholder="{{ $graceMinutes }}" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs outline-none focus:border-teal-400">
+                </label>
+            </div>
+
+            <label class="block font-bold text-slate-700">Exception name *
+                <input type="text" wire:model="newExceptionTitle" required placeholder="e.g. Hartal — office opens at 12:00 / Heavy rain" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs outline-none focus:border-teal-400">
+            </label>
+
+            <div class="rounded-xl border border-teal-200 bg-teal-50/60 p-3 space-y-2.5">
+                <label class="flex items-start gap-2.5 cursor-pointer">
+                    <input type="checkbox" wire:model.live="newExceptionLateExempt" class="mt-0.5 rounded border-teal-400 text-teal-600">
+                    <div>
+                        <span class="font-extrabold text-teal-950">Lateness is not counted on this date (দেরি গণ্য হবে না)</span>
+                        <p class="text-[10px] text-teal-800 mt-0.5">Arrivals are still recorded honestly as <strong>Late (Excused)</strong>, but they never feed the late-day count and can never trigger a salary deduction.</p>
+                    </div>
+                </label>
+
+                <div class="grid gap-2 pt-1 sm:grid-cols-2">
+                    <label class="block font-bold text-teal-900">Reason / note
+                        <input type="text" wire:model="newExceptionReason" placeholder="e.g. Hartal called overnight" class="mt-1 w-full rounded-lg border border-teal-200 bg-white p-2 text-xs">
+                    </label>
+                    <label class="flex items-center gap-2 pt-5 font-bold text-teal-900 cursor-pointer">
+                        <input type="checkbox" wire:model="newExceptionAllUnits" class="rounded border-teal-300 text-teal-600">
+                        Apply to every Partner Unit
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5">
+                <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm hover:bg-teal-700">
+                    <i data-lucide="save" class="h-4 w-4"></i> Save Working Day Exception
+                </button>
+                <button type="button" wire:click="previewWorkingDayException" class="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-extrabold text-slate-700 hover:bg-slate-50">
+                    <i data-lucide="scan-eye" class="h-4 w-4"></i> Preview impact
+                </button>
+                <p class="text-[11px] text-slate-500">Nothing is written until you save. Today's register is re-checked from each member's recorded check-in time.</p>
+            </div>
+        </form>
+
+        @if(!empty($exceptionImpact))
+            <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs" wire:key="exception-impact">
+                @if(!empty($exceptionImpact['error']))
+                    <p class="font-bold text-rose-700">{{ $exceptionImpact['error'] }}</p>
+                @else
+                    <p class="font-extrabold text-slate-900">
+                        {{ !empty($exceptionImpact['saved']) ? 'Saved' : 'Preview' }} &mdash;
+                        {{ $exceptionImpact['date'] }} &middot; office {{ $exceptionImpact['start'] }}&ndash;{{ $exceptionImpact['end'] }} &middot; grace {{ $exceptionImpact['grace'] }}m
+                        @if(!empty($exceptionImpact['late_exempt'])) &middot; lateness not counted @endif
+                    </p>
+                    <p class="mt-1 text-[11px] text-slate-600">
+                        {{ (int) ($exceptionImpact['scanned'] ?? 0) }} attendance record(s) on this date,
+                        <strong>{{ (int) ($exceptionImpact['changed'] ?? 0) }}</strong> would hold a different status.
+                    </p>
+                    @if(!empty($exceptionImpact['rows']))
+                        <ul class="mt-2 space-y-1">
+                            @foreach(array_slice($exceptionImpact['rows'], 0, 8) as $change)
+                                <li class="flex flex-wrap items-center gap-1.5 text-[11px]">
+                                    <span class="font-bold text-slate-800">{{ $change['name'] }}</span>
+                                    <span class="text-slate-400">(in {{ $change['in_time'] }})</span>
+                                    <span class="rounded bg-rose-100 px-1.5 py-0.5 font-bold text-rose-800">{{ $change['from'] }}</span>
+                                    <span class="text-slate-400">→</span>
+                                    <span class="rounded bg-emerald-100 px-1.5 py-0.5 font-bold text-emerald-800">{{ $change['to'] }}</span>
+                                </li>
+                            @endforeach
+                            @if(count($exceptionImpact['rows']) > 8)
+                                <li class="text-[11px] font-semibold text-slate-500">+ {{ count($exceptionImpact['rows']) - 8 }} more…</li>
+                            @endif
+                        </ul>
+                    @endif
+                @endif
+            </div>
+        @endif
+    @else
+        <p class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-semibold text-slate-600">
+            Only a Partner can shift office hours or excuse lateness for a date. Ask your Partner, or submit a policy proposal.
+        </p>
+    @endif
+
+    @php $exceptions = collect($holidaysList ?? [])->where('is_working_day_exception', true)->sortByDesc('holiday_date')->take(10); @endphp
+    @if($exceptions->isNotEmpty())
+        <div class="mt-4 overflow-hidden rounded-2xl border border-slate-200">
+            <div class="border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+                Declared Exceptions ({{ $exceptions->count() }})
+            </div>
+            <div class="divide-y divide-slate-100 text-xs">
+                @foreach($exceptions as $ex)
+                    <div wire:key="exception-{{ $ex['id'] }}" class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-bold text-slate-900">{{ $ex['title'] }}</span>
+                                <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">{{ $ex['display_date'] ?? $ex['holiday_date'] }}</span>
+                                <span class="rounded bg-teal-50 px-1.5 py-0.5 text-[10px] font-bold text-teal-800">{{ $ex['partner_unit'] }}</span>
+                            </div>
+                            <p class="mt-0.5 text-[11px] font-semibold text-teal-800">{{ $ex['effect_label'] ?? '' }}{{ !empty($ex['override_reason']) ? ' · ' . $ex['override_reason'] : '' }}</p>
+                        </div>
+                        @if($previewRole === 'partner')
+                            <button type="button" wire:click="deleteWorkingDayException({{ $ex['id'] }})" class="rounded p-1 text-slate-400 hover:text-rose-600" title="Remove exception">✕</button>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+</section>
+
+<!-- ===================================================================== -->
 <!-- GOVERNMENT HOLIDAY CALENDAR & PARTNER "OFFICE OPEN" OVERRIDE (#2)     -->
 <!-- ===================================================================== -->
 <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
@@ -470,11 +608,11 @@
 
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <div class="border-b border-slate-100 bg-slate-50 px-4 py-3 flex items-center justify-between text-xs">
-                <span class="font-extrabold text-slate-800">Active Calendar Entries ({{ count($holidaysList ?? []) }})</span>
+                <span class="font-extrabold text-slate-800">Active Calendar Entries ({{ collect($holidaysList ?? [])->reject(fn ($h) => !empty($h['is_working_day_exception']))->count() }})</span>
                 <span class="text-[11px] text-slate-500">Click status button to toggle Office Open Override</span>
             </div>
             <div class="divide-y divide-slate-100 max-h-80 overflow-y-auto text-xs">
-                @forelse($holidaysList ?? [] as $h)
+                @forelse(collect($holidaysList ?? [])->reject(fn ($h) => !empty($h['is_working_day_exception'])) as $h)
                     <div wire:key="hol-{{ $h['id'] }}" class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50">
                         <div>
                             <div class="flex items-center gap-2">
@@ -502,7 +640,7 @@
                         </div>
                     </div>
                 @empty
-                    <p class="p-6 text-center text-slate-400">No holidays configured yet.</p>
+                    <p class="p-6 text-center text-slate-400">No holidays configured yet. (Working day exceptions are listed in the card above.)</p>
                 @endforelse
             </div>
         </div>

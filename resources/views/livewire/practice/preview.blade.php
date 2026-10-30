@@ -191,6 +191,25 @@
                     </div>
                 @endif
 
+                {{-- A declared working day exception is the one thing everybody
+                     needs before they check in: the office does not open at the
+                     usual time today. Shown on every section, not just attendance. --}}
+                @if(!empty($todayWorkException) && in_array($section, ['dashboard', 'attendance'], true))
+                    <div class="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-teal-300 bg-teal-50 px-5 py-3.5 text-xs text-teal-950 shadow-sm" role="status">
+                        <span class="inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                            <i data-lucide="clock-3" class="h-3.5 w-3.5"></i> Today's Office Timing
+                        </span>
+                        <span class="font-bold">{{ $todayWorkException['title'] }}</span>
+                        <span class="font-semibold text-teal-800">
+                            @if(!empty($todayWorkException['label']))
+                                {{ $todayWorkException['label'] }}
+                            @else
+                                Office {{ $todayWorkException['start'] }} – {{ $todayWorkException['end'] }}
+                            @endif
+                        </span>
+                    </div>
+                @endif
+
                 @include('livewire.practice.partials.'.$section)
 
                 @include('livewire.practice.partials.attendance-modals')

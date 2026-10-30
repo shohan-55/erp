@@ -129,6 +129,25 @@ class PracticePreview extends Component
     public float $newHolidayAbsentCutDays = 1.00;
     public string $newHolidayOverrideReason = '';
 
+    // Working Day Exceptions — one date whose hours differ from the policy:
+    // a hartal that delays opening, a flood that makes lateness meaningless,
+    // a half-day that ends at 16:00. Never edits the standing policy, because
+    // that would rewrite past days and change approved payroll.
+    public string $newExceptionDate = '';
+    public string $newExceptionTitle = '';
+    public string $newExceptionStart = '';
+    public string $newExceptionEnd = '';
+    public string $newExceptionGrace = '';
+    public bool $newExceptionLateExempt = false;
+    public string $newExceptionReason = '';
+    public bool $newExceptionAllUnits = true;
+    public array $exceptionImpact = [];
+
+    // Resolved for "today" so the dashboard and the attendance page can show a
+    // banner without every view recomputing it.
+    public array $todayWorkException = [];
+    public string $todayWorkHoursLabel = '';
+
     // Payroll Voucher & Subscription Alert (#3 & #5)
     public string $selectedPaymentMethod = 'bKash / Bank';
     public ?array $subscriptionAlert = null;
@@ -438,6 +457,7 @@ class PracticePreview extends Component
 
         $this->loadPartnerPolicy();
         $this->loadHolidays();
+        $this->refreshTodayWorkException();
         $this->loadTeamMembers();
         $this->loadAttendanceRows();
         $this->loadLeaveQueue();
