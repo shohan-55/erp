@@ -40,10 +40,14 @@
 > error tracking; private storage with signed URLs for vouchers; i18n and an accessibility
 > pass; terms/privacy pages.
 >
-> **Verification caveat:** this branch was still developed without a PHP runtime. Every PHP
-> file was parse-checked (`token_get_all`, 117/117), the TOTP implementation was executed
-> against the RFC 6238 vectors in a WASM PHP build, and the full PHPUnit suite must be run
-> once on a real host (`php artisan test`) before merging.
+> **Verification (updated 30 October, evening):** the suite has now been executed on a real
+> PHP 8.4.25 runtime — **139 tests, 563 assertions, all green** — together with a fresh
+> `php artisan migrate` (17 migrations), `route:cache`, `config:cache` and `view:cache`.
+> That first execution found four genuine application bugs (check-out rows never persisted,
+> the payroll ledger header stuck on `draft`, reopening a payroll period silently doing
+> nothing, guests bounced to the wrong login page) plus two stale test expectations; all are
+> fixed. How this was done without CI, and what is still unverified (MySQL, browsers,
+> PHP 8.3), is documented in [`RUNNING_TESTS_WITHOUT_CI.md`](RUNNING_TESTS_WITHOUT_CI.md).
 
 ---
 

@@ -91,13 +91,15 @@ avatar-file route now requires `auth` + `firm.member`.
 | PHP syntax (`token_get_all`, `TOKEN_PARSE`) on all PHP files | **117 / 117 OK** (second pass) |
 | Import / symbol audit (Str, Hash, User::ROLE_*, `can_manage_team`, `firm.member` alias, `RequireFirmMember`) | ✅ all present |
 | Regression tests added | **22** (`SecurityHardeningTest` 16, `DataRetentionAndDeletionTest` 6) |
-| Full PHPUnit suite | ⚠️ **not executed here** — the sandbox has no PHP runtime with `mbstring`/`pdo_sqlite`; the new tests are written against the exact patterns of the existing green tests and run in GitHub Actions (`php artisan test`). |
+| Full PHPUnit suite | ✅ **executed** on a real PHP 8.4.25 runtime (64-bit WASM build with `pdo_sqlite`/`mbstring`/`openssl`): **139 tests, 563 assertions, all green** — see `docs/RUNNING_TESTS_WITHOUT_CI.md` |
 | Front-end build | ✅ `npm ci && npm run build` succeeds (Vite 8); rebuilt assets committed in `86582a3`. |
 | TOTP algorithm | ✅ executed against the RFC 6238 reference vectors in a WASM PHP build — 22/22 checks pass |
 
-> **Before merging:** run `php artisan test` once locally. The two areas most worth watching
-> are the invitation tests (they assert the new token-only behaviour) and the Phase 03
-> deletion tests (they now also write a backup file before deleting).
+> **The first real run** (30 October) produced six failures: four genuine bugs — attendance
+> check-outs silently lost to a unique-index violation swallowed by an empty `catch`, the
+> payroll ledger header stuck on `draft`, "reopen period" silently doing nothing, and guests
+> being sent to the generic `/login` — plus two stale expectations. All six are fixed in
+> `830672e`; the empty catch blocks that hid the first one now log at error level.
 
 ## Phase 2 — P1/P2 hardening (same day, second pass)
 
