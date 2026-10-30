@@ -5,6 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
+    <!-- Colour theme: resolved before first paint so there is no flash of
+         the wrong palette. Stored choice wins, otherwise the OS preference. -->
+    <script>
+        (function () {
+            try {
+                var stored = localStorage.getItem('dw-theme');
+                var theme = (stored === 'light' || stored === 'dark')
+                    ? stored
+                    : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+
     <title>{{ $title ?? 'DhakaWala ERP — Enterprise Practice Management Platform' }}</title>
 
     <!-- Google Font: Inter -->

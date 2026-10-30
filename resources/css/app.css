@@ -746,3 +746,253 @@ body {
     display: flex !important;
   }
 }
+
+/* ==========================================================================
+   PUBLIC LANDING PAGE — "Precision" theme system
+   --------------------------------------------------------------------------
+   Scoped entirely under .dw-landing so the workspace palette is untouched.
+   Every colour the landing page paints comes from a token below, which is
+   what makes a real Light / Dark switch possible — the previous version had
+   hard-coded hex values in inline styles and could only ever be dark.
+   ========================================================================== */
+
+.dw-landing {
+  --dw-bg:            #07080A;
+  --dw-bg-elev:       #0B0D11;
+  --dw-surface:       #0E1015;
+  --dw-surface-2:     #14171E;
+  --dw-surface-3:     #191D25;
+  --dw-line:          rgba(255, 255, 255, 0.075);
+  --dw-line-strong:   rgba(255, 255, 255, 0.14);
+  --dw-ink:           #F5F6F8;
+  --dw-ink-soft:      #C6CBD3;
+  --dw-muted:         #8B929E;
+  --dw-accent:        #2DD4BF;
+  --dw-accent-strong: #14B8A6;
+  --dw-accent-ink:    #04211D;
+  --dw-accent-soft:   rgba(45, 212, 191, 0.10);
+  --dw-accent-line:   rgba(45, 212, 191, 0.28);
+  --dw-amber:         #F5B942;
+  --dw-amber-soft:    rgba(245, 185, 66, 0.12);
+  --dw-rose:          #FB7185;
+  --dw-rose-soft:     rgba(251, 113, 133, 0.12);
+  --dw-emerald:       #34D399;
+  --dw-emerald-soft:  rgba(52, 211, 153, 0.12);
+  --dw-blue:          #7DD3FC;
+  --dw-blue-soft:     rgba(125, 211, 252, 0.12);
+  --dw-shadow:        0 40px 90px -40px rgba(0, 0, 0, 0.9);
+  --dw-grid-line:     rgba(255, 255, 255, 0.032);
+  color-scheme: dark;
+
+  background: var(--dw-bg);
+  color: var(--dw-ink);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+[data-theme="light"] .dw-landing {
+  --dw-bg:            #FAFAF8;
+  --dw-bg-elev:       #FFFFFF;
+  --dw-surface:       #FFFFFF;
+  --dw-surface-2:     #F5F5F1;
+  --dw-surface-3:     #EFEFEA;
+  --dw-line:          rgba(12, 16, 22, 0.09);
+  --dw-line-strong:   rgba(12, 16, 22, 0.16);
+  --dw-ink:           #0A0C10;
+  --dw-ink-soft:      #2B313B;
+  --dw-muted:         #5E6570;
+  --dw-accent:        #0F766E;
+  --dw-accent-strong: #115E59;
+  --dw-accent-ink:    #FFFFFF;
+  --dw-accent-soft:   rgba(15, 118, 110, 0.08);
+  --dw-accent-line:   rgba(15, 118, 110, 0.24);
+  --dw-amber:         #B45309;
+  --dw-amber-soft:    rgba(180, 83, 9, 0.09);
+  --dw-rose:          #BE123C;
+  --dw-rose-soft:     rgba(190, 18, 60, 0.08);
+  --dw-emerald:       #047857;
+  --dw-emerald-soft:  rgba(4, 120, 87, 0.09);
+  --dw-blue:          #0369A1;
+  --dw-blue-soft:     rgba(3, 105, 161, 0.09);
+  --dw-shadow:        0 30px 70px -34px rgba(12, 16, 22, 0.28);
+  --dw-grid-line:     rgba(12, 16, 22, 0.04);
+  color-scheme: light;
+}
+
+/* The document background follows the landing palette (overscroll only) */
+html[data-theme="dark"] body:has(> .dw-landing) { background-color: #07080A; }
+html[data-theme="light"] body:has(> .dw-landing) { background-color: #FAFAF8; }
+
+.dw-landing ::selection { background: var(--dw-accent); color: var(--dw-accent-ink); }
+
+.dw-landing :focus-visible {
+  outline: 2px solid var(--dw-accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ── Typography helpers ─────────────────────────────────────────────────── */
+.dw-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.dw-mono-sm { font-size: 9.5px; letter-spacing: 0.16em; }
+.dw-eyebrow { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dw-accent); }
+.dw-display { font-weight: 800; letter-spacing: -0.035em; line-height: 0.98; }
+.dw-section-title { font-weight: 750; letter-spacing: -0.025em; line-height: 1.08; }
+.dw-body { color: var(--dw-muted); line-height: 1.65; }
+
+/* ── Surfaces ───────────────────────────────────────────────────────────── */
+.dw-card {
+  background: var(--dw-surface);
+  border: 1px solid var(--dw-line);
+  border-radius: 16px;
+}
+.dw-card-hover { transition: border-color .25s ease, background-color .25s ease, transform .25s ease; }
+.dw-card-hover:hover { border-color: var(--dw-line-strong); background: var(--dw-surface-2); }
+.dw-hairline { border-color: var(--dw-line); }
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.dw-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  border-radius: 10px; font-size: 13.5px; font-weight: 600; line-height: 1;
+  padding: 0.85rem 1.15rem; cursor: pointer;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
+  white-space: nowrap;
+}
+.dw-btn:active { transform: translateY(1px); }
+.dw-btn-primary { background: var(--dw-accent); color: var(--dw-accent-ink); box-shadow: 0 10px 30px -14px var(--dw-accent-line); }
+.dw-btn-primary:hover { background: var(--dw-accent-strong); }
+.dw-btn-ghost { color: var(--dw-ink); border: 1px solid var(--dw-line-strong); background: transparent; }
+.dw-btn-ghost:hover { background: var(--dw-surface-2); border-color: var(--dw-accent-line); }
+.dw-btn-sm { padding: 0.6rem 0.9rem; font-size: 12.5px; border-radius: 9px; }
+
+/* ── Theme toggle ───────────────────────────────────────────────────────── */
+.dw-theme-toggle {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 3px; border-radius: 999px;
+  background: var(--dw-surface-2); border: 1px solid var(--dw-line);
+}
+.dw-theme-toggle button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 26px; border-radius: 999px;
+  color: var(--dw-muted); cursor: pointer;
+  transition: background-color .2s ease, color .2s ease;
+}
+.dw-theme-toggle button:hover { color: var(--dw-ink); }
+html[data-theme="dark"] .dw-theme-toggle [data-dw-theme-value="dark"],
+html[data-theme="light"] .dw-theme-toggle [data-dw-theme-value="light"] {
+  background: var(--dw-accent); color: var(--dw-accent-ink);
+}
+html:not([data-theme="light"]) .dw-theme-toggle [data-dw-theme-value="dark"] {
+  background: var(--dw-accent); color: var(--dw-accent-ink);
+}
+
+/* ── Hero atmosphere ────────────────────────────────────────────────────── */
+.dw-glow {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  background:
+    radial-gradient(58% 46% at 12% -6%, var(--dw-accent-soft), transparent 70%),
+    radial-gradient(42% 38% at 88% 4%, rgba(45, 212, 191, 0.05), transparent 72%);
+}
+.dw-grid-lines {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--dw-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--dw-grid-line) 1px, transparent 1px);
+  background-size: 72px 72px;
+  -webkit-mask-image: radial-gradient(72% 58% at 50% 0%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(72% 58% at 50% 0%, #000 0%, transparent 78%);
+}
+
+/* ── Product shot (CSS mock of the real attendance register) ────────────── */
+.dw-shot {
+  background: linear-gradient(180deg, var(--dw-surface-2) 0%, var(--dw-surface) 100%);
+  border: 1px solid var(--dw-line-strong);
+  border-radius: 16px;
+  box-shadow: var(--dw-shadow);
+  overflow: hidden;
+}
+.dw-shot-chrome {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--dw-line);
+  background: var(--dw-bg-elev);
+}
+.dw-shot-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--dw-line-strong); }
+.dw-shot-row {
+  display: grid; grid-template-columns: 26px 1fr auto;
+  align-items: center; gap: 10px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--dw-line);
+}
+.dw-shot-row:last-child { border-bottom: 0; }
+.dw-avatar {
+  width: 22px; height: 22px; border-radius: 7px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 8.5px; font-weight: 800; letter-spacing: 0.02em;
+}
+.dw-status {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 3px 6px; border-radius: 5px; white-space: nowrap;
+}
+.dw-status-ok      { color: var(--dw-emerald); background: var(--dw-emerald-soft); }
+.dw-status-excused { color: var(--dw-accent);  background: var(--dw-accent-soft); border: 1px solid var(--dw-accent-line); }
+.dw-status-late    { color: var(--dw-rose);    background: var(--dw-rose-soft); }
+.dw-status-duty    { color: var(--dw-blue);    background: var(--dw-blue-soft); }
+
+/* ── Motion ─────────────────────────────────────────────────────────────── */
+@keyframes dw-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.dw-rise { animation: dw-rise .7s cubic-bezier(.22,.7,.24,1) both; }
+.dw-d1 { animation-delay: .06s; }
+.dw-d2 { animation-delay: .14s; }
+.dw-d3 { animation-delay: .22s; }
+.dw-d4 { animation-delay: .3s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dw-rise { animation: none !important; }
+  .dw-btn, .dw-card-hover { transition: none !important; }
+  html { scroll-behavior: auto !important; }
+}
+
+/* Masthead backdrop (translucent over the hero atmosphere) */
+.dw-landing { --dw-nav: rgba(7, 8, 10, 0.80); }
+[data-theme="light"] .dw-landing { --dw-nav: rgba(250, 250, 248, 0.84); }
+
+/* Form primitives — unlayered on purpose so they win over Tailwind utilities */
+.dw-label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--dw-ink-soft);
+  margin-bottom: 0;
+}
+.dw-input {
+  width: 100%;
+  background: var(--dw-bg-elev);
+  border: 1px solid var(--dw-line-strong);
+  color: var(--dw-ink);
+  border-radius: 10px;
+  padding: 0.8rem 2.75rem 0.8rem 2.5rem;
+  font-size: 13.5px;
+  line-height: 1.2;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.dw-input::placeholder { color: var(--dw-muted); opacity: 0.7; }
+.dw-input:focus {
+  outline: none;
+  border-color: var(--dw-accent);
+  box-shadow: 0 0 0 3px var(--dw-accent-soft);
+}
+
+/* Two-column section divider: bottom rule on mobile, right rule on desktop */
+.dw-split { border-bottom: 1px solid var(--dw-line); }
+@media (min-width: 1024px) {
+  .dw-split { border-bottom: 0; border-right: 1px solid var(--dw-line); }
+}

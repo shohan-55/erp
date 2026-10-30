@@ -98,3 +98,50 @@ window.addEventListener('keydown', (e) => {
         }
     }
 });
+
+/* ==========================================================================
+   Colour theme (Light / Dark)
+   --------------------------------------------------------------------------
+   The initial attribute is set by the inline script in layouts/app.blade.php
+   before first paint; this file only handles switching and a11y state.
+   ========================================================================== */
+(function () {
+    function currentTheme() {
+        return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    }
+
+    function syncToggle() {
+        var theme = currentTheme();
+        document.querySelectorAll('[data-dw-theme-value]').forEach(function (btn) {
+            var isActive = btn.getAttribute('data-dw-theme-value') === theme;
+            btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+    }
+
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        try {
+            localStorage.setItem('dw-theme', theme);
+        } catch (e) {
+            /* private mode — the theme still applies for this page view */
+        }
+        syncToggle();
+    }
+
+    // Delegated so the control keeps working after any Livewire DOM morph,
+    // even though the switch itself sits inside a wire:ignore block.
+    document.addEventListener('click', function (event) {
+        var btn = event.target.closest('[data-dw-theme-value]');
+        if (!btn) return;
+        event.preventDefault();
+        applyTheme(btn.getAttribute('data-dw-theme-value') === 'light' ? 'light' : 'dark');
+    });
+
+    document.addEventListener('livewire:navigated', syncToggle);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', syncToggle);
+    } else {
+        syncToggle();
+    }
+})();
