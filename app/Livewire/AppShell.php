@@ -185,7 +185,7 @@ class AppShell extends Component
         /** @var User $user */
         $user = Auth::user();
 
-        if ($user && Schema::hasColumn('users', 'is_active') && ! $user->isActive()) {
+        if ($user && Schema::hasTable('users') && Schema::hasColumn('users', 'is_active') && ! $user->isActive()) {
             Auth::logout();
             $this->loginError = 'This account has been deactivated. Please contact your practice administrator.';
             $this->password = '';

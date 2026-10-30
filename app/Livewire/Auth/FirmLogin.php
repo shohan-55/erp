@@ -184,7 +184,7 @@ class FirmLogin extends Component
         $user = Auth::user();
 
         // ─── Deactivated staff accounts (retained for payroll history) ────
-        if ($user && Schema::hasColumn('users', 'is_active') && ! $user->isActive()) {
+        if ($user && Schema::hasTable('users') && Schema::hasColumn('users', 'is_active') && ! $user->isActive()) {
             Auth::logout();
             $this->validationError = 'This account has been deactivated. Please contact your practice administrator.';
             $this->password = '';
