@@ -490,6 +490,7 @@ trait ManagesConveyanceWorkflow
             $this->error = 'Students cannot adjust or review claims.';
             return;
         }
+        $this->error = null;
         $this->closeDialogs();
         $this->adjustTargetClaimId = $id;
         $this->adjustNewAmount = 220.00;
@@ -507,6 +508,7 @@ trait ManagesConveyanceWorkflow
     public function submitClaimAdjustment(): void
     {
         $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
         if ($this->adjustNewAmount <= 0 || $this->adjustNewAmount > 100000) {
             $this->error = 'Enter a valid adjusted amount (1–100,000 BDT).';
             return;
@@ -760,6 +762,7 @@ trait ManagesConveyanceWorkflow
 
     public function openNewClientModal(): void
     {
+        $this->error = null;
         $this->closeDialogs();
         $this->newClientName = '';
         $this->newClientLocation = '';
@@ -797,10 +800,13 @@ trait ManagesConveyanceWorkflow
 
         $this->clientSite = $name;
         $this->claimClientName = $name;
-        $this->showAddNewClientModal = false;
-        $this->newClientName = '';
-        $this->newClientLocation = '';
+        $this->closeDialogs();
         $this->notice = "Audit client site '{$name}' has been added and selected.";
+        $this->dispatch('toast', [
+            'type'    => 'success',
+            'title'   => 'Client Added',
+            'message' => $this->notice,
+        ]);
     }
 
     public function exportConveyanceCsv()

@@ -288,6 +288,23 @@
                                 </label>
                             </div>
                         @endif
+                                            @if($error || $errors->any())
+                        <div class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-800 flex items-start gap-2" role="alert">
+                            <i data-lucide="alert-circle" class="h-4 w-4 text-rose-600 shrink-0 mt-0.5"></i>
+                            <div>
+                                @if($error)
+                                    <p>{{ $error }}</p>
+                                @endif
+                                @if($errors->any())
+                                    <ul class="list-disc pl-4 space-y-0.5">
+                                        @foreach($errors->all() as $err)
+                                            <li>{{ $err }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                         <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">All submissions are cryptographically associated with your identity and audited for compliance.</div>
                         <div class="mt-5 flex justify-end gap-2">
                             <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold hover:bg-slate-50 transition">Cancel</button>
@@ -317,6 +334,23 @@
                     </div>
 
                     <form wire:submit.prevent="saveNewClientSite" class="mt-4 space-y-4">
+                    @if($error || $errors->any())
+                        <div class="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-800 flex items-start gap-2" role="alert">
+                            <i data-lucide="alert-circle" class="h-4 w-4 text-rose-600 shrink-0 mt-0.5"></i>
+                            <div>
+                                @if($error)
+                                    <p>{{ $error }}</p>
+                                @endif
+                                @if($errors->any())
+                                    <ul class="list-disc pl-4 space-y-0.5">
+                                        @foreach($errors->all() as $err)
+                                            <li>{{ $err }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                         <div>
                             <label class="block text-xs font-bold text-slate-700">Client / Company Name <span class="text-rose-500">*</span></label>
                             <input type="text" wire:model="newClientName" placeholder="e.g. Grameenphone Ltd., Summit Power" required autofocus class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-amber-400 focus:bg-white">

@@ -37,6 +37,14 @@ php artisan migrate --force
 php artisan optimize:clear
 ```
 
+> **Before the first sign-in**
+> - Set `PLATFORM_ADMIN_PRIMARY_EMAIL` in `.env`, run `php artisan db:seed --force`, and store the
+>   one-time password it prints. Do **not** set `PLATFORM_ADMIN_PASSWORD` to a guessable value.
+> - Keep `APP_ENV=production`, `APP_DEBUG=false`, `ERP_DEMO_MODE=false`, `ERP_ALLOW_TEST_LOGINS=false`.
+>   Design previews (`/preview/*`) open **only** with `ERP_DEMO_MODE=true` — `APP_ENV=local` no longer
+>   enables them. Local developers: set `ERP_DEMO_MODE=true` in your own `.env`.
+> - Enrol TOTP 2FA on every platform admin account.
+
 `public/build` is committed, so the server does **not** need Node.js — but if you
 compiled different assets locally, run `npm ci && npm run build` and commit the result.
 After `git pull` on the host, copy `public/build`, `public/images` and `public/css` into

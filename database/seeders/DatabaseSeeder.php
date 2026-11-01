@@ -25,8 +25,8 @@ class DatabaseSeeder extends Seeder
 
         $accounts = [
             [
-                'email' => env('PLATFORM_ADMIN_PRIMARY_EMAIL', 'infobd.sohan@gmail.com'),
-                'name'  => env('PLATFORM_ADMIN_PRIMARY_NAME', 'Sohan Hossain'),
+                'email' => env('PLATFORM_ADMIN_PRIMARY_EMAIL', ''),
+                'name'  => env('PLATFORM_ADMIN_PRIMARY_NAME', 'Platform Owner'),
             ],
             [
                 'email' => env('PLATFORM_ADMIN_SECONDARY_EMAIL', 'admin@dhakawala.com'),

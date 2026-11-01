@@ -244,6 +244,23 @@
                 <button type="button" wire:click="closeDialogs" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><i data-lucide="x" class="h-4 w-4"></i></button>
             </div>
             <form wire:submit.prevent="submitPartialLeaveApproval" class="mt-4 space-y-4 text-xs">
+                    @if($error || $errors->any())
+                        <div class="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-800 flex items-start gap-2" role="alert">
+                            <i data-lucide="alert-circle" class="h-4 w-4 text-rose-600 shrink-0 mt-0.5"></i>
+                            <div>
+                                @if($error)
+                                    <p>{{ $error }}</p>
+                                @endif
+                                @if($errors->any())
+                                    <ul class="list-disc pl-4 space-y-0.5">
+                                        @foreach($errors->all() as $err)
+                                            <li>{{ $err }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                 <div class="rounded-xl bg-amber-50 p-3 text-amber-950">
                     Student requested <strong>{{ $partialRequestedDays }} day(s)</strong>. You can reduce or exclude middle dates and approve a partial number of days.
                 </div>

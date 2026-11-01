@@ -488,6 +488,7 @@ trait ManagesTeamAndNotifications
             $this->error = 'Only Partners or authorized Managers can enroll new team members.';
             return;
         }
+        $this->error = null;
         $this->closeDialogs();
         $this->resetNewMemberFields();
         $this->showAddMemberModal = true;
@@ -523,6 +524,8 @@ trait ManagesTeamAndNotifications
     public function createMember(): void
     {
         $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        $this->notice = null;
         if (! $this->userCanManageTeam()) {
             $this->error = 'Unauthorized action: Only Partners or authorized Managers can enroll team members.';
             return;
@@ -634,10 +637,16 @@ trait ManagesTeamAndNotifications
             $this->notice = "Successfully added {$this->newMemberName} to the team roster.";
         }
 
+        $this->resetNewMemberFields();
         $this->closeDialogs();
         $this->loadTeamMembers();
         $this->loadAttendanceRows();
         $this->loadPayrollRows();
+        $this->dispatch('toast', [
+            'type'    => 'success',
+            'title'   => 'Member Enrolled',
+            'message' => $this->notice ?? 'Team member added to practice roster.',
+        ]);
     }
 
     public function openEditMemberModal($id): void
@@ -654,6 +663,7 @@ trait ManagesTeamAndNotifications
             return;
         }
 
+        $this->error = null;
         $this->closeDialogs();
         $this->editMemberId = (int) $member['id'];
         $this->editMemberName = $member['name'];
@@ -679,6 +689,8 @@ trait ManagesTeamAndNotifications
     public function updateMember(): void
     {
         $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        $this->notice = null;
         if (! $this->userCanManageTeam()) {
             $this->error = 'Unauthorized action: Only Partners or authorized Managers can modify permissions.';
             return;
@@ -788,6 +800,11 @@ trait ManagesTeamAndNotifications
         $this->loadTeamMembers();
         $this->loadAttendanceRows();
         $this->loadPayrollRows();
+        $this->dispatch('toast', [
+            'type'    => 'success',
+            'title'   => 'Member Updated',
+            'message' => $this->notice ?? 'Member profile and permissions updated.',
+        ]);
     }
 
     public function confirmDeleteMember($id): void
@@ -809,6 +826,7 @@ trait ManagesTeamAndNotifications
             return;
         }
 
+        $this->error = null;
         $this->closeDialogs();
         $this->selectedMemberId = (int) $member['id'];
         $this->selectedMemberName = $member['name'];
@@ -819,6 +837,8 @@ trait ManagesTeamAndNotifications
     public function deleteMember(): void
     {
         $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        $this->notice = null;
         if (! $this->userCanManageTeam()) {
             $this->error = 'Unauthorized: Only Partners or authorized Managers can remove team members.';
             return;
@@ -862,6 +882,11 @@ trait ManagesTeamAndNotifications
                     $this->notice = "{$memberName} has attendance or payroll history, so the account was deactivated and all records were retained.";
                     $this->closeDialogs();
                     $this->loadTeamMembers();
+                    $this->dispatch('toast', [
+                        'type'    => 'info',
+                        'title'   => 'Member Deactivated',
+                        'message' => $this->notice,
+                    ]);
 
                     return;
                 }
@@ -880,6 +905,11 @@ trait ManagesTeamAndNotifications
         $this->loadTeamMembers();
         $this->loadAttendanceRows();
         $this->loadPayrollRows();
+        $this->dispatch('toast', [
+            'type'    => 'success',
+            'title'   => 'Member Removed',
+            'message' => $this->notice ?? 'Team member removed from practice.',
+        ]);
     }
 
     /**

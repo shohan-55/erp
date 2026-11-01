@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -35,6 +36,13 @@ class PracticePreview extends Component
     use Concerns\ManagesUnitScope;
 
 
+    /**
+     * SECURITY: the tenant this component is bound to. Livewire lets the browser
+     * overwrite any public property, so without #[Locked] a Partner of firm A
+     * could post a different slug and have every action run against firm B.
+     * Locked properties can only be written by server code (mount()).
+     */
+    #[Locked]
     public string $firmSlug = 'rac';
     public ?array $firm = null;
     public string $previewRole = 'partner';
@@ -339,6 +347,7 @@ class PracticePreview extends Component
     {
         Firm::ensureRuntimeSchemaColumns();
         $this->firmSlug = strtolower(trim($firmSlug));
+        $this->assertWorkspaceAccess();
         $this->firm = FirmRegistry::get($this->firmSlug);
         if ($this->firm) {
             $this->firmThemePalette = $this->firm['theme_palette'] ?? 'sea_green';
@@ -475,7 +484,38 @@ class PracticePreview extends Component
 
     public function hydrate(): void
     {
+        // Runs on every Livewire request, i.e. before any action is executed.
+        $this->assertWorkspaceAccess();
         $this->enforceAuthenticatedRoleLock();
+    }
+
+    /**
+     * Defence in depth on top of the route middleware: whoever is driving this
+     * component must belong to the firm it is bound to, and an anonymous caller
+     * is only tolerated when demo mode (or the test runner) is explicitly on.
+     */
+    protected function assertWorkspaceAccess(): void
+    {
+        if (Auth::check()) {
+            /** @var User $user */
+            $user = Auth::user();
+
+            if ($user->isPlatformAdmin()) {
+                return;
+            }
+
+            if (! $user->isFirmMember() || ! $user->belongsToFirm($this->firmSlug)) {
+                abort(403, 'You do not have access to this practice workspace.');
+            }
+
+            return;
+        }
+
+        if (config('app.demo_mode', false) || app()->runningUnitTests()) {
+            return;
+        }
+
+        abort(403, 'Please sign in to open this workspace.');
     }
 
     public function updatedPreviewRole(string $value): void
@@ -614,6 +654,7 @@ class PracticePreview extends Component
     public function openDialog(string $kind, ?string $studentCode = null, string $mode = 'edit'): void
     {
         $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
         $this->closeDialogs();
 
         if ($kind === 'correction' && $studentCode !== null) {
@@ -665,6 +706,7 @@ class PracticePreview extends Component
         $this->deleteConfirmationInput = '';
         $this->selectedMemberId = null;
         $this->selectedMemberName = '';
+        $this->resetValidation();
     }
 
     protected function validDate(string $value): bool

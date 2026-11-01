@@ -49,13 +49,15 @@ class RestrictPreviewInProduction
     }
 
     /**
-     * Previews are open only for local development, the automated test suite,
-     * or an environment that deliberately opted in through ERP_DEMO_MODE.
+     * Previews are open only for the automated test suite or an environment
+     * that deliberately opted in through ERP_DEMO_MODE.
      */
     protected function demoModeIsAllowed(): bool
     {
+        // Deliberately NOT keyed on APP_ENV: a mistyped or copied APP_ENV=local
+        // must never be enough to expose anonymous, writable previews. Local
+        // developers opt in with ERP_DEMO_MODE=true.
         return (bool) config('app.demo_mode', false)
-            || app()->runningUnitTests()
-            || app()->environment('local', 'testing');
+            || app()->runningUnitTests();
     }
 }

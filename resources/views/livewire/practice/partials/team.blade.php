@@ -239,6 +239,23 @@
                 </div>
 
                 <form wire:submit.prevent="createMember" class="mt-4 space-y-4 text-xs">
+                    @if($error || $errors->any())
+                        <div class="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-800 flex items-start gap-2" role="alert">
+                            <i data-lucide="alert-circle" class="h-4 w-4 text-rose-600 shrink-0 mt-0.5"></i>
+                            <div>
+                                @if($error)
+                                    <p>{{ $error }}</p>
+                                @endif
+                                @if($errors->any())
+                                    <ul class="list-disc pl-4 space-y-0.5">
+                                        @foreach($errors->all() as $err)
+                                            <li>{{ $err }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                     <div>
                         <label class="block font-bold text-slate-700 mb-1.5">Member Practice Role</label>
                         <div class="grid grid-cols-3 gap-2">
@@ -346,8 +363,10 @@
 
                     <div class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
                         <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">Cancel</button>
-                        <button type="submit" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition">
-                            <i data-lucide="check" class="h-4 w-4"></i> Create Member
+                        <button type="submit" wire:loading.attr="disabled" wire:target="createMember" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition disabled:opacity-60">
+                            <i data-lucide="check" class="h-4 w-4"></i>
+                            <span wire:loading.remove wire:target="createMember">Create Member</span>
+                            <span wire:loading wire:target="createMember">Creating...</span>
                         </button>
                     </div>
                 </form>
@@ -374,6 +393,23 @@
                 </div>
 
                 <form wire:submit.prevent="updateMember" class="mt-4 space-y-4 text-xs">
+                    @if($error || $errors->any())
+                        <div class="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-800 flex items-start gap-2" role="alert">
+                            <i data-lucide="alert-circle" class="h-4 w-4 text-rose-600 shrink-0 mt-0.5"></i>
+                            <div>
+                                @if($error)
+                                    <p>{{ $error }}</p>
+                                @endif
+                                @if($errors->any())
+                                    <ul class="list-disc pl-4 space-y-0.5">
+                                        @foreach($errors->all() as $err)
+                                            <li>{{ $err }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <label class="block font-bold text-slate-700">Full Name
                             <input type="text" wire:model="editMemberName" required class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
@@ -478,8 +514,10 @@
 
                     <div class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
                         <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">Cancel</button>
-                        <button type="submit" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition">
-                            <i data-lucide="save" class="h-4 w-4"></i> Save Permissions
+                        <button type="submit" wire:loading.attr="disabled" wire:target="updateMember" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition disabled:opacity-60">
+                            <i data-lucide="save" class="h-4 w-4"></i>
+                            <span wire:loading.remove wire:target="updateMember">Save Permissions</span>
+                            <span wire:loading wire:target="updateMember">Saving...</span>
                         </button>
                     </div>
                 </form>
@@ -511,6 +549,23 @@
                     <p class="mt-2 text-slate-500">This action will deactivate their login access and dissociate student assignments. Historical attendance and audit records will remain archived.</p>
                 </div>
 
+                    @if($error || $errors->any())
+                        <div class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-800 flex items-start gap-2" role="alert">
+                            <i data-lucide="alert-circle" class="h-4 w-4 text-rose-600 shrink-0 mt-0.5"></i>
+                            <div>
+                                @if($error)
+                                    <p>{{ $error }}</p>
+                                @endif
+                                @if($errors->any())
+                                    <ul class="list-disc pl-4 space-y-0.5">
+                                        @foreach($errors->all() as $err)
+                                            <li>{{ $err }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                 <div class="mt-4">
                     <label class="block text-xs font-bold text-slate-700">
                         To confirm permanent deletion, please type <span class="font-mono text-rose-600 font-black">DELETE</span> below:

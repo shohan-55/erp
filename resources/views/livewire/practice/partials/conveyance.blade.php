@@ -320,6 +320,23 @@
                 <button type="button" wire:click="closeDialogs" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><i data-lucide="x" class="h-4 w-4"></i></button>
             </div>
             <form wire:submit.prevent="submitClaimAdjustment" class="mt-4 space-y-4 text-xs">
+                    @if($error || $errors->any())
+                        <div class="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-800 flex items-start gap-2" role="alert">
+                            <i data-lucide="alert-circle" class="h-4 w-4 text-rose-600 shrink-0 mt-0.5"></i>
+                            <div>
+                                @if($error)
+                                    <p>{{ $error }}</p>
+                                @endif
+                                @if($errors->any())
+                                    <ul class="list-disc pl-4 space-y-0.5">
+                                        @foreach($errors->all() as $err)
+                                            <li>{{ $err }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                 <label class="block font-bold text-slate-700">Adjusted Amount (BDT — Increase or Decrease)
                     <input type="number" wire:model="adjustNewAmount" min="1" max="100000" step="1" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm font-extrabold">
                 </label>

@@ -128,11 +128,35 @@ class DashboardPreview extends Component
 
     private const SECTIONS = ['overview', 'firms', 'support', 'platform'];
 
+    public function hydrate(): void
+    {
+        $this->assertPlatformAccess();
+    }
+
+    /**
+     * Platform actions are for platform admins only. An anonymous caller is only
+     * tolerated when demo mode (or the test runner) is explicitly enabled.
+     */
+    protected function assertPlatformAccess(): void
+    {
+        if (Auth::check()) {
+            if (! Auth::user()->isPlatformAdmin()) {
+                abort(403, 'Platform administrator access required.');
+            }
+
+            return;
+        }
+
+        if (config('app.demo_mode', false) || app()->runningUnitTests()) {
+            return;
+        }
+
+        abort(403, 'Platform administrator access required.');
+    }
+
     public function mount(): void
     {
-        if (Auth::check() && ! Auth::user()->isPlatformAdmin()) {
-            abort(403, 'Platform administrator access required.');
-        }
+        $this->assertPlatformAccess();
 
         $this->editSubscriptionExpiresAt = now()->addYear()->toDateString();
 
@@ -875,6 +899,11 @@ class DashboardPreview extends Component
                     $this->loadPlatformAuditLogs();
                     $this->selectFirm($firm->slug);
                     $this->previewNotice = "Organization & governance controls updated for '{$firm->name}'. Active Workspace: " . $firm->workspace_url;
+                    $this->dispatch('toast', [
+                        'type'    => 'success',
+                        'title'   => 'Settings Saved',
+                        'message' => $this->previewNotice,
+                    ]);
                     return;
                 }
             }
@@ -902,6 +931,7 @@ class DashboardPreview extends Component
 
         if ($name === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->previewNotice = 'Please provide a valid Partner Name and Email address.';
+            $this->dispatch('toast', ['type' => 'warning', 'title' => 'Invalid Input', 'message' => $this->previewNotice]);
             return;
         }
 
@@ -914,6 +944,7 @@ class DashboardPreview extends Component
 
                 if (User::where('email', $email)->exists()) {
                     $this->previewNotice = "Email '{$email}' is already registered in the system.";
+                    $this->dispatch('toast', ['type' => 'warning', 'title' => 'Duplicate Email', 'message' => $this->previewNotice]);
                     return;
                 }
 
@@ -976,6 +1007,11 @@ class DashboardPreview extends Component
                 $this->loadPlatformAuditLogs();
                 $this->selectFirm($firm->slug);
                 $this->previewNotice = "Added Partner '{$partner->name}' ({$unit}) to {$firm->name}! Login: {$partner->email} / {$password}";
+                $this->dispatch('toast', [
+                    'type'    => 'success',
+                    'title'   => 'Partner Added',
+                    'message' => $this->previewNotice,
+                ]);
             }
         } catch (\Throwable $e) {
             $this->previewNotice = 'Failed to add Partner: ' . $e->getMessage();
@@ -1129,6 +1165,11 @@ class DashboardPreview extends Component
                         $this->loadSelectedFirmRoster($this->editFirmSlug);
                     }
                     $this->previewNotice = "Updated Partner ({$partner->name} · {$partner->email})" . ($newPass !== '' ? " & password set to: {$newPass}" : ".");
+                    $this->dispatch('toast', [
+                        'type'    => 'success',
+                        'title'   => 'Partner Updated',
+                        'message' => $this->previewNotice,
+                    ]);
                 }
             }
         } catch (\Throwable $e) {

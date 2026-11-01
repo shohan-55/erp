@@ -535,6 +535,12 @@
 
                     {{-- Scrollable Content --}}
                     <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+                        @if($previewNotice)
+                            <div class="mx-6 mt-4 flex items-start justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs font-semibold text-emerald-900" role="status">
+                                <span>{{ $previewNotice }}</span>
+                                <button type="button" wire:click="dismissNotice" class="text-emerald-700 hover:text-emerald-950">✕</button>
+                            </div>
+                        @endif
                         <div class="grid grid-cols-2 gap-3 p-6 text-sm">
                             @foreach([
                                 ['Workspace URL', 'erp.dhakawala.com/c/'.$selectedFirm['slug']],

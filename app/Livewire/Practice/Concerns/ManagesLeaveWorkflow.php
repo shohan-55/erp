@@ -443,6 +443,7 @@ trait ManagesLeaveWorkflow
             $this->error = 'Students cannot review or partially approve leave.';
             return;
         }
+        $this->error = null;
         $this->closeDialogs();
         $this->partialLeaveId = $id;
         $this->partialRequestedDays = 5;
@@ -461,6 +462,7 @@ trait ManagesLeaveWorkflow
     public function submitPartialLeaveApproval(): void
     {
         $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
         if ($this->previewRole === 'student') {
             $this->error = 'Students cannot approve leave.';
             return;
@@ -528,6 +530,11 @@ trait ManagesLeaveWorkflow
 
         $this->closeDialogs();
         $this->notice = "Leave {$id} partially approved for {$this->partialApprovedDays} of {$this->partialRequestedDays} days ({$summary}).";
+        $this->dispatch('toast', [
+            'type'    => 'success',
+            'title'   => 'Partial Leave Approved',
+            'message' => $this->notice,
+        ]);
     }
 
     public function managerRecommendLeave(string $id, string $remarks = ''): void
