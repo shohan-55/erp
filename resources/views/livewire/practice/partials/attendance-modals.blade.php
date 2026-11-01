@@ -127,9 +127,9 @@
                 </button>
                 <button type="button" wire:click="confirmFinalCheckout" wire:loading.attr="disabled" wire:target="confirmFinalCheckout" @disabled(! $finalCloseConfirmed)
                         class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-4 py-3 text-xs font-extrabold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500">
-                    <span wire:loading wire:target="confirmFinalCheckout" class="dw-inline-spinner"></span>
+                    <span wire:loading wire:target="confirmFinalCheckout" style="display:none" class="dw-inline-spinner"></span>
                     <span wire:loading.remove wire:target="confirmFinalCheckout">Confirm Final Check-out</span>
-                    <span wire:loading wire:target="confirmFinalCheckout">Closing Duty...</span>
+                    <span wire:loading wire:target="confirmFinalCheckout" style="display:none">Closing Duty...</span>
                 </button>
             </div>
             <p class="mt-2 text-center text-[10px] text-slate-400">The final check-out is written to the attendance register and the audit log.</p>

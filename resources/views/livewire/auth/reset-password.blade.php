@@ -303,14 +303,15 @@
                         <button
                             type="submit"
                             wire:loading.attr="disabled"
+                            wire:target="submitReset"
                             class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-[#FCDF02] hover:bg-[#F0D400] text-[#16181D] shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-[#FCDF02]/80 disabled:opacity-60 cursor-pointer"
                         >
-                            <span wire:loading.remove>Save New Password & Continue</span>
-                            <span wire:loading class="inline-flex items-center gap-2">
+                            <span wire:loading.remove wire:target="submitReset">Save New Password & Continue</span>
+                            <span wire:loading.inline-flex wire:target="submitReset" style="display:none" class="inline-flex items-center gap-2">
                                 <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
                                 <span>Updating Password...</span>
                             </span>
-                            <i wire:loading.remove data-lucide="arrow-right" class="w-4 h-4"></i>
+                            <i wire:loading.remove wire:target="submitReset" data-lucide="arrow-right" class="w-4 h-4"></i>
                         </button>
                     </div>
                 </form>

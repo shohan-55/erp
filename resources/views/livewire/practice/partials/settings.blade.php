@@ -33,7 +33,7 @@
                 <p class="text-[11px] text-slate-500 mt-0.5">JPG, PNG, or WebP up to 2MB. Appears on your top header, sidebar, and team roster.</p>
                 <div class="mt-2 flex items-center gap-2">
                     <input type="file" wire:model="myAvatar" accept="image/*" class="text-[11px] text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-[#16181D] file:text-[#FCDF02] hover:file:bg-slate-800 cursor-pointer">
-                    <span wire:loading wire:target="myAvatar" class="text-[10px] text-amber-800 font-bold animate-pulse">Uploading preview...</span>
+                    <span wire:loading wire:target="myAvatar" style="display:none" class="text-[10px] text-amber-800 font-bold animate-pulse">Uploading preview...</span>
                 </div>
             </div>
         </div>

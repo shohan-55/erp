@@ -450,7 +450,7 @@
                 <button type="button" wire:click="confirmAndSubmitConveyanceClaim" wire:loading.attr="disabled" class="inline-flex items-center gap-1.5 rounded-xl bg-[#FCDF02] px-5 py-2.5 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] shadow-md disabled:opacity-50 cursor-pointer">
                     <i data-lucide="check-circle-2" class="h-4 w-4"></i>
                     <span wire:loading.remove wire:target="confirmAndSubmitConveyanceClaim">OK, Confirm &amp; Submit</span>
-                    <span wire:loading wire:target="confirmAndSubmitConveyanceClaim">Submitting...</span>
+                    <span wire:loading wire:target="confirmAndSubmitConveyanceClaim" style="display:none">Submitting...</span>
                 </button>
             </div>
         </div>

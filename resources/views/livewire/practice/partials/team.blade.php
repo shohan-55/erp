@@ -426,7 +426,7 @@
                         <button type="submit" wire:loading.attr="disabled" wire:target="createMember" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition disabled:opacity-60">
                             <i data-lucide="check" class="h-4 w-4"></i>
                             <span wire:loading.remove wire:target="createMember">Create Member</span>
-                            <span wire:loading wire:target="createMember">Creating...</span>
+                            <span wire:loading wire:target="createMember" style="display:none">Creating...</span>
                         </button>
                     </div>
                 </form>
@@ -488,7 +488,7 @@
                         <button type="submit" wire:loading.attr="disabled" wire:target="resetMemberPassword" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition shadow-sm">
                             <i data-lucide="send" class="h-3.5 w-3.5"></i>
                             <span wire:loading.remove wire:target="resetMemberPassword">Reset &amp; Send Password to Email</span>
-                            <span wire:loading wire:target="resetMemberPassword">Sending...</span>
+                            <span wire:loading wire:target="resetMemberPassword" style="display:none">Sending...</span>
                         </button>
                     </div>
                 </form>
@@ -671,7 +671,7 @@
                         <button type="submit" wire:loading.attr="disabled" wire:target="updateMember" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition disabled:opacity-60">
                             <i data-lucide="save" class="h-4 w-4"></i>
                             <span wire:loading.remove wire:target="updateMember">Save Permissions</span>
-                            <span wire:loading wire:target="updateMember">Saving...</span>
+                            <span wire:loading wire:target="updateMember" style="display:none">Saving...</span>
                         </button>
                     </div>
                 </form>

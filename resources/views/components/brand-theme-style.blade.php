@@ -418,9 +418,14 @@ a.dw-btn-busy {
     filter: saturate(0.92);
 }
 
+button.dw-btn-busy > .dw-auto-spinner {
+    display: inline-block !important;
+}
+:where(.dw-inline-spinner) {
+    display: inline-block;
+}
 button.dw-btn-busy > .dw-auto-spinner,
 .dw-inline-spinner {
-    display: inline-block !important;
     width: 1em;
     height: 1em;
     min-width: 14px;
@@ -432,6 +437,24 @@ button.dw-btn-busy > .dw-auto-spinner,
     vertical-align: -0.15em;
     margin-right: 0.45rem;
     flex-shrink: 0;
+}
+[wire\:loading],
+[wire\:loading\.delay],
+[wire\:loading\.inline-block],
+[wire\:loading\.inline],
+[wire\:loading\.block],
+[wire\:loading\.flex],
+[wire\:loading\.table],
+[wire\:loading\.grid],
+[wire\:loading\.inline-flex] {
+    display: none;
+}
+.dw-inline-spinner[x-cloak],
+.dw-inline-spinner[style*="display: none"],
+.dw-inline-spinner[style*="display:none"],
+[wire\:loading][style*="display: none"],
+[wire\:loading][style*="display:none"] {
+    display: none !important;
 }
 
 /* Hide existing leading icon inside busy button when auto-spinner is injected */
@@ -473,7 +496,9 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
     position: fixed;
     bottom: 16px;
     left: 50%;
-    transform: translateX(-50%) translateY(120%);
+    transform: translateX(-50%) translateY(220%);
+    opacity: 0;
+    visibility: hidden;
     z-index: 99998;
     background: #17191F;
     color: #FFFFFF;
@@ -486,11 +511,13 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
     display: flex;
     align-items: center;
     gap: 8px;
-    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, visibility 0.2s ease;
     pointer-events: none;
 }
 #dw-offline-banner.dw-visible {
     transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    visibility: visible;
 }
 </style>
 

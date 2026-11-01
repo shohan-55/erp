@@ -442,13 +442,14 @@
                     <button
                         type="submit"
                         wire:loading.attr="disabled"
+                        wire:target="submitLogin"
                         class="dw-btn dw-btn-primary w-full disabled:cursor-wait disabled:opacity-60"
                     >
-                        <span wire:loading.remove class="flex items-center gap-2">
+                        <span wire:loading.remove wire:target="submitLogin" class="flex items-center gap-2">
                             Sign in to workspace
                             <i data-lucide="arrow-right" class="h-4 w-4"></i>
                         </span>
-                        <span wire:loading class="flex items-center gap-2">Authenticating…</span>
+                        <span wire:loading.flex wire:target="submitLogin" style="display:none" class="flex items-center gap-2">Authenticating…</span>
                     </button>
                 </form>
 

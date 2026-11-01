@@ -265,14 +265,15 @@
                         <button
                             type="submit"
                             wire:loading.attr="disabled"
+                            wire:target="submitLogin"
                             class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-[#FCDF02] hover:bg-[#F0D400] active:bg-[#E2C700] text-[#16181D] shadow-md hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-[#FCDF02]/80 disabled:opacity-60 cursor-pointer"
                         >
-                            <span wire:loading.remove>Sign In to Practice Workspace</span>
-                            <span wire:loading class="inline-flex items-center gap-2">
+                            <span wire:loading.remove wire:target="submitLogin">Sign In to Practice Workspace</span>
+                            <span wire:loading.inline-flex wire:target="submitLogin" style="display:none" class="inline-flex items-center gap-2">
                                 <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
                                 <span>Signing In...</span>
                             </span>
-                            <i wire:loading.remove data-lucide="arrow-right" class="w-4 h-4"></i>
+                            <i wire:loading.remove wire:target="submitLogin" data-lucide="arrow-right" class="w-4 h-4"></i>
                         </button>
                     </div>
                 </form>

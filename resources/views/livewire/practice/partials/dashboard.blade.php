@@ -220,14 +220,14 @@
                             wire:loading.attr="disabled"
                             wire:target="togglePreviewSession,togglePreviewSessionWithGps"
                             class="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-white py-3.5 px-6 text-sm font-black uppercase tracking-wider text-slate-950 shadow-xl transition transform hover:scale-[1.01] active:scale-[0.98] disabled:opacity-75 cursor-pointer">
-                        <span x-show="gettingGps" x-cloak class="dw-inline-spinner text-emerald-600"></span>
-                        <span wire:loading wire:target="togglePreviewSession,togglePreviewSessionWithGps" class="dw-inline-spinner text-emerald-600"></span>
+                        <span x-show="gettingGps" x-cloak style="display:none" class="dw-inline-spinner text-emerald-600"></span>
+                        <span wire:loading wire:target="togglePreviewSession,togglePreviewSessionWithGps" style="display:none" class="dw-inline-spinner text-emerald-600"></span>
                         <i x-show="!gettingGps" wire:loading.remove wire:target="togglePreviewSession,togglePreviewSessionWithGps" data-lucide="fingerprint" class="h-5 w-5 text-emerald-600"></i>
                         <span x-show="!gettingGps" wire:loading.remove wire:target="togglePreviewSession,togglePreviewSessionWithGps">
                             {{ $sessionState === 'on_duty_transit' ? 'Check-In at Next Location (In)' : ($workMode === 'client' ? 'Check-In at Client Site (In)' : 'Check-In at Office (In)') }}
                         </span>
                         <span x-show="gettingGps" x-cloak>Capturing Live GPS Location...</span>
-                        <span wire:loading wire:target="togglePreviewSession,togglePreviewSessionWithGps">Recording Check-In...</span>
+                        <span wire:loading wire:target="togglePreviewSession,togglePreviewSessionWithGps" style="display:none">Recording Check-In...</span>
                     </button>
                 @else
                     <div class="space-y-2">
@@ -236,10 +236,10 @@
                                 wire:loading.attr="disabled"
                                 wire:target="initiateCheckoutPrompt"
                                 class="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-slate-950 py-3.5 px-6 text-sm font-black uppercase tracking-wider text-white shadow-xl border border-white/20 transition hover:bg-slate-900 active:scale-[0.98] disabled:opacity-75 cursor-pointer">
-                            <span wire:loading wire:target="initiateCheckoutPrompt" class="dw-inline-spinner text-amber-400"></span>
+                            <span wire:loading wire:target="initiateCheckoutPrompt" style="display:none" class="dw-inline-spinner text-amber-400"></span>
                             <i wire:loading.remove wire:target="initiateCheckoutPrompt" data-lucide="log-out" class="h-5 w-5 text-amber-400"></i>
                             <span wire:loading.remove wire:target="initiateCheckoutPrompt">Out (Choose: Close Duty or On Duty Move)</span>
-                            <span wire:loading wire:target="initiateCheckoutPrompt">Opening Check-Out Options...</span>
+                            <span wire:loading wire:target="initiateCheckoutPrompt" style="display:none">Opening Check-Out Options...</span>
                         </button>
                         <p class="text-center text-[11px] font-semibold text-white/80">
                             Active at: <strong>{{ $workMode === 'client' ? ($clientSite ?: 'Client Site') : 'Principal Office HQ' }}</strong> ({{ $currentLocationName }})

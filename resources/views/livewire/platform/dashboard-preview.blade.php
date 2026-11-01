@@ -1013,7 +1013,7 @@
                             <span wire:loading.remove wire:target="confirmDeleteOrganization">
                                 <i data-lucide="trash-2" class="inline h-3.5 w-3.5 mr-1"></i> Permanently Delete
                             </span>
-                            <span wire:loading wire:target="confirmDeleteOrganization">
+                            <span wire:loading wire:target="confirmDeleteOrganization" style="display:none">
                                 Deleting...
                             </span>
                         </button>
@@ -1269,7 +1269,7 @@
                             <span wire:loading.remove wire:target="createOrganization" class="inline-flex items-center gap-2">
                                 <i data-lucide="check" class="h-4 w-4"></i> Create Organization & Provision Workspace
                             </span>
-                            <span wire:loading wire:target="createOrganization" class="inline-flex items-center gap-2">
+                            <span wire:loading.inline-flex wire:target="createOrganization" style="display:none" class="inline-flex items-center gap-2">
                                 <svg class="animate-spin h-3.5 w-3.5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
