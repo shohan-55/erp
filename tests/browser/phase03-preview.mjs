@@ -45,8 +45,8 @@ try {
         }));
         throw error;
     }
-    await provisionDialog.getByRole('button', { name: 'Acknowledge Preview' }).click({ force: true });
-    await page.getByText('No organization was created or provisioned.', { exact: false }).waitFor();
+    await provisionDialog.getByRole('button', { name: 'Cancel' }).click();
+    await provisionDialog.waitFor({ state: 'hidden' });
 
     await page.getByRole('button', { name: 'Organizations' }).click();
     await page.getByPlaceholder('Search firm name or slug...').waitFor();
