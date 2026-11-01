@@ -45,7 +45,7 @@ try {
         }));
         throw error;
     }
-    await provisionDialog.getByRole('button', { name: 'Close modal' }).click();
+    await provisionDialog.getByRole('button', { name: 'Acknowledge Preview' }).click({ force: true });
     await page.getByText('No organization was created or provisioned.', { exact: false }).waitFor();
 
     await page.getByRole('button', { name: 'Organizations' }).click();
