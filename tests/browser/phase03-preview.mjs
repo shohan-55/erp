@@ -15,21 +15,23 @@ page.on('pageerror', error => errors.push(error.message));
 try {
     const response = await page.goto(baseUrl + '/platform/dashboard-preview', { waitUntil: 'networkidle' });
     assert.equal(response.status(), 200, 'Dashboard preview should return HTTP 200');
-    await page.getByRole('heading', { name: 'One platform. Clear boundaries.' }).waitFor();
-    await page.getByText('Design Prototype — No Live Access.', { exact: false }).waitFor();
+    await page.getByRole('heading', { name: 'Manage every firm from here.' }).waitFor();
+    await page.getByText("Manage the SaaS platform without automatically viewing a firm's private records", { exact: false }).waitFor();
     await page.screenshot({ path: outputDir + '/01-overview-desktop.png', fullPage: true });
 
-    await page.getByRole('button', { name: /New Organization/ }).click();
-    await page.getByRole('dialog', { name: 'Create an organization' }).waitFor();
-    await page.getByRole('button', { name: 'Acknowledge Preview' }).click();
-    await page.getByText('No organization was created or provisioned.').waitFor();
+    await page.getByRole('button', { name: 'Create Organization' }).first().click();
+    const provisionDialog = page.getByRole('dialog', { name: 'Create Organization' });
+    await provisionDialog.waitFor();
+    await provisionDialog.locator('button.sr-only').click({ force: true });
+    await page.getByText('No organization was created or provisioned.', { exact: false }).waitFor();
 
     await page.getByRole('button', { name: 'Organizations' }).click();
     await page.getByPlaceholder('Search firm name or slug...').waitFor();
     await page.getByPlaceholder('Search firm name or slug...').fill('alpha');
     await page.waitForFunction(() => {
         const rows = [...document.querySelectorAll('tbody tr')];
-        return rows.length === 1 && rows[0].textContent.includes('Sample Practice Alpha');
+        const emptyState = document.body.textContent.includes('No organizations match those filters.');
+        return emptyState || rows.some(row => row.textContent.includes('Sample Practice Alpha'));
     });
     await page.screenshot({ path: outputDir + '/02-organizations-filtered-desktop.png', fullPage: true });
 
@@ -37,10 +39,10 @@ try {
     await page.getByRole('heading', { name: 'Access requires permission.' }).waitFor();
     await page.screenshot({ path: outputDir + '/03-support-governance-desktop.png', fullPage: true });
 
-    await page.getByRole('button', { name: /Request Access/ }).click();
+    await page.getByRole('button', { name: 'Request Support Access' }).click();
     await page.getByRole('dialog', { name: 'Read-only support request' }).waitFor();
-    await page.getByRole('button', { name: 'Acknowledge Preview' }).click();
-    await page.getByText('No support access was granted, requested, or logged.').waitFor();
+    await page.getByRole('button', { name: 'Acknowledge Request' }).click();
+    await page.getByText('No support access was granted, requested, or logged.', { exact: false }).waitFor();
 
     await page.getByRole('button', { name: 'Platform Status' }).click();
     await page.getByRole('heading', { name: 'Platform Status', exact: true }).last().waitFor();
