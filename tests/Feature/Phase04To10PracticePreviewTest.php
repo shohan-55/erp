@@ -3,11 +3,29 @@
 namespace Tests\Feature;
 
 use App\Livewire\Practice\PracticePreview;
+use App\Models\Firm;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
 class Phase04To10PracticePreviewTest extends TestCase
 {
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Firm::create([
+            'name'          => 'Rahman Anis & Co.',
+            'slug'          => 'rac',
+            'short_code'    => 'RA&C',
+            'status'        => 'active',
+            'tier'          => 'professional',
+            'custom_domain' => 'rahmananis.com',
+        ]);
+    }
+
     public function test_all_planned_practice_roles_render_as_ui_previews(): void
     {
         foreach (['partner', 'manager', 'student'] as $role) {

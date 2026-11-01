@@ -375,9 +375,22 @@ class Phase03PlatformDashboardTest extends TestCase
             'firm_id'  => $oldFirm->id,
         ]);
 
-        \Illuminate\Support\Facades\DB::statement('PRAGMA foreign_keys = OFF;');
-        $oldFirm->delete();
-        \Illuminate\Support\Facades\DB::statement('PRAGMA foreign_keys = ON;');
+        $driver = DB::connection()->getDriverName();
+        if ($driver === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = OFF;');
+        } elseif ($driver === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS = 0;');
+        }
+
+        try {
+            $oldFirm->delete();
+        } finally {
+            if ($driver === 'sqlite') {
+                DB::statement('PRAGMA foreign_keys = ON;');
+            } elseif ($driver === 'mysql') {
+                DB::statement('SET FOREIGN_KEY_CHECKS = 1;');
+            }
+        }
 
         Livewire::test(DashboardPreview::class)
             ->set('newFirmName', 'A. Qasem & Co.')
