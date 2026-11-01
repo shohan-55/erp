@@ -113,7 +113,7 @@ jobs:
             fi
             sleep 1
           done
-          grep -q 'One platform. Clear boundaries.' /tmp/platform-preview.html
+          grep -q 'Manage every firm from here.' /tmp/platform-preview.html
 
       - name: Browser test and capture responsive screenshots
         run: node tests/browser/phase03-preview.mjs
