@@ -205,5 +205,7 @@ class DataRetentionAndDeletionTest extends TestCase
             $snapshot['tables']['users'][0]['password'],
             'Backup snapshots must never contain password hashes.'
         );
+
+        $this->artisan('erp:restore-backup', ['--dry-run' => true])->assertExitCode(0);
     }
 }

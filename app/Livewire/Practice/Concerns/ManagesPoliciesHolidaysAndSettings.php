@@ -27,6 +27,22 @@ trait ManagesPoliciesHolidaysAndSettings
     public function setPartnerUnit(string $unit): void
     {
         $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+
+        if (Auth::check()) {
+            /** @var User $actor */
+            $actor = Auth::user();
+            if (! $actor->isPlatformAdmin() && ! $actor->isPartner()) {
+                if (! empty($actor->partner_unit)) {
+                    $this->partnerUnit = $actor->partner_unit;
+                }
+                $this->error = 'Access denied: Only a Partner can switch Partner Units.';
+                return;
+            }
+        } elseif ($this->previewRole !== 'partner') {
+            $this->error = 'Access denied: Only a Partner can switch Partner Units.';
+            return;
+        }
 
         if (in_array($unit, $this->availablePartnerUnits, true)) {
             $this->partnerUnit = $unit;
@@ -47,7 +63,7 @@ trait ManagesPoliciesHolidaysAndSettings
                             $this->partnerEmail = 'partner.' . Str::slug($unit) . '@' . $domain;
                         }
                     }
-                } catch (\Throwable) {}
+                } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
             }
 
             if ($unit === 'Partner Unit 02') {
@@ -116,8 +132,7 @@ trait ManagesPoliciesHolidaysAndSettings
                 } elseif (isset($firmModel) && $firmModel) {
                     $this->canViewAllPartnersAttendance = (bool) ($firmModel->shared_attendance_view ?? true);
                 }
-            } catch (\Throwable) {
-            }
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
     }
 
@@ -153,8 +168,7 @@ trait ManagesPoliciesHolidaysAndSettings
                 }
                 $query->update(['email' => $target]);
                 $this->recordAuditLog('settings', 'partner_email_updated', "Updated Partner email from {$this->partnerEmail} to {$target}.", $target);
-            } catch (\Throwable) {
-            }
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         $old = $this->partnerEmail;
@@ -222,7 +236,7 @@ trait ManagesPoliciesHolidaysAndSettings
                         $resolved['key']
                     );
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         if (is_array($this->firm)) {
@@ -414,7 +428,7 @@ trait ManagesPoliciesHolidaysAndSettings
                     "{$user->name} updated profile details (Name, Email: {$user->email}, Phone: {$phone}, Payment: {$mode}: {$accNo})" . ($newPass !== '' ? ' and password.' : ($avatarChanged ? ' and avatar.' : '.')),
                     $user->email
                 );
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         $this->myAvatar = null;
@@ -575,8 +589,7 @@ trait ManagesPoliciesHolidaysAndSettings
                         $this->partnerUnit
                     );
                 }
-            } catch (\Throwable) {
-            }
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         $this->loadPayrollRows();
@@ -669,7 +682,7 @@ trait ManagesPoliciesHolidaysAndSettings
                             ->where('partner_unit', $this->partnerUnit)
                             ->update([$colMap[$permKey] => $enabled]);
                     }
-                } catch (\Throwable) {}
+                } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
             }
 
             $this->savePolicySettings();
@@ -799,8 +812,7 @@ trait ManagesPoliciesHolidaysAndSettings
                         return $this->normaliseWorkingDayException($row);
                     }
                 }
-            } catch (\Throwable) {
-            }
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         foreach ($this->holidaysList as $h) {
@@ -1183,8 +1195,7 @@ trait ManagesPoliciesHolidaysAndSettings
                     $row->delete();
                     $this->recordAuditLog('policy', 'working_day_exception_removed', "Removed working day exception for {$date} ({$title}).", $date);
                 }
-            } catch (\Throwable) {
-            }
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         $this->loadHolidays();
@@ -1255,7 +1266,7 @@ trait ManagesPoliciesHolidaysAndSettings
                         ];
                     }
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
             return ['lat' => 23.7279, 'lng' => 90.4178, 'radius' => 1.50];
         }
         return ['lat' => 23.7516, 'lng' => 90.3943, 'radius' => 1.50];
@@ -1300,7 +1311,7 @@ trait ManagesPoliciesHolidaysAndSettings
                         return;
                     }
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         $defaults = PracticeHoliday::defaultGovernmentHolidays($this->holidayYear);
@@ -1521,8 +1532,7 @@ trait ManagesPoliciesHolidaysAndSettings
                     ])->toArray();
                     return;
                 }
-            } catch (\Throwable) {
-            }
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
         $this->policyProposals = [];
     }
@@ -1564,8 +1574,7 @@ trait ManagesPoliciesHolidaysAndSettings
                 $this->proposalDescription = '';
                 $this->notice = 'Company policy proposal drafted and circulated to Partner consensus queue.';
                 return;
-            } catch (\Throwable) {
-            }
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         $this->closeDialogs();
@@ -1630,8 +1639,7 @@ trait ManagesPoliciesHolidaysAndSettings
                         ])->toArray();
                     return;
                 }
-            } catch (\Throwable) {
-            }
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
         $this->auditLogsList = [];
     }

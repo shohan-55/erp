@@ -65,7 +65,7 @@ class FirmLogin extends Component
                         $targetEmail = $user->email;
                     }
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         if (! $targetEmail) {

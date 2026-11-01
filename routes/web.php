@@ -42,7 +42,8 @@ Route::get('/health', function () {
     try {
         \Illuminate\Support\Facades\DB::select('select 1');
         $checks['database'] = true;
-    } catch (\Throwable) {
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('Health check DB probe failed: ' . $e->getMessage());
     }
 
     try {
@@ -50,20 +51,24 @@ Route::get('/health', function () {
         \Illuminate\Support\Facades\Storage::disk('local')->put($probe, (string) now()->timestamp);
         $checks['storage'] = \Illuminate\Support\Facades\Storage::disk('local')->exists($probe);
         \Illuminate\Support\Facades\Storage::disk('local')->delete($probe);
-    } catch (\Throwable) {
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('Health check storage probe failed: ' . $e->getMessage());
     }
 
     // Did the scheduler run in the last 36 hours? A silently dead cron is the
     // most common cPanel failure and it stops backups without any error ever
     // reaching the application log.
     try {
-        $backups = \Illuminate\Support\Facades\Storage::disk('local')->files('backups/db');
-        $latest = collect($backups)->map(fn ($f) => \Illuminate\Support\Facades\Storage::disk('local')->lastModified($f))->max();
+        $disk = (string) config('erp.backup_disk', 'local');
+        $backups = \Illuminate\Support\Facades\Storage::disk($disk)->files('backups/db');
+        $latest = collect($backups)->map(fn ($f) => \Illuminate\Support\Facades\Storage::disk($disk)->lastModified($f))->max();
         $checks['scheduler'] = $latest !== null && $latest > now()->subHours(36)->getTimestamp();
-    } catch (\Throwable) {
+    } catch (\Throwable $e) {
+        \Illuminate\Support\Facades\Log::warning('Health check scheduler probe failed: ' . $e->getMessage());
     }
 
-    $healthy = $checks['database'] && $checks['storage'];
+    $schedulerRequired = app()->environment('production') || (bool) config('erp.require_scheduler_health', false);
+    $healthy = $checks['database'] && $checks['storage'] && (! $schedulerRequired || $checks['scheduler']);
 
     return response()->json([
         'status'     => $healthy ? 'ok' : 'degraded',

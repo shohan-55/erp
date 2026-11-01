@@ -38,6 +38,36 @@ trait ManagesConveyanceWorkflow
                         $userIds = DB::table('users')->where('firm_id', $firmModel->id)->pluck('id')->all();
                         $claimsQuery->whereIn('user_id', $userIds);
                     }
+
+                    // Partner-unit & role read isolation at query level so other units'
+                    // conveyance claims are never serialized into Livewire state.
+                    if (Auth::check() && ! Auth::user()->isPlatformAdmin()) {
+                        /** @var User $actor */
+                        $actor = Auth::user();
+                        if ($actor->isStudent()) {
+                            $claimsQuery->where('user_id', $actor->id);
+                        } elseif ($actor->isManager()) {
+                            $unit = $actor->partner_unit ?: $this->partnerUnit;
+                            $unitUserIds = User::where('firm_id', $firmModel->id)
+                                ->where(function ($q) use ($actor, $unit) {
+                                    $q->where('manager_id', $actor->id)
+                                        ->orWhere('partner_unit', $unit);
+                                })
+                                ->pluck('id')
+                                ->all();
+                            $claimsQuery->whereIn('user_id', $unitUserIds);
+                        } elseif ($actor->isPartner() && count($this->availablePartnerUnits) > 1 && ! empty($this->partnerUnit)) {
+                            $unitUserIds = User::where('firm_id', $firmModel->id)
+                                ->where(function ($q) {
+                                    $q->where('partner_unit', $this->partnerUnit)
+                                        ->orWhereNull('partner_unit');
+                                })
+                                ->pluck('id')
+                                ->all();
+                            $claimsQuery->whereIn('user_id', $unitUserIds);
+                        }
+                    }
+
                     $dbClaims = $claimsQuery->orderByDesc('id')->get();
                     if ($dbClaims->isNotEmpty()) {
                         $this->claimQueue = $dbClaims->map(fn (ConveyanceClaim $cc) => [
@@ -242,7 +272,7 @@ trait ManagesConveyanceWorkflow
                         ];
                     }
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
         return null;
     }
@@ -412,7 +442,7 @@ trait ManagesConveyanceWorkflow
                     ]);
                     return;
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         $newId = 'CC-' . (count($this->claimQueue) + 201);
@@ -471,6 +501,12 @@ trait ManagesConveyanceWorkflow
             $claim = ConveyanceClaim::find(str_replace('CC-', '', $id));
             if ($claim && (int) $claim->user_id !== (int) Auth::id()) {
                 $this->error = 'Access denied: you can only open your own conveyance receipts.';
+                return;
+            }
+        }
+        if (Auth::check() && $this->previewRole === 'manager') {
+            $claim = ConveyanceClaim::find(str_replace('CC-', '', $id));
+            if ($claim && ! $this->guardUserScope(User::find($claim->user_id), 'open receipts for')) {
                 return;
             }
         }
@@ -575,7 +611,7 @@ trait ManagesConveyanceWorkflow
                     }
                     $this->loadPayrollRows();
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         foreach ($this->claimQueue as &$claim) {
@@ -636,6 +672,9 @@ trait ManagesConveyanceWorkflow
                     $query->where('firm_id', $firmModel->id);
                 }
                 $cc = $query->first();
+                if ($cc && ! $this->guardUserScope(User::find($cc->user_id), 'approve claims for')) {
+                    return;
+                }
                 if ($cc) {
                     $cc->status = 'approved';
                     $cc->partner_remarks = $remarks ?: ('Sanctioned by Partner ' . $this->partnerUnit . '.');
@@ -652,7 +691,7 @@ trait ManagesConveyanceWorkflow
                     );
                     $this->loadPayrollRows();
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         foreach ($this->claimQueue as &$claim) {
@@ -696,7 +735,7 @@ trait ManagesConveyanceWorkflow
                     $this->createPracticeNotification($cc->user_id, 'student', 'Conveyance Claim Rejected', "Your conveyance claim ({$id}) was rejected: {$cc->partner_remarks}", 'receipt');
                     $this->loadPayrollRows();
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         foreach ($this->claimQueue as &$claim) {
@@ -730,7 +769,7 @@ trait ManagesConveyanceWorkflow
                         }
                         return;
                     }
-                } catch (\Throwable) {}
+                } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
             }
         }
 
@@ -797,7 +836,7 @@ trait ManagesConveyanceWorkflow
                         'created_by' => Auth::id(),
                     ]);
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         if (! in_array($name, $this->auditClients, true)) {

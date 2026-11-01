@@ -37,6 +37,14 @@ trait ConfirmsTwoFactor
     protected function twoFactorGate(User $user): bool
     {
         if (! $user->hasTwoFactorEnabled()) {
+            if ($user->isPlatformAdmin() && (bool) config('erp.require_platform_2fa', false)) {
+                $this->logoutPending();
+                $this->requiresTwoFactor = false;
+                $this->twoFactorError = 'Platform administrator accounts require TOTP two-factor authentication. Enrol via `php artisan erp:two-factor ' . $user->email . '` before signing in.';
+
+                return false;
+            }
+
             $this->requiresTwoFactor = false;
 
             return true;
@@ -80,8 +88,7 @@ trait ConfirmsTwoFactor
             // would also bin the CSRF token that the pending Livewire component
             // needs for the follow-up submit (the user would get a 419).
             Auth::logout();
-        } catch (\Throwable) {
-        }
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
     }
 
     /**

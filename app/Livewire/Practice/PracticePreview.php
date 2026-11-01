@@ -59,6 +59,7 @@ class PracticePreview extends Component
     public ?string $error = null;
 
     // Multi-Partner Unit Architecture & Shared Attendance View
+    #[Locked]
     public string $partnerUnit = 'Partner Unit 01';
     public array $availablePartnerUnits = ['Partner Unit 01', 'Partner Unit 02'];
     public bool $canViewAllPartnersAttendance = true;
@@ -424,7 +425,7 @@ class PracticePreview extends Component
                 if (! empty($units)) {
                     $this->availablePartnerUnits = array_values($units);
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
 
             $payStatus = $firmModel->payment_status ?? 'paid';
             $expiresAt = $firmModel->subscription_expires_at;
@@ -542,7 +543,7 @@ class PracticePreview extends Component
             return;
         }
 
-        if (config('app.demo_mode', false) || app()->runningUnitTests()) {
+        if (! app()->environment('production') && (config('app.demo_mode', false) || app()->runningUnitTests())) {
             return;
         }
 
@@ -572,6 +573,9 @@ class PracticePreview extends Component
             $user = Auth::user();
             if ($user->isFirmMember() && in_array($user->role, self::ROLES, true)) {
                 $this->previewRole = $user->role;
+            }
+            if (! $user->isPlatformAdmin() && ! $user->isPartner() && ! empty($user->partner_unit)) {
+                $this->partnerUnit = $user->partner_unit;
             }
         }
     }
@@ -734,8 +738,7 @@ class PracticePreview extends Component
                 'metadata'   => $metadata ?: null,
             ]);
             $this->loadAuditLogs();
-        } catch (\Throwable) {
-        }
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
     }
 
     protected function createPracticeNotification(?int $userId, ?string $targetRole, string $title, string $message, string $icon = 'bell', ?array $recipientIds = null, bool $showAsPopup = true): void
@@ -765,8 +768,7 @@ class PracticePreview extends Component
             }
             PracticeNotification::create($payload);
             $this->loadNotifications();
-        } catch (\Throwable) {
-        }
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
     }
 
     public function setSection(string $section): void
@@ -939,6 +941,8 @@ class PracticePreview extends Component
             default => $studentRows,
         };
 
+        $roleScopedRows = $rows;
+
         if ($this->section !== 'team' && trim($this->search) !== '') {
             $query = mb_strtolower(trim($this->search));
             $rows = array_values(array_filter(
@@ -1056,11 +1060,12 @@ class PracticePreview extends Component
                 }))
                 : $this->payrollRows);
 
-        // Filter team roster by Partner Unit when authenticated Partner/Manager
+        // Filter team roster by Partner Unit when authenticated Partner/Manager/Student
         $this->canManageTeam = $this->userCanManageTeam();
-        $filteredTeamMembers = Auth::check()
+        $unitScopedTeamMembers = Auth::check()
             ? array_values(array_filter($this->teamMembers, fn (array $m) => ($m['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit))
             : $this->teamMembers;
+        $filteredTeamMembers = $unitScopedTeamMembers;
 
         if ($this->teamFilter !== 'all') {
             $filteredTeamMembers = array_values(array_filter(
@@ -1094,7 +1099,7 @@ class PracticePreview extends Component
             'clientCostingSummary'   => $this->clientCostingSummary,
             'punctualityLeaderboard' => $this->punctualityLeaderboard,
             'rows'              => $rows,
-            'allRows'           => $studentRows,
+            'allRows'           => $roleScopedRows,
             'leaveQueue'        => $scopedLeaveQueue,
             'claimQueue'        => $scopedClaimQueue,
             'payrollRows'       => $scopedPayrollRows,
@@ -1105,7 +1110,7 @@ class PracticePreview extends Component
             'holidaysList'      => $this->holidaysList,
             'subscriptionAlert' => $this->subscriptionAlert,
             'teamMembers'       => $filteredTeamMembers,
-            'allTeamMembers'    => $this->teamMembers,
+            'allTeamMembers'    => $unitScopedTeamMembers,
             'availableManagers' => $this->availableManagers,
             'canManageTeam'     => $this->userCanManageTeam(),
             'canResetPasswords' => $this->userCanResetPasswords(),

@@ -62,6 +62,16 @@ class TenantLockdownTest extends TestCase
             ->set('firmSlug', 'firm-b');
     }
 
+    public function test_partner_unit_cannot_be_rewritten_directly_from_the_browser(): void
+    {
+        $this->actingAs($this->studentA);
+
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+
+        Livewire::test(PracticePreview::class, ['firmSlug' => 'firm-a'])
+            ->set('partnerUnit', 'Partner Unit 02');
+    }
+
     public function test_a_session_switched_to_another_firm_is_refused_on_the_next_request(): void
     {
         $this->actingAs($this->partnerA);

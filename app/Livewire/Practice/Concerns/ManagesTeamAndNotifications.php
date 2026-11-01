@@ -177,8 +177,7 @@ trait ManagesTeamAndNotifications
                         return;
                     }
                 }
-            } catch (\Throwable) {
-            }
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         $this->notificationsList = $baseline;
@@ -208,8 +207,7 @@ trait ManagesTeamAndNotifications
                     $this->notice = 'Notification marked as read.';
                     return;
                 }
-            } catch (\Throwable) {
-            }
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         if (! in_array($id, self::NOTIFICATION_IDS, true) && ! str_starts_with($id, 'db-note-custom-')) {
@@ -344,12 +342,24 @@ trait ManagesTeamAndNotifications
                     $dbUsers = User::with('manager')
                         ->where('firm_id', $firmModel->id)
                         ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
+                        ->when(Auth::check() && ! Auth::user()->isPlatformAdmin(), function ($q) {
+                            $actor = Auth::user();
+                            $unit = (! $actor->isPartner() && ! empty($actor->partner_unit))
+                                ? $actor->partner_unit
+                                : $this->partnerUnit;
+                            if (! empty($unit)) {
+                                $q->where(fn ($sub) => $sub->where('partner_unit', $unit)->orWhereNull('partner_unit'));
+                            }
+                        })
                         ->orderByRaw("CASE role WHEN 'partner' THEN 1 WHEN 'manager' THEN 2 WHEN 'student' THEN 3 ELSE 4 END")
                         ->orderBy('name')
                         ->get();
 
                     if ($dbUsers->isNotEmpty()) {
-                        $this->teamMembers = $dbUsers->map(function (User $u) {
+                        $isStudentViewer = Auth::check() && Auth::user()->isStudent();
+                        $viewerId = Auth::id();
+                        $this->teamMembers = $dbUsers->map(function (User $u) use ($isStudentViewer, $viewerId) {
+                            $redactSensitive = $isStudentViewer && (int) $u->id !== (int) $viewerId;
                             return [
                                 'id'                   => $u->id,
                                 'name'                 => $u->name,
@@ -363,8 +373,8 @@ trait ManagesTeamAndNotifications
                                 },
                                 'avatar_url'             => $u->avatar_url ?? null,
                                 'phone'                  => $u->phone ?: '—',
-                                'payment_account_mode'   => $u->payment_account_mode ?: 'bKash',
-                                'payment_account_no'     => $u->payment_account_no ?: '—',
+                                'payment_account_mode'   => $redactSensitive ? '—' : ($u->payment_account_mode ?: 'bKash'),
+                                'payment_account_no'     => $redactSensitive ? '—' : ($u->payment_account_no ?: '—'),
                                 'articleship_start_date' => $u->articleship_start_date?->format('Y-m-d') ?? ($u->role === 'student' ? '2026-03-10' : null),
                                 'articleship_end_date'   => $u->articleship_end_date?->format('Y-m-d') ?? ($u->role === 'student' ? '2029-03-09' : null),
                                 'articleship_period'     => $u->role === 'student'
@@ -374,7 +384,7 @@ trait ManagesTeamAndNotifications
                                 'partner_unit'         => $u->partner_unit ?? $this->partnerUnit,
                                 'manager_id'           => $u->manager_id,
                                 'manager_name'         => $u->manager?->name ?? '—',
-                                'monthly_allowance'    => (float) ($u->monthly_allowance ?? ($u->role === 'student' ? 6000 : ($u->role === 'manager' ? 25000 : 0))),
+                                'monthly_allowance'    => $redactSensitive ? 0.0 : (float) ($u->monthly_allowance ?? ($u->role === 'student' ? 6000 : ($u->role === 'manager' ? 25000 : 0))),
                                 'can_manage_team'          => (bool) $u->can_manage_team,
                                 'can_proxy_attendance'     => (bool) $u->can_proxy_attendance,
                                 'can_edit_attendance'      => (bool) $u->can_edit_attendance,
@@ -392,7 +402,7 @@ trait ManagesTeamAndNotifications
                         $this->teamMembers = [];
                         return;
                     }
-                } catch (\Throwable) {}
+                } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
             }
         }
 
@@ -574,10 +584,17 @@ trait ManagesTeamAndNotifications
         }
 
         $this->validate([
-            'newMemberName'  => 'required|string|min:2|max:120',
-            'newMemberEmail' => 'required|email|max:150',
-            'newMemberRole'  => 'required|in:partner,manager,student',
+            'newMemberName'     => 'required|string|min:2|max:120',
+            'newMemberEmail'    => 'required|email|max:150',
+            'newMemberRole'     => 'required|in:partner,manager,student',
+            'newMemberPassword' => 'nullable|string|min:8|max:120',
         ]);
+
+        $typedNewPassword = trim((string) $this->newMemberPassword);
+        if ($typedNewPassword !== '' && (! preg_match('/[A-Z]/', $typedNewPassword) || ! preg_match('/[0-9]/', $typedNewPassword))) {
+            $this->error = 'Custom password must be at least 8 characters and include an uppercase letter and a number (or leave blank to issue an activation link).';
+            return;
+        }
 
         if (! $this->canManageTargetRole($this->newMemberRole)) {
             $this->error = 'Security rule: Only a Partner can enroll Manager or Partner accounts.';
@@ -606,10 +623,10 @@ trait ManagesTeamAndNotifications
             $user->firm_id = $firmModel->id;
             $user->name = trim($this->newMemberName);
             $user->email = strtolower(trim($this->newMemberEmail));
-            $plainPassword = trim((string) $this->newMemberPassword) !== ''
-                ? trim($this->newMemberPassword)
-                : Str::password(10, true, true, false);
-            $user->password = Hash::make($plainPassword);
+            $initialSecret = $typedNewPassword !== ''
+                ? $typedNewPassword
+                : Str::password(16, true, true, true);
+            $user->password = Hash::make($initialSecret);
             $user->role = $this->newMemberRole;
             $user->partner_unit = $this->newMemberPartnerUnit ?: $this->partnerUnit;
             $user->monthly_allowance = (float) $this->newMemberMonthlyAllowance;
@@ -630,8 +647,9 @@ trait ManagesTeamAndNotifications
             if (Schema::hasColumn('users', 'is_active')) {
                 $user->is_active = true;
             }
+            $invitationToken = Str::random(48);
             if (Schema::hasColumn('users', 'invitation_token')) {
-                $user->invitation_token = null;
+                $user->invitation_token = $invitationToken;
                 $user->invitation_sent_at = now();
             }
             if ($this->newMemberRole === 'student' && Schema::hasColumn('users', 'articleship_start_date')) {
@@ -640,14 +658,14 @@ trait ManagesTeamAndNotifications
             }
             $user->save();
 
-            // Send direct login credentials (login link, username/email, and password).
-            $invitationSent = $this->sendInvitationEmail($user, (string) ($firmModel->name ?? 'Practice'), $plainPassword, false);
+            // Send one-time account activation link — never email or echo plaintext passwords.
+            $invitationSent = $this->sendInvitationEmail($user, (string) ($firmModel->name ?? 'Practice'), null, false, $invitationToken);
 
             $this->recordAuditLog('team', 'member_enrolled', "Enrolled {$user->name} ({$user->email}) as " . ucfirst($user->role) . '.', $user->email);
 
             $this->notice = $invitationSent
-                ? "Successfully enrolled {$user->name} as " . ucfirst($user->role) . " and emailed the login link, username ({$user->email}), and password ({$plainPassword}) to {$user->email}."
-                : "Enrolled {$user->name} as " . ucfirst($user->role) . " (Login: {$user->email} | Password: {$plainPassword}). The credentials email could not be sent — share the password securely.";
+                ? "Successfully enrolled {$user->name} as " . ucfirst($user->role) . " and emailed a one-time account activation link to {$user->email}."
+                : "Enrolled {$user->name} as " . ucfirst($user->role) . ". The invitation email could not be sent — please re-send the activation link once mail is configured.";
         } else {
             $newId = count($this->teamMembers) + 1;
             $managerName = '—';
@@ -783,14 +801,14 @@ trait ManagesTeamAndNotifications
         }
 
         $typedPassword = trim((string) $this->resetPasswordInput);
-        if ($typedPassword !== '' && strlen($typedPassword) < 6) {
-            $this->error = 'New password must be at least 6 characters long (or leave blank to auto-generate).';
+        if ($typedPassword !== '' && (strlen($typedPassword) < 8 || ! preg_match('/[A-Z]/', $typedPassword) || ! preg_match('/[0-9]/', $typedPassword))) {
+            $this->error = 'New password must be at least 8 characters long and include an uppercase letter and a number (or leave blank to issue a one-time reset link).';
             return;
         }
 
-        $plainPassword = $typedPassword !== ''
+        $nextSecret = $typedPassword !== ''
             ? $typedPassword
-            : Str::password(10, true, true, false);
+            : Str::password(16, true, true, true);
 
         $firmModel = $this->resolveFirmModel();
 
@@ -806,10 +824,12 @@ trait ManagesTeamAndNotifications
                 return;
             }
 
-            $user->password = Hash::make($plainPassword);
+            $resetToken = Str::random(48);
+            $user->password = Hash::make($nextSecret);
             $user->email_verified_at = $user->email_verified_at ?? now();
             if (Schema::hasColumn('users', 'invitation_token')) {
-                $user->invitation_token = null;
+                $user->invitation_token = $resetToken;
+                $user->invitation_sent_at = now();
             }
             $user->save();
 
@@ -817,23 +837,23 @@ trait ManagesTeamAndNotifications
                 DB::table('sessions')->where('user_id', $user->id)->delete();
             }
 
-            $emailSent = $this->sendInvitationEmail($user, (string) ($firmModel->name ?? 'Practice'), $plainPassword, true);
+            $emailSent = $this->sendInvitationEmail($user, (string) ($firmModel->name ?? 'Practice'), null, true, $resetToken);
 
             $this->recordAuditLog(
                 'team',
                 'member_password_reset',
-                ucfirst($this->previewRole) . " reset password for {$user->name} ({$user->email}) and dispatched new credentials email.",
+                ucfirst($this->previewRole) . " initiated password reset for {$user->name} ({$user->email}) and dispatched one-time reset link.",
                 $user->email
             );
 
             $this->notice = $emailSent
-                ? "Password reset for {$user->name} ({$user->email}). New password ({$plainPassword}) and login link have been emailed to {$user->email}."
-                : "Password reset for {$user->name} ({$user->email}) to: {$plainPassword} (Email delivery unavailable — please share this password with the member).";
+                ? "Password reset initiated for {$user->name} ({$user->email}). A one-time password setup link has been emailed to {$user->email}."
+                : "Password reset initiated for {$user->name} ({$user->email}). Email delivery unavailable — please verify mail settings.";
         } else {
             $member = collect($this->teamMembers)->firstWhere('id', $targetId);
             $mName = $member['name'] ?? ('Member #' . $targetId);
             $mEmail = $member['email'] ?? 'member@practice.com';
-            $this->notice = "Password reset for {$mName} ({$mEmail}). New password ({$plainPassword}) sent to {$mEmail}.";
+            $this->notice = "Password reset initiated for {$mName} ({$mEmail}). A one-time reset link has been sent to {$mEmail}.";
         }
 
         $this->resetPasswordInput = '';
@@ -1163,15 +1183,16 @@ trait ManagesTeamAndNotifications
      * Returns false when delivery fails so the caller can fall back to showing
      * the password on screen.
      */
-    protected function sendInvitationEmail(User $user, string $firmName, ?string $plainPassword = null, bool $isPasswordReset = false): bool
+    protected function sendInvitationEmail(User $user, string $firmName, ?string $plainPassword = null, bool $isPasswordReset = false, ?string $invitationToken = null): bool
     {
         try {
             Mail::to($user->email)->send(new TeamInvitationMail(
                 member: $user,
                 firmName: $firmName,
                 firmSlug: $this->firmSlug,
-                plainPassword: $plainPassword,
+                plainPassword: null,
                 isPasswordReset: $isPasswordReset,
+                invitationToken: $invitationToken ?? $user->invitation_token,
             ));
 
             return true;

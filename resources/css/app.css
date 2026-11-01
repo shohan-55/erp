@@ -2,7 +2,6 @@
 
 @source '../../resources/views/**/*.blade.php';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
 
 /* ==========================================================================
    RA&C ERP SaaS - Official Design Tokens & System

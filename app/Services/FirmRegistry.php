@@ -93,8 +93,7 @@ class FirmRegistry
                 }
                 return null;
             }
-        } catch (\Throwable) {
-        }
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
 
         if (app()->runningUnitTests()) {
             return self::$fallbackFirms[$normalized] ?? null;
@@ -116,8 +115,7 @@ class FirmRegistry
                     ->where('status', 'active')
                     ->exists();
             }
-        } catch (\Throwable) {
-        }
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
 
         if (app()->runningUnitTests()) {
             return isset(self::$fallbackFirms[$normalized]);
@@ -139,8 +137,7 @@ class FirmRegistry
                     ->map(fn (Firm $firm) => self::toArray($firm))
                     ->all();
             }
-        } catch (\Throwable) {
-        }
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
 
         if (app()->runningUnitTests()) {
             return self::$fallbackFirms;
@@ -210,8 +207,7 @@ class FirmRegistry
                     return self::toArray($firm);
                 }
             }
-        } catch (\Throwable) {
-        }
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
 
         return null;
     }

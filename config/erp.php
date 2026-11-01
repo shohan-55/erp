@@ -21,6 +21,10 @@ return [
     |
     */
 
-    'allow_test_logins' => (bool) env('ERP_ALLOW_TEST_LOGINS', false),
+    'allow_test_logins' => env('APP_ENV') === 'production' ? false : (bool) env('ERP_ALLOW_TEST_LOGINS', false),
+
+    'require_platform_2fa' => (bool) env('ERP_REQUIRE_PLATFORM_2FA', false),
+
+    'backup_disk' => env('ERP_BACKUP_DISK', 'local'),
 
 ];

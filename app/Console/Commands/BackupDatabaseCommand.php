@@ -14,11 +14,11 @@ class BackupDatabaseCommand extends Command
      * Credential columns are deliberately excluded: a backup file must not be
      * a ready-made password dump. A restore resets these values instead.
      */
-    protected const SECRET_COLUMNS = ['password', 'remember_token', 'invitation_token'];
+    protected const SECRET_COLUMNS = ['password', 'remember_token', 'invitation_token', 'two_factor_secret', 'two_factor_recovery_codes'];
 
-    protected $signature = 'erp:backup {--keep=14 : Number of days of backups to retain}';
+    protected $signature = 'erp:backup {--keep=14 : Number of days of backups to retain} {--disk= : Storage disk override}';
 
-    protected $description = 'Write a JSON snapshot of every tenant table to storage/app/private/backups/db and prune old snapshots';
+    protected $description = 'Write a chunk-streamed JSON snapshot of every tenant table to backups/db and prune old snapshots';
 
     public function handle(): int
     {
@@ -37,55 +37,96 @@ class BackupDatabaseCommand extends Command
             'audit_logs',
         ];
 
-        $payload = [
-            'generated_at' => now()->toIso8601String(),
-            'application'  => config('app.name'),
-            'environment'  => app()->environment(),
-            'tables'       => [],
-        ];
+        $disk = (string) ($this->option('disk') ?: config('erp.backup_disk', 'local'));
+        $tempFile = tempnam(sys_get_temp_dir(), 'erp_backup_');
+        if ($tempFile === false) {
+            $this->error('Could not allocate temporary file for backup stream.');
+            return self::FAILURE;
+        }
+
+        $fh = fopen($tempFile, 'wb');
+        if ($fh === false) {
+            @unlink($tempFile);
+            $this->error('Could not open temporary backup stream.');
+            return self::FAILURE;
+        }
+
+        $exportedTables = 0;
 
         try {
-            foreach ($tables as $table) {
-                if (! Schema::hasTable($table)) {
-                    continue;
-                }
+            fwrite($fh, "{\n");
+            fwrite($fh, '  "generated_at": ' . json_encode(now()->toIso8601String()) . ",\n");
+            fwrite($fh, '  "application": ' . json_encode(config('app.name')) . ",\n");
+            fwrite($fh, '  "environment": ' . json_encode(app()->environment()) . ",\n");
+            fwrite($fh, "  \"tables\": {\n");
 
-                $rows = DB::table($table)->get()->map(function ($row) use ($table) {
-                    $row = (array) $row;
+            $presentTables = array_values(array_filter($tables, fn (string $t) => Schema::hasTable($t)));
+            $tableCount = count($presentTables);
 
+            foreach ($presentTables as $tIdx => $table) {
+                fwrite($fh, '    ' . json_encode($table) . ": [");
+                $firstRow = true;
+
+                $query = DB::table($table);
+                $sanitizeRow = function ($row) use ($table): array {
+                    $arr = (array) $row;
                     if ($table === 'users') {
                         foreach (self::SECRET_COLUMNS as $column) {
-                            if (array_key_exists($column, $row)) {
-                                $row[$column] = null;
+                            if (array_key_exists($column, $arr)) {
+                                $arr[$column] = null;
                             }
                         }
                     }
+                    return $arr;
+                };
 
-                    return $row;
-                })->all();
+                if (Schema::hasColumn($table, 'id')) {
+                    $query->orderBy('id')->chunk(500, function ($rows) use ($fh, &$firstRow, $sanitizeRow) {
+                        foreach ($rows as $row) {
+                            fwrite($fh, ($firstRow ? "\n      " : ",\n      ") . json_encode($sanitizeRow($row), JSON_UNESCAPED_UNICODE));
+                            $firstRow = false;
+                        }
+                    });
+                } else {
+                    foreach ($query->cursor() as $row) {
+                        fwrite($fh, ($firstRow ? "\n      " : ",\n      ") . json_encode($sanitizeRow($row), JSON_UNESCAPED_UNICODE));
+                        $firstRow = false;
+                    }
+                }
 
-                $payload['tables'][$table] = $rows;
+                $comma = ($tIdx < $tableCount - 1) ? ',' : '';
+                fwrite($fh, ($firstRow ? "]" : "\n    ]") . $comma . "\n");
+                $exportedTables++;
             }
+
+            fwrite($fh, "  }\n}\n");
+            fclose($fh);
+            $fh = null;
         } catch (\Throwable $e) {
-            Log::error('erp:backup failed while reading tables: ' . $e->getMessage());
+            if (is_resource($fh)) {
+                fclose($fh);
+            }
+            @unlink($tempFile);
+            Log::error('erp:backup failed while streaming tables: ' . $e->getMessage());
             $this->error('Backup failed: ' . $e->getMessage());
 
             return self::FAILURE;
         }
 
         $path = 'backups/db/erp-' . now()->format('Y_m_d_His') . '.json';
-        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        $contents = file_get_contents($tempFile);
+        @unlink($tempFile);
 
-        if ($json === false || ! Storage::disk('local')->put($path, $json)) {
+        if ($contents === false || ! Storage::disk($disk)->put($path, $contents)) {
             Log::error('erp:backup could not write ' . $path);
             $this->error('Backup could not be written to ' . $path);
 
             return self::FAILURE;
         }
 
-        $removed = $this->pruneOldBackups((int) $this->option('keep'));
+        $removed = $this->pruneOldBackups($disk, (int) $this->option('keep'));
 
-        $this->info("Backup written: storage/app/private/{$path} (" . count($payload['tables']) . ' tables)');
+        $this->info("Backup written: {$path} ({$exportedTables} tables)");
         if ($removed > 0) {
             $this->line("Pruned {$removed} backup(s) older than {$this->option('keep')} days.");
         }
@@ -93,16 +134,16 @@ class BackupDatabaseCommand extends Command
         return self::SUCCESS;
     }
 
-    protected function pruneOldBackups(int $keepDays): int
+    protected function pruneOldBackups(string $disk, int $keepDays): int
     {
         $keepDays = max(1, $keepDays);
         $threshold = now()->subDays($keepDays)->getTimestamp();
         $removed = 0;
 
         try {
-            foreach (Storage::disk('local')->files('backups/db') as $file) {
-                if (Storage::disk('local')->lastModified($file) < $threshold) {
-                    Storage::disk('local')->delete($file);
+            foreach (Storage::disk($disk)->files('backups/db') as $file) {
+                if (Storage::disk($disk)->lastModified($file) < $threshold) {
+                    Storage::disk($disk)->delete($file);
                     $removed++;
                 }
             }

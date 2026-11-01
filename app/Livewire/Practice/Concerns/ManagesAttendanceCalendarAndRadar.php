@@ -1234,8 +1234,7 @@ trait ManagesAttendanceCalendarAndRadar
                             'can_approve_claims'   => $this->managerCanApproveClaims,
                         ]);
                 }
-            } catch (\Throwable) {
-            }
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         $this->persistAttendanceRows();

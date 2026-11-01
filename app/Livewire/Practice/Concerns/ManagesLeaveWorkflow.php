@@ -37,6 +37,41 @@ trait ManagesLeaveWorkflow
                         $userIds = DB::table('users')->where('firm_id', $firmModel->id)->pluck('id')->all();
                         $leavesQuery->whereIn('user_id', $userIds);
                     }
+
+                    // Partner-unit & role read isolation at query level so other units'
+                    // leave requests are never serialized into Livewire state.
+                    if (Auth::check() && ! Auth::user()->isPlatformAdmin()) {
+                        /** @var User $actor */
+                        $actor = Auth::user();
+                        if ($actor->isStudent()) {
+                            $leavesQuery->where('user_id', $actor->id);
+                        } elseif ($actor->isManager()) {
+                            $unit = $actor->partner_unit ?: $this->partnerUnit;
+                            $unitUserIds = User::where('firm_id', $firmModel->id)
+                                ->where(function ($q) use ($actor, $unit) {
+                                    $q->where('manager_id', $actor->id)
+                                        ->orWhere('partner_unit', $unit);
+                                })
+                                ->pluck('id')
+                                ->all();
+                            $leavesQuery->where(function ($q) use ($actor, $unitUserIds) {
+                                $q->whereIn('user_id', $unitUserIds);
+                                if (Schema::hasColumn('leave_requests', 'engaged_manager_id')) {
+                                    $q->orWhere('engaged_manager_id', $actor->id);
+                                }
+                            });
+                        } elseif ($actor->isPartner() && count($this->availablePartnerUnits) > 1 && ! empty($this->partnerUnit)) {
+                            $unitUserIds = User::where('firm_id', $firmModel->id)
+                                ->where(function ($q) {
+                                    $q->where('partner_unit', $this->partnerUnit)
+                                        ->orWhereNull('partner_unit');
+                                })
+                                ->pluck('id')
+                                ->all();
+                            $leavesQuery->whereIn('user_id', $unitUserIds);
+                        }
+                    }
+
                     $dbLeaves = $leavesQuery->orderByDesc('id')->get();
                     if ($dbLeaves->isNotEmpty()) {
                         $this->leaveQueue = $dbLeaves->map(function (LeaveRequest $lr) {
@@ -183,7 +218,7 @@ trait ManagesLeaveWorkflow
                         ];
                     }
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         foreach ($this->leaveQueue as $existing) {
@@ -402,7 +437,7 @@ trait ManagesLeaveWorkflow
                     ]);
                     return;
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         $newId = 'LR-' . (count($this->leaveQueue) + 101);
@@ -508,7 +543,7 @@ trait ManagesLeaveWorkflow
                     $this->recordAuditLog('leave', 'leave_partial_approval', ucfirst($this->previewRole) . " partially approved {$this->partialApprovedDays}/{$this->partialRequestedDays} days for leave {$id} ({$summary}).", $id);
                     $this->createPracticeNotification($lr->user_id, 'student', 'Partial Leave Decision', "Your leave request ({$id}) was updated: {$this->partialApprovedDays} of {$this->partialRequestedDays} days approved ({$summary}).", 'calendar-days');
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         foreach ($this->leaveQueue as &$req) {
@@ -574,7 +609,7 @@ trait ManagesLeaveWorkflow
                     $this->recordAuditLog('leave', 'leave_recommended', "Manager recommended leave {$id} for Partner sanction.", $id);
                     $this->createPracticeNotification(null, 'partner', "Leave Forwarded for Partner Approval ({$id})", "Manager verified and recommended leave request {$id} for final Partner sanction.", 'calendar-days');
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         foreach ($this->leaveQueue as &$req) {
@@ -607,6 +642,9 @@ trait ManagesLeaveWorkflow
                     $query->where('firm_id', $firmModel->id);
                 }
                 $lr = $query->first();
+                if ($lr && ! $this->guardUserScope(User::find($lr->user_id), 'approve leave for')) {
+                    return;
+                }
                 if ($lr) {
                     $lr->status = 'approved';
                     if (Schema::hasColumn('leave_requests', 'approved_days') && ! $lr->approved_days) {
@@ -625,7 +663,7 @@ trait ManagesLeaveWorkflow
                         "Dear Practice Member,\n\nYour leave application ({$id}) has been approved by the Partner.\nRemarks: {$lr->partner_remarks}\n\n— " . ($this->firm['name'] ?? 'DhakaWala ERP')
                     );
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         foreach ($this->leaveQueue as &$req) {
@@ -669,7 +707,7 @@ trait ManagesLeaveWorkflow
                     $this->recordAuditLog('leave', 'leave_rejected', ucfirst($this->previewRole) . " rejected leave {$id}: {$lr->partner_remarks}", $id);
                     $this->createPracticeNotification($lr->user_id, 'student', 'Leave Application Rejected', "Your leave request ({$id}) was not approved: {$lr->partner_remarks}", 'calendar-days');
                 }
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
         }
 
         foreach ($this->leaveQueue as &$req) {

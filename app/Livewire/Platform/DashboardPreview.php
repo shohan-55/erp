@@ -151,7 +151,7 @@ class DashboardPreview extends Component
             return;
         }
 
-        if (config('app.demo_mode', false) || app()->runningUnitTests()) {
+        if (! app()->environment('production') && (config('app.demo_mode', false) || app()->runningUnitTests())) {
             return;
         }
 
@@ -378,8 +378,7 @@ class DashboardPreview extends Component
                     'status'   => $log->created_at?->format('d M Y, h:i A') ?? 'Recorded',
                 ])->toArray();
             }
-        } catch (\Throwable) {
-        }
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
     }
 
     protected function loadPlatformOperators(): void
@@ -397,8 +396,7 @@ class DashboardPreview extends Component
                         'created_at' => $u->created_at?->format('d M Y') ?? 'Active',
                     ])->toArray();
             }
-        } catch (\Throwable) {
-        }
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
     }
 
     protected function loadPlatformAuditLogs(): void
@@ -421,8 +419,7 @@ class DashboardPreview extends Component
                         'time'       => $log->created_at?->format('d M Y H:i') ?? 'Recent',
                     ])->toArray();
             }
-        } catch (\Throwable) {
-        }
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
     }
 
     protected function loadSelectedFirmRoster(string $slug): void
@@ -482,8 +479,7 @@ class DashboardPreview extends Component
                     $this->newAddPartnerUnit = sprintf('Partner Unit %02d', $nextUnitNum);
                 }
             }
-        } catch (\Throwable) {
-        }
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
     }
 
     public function setSection(string $section): void
@@ -556,7 +552,7 @@ class DashboardPreview extends Component
                             }
                         }
                     }
-                } catch (\Throwable) {}
+                } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
                 return;
             }
         }
@@ -1618,7 +1614,7 @@ class DashboardPreview extends Component
                     ]);
                 }
             }
-        } catch (\Throwable) {}
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
 
         $this->redirect(route('firm.practice.dashboard', ['firmSlug' => $cleanSlug, 'section' => 'dashboard']));
     }
@@ -1667,8 +1663,7 @@ class DashboardPreview extends Component
                     $this->previewNotice = "Subscription marked DUE and popup billing reminder sent to {$firm->name}.";
                 }
             }
-        } catch (\Throwable) {
-        }
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
     }
 
     /**

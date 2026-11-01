@@ -168,6 +168,20 @@ class TwoFactorAuthenticationTest extends TestCase
         $this->assertTrue(Auth::check());
     }
 
+    public function test_platform_admin_login_is_blocked_when_platform_2fa_is_enforced_and_not_enrolled(): void
+    {
+        config(['erp.require_platform_2fa' => true]);
+        $this->makeUser(['email' => 'unenrolled-admin@rac.com']);
+
+        $component = Livewire::test(PlatformLogin::class)
+            ->set('email', 'unenrolled-admin@rac.com')
+            ->set('password', 'Secret123!')
+            ->call('submitLogin');
+
+        $this->assertNotNull($component->get('validationError'));
+        $this->assertFalse(Auth::check());
+    }
+
     public function test_an_enrolled_account_cannot_sign_in_without_a_code(): void
     {
         $user = $this->makeUser(['email' => 'secure@rac.com']);

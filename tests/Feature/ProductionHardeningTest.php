@@ -340,6 +340,64 @@ class ProductionHardeningTest extends TestCase
         $response->assertJsonPath('checks.storage', true);
     }
 
+    public function test_health_endpoint_reports_degraded_when_scheduler_is_required_and_stale(): void
+    {
+        config(['erp.require_scheduler_health' => true]);
+
+        $response = $this->getJson('/health');
+
+        $response->assertStatus(503);
+        $response->assertJsonPath('status', 'degraded');
+        $response->assertJsonPath('checks.scheduler', false);
+    }
+
+    public function test_manager_cannot_switch_partner_unit_or_read_other_unit_queues(): void
+    {
+        $otherLeave = LeaveRequest::create([
+            'firm_id'        => $this->firm->id,
+            'user_id'        => $this->otherUnitStudent->id,
+            'leave_type'     => 'annual',
+            'start_date'     => '2026-11-05',
+            'end_date'       => '2026-11-06',
+            'reason'         => 'Other unit confidential leave',
+            'status'         => 'pending_manager',
+            'requested_days' => 2,
+        ]);
+
+        $otherClaim = ConveyanceClaim::create([
+            'firm_id'         => $this->firm->id,
+            'user_id'         => $this->otherUnitStudent->id,
+            'claim_date'      => '2026-11-05',
+            'amount'          => 450.00,
+            'original_amount' => 450.00,
+            'route'           => 'Other Unit Route',
+            'purpose'         => 'Other Unit Audit',
+            'status'          => 'pending_manager',
+        ]);
+
+        $this->actingAs($this->manager);
+
+        $component = Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'manager',
+            'section'     => 'leave',
+        ]);
+
+        // Manager cannot switch partner unit via setPartnerUnit()
+        $component->call('setPartnerUnit', 'Partner Unit 02')
+            ->assertSet('partnerUnit', 'Partner Unit 01')
+            ->assertNotSet('error', null);
+
+        // Other unit's leave, claim, and team records are excluded from Livewire state
+        $leaveIds = collect($component->get('leaveQueue'))->pluck('db_id')->all();
+        $claimIds = collect($component->get('claimQueue'))->pluck('db_id')->all();
+        $teamIds  = collect($component->get('teamMembers'))->pluck('id')->all();
+
+        $this->assertNotContains($otherLeave->id, $leaveIds);
+        $this->assertNotContains($otherClaim->id, $claimIds);
+        $this->assertNotContains($this->otherUnitStudent->id, $teamIds);
+    }
+
     // ─── Payroll arithmetic ────────────────────────────────────────────────
 
     public function test_payroll_draft_counts_only_attendance_inside_the_period(): void

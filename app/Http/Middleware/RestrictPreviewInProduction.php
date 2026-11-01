@@ -54,9 +54,12 @@ class RestrictPreviewInProduction
      */
     protected function demoModeIsAllowed(): bool
     {
-        // Deliberately NOT keyed on APP_ENV: a mistyped or copied APP_ENV=local
-        // must never be enough to expose anonymous, writable previews. Local
-        // developers opt in with ERP_DEMO_MODE=true.
+        // Production hard-block: even if ERP_DEMO_MODE=true is accidentally set
+        // in a production .env, anonymous preview access is never permitted.
+        if (app()->environment('production')) {
+            return false;
+        }
+
         return (bool) config('app.demo_mode', false)
             || app()->runningUnitTests();
     }

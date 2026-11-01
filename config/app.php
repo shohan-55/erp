@@ -81,7 +81,7 @@ return [
     |
     */
 
-    'demo_mode' => (bool) env('ERP_DEMO_MODE', false),
+    'demo_mode' => env('APP_ENV') === 'production' ? false : (bool) env('ERP_DEMO_MODE', false),
 
     /*
     |--------------------------------------------------------------------------

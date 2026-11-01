@@ -33,9 +33,10 @@ trait ManagesUnitScope
         }
 
         if (! Auth::check()) {
-            // Design preview: no real identity, and previews are already gated
-            // behind ERP_DEMO_MODE, so don't invent a second gate here.
-            return true;
+            // Never allow unauthenticated callers to mutate real database rows
+            // in production or demo mode; only the automated test runner may
+            // exercise unauthenticated preview simulations.
+            return ! app()->environment('production') && app()->runningUnitTests();
         }
 
         /** @var User $actor */

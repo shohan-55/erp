@@ -206,7 +206,7 @@ class Firm extends Model
                     }
                 });
             }
-        } catch (\Throwable) {}
+        } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
     }
 
     public static function colorPalettes(): array
