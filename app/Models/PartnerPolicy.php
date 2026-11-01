@@ -52,11 +52,16 @@ class PartnerPolicy extends Model
     public static function defaultManagerPermissions(): array
     {
         return [
-            'proxy_attendance'    => true,
-            'edit_attendance'     => true,
-            'review_leave'        => true,
-            'review_claims'       => true,
-            'view_team_reports'   => true,
+            'proxy_attendance'     => true,
+            'edit_attendance'      => true,
+            'review_leave'         => true,
+            'review_claims'        => true,
+            'view_team_reports'    => true,
+            'manage_policies'      => false,
+            'manage_payroll'       => false,
+            'final_approve_leave'  => false,
+            'final_approve_claims' => false,
+            'shared_attendance_pool' => true,
         ];
     }
 

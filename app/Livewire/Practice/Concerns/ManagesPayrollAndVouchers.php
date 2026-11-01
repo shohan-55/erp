@@ -170,6 +170,9 @@ trait ManagesPayrollAndVouchers
                                 'holiday_absent_days'      => $holidayAbsentDays,
                                 'holiday_absent_deduction' => $holidayDed,
                                 'adjustment'               => $adjustment,
+                                'phone'                    => $s->phone ?? '',
+                                'email'                    => $s->email ?? '',
+                                'payment_mode_raw'         => $s->payment_account_mode ?: 'bKash',
                                 'payment_method'           => ($s->payment_account_mode && $s->payment_account_no)
                                     ? ($s->payment_account_mode . ' (' . $s->payment_account_no . ')')
                                     : ($rec?->payment_method ?: $this->selectedPaymentMethod),
@@ -339,8 +342,8 @@ trait ManagesPayrollAndVouchers
             return;
         }
 
-        if (in_array($targetStatus, ['approved', 'paid', 'locked'], true) && $this->previewRole !== 'partner') {
-            $this->error = 'Only a Partner can approve, mark paid, or lock the monthly payroll ledger.';
+        if (in_array($targetStatus, ['approved', 'paid', 'locked'], true) && ! $this->userCanManagePayroll()) {
+            $this->error = 'Only a Partner or an authorized Manager (with Payroll Governance permission) can approve, mark paid, or lock the monthly payroll ledger.';
             return;
         }
 
@@ -433,12 +436,102 @@ trait ManagesPayrollAndVouchers
     }
 
     /**
-     * Download Printable Payment Voucher / Payslip for a single student or all students (#3).
+     * Export Ready-to-Upload bKash / Nagad / Bank Disbursement Sheet (CSV).
+     */
+    public function exportDisbursementSheetCsv()
+    {
+        $this->loadPayrollRows();
+        $filename = 'bKash_Bank_Disbursement_Sheet_' . $this->firmSlug . '_' . $this->period . '.csv';
+        $columns = [
+            'SL',
+            'Voucher No',
+            'Student Code',
+            'Beneficiary Name',
+            'Payment Mode (bKash/Nagad/Bank)',
+            'Wallet / Account Number',
+            'Mobile Phone',
+            'Partner Unit',
+            'Base Stipend (BDT)',
+            'Approved Conveyance (BDT)',
+            'Deductions (BDT)',
+            'Net Disbursement Amount (BDT)',
+            'Payment Status',
+            'Remarks / Narration',
+        ];
+
+        $rowsToExport = $this->payrollRows;
+        $period = $this->period;
+        $firmShort = $this->firm['short_code'] ?? strtoupper($this->firmSlug);
+
+        return response()->streamDownload(function () use ($columns, $rowsToExport, $period, $firmShort) {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+            fputcsv($handle, $columns);
+
+            $sl = 1;
+            $totalNet = 0.0;
+            foreach ($rowsToExport as $row) {
+                $net = (float) ($row['net_payable'] ?? 0);
+                $totalNet += $net;
+                $code = $row['id'] ?? '';
+                $vNo = $row['voucher_no'] ?? ('VCH-' . str_replace('-', '', $period) . '-' . $code);
+                $modeRaw = $row['payment_mode_raw'] ?? ($this->selectedPaymentMethod ?: 'bKash');
+                $acctNo = !empty($row['payment_account_no']) ? $row['payment_account_no'] : 'Not Set';
+
+                fputcsv($handle, CsvSafe::row([
+                    $sl++,
+                    $vNo,
+                    $code,
+                    $row['name'] ?? '',
+                    $modeRaw,
+                    $acctNo,
+                    $row['phone'] ?? '',
+                    $row['partner_unit'] ?? '',
+                    number_format((float) ($row['base_allowance'] ?? 0), 2, '.', ''),
+                    number_format((float) ($row['approved_conveyance'] ?? 0), 2, '.', ''),
+                    number_format((float) ($row['adjustment'] ?? 0), 2, '.', ''),
+                    number_format($net, 2, '.', ''),
+                    strtoupper($row['status'] ?? 'draft'),
+                    "{$firmShort} Stipend & Conveyance {$period} ({$code})",
+                ]));
+            }
+
+            // Summary Footer Row
+            fputcsv($handle, CsvSafe::row([
+                '',
+                '',
+                '',
+                'TOTAL DISBURSEMENT',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+                number_format($totalNet, 2, '.', ''),
+                '',
+                'Total Beneficiaries: ' . count($rowsToExport),
+            ]));
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
+     * Download Printable & 1-Click PDF Payment Voucher / Payslip with Official Letterhead (#3).
      */
     public function exportStudentPayrollVoucher(?string $studentCode = null)
     {
         $this->loadPayrollRows();
         $firmName = $this->firm['name'] ?? 'Chartered Accountants Practice';
+        $firmDesig = $this->firm['designation'] ?? 'Chartered Accountants';
+        $firmOffice = $this->firm['office'] ?? 'Dhaka, Bangladesh';
+        $firmEmail = $this->firm['support_email'] ?? '';
+        $primaryHex = $this->firm['primary_color'] ?? '#0D9488';
+        $initials = strtoupper($this->firm['initials'] ?? 'CA');
         $period = $this->period;
         $paymentMode = $this->selectedPaymentMethod ?: 'bKash / Bank';
 
@@ -450,30 +543,35 @@ trait ManagesPayrollAndVouchers
             $vouchers = [$this->payrollRows[0]];
         }
 
-        $filename = ($studentCode ? "Payment_Voucher_{$studentCode}_" : "All_Payment_Vouchers_") . $this->firmSlug . "_{$period}.html";
+        $baseName = ($studentCode ? "Payment_Voucher_{$studentCode}_" : "All_Payment_Vouchers_") . $this->firmSlug . "_{$period}";
+        $filename = $baseName . ".html";
+        $pdfFilename = $baseName . ".pdf";
 
-        return response()->streamDownload(function () use ($firmName, $period, $paymentMode, $vouchers) {
-            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>" . htmlspecialchars($firmName, ENT_QUOTES) . " - Monthly Allowance Voucher</title>";
-            echo "<style>body{font-family:Arial,sans-serif;margin:20px;color:#111}.voucher{border:2px solid #17191F;border-radius:8px;padding:20px;margin-bottom:28px;page-break-inside:avoid}.hdr{display:flex;justify-content:space-between;border-bottom:2px solid #eee;padding-bottom:10px;margin-bottom:12px}table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f8f8fa}.sig{margin-top:36px;display:flex;justify-content:space-between;font-size:11px}@media print{.no-print{display:none}}</style>";
-            echo "</head><body onload='window.print()'>";
-            echo "<div class='no-print' style='margin-bottom:14px'><button onclick='window.print()' style='padding:8px 16px;font-weight:bold;cursor:pointer'>Print / Save Voucher PDF</button></div>";
+        return response()->streamDownload(function () use ($firmName, $firmDesig, $firmOffice, $firmEmail, $primaryHex, $initials, $period, $paymentMode, $vouchers, $pdfFilename) {
+            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>" . htmlspecialchars($firmName, ENT_QUOTES) . " - Official Payment Voucher</title>";
+            echo "<script src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'></script>";
+            echo "<style>body{font-family:'Segoe UI',Arial,sans-serif;margin:20px auto;max-width:820px;color:#0f172a;background:#f8fafc}.toolbar{display:flex;justify-content:space-between;align-items:center;background:#17191F;color:#fff;padding:12px 18px;border-radius:12px;margin-bottom:20px}.btn{padding:8px 16px;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer;border:none;margin-left:8px}.btn-pdf{background:#FCDF02;color:#17191F}.btn-print{background:#ffffff;color:#17191F}.voucher{background:#fff;border:2px solid {$primaryHex};border-radius:12px;padding:24px;margin-bottom:28px;page-break-inside:avoid;box-shadow:0 4px 12px rgba(0,0,0,0.05)}.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid {$primaryHex};padding-bottom:14px;margin-bottom:14px}.brand{display:flex;align-items:center;gap:12px}.seal{width:46px;height:46px;border-radius:10px;background:{$primaryHex};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px}table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}th,td{border:1px solid #cbd5e1;padding:9px 10px;text-align:left}th{background:#f1f5f9;font-weight:800}.sig{margin-top:42px;display:flex;justify-content:space-between;font-size:11px;text-align:center}@media print{.no-print{display:none!important}body{background:#fff;margin:0}}</style>";
+            echo "<script>function downloadDirectPdf(){var el=document.getElementById('pdf-content');var btn=document.getElementById('dl-btn');if(btn)btn.innerText='Generating PDF...';if(window.html2pdf){html2pdf().set({margin:8,filename:'" . addslashes($pdfFilename) . "',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(el).save().then(function(){if(btn)btn.innerText='⬇ Download Official PDF';});}else{window.print();}}</script>";
+            echo "</head><body onload='setTimeout(function(){if(window.html2pdf){downloadDirectPdf();}else{window.print();}}, 350)'>";
+            echo "<div class='toolbar no-print'><div><strong>" . htmlspecialchars($firmName) . "</strong> · Official Voucher Generator</div><div><button id='dl-btn' onclick='downloadDirectPdf()' class='btn btn-pdf'>⬇ Download Official PDF</button><button onclick='window.print()' class='btn btn-print'>🖨 Print Voucher</button></div></div>";
+            echo "<div id='pdf-content'>";
             foreach ($vouchers as $v) {
                 $vNo = $v['voucher_no'] ?? ('VCH-' . str_replace('-', '', $period) . '-' . ($v['id'] ?? '101'));
                 $mode = $v['payment_method'] ?? $paymentMode;
                 echo "<div class='voucher'>";
-                echo "<div class='hdr'><div><h2 style='margin:0;font-size:18px'>" . htmlspecialchars($firmName) . "</h2><p style='margin:3px 0;font-size:11px;color:#555'>Official Monthly Articled Student Stipend &amp; Conveyance Voucher</p></div>";
-                echo "<div style='text-align:right;font-size:11px'><strong>Voucher No:</strong> " . htmlspecialchars($vNo) . "<br><strong>Period:</strong> {$period}<br><strong>Payment Mode:</strong> " . htmlspecialchars($mode) . "</div></div>";
-                echo "<p style='font-size:12px;margin:4px 0'><strong>Student Name:</strong> " . htmlspecialchars($v['name'] ?? '') . " (" . htmlspecialchars($v['id'] ?? '') . ") &nbsp;|&nbsp; <strong>Unit:</strong> " . htmlspecialchars($v['partner_unit'] ?? '') . " &nbsp;|&nbsp; <strong>Manager:</strong> " . htmlspecialchars($v['manager'] ?? '') . "</p>";
-                echo "<table><thead><tr><th>Description</th><th>Details</th><th style='text-align:right'>Amount (BDT)</th></tr></thead><tbody>";
-                echo "<tr><td>Monthly Base Stipend / Allowance</td><td>ICAB Standard Scale</td><td style='text-align:right'>৳ " . number_format((float) ($v['base_allowance'] ?? 0), 2) . "</td></tr>";
-                echo "<tr><td>Approved Conveyance Claims</td><td>Audit Client Travel Reimbursement</td><td style='text-align:right'>+ ৳ " . number_format((float) ($v['approved_conveyance'] ?? 0), 2) . "</td></tr>";
-                echo "<tr><td>Attendance / Late / Mandatory Holiday Absent Deduction</td><td>Late Days: " . (int) ($v['late_days'] ?? 0) . " | Mandatory Open Holiday Absent: " . (int) ($v['holiday_absent_days'] ?? 0) . "</td><td style='text-align:right;color:#b91c1c'>- ৳ " . number_format((float) ($v['adjustment'] ?? 0), 2) . "</td></tr>";
-                echo "<tr><th colspan='2' style='text-align:right'>NET PAYABLE AMOUNT</th><th style='text-align:right;font-size:14px'>৳ " . number_format((float) ($v['net_payable'] ?? 0), 2) . "</th></tr>";
+                echo "<div class='hdr'><div class='brand'><div class='seal'>" . htmlspecialchars($initials) . "</div><div><h2 style='margin:0;font-size:19px;color:{$primaryHex}'>" . htmlspecialchars($firmName) . "</h2><p style='margin:2px 0;font-size:11px;color:#475569;font-weight:bold'>" . htmlspecialchars($firmDesig) . " • " . htmlspecialchars($firmOffice) . ($firmEmail ? ' • ' . htmlspecialchars($firmEmail) : '') . "</p><p style='margin:2px 0 0;font-size:11px;color:#0f172a;font-weight:800'>OFFICIAL MONTHLY STIPEND &amp; CONVEYANCE PAYMENT VOUCHER</p></div></div>";
+                echo "<div style='text-align:right;font-size:11px;line-height:1.5'><strong>Voucher No:</strong> " . htmlspecialchars($vNo) . "<br><strong>Payroll Period:</strong> {$period}<br><strong>Disbursement Mode:</strong> " . htmlspecialchars($mode) . "<br><strong>Issue Date:</strong> " . now()->format('d M Y') . "</div></div>";
+                echo "<p style='font-size:12px;margin:6px 0;background:#f8fafc;padding:8px 10px;border-radius:6px;border:1px solid #e2e8f0'><strong>Beneficiary Student:</strong> " . htmlspecialchars($v['name'] ?? '') . " (" . htmlspecialchars($v['id'] ?? '') . ") &nbsp;|&nbsp; <strong>Partner Unit:</strong> " . htmlspecialchars($v['partner_unit'] ?? '') . " &nbsp;|&nbsp; <strong>Supervisor:</strong> " . htmlspecialchars($v['manager'] ?? '') . "</p>";
+                echo "<table><thead><tr><th>Particulars / Head of Account</th><th>Calculation Basis &amp; Audit Reference</th><th style='text-align:right'>Amount (BDT)</th></tr></thead><tbody>";
+                echo "<tr><td>Monthly Base Articleship Stipend / Allowance</td><td>ICAB Standard Stipend Scale</td><td style='text-align:right;font-weight:bold'>৳ " . number_format((float) ($v['base_allowance'] ?? 0), 2) . "</td></tr>";
+                echo "<tr><td>Approved Client Audit Conveyance Reimbursement</td><td>Verified Travel Claims ({$period})</td><td style='text-align:right;color:#047857;font-weight:bold'>+ ৳ " . number_format((float) ($v['approved_conveyance'] ?? 0), 2) . "</td></tr>";
+                echo "<tr><td>Attendance / Late / Mandatory Holiday Absent Deduction</td><td>Late Days: " . (int) ($v['late_days'] ?? 0) . " | Mandatory Open Holiday Absent: " . (int) ($v['holiday_absent_days'] ?? 0) . "</td><td style='text-align:right;color:#b91c1c;font-weight:bold'>- ৳ " . number_format((float) ($v['adjustment'] ?? 0), 2) . "</td></tr>";
+                echo "<tr><th colspan='2' style='text-align:right;font-size:13px'>NET PAYABLE DISBURSEMENT</th><th style='text-align:right;font-size:15px;color:{$primaryHex}'>৳ " . number_format((float) ($v['net_payable'] ?? 0), 2) . "</th></tr>";
                 echo "</tbody></table>";
-                echo "<div class='sig'><div>_______________________<br>Recipient Student Signature</div><div>_______________________<br>Prepared / Audit Manager</div><div>_______________________<br>Authorized Partner Sign-off</div></div>";
+                echo "<div class='sig'><div>_______________________<br><strong>Recipient Student Signature</strong></div><div>_______________________<br><strong>Reviewed by Audit Manager</strong></div><div>_______________________<br><strong>Authorized Partner Sign-off</strong></div></div>";
                 echo "</div>";
             }
-            echo "</body></html>";
+            echo "</div></body></html>";
         }, $filename, ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 

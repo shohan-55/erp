@@ -672,9 +672,17 @@
                             <div class="space-y-2.5">
                                 @forelse($selectedFirmPartners as $fp)
                                     <div class="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
-                                        <div class="flex items-center justify-between">
-                                            <span class="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">{{ $fp['partner_unit'] }}</span>
-                                            <span class="text-[10px] font-semibold text-slate-400">Edit Partner Name, Email, Unit or Password</span>
+                                        <div class="flex flex-wrap items-center justify-between gap-2">
+                                            <div class="flex items-center gap-1.5">
+                                                <span class="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold text-amber-900">{{ $fp['partner_unit'] }}</span>
+                                                <button type="button"
+                                                        wire:click="togglePartnerUnitAttendanceMode({{ $fp['id'] }})"
+                                                        class="rounded px-2 py-0.5 text-[10px] font-extrabold transition cursor-pointer {{ ($fp['shared_attendance_pool'] ?? true) ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' : 'bg-slate-200 text-slate-800 border border-slate-300' }}"
+                                                        title="Click to switch between Shared Main Branch Attendance and Isolated Branch Attendance">
+                                                    {{ ($fp['shared_attendance_pool'] ?? true) ? '🔗 Shared Attendance (Main Branch)' : '🔒 Isolated Branch (All Separate)' }}
+                                                </button>
+                                            </div>
+                                            <span class="text-[10px] font-semibold text-slate-400">Edit Partner Name, Email, Unit or Reset Password (Emailed)</span>
                                         </div>
                                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             <div>
@@ -712,11 +720,15 @@
                                     <input type="email" wire:model="newAddPartnerEmail" placeholder="partner2@firm.com" class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
                                     <input type="text" wire:model="newAddPartnerUnit" placeholder="Partner Unit 02" class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold">
                                     <div class="flex gap-1.5">
-                                        <input type="text" wire:model="newAddPartnerPassword" placeholder="Pass (Default: Partner@2026)" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
+                                        <input type="text" wire:model="newAddPartnerPassword" placeholder="Pass (Emailed to Partner)" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
                                         <button type="button" wire:click="addPartnerToFirm('{{ $selectedFirm['slug'] }}')" class="shrink-0 rounded-lg bg-[#FCDF02] px-3 py-1.5 text-[11px] font-extrabold text-[#16181D] hover:bg-[#F3D604]">
                                             + Add Partner
                                         </button>
                                     </div>
+                                    <label class="sm:col-span-2 inline-flex items-center gap-2 text-[11px] font-semibold text-slate-700 cursor-pointer pt-1">
+                                        <input type="checkbox" wire:model="newAddPartnerSharedAttendance" class="rounded border-amber-400 text-amber-600">
+                                        <span>Include in Main Branch Shared Attendance (আনচেক করলে এই পার্টনার ইউনিটের অ্যাটেনডেন্স, পেরোল ও লিভ সম্পূর্ণ আলাদা/ব্রাঞ্চ হিসেবে থাকবে)</span>
+                                    </label>
                                 </div>
                             </div>
                         </div>

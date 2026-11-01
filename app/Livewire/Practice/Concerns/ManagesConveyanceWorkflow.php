@@ -46,6 +46,7 @@ trait ManagesConveyanceWorkflow
                             'user_id'                   => $cc->user_id,
                             'name'                      => $cc->user?->name ?? 'Practice Member',
                             'student_code'              => $cc->user?->student_code ?? ('S-' . $cc->user_id),
+                            'phone'                     => $cc->user?->phone ?? '',
                             'created_at_human'          => $cc->created_at?->diffForHumans() ?? 'Just now',
                             'manager'                   => $cc->user?->manager?->name ?? 'Direct Report',
                             'partner_unit'              => $cc->user?->partner_unit ?? $this->partnerUnit,
@@ -555,8 +556,8 @@ trait ManagesConveyanceWorkflow
                         $cc->amount = $adjustedAmount;
                         $cc->adjustment_remark = $adjustmentRemark ?: "{$diffDirection} by " . ucfirst($this->previewRole);
                         $exceedsLimit = $adjustedAmount > $this->managerConveyanceLimit;
-                        $mustEscalate = ($action === 'escalate') || $exceedsLimit || (bool) $cc->is_late;
-                        $cc->status = ($this->previewRole === 'partner')
+                        $mustEscalate = ($action === 'escalate') || (! $this->userCanFinalApproveClaims() && ($exceedsLimit || (bool) $cc->is_late));
+                        $cc->status = ($this->previewRole === 'partner' || ($this->userCanFinalApproveClaims() && $action !== 'escalate'))
                             ? 'approved'
                             : ($mustEscalate ? 'pending_partner' : 'approved');
                     }
@@ -621,8 +622,8 @@ trait ManagesConveyanceWorkflow
     {
         $this->enforceAuthenticatedRoleLock();
 
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only a Partner can give final claim sanction.';
+        if (! $this->userCanFinalApproveClaims()) {
+            $this->error = 'Only a Partner or an authorized Manager (with Final Claim Approval permission) can give final claim sanction.';
             return;
         }
 
@@ -644,6 +645,11 @@ trait ManagesConveyanceWorkflow
                     $cc->save();
                     $this->recordAuditLog('conveyance', 'claim_approved', "Partner approved conveyance claim {$id} for ৳{$cc->amount}.", $id);
                     $this->createPracticeNotification($cc->user_id, 'student', 'Conveyance Claim Approved', "Your conveyance claim ({$id}) for ৳{$cc->amount} has been approved and added to your payroll.", 'receipt');
+                    $this->dispatchStudentDecisionAlert(
+                        User::find($cc->user_id),
+                        "Conveyance Claim Approved ({$id}) — ৳{$cc->amount}",
+                        "Dear Practice Member,\n\nYour conveyance claim ({$id}) for BDT {$cc->amount} ({$cc->client_name}) has been approved and added to your monthly payroll ledger.\n\n— " . ($this->firm['name'] ?? 'DhakaWala ERP')
+                    );
                     $this->loadPayrollRows();
                 }
             } catch (\Throwable) {}
@@ -659,6 +665,7 @@ trait ManagesConveyanceWorkflow
             }
         }
         unset($claim);
+        $this->dispatch('toast', ['type' => 'success', 'title' => 'Claim Approved', 'message' => $this->notice ?? "Claim {$id} approved."]);
     }
 
     public function rejectClaim(string $id, string $remarks = ''): void

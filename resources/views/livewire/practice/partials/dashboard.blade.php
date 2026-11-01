@@ -76,7 +76,9 @@
             if (p === 'yellow') return 'Grace period active (' + this.graceMins + ' mins). Checking in now records as Late.';
             return 'Grace cutoff ({{ $graceEndFormatted ?? '09:40' }}) has passed. Checking in now records as Late Present ({{ $lateDaysPerDeduction }} late days = {{ $deductionDaysCount }} day salary deduction).';
         },
+        gettingOutGps: false,
         submitCheckinWithGps() {
+            if (this.gettingGps) return;
             if (!navigator.geolocation) {
                 $wire.togglePreviewSession();
                 return;
@@ -91,7 +93,26 @@
                     this.gettingGps = false;
                     $wire.togglePreviewSession();
                 },
-                { enableHighAccuracy: true, timeout: 5000 }
+                { enableHighAccuracy: true, timeout: 3000, maximumAge: 30000 }
+            );
+        },
+        submitCheckoutWithGps() {
+            if (this.gettingOutGps) return;
+            if (!navigator.geolocation) {
+                $wire.initiateCheckoutPrompt();
+                return;
+            }
+            this.gettingOutGps = true;
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    this.gettingOutGps = false;
+                    $wire.initiateCheckoutPrompt(pos.coords.latitude, pos.coords.longitude, 'Live GPS (' + pos.coords.latitude.toFixed(4) + ', ' + pos.coords.longitude.toFixed(4) + ')');
+                },
+                () => {
+                    this.gettingOutGps = false;
+                    $wire.initiateCheckoutPrompt();
+                },
+                { enableHighAccuracy: true, timeout: 2500, maximumAge: 30000 }
             );
         }
     }"
@@ -195,20 +216,30 @@
                 @if(!$previewSessionActive)
                     <button type="button"
                             @click="submitCheckinWithGps()"
-                            class="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-white py-3.5 px-6 text-sm font-black uppercase tracking-wider text-slate-950 shadow-xl transition transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
-                        <i data-lucide="fingerprint" class="h-5 w-5 text-emerald-600"></i>
-                        <span x-show="!gettingGps">
+                            :disabled="gettingGps"
+                            wire:loading.attr="disabled"
+                            wire:target="togglePreviewSession,togglePreviewSessionWithGps"
+                            class="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-white py-3.5 px-6 text-sm font-black uppercase tracking-wider text-slate-950 shadow-xl transition transform hover:scale-[1.01] active:scale-[0.98] disabled:opacity-75 cursor-pointer">
+                        <span x-show="gettingGps" x-cloak class="dw-inline-spinner text-emerald-600"></span>
+                        <span wire:loading wire:target="togglePreviewSession,togglePreviewSessionWithGps" class="dw-inline-spinner text-emerald-600"></span>
+                        <i x-show="!gettingGps" wire:loading.remove wire:target="togglePreviewSession,togglePreviewSessionWithGps" data-lucide="fingerprint" class="h-5 w-5 text-emerald-600"></i>
+                        <span x-show="!gettingGps" wire:loading.remove wire:target="togglePreviewSession,togglePreviewSessionWithGps">
                             {{ $sessionState === 'on_duty_transit' ? 'Check-In at Next Location (In)' : ($workMode === 'client' ? 'Check-In at Client Site (In)' : 'Check-In at Office (In)') }}
                         </span>
                         <span x-show="gettingGps" x-cloak>Capturing Live GPS Location...</span>
+                        <span wire:loading wire:target="togglePreviewSession,togglePreviewSessionWithGps">Recording Check-In...</span>
                     </button>
                 @else
                     <div class="space-y-2">
                         <button type="button"
                                 wire:click="initiateCheckoutPrompt"
-                                class="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-slate-950 py-3.5 px-6 text-sm font-black uppercase tracking-wider text-white shadow-xl border border-white/20 transition hover:bg-slate-900 cursor-pointer">
-                            <i data-lucide="log-out" class="h-5 w-5 text-amber-400"></i>
-                            <span>Out (Choose: Close Duty or On Duty Move)</span>
+                                wire:loading.attr="disabled"
+                                wire:target="initiateCheckoutPrompt"
+                                class="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-slate-950 py-3.5 px-6 text-sm font-black uppercase tracking-wider text-white shadow-xl border border-white/20 transition hover:bg-slate-900 active:scale-[0.98] disabled:opacity-75 cursor-pointer">
+                            <span wire:loading wire:target="initiateCheckoutPrompt" class="dw-inline-spinner text-amber-400"></span>
+                            <i wire:loading.remove wire:target="initiateCheckoutPrompt" data-lucide="log-out" class="h-5 w-5 text-amber-400"></i>
+                            <span wire:loading.remove wire:target="initiateCheckoutPrompt">Out (Choose: Close Duty or On Duty Move)</span>
+                            <span wire:loading wire:target="initiateCheckoutPrompt">Opening Check-Out Options...</span>
                         </button>
                         <p class="text-center text-[11px] font-semibold text-white/80">
                             Active at: <strong>{{ $workMode === 'client' ? ($clientSite ?: 'Client Site') : 'Principal Office HQ' }}</strong> ({{ $currentLocationName }})

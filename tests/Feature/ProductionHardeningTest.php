@@ -113,7 +113,7 @@ class ProductionHardeningTest extends TestCase
 
     public function test_manager_cannot_change_workspace_policy_defaults(): void
     {
-        $this->manager->update(['can_manage_team' => true]);
+        $this->manager->update(['can_manage_team' => true, 'can_manage_policies' => false]);
         $this->actingAs($this->manager->fresh());
 
         Livewire::test(PracticePreview::class, [
@@ -128,6 +128,26 @@ class ProductionHardeningTest extends TestCase
         $this->assertDatabaseMissing('partner_policies', [
             'firm_id'                  => $this->firm->id,
             'manager_conveyance_limit' => 9000,
+        ]);
+    }
+
+    public function test_delegated_manager_with_policy_permission_can_update_policy(): void
+    {
+        $this->manager->update(['can_manage_policies' => true]);
+        $this->actingAs($this->manager->fresh());
+
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'manager',
+            'section'     => 'policies',
+        ])
+            ->set('managerConveyanceLimit', 750)
+            ->call('savePolicySettings')
+            ->assertSet('error', null);
+
+        $this->assertDatabaseHas('partner_policies', [
+            'firm_id'                  => $this->firm->id,
+            'manager_conveyance_limit' => 750,
         ]);
     }
 

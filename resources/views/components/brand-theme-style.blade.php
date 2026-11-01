@@ -381,4 +381,403 @@
     .lg\:pb-24 { padding-bottom: 6rem; }
 }
 
+
+/* =====================================================================
+   Global Interactive Button Feedback, Spinner, & Top Progress Bar Engine
+   ===================================================================== */
+@keyframes dw-spin {
+    to { transform: rotate(360deg); }
+}
+@keyframes dw-progress-indeterminate {
+    0%   { transform: translateX(-100%) scaleX(0.25); }
+    50%  { transform: translateX(0%) scaleX(0.6); }
+    100% { transform: translateX(100%) scaleX(0.25); }
+}
+@keyframes dw-btn-pulse {
+    0%, 100% { opacity: 0.92; }
+    50%      { opacity: 0.72; }
+}
+
+/* Tactile Press Feedback on every interactive button */
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+    transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
+}
+button:not(:disabled):active,
+[role="button"]:not(:disabled):active {
+    transform: scale(0.97) !important;
+}
+
+/* Automatic Busy / Loading State on Clicked Buttons */
+button.dw-btn-busy,
+a.dw-btn-busy {
+    position: relative !important;
+    pointer-events: none !important;
+    cursor: wait !important;
+    animation: dw-btn-pulse 1.1s ease-in-out infinite !important;
+    filter: saturate(0.92);
+}
+
+button.dw-btn-busy > .dw-auto-spinner,
+.dw-inline-spinner {
+    display: inline-block !important;
+    width: 1em;
+    height: 1em;
+    min-width: 14px;
+    min-height: 14px;
+    border: 2.2px solid currentColor;
+    border-right-color: transparent !important;
+    border-radius: 9999px;
+    animation: dw-spin 0.6s linear infinite;
+    vertical-align: -0.15em;
+    margin-right: 0.45rem;
+    flex-shrink: 0;
+}
+
+/* Hide existing leading icon inside busy button when auto-spinner is injected */
+button.dw-btn-busy.dw-has-auto-spinner > svg:first-of-type,
+button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
+    display: none !important;
+}
+
+/* Top Global Progress Bar */
+#dw-top-progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: 99999;
+    pointer-events: none;
+    overflow: hidden;
+    background: rgba(15, 23, 42, 0.08);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+}
+#dw-top-progress-bar.dw-active {
+    opacity: 1;
+}
+#dw-top-progress-bar::after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--brand-primary, #0D9488), #FCDF02, var(--brand-accent, #14B8A6));
+    box-shadow: 0 0 10px var(--brand-primary, #0D9488);
+    transform-origin: left center;
+    animation: dw-progress-indeterminate 1.05s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Global Offline Alert Banner */
+#dw-offline-banner {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(120%);
+    z-index: 99998;
+    background: #17191F;
+    color: #FFFFFF;
+    border: 2px solid #F43F5E;
+    border-radius: 9999px;
+    padding: 8px 18px;
+    font-size: 12px;
+    font-weight: 800;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+}
+#dw-offline-banner.dw-visible {
+    transform: translateX(-50%) translateY(0);
+}
 </style>
+
+<script data-dw-global-feedback>
+(function () {
+    if (window.__dwFeedbackBound) return;
+    window.__dwFeedbackBound = true;
+
+    function ensureProgressElements() {
+        if (!document.getElementById('dw-top-progress-bar')) {
+            var bar = document.createElement('div');
+            bar.id = 'dw-top-progress-bar';
+            bar.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(bar);
+        }
+        if (!document.getElementById('dw-offline-banner')) {
+            var off = document.createElement('div');
+            off.id = 'dw-offline-banner';
+            off.setAttribute('role', 'status');
+            off.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#F43F5E;"></span><span>ইন্টানেট সংযোগ বিচ্ছিন্ন (Offline) — অনুগ্রহ করে কানেকশন চেক করুন</span>';
+            document.body.appendChild(off);
+        }
+    }
+
+    var activeTimers = new WeakMap();
+    var barSafetyTimer = null;
+
+    function startTopBar() {
+        ensureProgressElements();
+        var bar = document.getElementById('dw-top-progress-bar');
+        if (bar) bar.classList.add('dw-active');
+        clearTimeout(barSafetyTimer);
+        barSafetyTimer = setTimeout(stopTopBar, 8000);
+    }
+
+    function stopTopBar() {
+        clearTimeout(barSafetyTimer);
+        var bar = document.getElementById('dw-top-progress-bar');
+        if (bar) bar.classList.remove('dw-active');
+    }
+
+    function markButtonBusy(btn, customTimeoutMs) {
+        if (!btn || btn.disabled || btn.classList.contains('dw-btn-busy')) return;
+        if (btn.hasAttribute('data-no-loading')) return;
+
+        btn.classList.add('dw-btn-busy');
+
+        // Inject a crisp inline spinner unless the button already renders its own wire:loading or x-show spinner
+        var hasOwnSpinner = btn.querySelector('.dw-inline-spinner, [wire\\:loading]');
+        if (!hasOwnSpinner) {
+            var sp = document.createElement('span');
+            sp.className = 'dw-auto-spinner';
+            sp.setAttribute('aria-hidden', 'true');
+            btn.insertBefore(sp, btn.firstChild);
+            btn.classList.add('dw-has-auto-spinner');
+        }
+
+        startTopBar();
+
+        var prev = activeTimers.get(btn);
+        if (prev) clearTimeout(prev);
+        var t = setTimeout(function () {
+            clearButtonBusy(btn);
+        }, customTimeoutMs || 8000);
+        activeTimers.set(btn, t);
+    }
+
+    function clearButtonBusy(btn) {
+        if (!btn) return;
+        btn.classList.remove('dw-btn-busy', 'dw-has-auto-spinner');
+        var sp = btn.querySelector(':scope > .dw-auto-spinner');
+        if (sp) sp.remove();
+        var prev = activeTimers.get(btn);
+        if (prev) clearTimeout(prev);
+    }
+
+    function clearAllBusyButtons() {
+        document.querySelectorAll('.dw-btn-busy').forEach(clearButtonBusy);
+        stopTopBar();
+    }
+
+    // 1. Instant capture on any click on a wire:click button or @click attendance button
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('button, a[wire\\:click]');
+        if (!btn || btn.disabled) return;
+
+        // Check if button triggers a Livewire action or GPS check-in/out
+        var attrs = btn.attributes;
+        var isLivewireOrAction = false;
+        var isGpsAction = false;
+        for (var i = 0; i < attrs.length; i++) {
+            var name = attrs[i].name;
+            var val = attrs[i].value || '';
+            if (name.indexOf('wire:click') === 0) {
+                isLivewireOrAction = true;
+            }
+            if ((name.indexOf('@click') === 0 || name.indexOf('x-on:click') === 0) &&
+                (val.indexOf('Gps') !== -1 || val.indexOf('$wire.') !== -1)) {
+                isLivewireOrAction = true;
+                isGpsAction = true;
+            }
+        }
+
+        if (isLivewireOrAction) {
+            markButtonBusy(btn, isGpsAction ? 9000 : 6000);
+        }
+    }, true);
+
+    // 2. Instant capture on form submit (wire:submit / wire:submit.prevent)
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!form || form.tagName !== 'FORM') return;
+        var submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+        if (submitBtn) {
+            markButtonBusy(submitBtn, 8000);
+        } else {
+            startTopBar();
+        }
+    }, true);
+
+    // 3. Hook into Livewire lifecycle to clear spinners immediately when server responds
+    document.addEventListener('livewire:init', function () {
+        if (!window.Livewire) return;
+
+        // Ensure Toast listener is registered once across all layouts
+        if (!window.__dwToastListenerBound) {
+            window.__dwToastListenerBound = true;
+            Livewire.on('toast', function (data) {
+                var payload = Array.isArray(data) ? data[0] : data;
+                if (window.showToast && payload) {
+                    window.showToast(payload.title || 'Notification', payload.message || '', payload.type || 'success');
+                }
+            });
+        }
+
+        if (typeof Livewire.hook === 'function') {
+            Livewire.hook('request', function (_ref) {
+                startTopBar();
+                _ref.respond(function () {
+                    setTimeout(clearAllBusyButtons, 60);
+                });
+                _ref.succeed(function () {
+                    setTimeout(clearAllBusyButtons, 60);
+                });
+                _ref.fail(function () {
+                    clearAllBusyButtons();
+                });
+            });
+            Livewire.hook('morph.updated', function () {
+                setTimeout(clearAllBusyButtons, 40);
+            });
+        }
+    });
+
+    // 4. Online / Offline status indicator
+    window.addEventListener('offline', function () {
+        ensureProgressElements();
+        var off = document.getElementById('dw-offline-banner');
+        if (off) off.classList.add('dw-visible');
+    });
+    window.addEventListener('online', function () {
+        var off = document.getElementById('dw-offline-banner');
+        if (off) off.classList.remove('dw-visible');
+    });
+
+    // 5. Automatic Client-Side Image Compression for Receipts & Avatars
+    // Compresses large mobile camera photos (5-10 MB) down to ~180-300 KB JPEG
+    // before Livewire uploads them, making mobile data uploads 10x faster.
+    document.addEventListener('change', function (e) {
+        var input = e.target;
+        if (!input || input.tagName !== 'INPUT' || input.type !== 'file') return;
+        if (input.__dwCompressedPass) {
+            input.__dwCompressedPass = false;
+            return;
+        }
+        var file = input.files && input.files[0];
+        if (!file) return;
+
+        // Only compress raster images larger than 300 KB (skip PDFs and tiny icons)
+        if (!/^image\/(jpeg|jpg|png|webp)$/i.test(file.type) || file.size <= 300 * 1024) {
+            return;
+        }
+
+        // Prevent Livewire's listener from uploading the raw 8 MB image first
+        e.stopImmediatePropagation();
+
+        var isAvatar = (input.getAttribute('wire:model') || '').indexOf('Avatar') !== -1;
+        var maxDim = isAvatar ? 600 : 1600;
+        var quality = isAvatar ? 0.82 : 0.78;
+        var origSizeKB = Math.round(file.size / 1024);
+
+        startTopBar();
+
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+            var img = new Image();
+            img.onload = function () {
+                var w = img.width;
+                var h = img.height;
+                if (w > maxDim || h > maxDim) {
+                    if (w > h) {
+                        h = Math.round((h * maxDim) / w);
+                        w = maxDim;
+                    } else {
+                        w = Math.round((w * maxDim) / h);
+                        h = maxDim;
+                    }
+                }
+                var canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                var ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, w, h);
+                ctx.drawImage(img, 0, 0, w, h);
+
+                canvas.toBlob(function (blob) {
+                    stopTopBar();
+                    if (!blob || blob.size >= file.size) {
+                        input.__dwCompressedPass = true;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                        return;
+                    }
+                    var newName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+                    var compressedFile = new File([blob], newName, {
+                        type: 'image/jpeg',
+                        lastModified: Date.now()
+                    });
+                    var dt = new DataTransfer();
+                    dt.items.add(compressedFile);
+                    input.files = dt.files;
+                    input.__dwCompressedPass = true;
+
+                    var newSizeKB = Math.round(compressedFile.size / 1024);
+                    if (window.showToast) {
+                        window.showToast(
+                            'Image Optimized for Fast Upload',
+                            'Compressed from ' + origSizeKB + ' KB to ' + newSizeKB + ' KB',
+                            'info'
+                        );
+                    }
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                }, 'image/jpeg', quality);
+            };
+            img.onerror = function () {
+                stopTopBar();
+                input.__dwCompressedPass = true;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    }, true);
+
+
+
+    // 6. PWA Service Worker & Install App Prompt Handler
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+    }
+    window.__dwDeferredPwaPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        window.__dwDeferredPwaPrompt = e;
+        document.querySelectorAll('[data-dw-pwa-install]').forEach(function (btn) {
+            btn.classList.remove('hidden');
+            btn.style.display = 'inline-flex';
+        });
+    });
+    window.triggerDwPwaInstall = function () {
+        if (!window.__dwDeferredPwaPrompt) return;
+        window.__dwDeferredPwaPrompt.prompt();
+        window.__dwDeferredPwaPrompt.userChoice.then(function () {
+            window.__dwDeferredPwaPrompt = null;
+            document.querySelectorAll('[data-dw-pwa-install]').forEach(function (btn) {
+                btn.style.display = 'none';
+            });
+        });
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', ensureProgressElements);
+    } else {
+        ensureProgressElements();
+    }
+})();
+</script>
+

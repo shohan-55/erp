@@ -214,11 +214,20 @@
                                     {{ $request['status'] === 'approved' ? 'bg-emerald-50 text-emerald-700' : ($request['status'] === 'rejected' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-800') }}">
                                     {{ $request['status_label'] }}
                                 </span>
+                                @if($request['status'] === 'approved')
+                                    @php
+                                        $waClaimMsg = "Hello " . ($request['name'] ?? '') . ", your conveyance claim (" . ($request['id'] ?? '') . " · " . ($request['client_name'] ?? '') . ") for BDT " . number_format($request['amount'] ?? 0, 2) . " has been APPROVED and added to your payroll. — " . ($firm['name'] ?? 'Practice');
+                                        $waClaimUrl = \App\Livewire\Practice\PracticePreview::formatWhatsAppUrl($request['phone'] ?? null, $waClaimMsg);
+                                    @endphp
+                                    <a href="{{ $waClaimUrl }}" target="_blank" rel="noopener" data-no-loading class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-extrabold text-emerald-800 hover:bg-emerald-100" title="Send WhatsApp Approval Alert">
+                                        WhatsApp ↗
+                                    </a>
+                                @endif
 
                                 @if($previewRole === 'manager' && in_array($request['status'], ['pending_manager', 'Manager Review']))
-                                    <button type="button" wire:click="managerReviewClaim('{{ $request['id'] }}', {{ $request['amount'] }}, 'Approved within limit.')"
+                                    <button type="button" wire:click="managerReviewClaim('{{ $request['id'] }}', {{ $request['amount'] }}, 'Approved by Manager.')"
                                             class="rounded-lg bg-[#FCDF02] px-3 py-1.5 text-xs font-bold text-[#17191F] hover:bg-[#F3D604]">
-                                        {{ $request['amount'] > $managerConveyanceLimit || !empty($request['is_late']) ? 'Verify & Escalate →' : 'Approve Claim' }}
+                                        {{ (!($canFinalApproveClaims ?? false) && ($request['amount'] > $managerConveyanceLimit || !empty($request['is_late']))) ? 'Verify & Escalate →' : 'Approve Claim ✓' }}
                                     </button>
                                     <button type="button" wire:click="openClaimAdjustModal('{{ $request['id'] }}')"
                                             class="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-100">
@@ -228,7 +237,7 @@
                                             class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50">
                                         Reject
                                     </button>
-                                @elseif($previewRole === 'partner' && in_array($request['status'], ['pending_partner', 'Escalated to Partner', 'Escalated to Partner (Late)', 'pending_manager']))
+                                @elseif(($previewRole === 'partner' || ($canFinalApproveClaims ?? false)) && in_array($request['status'], ['pending_partner', 'Escalated to Partner', 'Escalated to Partner (Late)', 'pending_manager']))
                                     <button type="button" wire:click="partnerApproveClaim('{{ $request['id'] }}', 'Partner approved claim.')"
                                             class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
                                         Sanction

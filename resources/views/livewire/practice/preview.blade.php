@@ -158,6 +158,10 @@
                         @endif
                     </div>
                 @endif
+                <button type="button" data-dw-pwa-install data-no-loading onclick="window.triggerDwPwaInstall && window.triggerDwPwaInstall()" style="display:none" class="items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-extrabold text-amber-950 hover:bg-amber-100 transition cursor-pointer" title="Install DhakaWala ERP on your phone or desktop">
+                    <i data-lucide="smartphone" class="h-3.5 w-3.5"></i>
+                    <span>Install App</span>
+                </button>
                 <div class="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-900 sm:inline-flex">
                     <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
                     <span>PRODUCTION ACTIVE</span>

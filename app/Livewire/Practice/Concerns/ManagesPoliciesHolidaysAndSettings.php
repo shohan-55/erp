@@ -105,6 +105,16 @@ trait ManagesPoliciesHolidaysAndSettings
                     if (! empty($policy->manager_permissions)) {
                         $this->managerPermissions = array_merge($this->managerPermissions, $policy->manager_permissions);
                     }
+                    $unitSharedAtt = is_array($policy->manager_permissions) && array_key_exists('shared_attendance_pool', $policy->manager_permissions)
+                        ? (bool) $policy->manager_permissions['shared_attendance_pool']
+                        : true;
+                    $firmSharedAtt = (bool) ($firmModel?->shared_attendance_view ?? true);
+                    $this->canViewAllPartnersAttendance = $firmSharedAtt && $unitSharedAtt;
+                    if (! $this->canViewAllPartnersAttendance) {
+                        $this->viewAllPartnersAttendance = false;
+                    }
+                } elseif (isset($firmModel) && $firmModel) {
+                    $this->canViewAllPartnersAttendance = (bool) ($firmModel->shared_attendance_view ?? true);
                 }
             } catch (\Throwable) {
             }
@@ -166,8 +176,8 @@ trait ManagesPoliciesHolidaysAndSettings
     public function selectFirmThemePalette(string $paletteKey): void
     {
         $this->enforceAuthenticatedRoleLock();
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only an authorized Partner can change the firm brand color palette.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or an authorized Manager (with Policy & Settings permission) can change the firm brand color palette.';
             return;
         }
 
@@ -189,8 +199,8 @@ trait ManagesPoliciesHolidaysAndSettings
         $this->enforceAuthenticatedRoleLock();
         $this->error = null;
 
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only an authorized Partner can update the firm brand color palette.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or an authorized Manager (with Policy & Settings permission) can update the firm brand color palette.';
             return;
         }
 
@@ -235,6 +245,75 @@ trait ManagesPoliciesHolidaysAndSettings
         ]);
         $this->notice = "Firm brand color palette updated to {$resolved['label']} ({$resolved['primary']}).";
     }
+
+    /**
+     * Upload and apply a custom Firm Logo (PNG, JPG, SVG, WebP) for the Workspace,
+     * Login Portal, and Official PDF Vouchers / Letterhead.
+     */
+    public function uploadFirmLogo(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        $this->notice = null;
+
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or an authorized Manager can update the firm logo.';
+            return;
+        }
+
+        if (! $this->firmLogoUpload) {
+            $this->error = 'Please choose a logo image file (PNG, JPG, SVG, or WebP) first.';
+            return;
+        }
+
+        $this->validate([
+            'firmLogoUpload' => 'file|mimes:png,jpg,jpeg,svg,webp|max:2048',
+        ]);
+
+        try {
+            $ext = strtolower($this->firmLogoUpload->getClientOriginalExtension() ?: 'png');
+            if (! in_array($ext, ['png', 'jpg', 'jpeg', 'svg', 'webp'], true)) {
+                $ext = 'png';
+            }
+            $cleanSlug = preg_replace('/[^a-z0-9\-_]/', '', strtolower($this->firmSlug)) ?: 'firm';
+            $targetDir = public_path('images');
+            if (! is_dir($targetDir)) {
+                @mkdir($targetDir, 0755, true);
+            }
+            $fileName = $cleanSlug . '_logo.' . $ext;
+            $destPath = $targetDir . DIRECTORY_SEPARATOR . $fileName;
+            @copy($this->firmLogoUpload->getRealPath(), $destPath);
+
+            $relativeLogoUrl = 'images/' . $fileName;
+
+            if (Schema::hasTable('firms')) {
+                $firmModel = $this->resolveFirmModel();
+                if ($firmModel) {
+                    if (Schema::hasColumn('firms', 'logo_url')) {
+                        $firmModel->logo_url = $relativeLogoUrl;
+                        $firmModel->save();
+                    }
+                    $this->recordAuditLog('settings', 'firm_logo_updated', "Updated official firm logo ({$fileName}).", $firmModel->slug);
+                }
+            }
+
+            if (is_array($this->firm)) {
+                $this->firm['logo_url'] = $relativeLogoUrl;
+            }
+            $this->firmLogoUpload = null;
+
+            $this->notice = 'Official firm logo uploaded and applied across the workspace, login portal, and PDF letterhead.';
+            $this->dispatch('toast', [
+                'type'    => 'success',
+                'title'   => 'Firm Logo Updated',
+                'message' => 'Your new logo is now live across the workspace and vouchers.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('uploadFirmLogo failed: ' . $e->getMessage());
+            $this->error = 'Could not save the logo file: ' . $e->getMessage();
+        }
+    }
+
 
     /**
      * Self-service profile update: Mobile phone, bKash/Nagad/Bank account number, and optional password change (#1).
@@ -377,8 +456,8 @@ trait ManagesPoliciesHolidaysAndSettings
         $this->error = null;
         $this->notice = null;
 
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only a Partner can change the firm\'s weekly off days. Managers can submit a policy proposal instead.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or an authorized Manager (with Policy permission) can change the firm\'s weekly off days.';
             return;
         }
 
@@ -441,8 +520,8 @@ trait ManagesPoliciesHolidaysAndSettings
         // write them can raise their own pay and erase their own deductions, so
         // only a Partner may save them. Managers still have the (separate)
         // proposal workflow, which needs Partner consensus.
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only a Partner can change workspace policy defaults. Managers can submit a policy proposal instead.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or an authorized Manager (delegated by Partner) can change workspace policy defaults.';
             return;
         }
 
@@ -539,8 +618,8 @@ trait ManagesPoliciesHolidaysAndSettings
     {
         $this->enforceAuthenticatedRoleLock();
 
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only a Partner can configure Student dashboard grid visibility.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or an authorized Manager can configure Student dashboard grid visibility.';
             return;
         }
 
@@ -568,8 +647,41 @@ trait ManagesPoliciesHolidaysAndSettings
 
         if (array_key_exists($permKey, $this->managerPermissions)) {
             $this->managerPermissions[$permKey] = ! $this->managerPermissions[$permKey];
-            $status = $this->managerPermissions[$permKey] ? 'ALLOWED' : 'DISABLED';
+            $enabled = (bool) $this->managerPermissions[$permKey];
+            $status = $enabled ? 'ALLOWED' : 'DISABLED';
+
+            $colMap = [
+                'proxy_attendance'     => 'can_proxy_attendance',
+                'edit_attendance'      => 'can_edit_attendance',
+                'review_leave'         => 'can_approve_leave',
+                'review_claims'        => 'can_approve_claims',
+                'manage_policies'      => 'can_manage_policies',
+                'manage_payroll'       => 'can_manage_payroll',
+                'final_approve_leave'  => 'can_final_approve_leave',
+                'final_approve_claims' => 'can_final_approve_claims',
+            ];
+            if (isset($colMap[$permKey]) && Schema::hasTable('users') && Schema::hasColumn('users', $colMap[$permKey])) {
+                try {
+                    $firmModel = $this->resolveFirmModel();
+                    if ($firmModel) {
+                        User::where('firm_id', $firmModel->id)
+                            ->where('role', 'manager')
+                            ->where('partner_unit', $this->partnerUnit)
+                            ->update([$colMap[$permKey] => $enabled]);
+                    }
+                } catch (\Throwable) {}
+            }
+
             $this->savePolicySettings();
+            if ($permKey === 'shared_attendance_pool') {
+                $firmModel = $this->resolveFirmModel();
+                $firmSharedAtt = (bool) ($firmModel?->shared_attendance_view ?? true);
+                $this->canViewAllPartnersAttendance = $firmSharedAtt && $enabled;
+                if (! $this->canViewAllPartnersAttendance) {
+                    $this->viewAllPartnersAttendance = false;
+                }
+                $this->loadAttendanceRows();
+            }
             $this->dispatch('toast', [
                 'type'    => 'info',
                 'title'   => 'Manager Permission Changed',
@@ -901,8 +1013,8 @@ trait ManagesPoliciesHolidaysAndSettings
         $this->notice = null;
         $this->exceptionImpact = [];
 
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only a Partner can change office hours or excuse lateness for a date. Managers can submit a policy proposal instead.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or an authorized Manager (with Policy permission) can change office hours or excuse lateness for a date.';
             return;
         }
 
@@ -1054,8 +1166,8 @@ trait ManagesPoliciesHolidaysAndSettings
     {
         $this->enforceAuthenticatedRoleLock();
 
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only a Partner can remove a working day exception.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or an authorized Manager (with Policy permission) can remove a working day exception.';
             return;
         }
 
@@ -1418,8 +1530,8 @@ trait ManagesPoliciesHolidaysAndSettings
     public function submitPolicyProposal(): void
     {
         $this->enforceAuthenticatedRoleLock();
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only a Partner can propose company-wide policy amendments.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or an authorized Manager can propose company-wide policy amendments.';
             return;
         }
 

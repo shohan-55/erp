@@ -820,4 +820,59 @@ class ProductionWorkspaceTest extends TestCase
             "status"               => "On time",
         ]);
     }
+
+    public function test_account_opening_sends_direct_login_credentials_and_manager_or_partner_can_reset_password_with_email(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->actingAs($this->partner);
+
+        Livewire::test(PracticePreview::class, [
+            "firmSlug"    => "rac",
+            "previewRole" => "partner",
+            "section"     => "team",
+        ])
+            ->call("openAddMemberModal")
+            ->set("newMemberName", "Nafis Iqbal")
+            ->set("newMemberEmail", "nafis.student@rahmananis.com")
+            ->set("newMemberPassword", "InitialPass2026!")
+            ->set("newMemberRole", "student")
+            ->set("newMemberStudentCode", "S-120")
+            ->call("createMember")
+            ->assertSet("error", null);
+
+        $created = User::where("email", "nafis.student@rahmananis.com")->first();
+        $this->assertNotNull($created);
+        $this->assertNotNull($created->email_verified_at);
+        $this->assertNull($created->invitation_token);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check("InitialPass2026!", $created->password));
+
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\TeamInvitationMail::class, function (\App\Mail\TeamInvitationMail $mail) {
+            return $mail->hasTo("nafis.student@rahmananis.com")
+                && $mail->plainPassword === "InitialPass2026!"
+                && $mail->isPasswordReset === false;
+        });
+
+        // Manager resets the student password and new password is emailed automatically
+        $this->actingAs($this->manager);
+        Livewire::test(PracticePreview::class, [
+            "firmSlug"    => "rac",
+            "previewRole" => "manager",
+            "section"     => "team",
+        ])
+            ->call("openResetPasswordModal", $created->id)
+            ->assertSet("showResetPasswordModal", true)
+            ->set("resetPasswordInput", "ManagerResetPass99!")
+            ->call("resetMemberPassword")
+            ->assertSet("error", null)
+            ->assertSet("showResetPasswordModal", false);
+
+        $created->refresh();
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check("ManagerResetPass99!", $created->password));
+
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\TeamInvitationMail::class, function (\App\Mail\TeamInvitationMail $mail) {
+            return $mail->hasTo("nafis.student@rahmananis.com")
+                && $mail->plainPassword === "ManagerResetPass99!"
+                && $mail->isPasswordReset === true;
+        });
+    }
 }

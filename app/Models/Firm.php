@@ -20,6 +20,7 @@ class Firm extends Model
         'plan',
         'region',
         'initials',
+        'logo_url',
         'custom_domain',
         'custom_subdomain',
         'shared_attendance_view',

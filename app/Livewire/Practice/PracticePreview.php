@@ -96,6 +96,11 @@ class PracticePreview extends Component
     public bool $managerCanEditAttendance = true;
     public bool $managerCanApproveLeave = true;
     public bool $managerCanApproveClaims = true;
+    public bool $managerCanManagePolicies = false;
+    public bool $managerCanManagePayroll = false;
+    public bool $managerCanFinalApproveLeave = false;
+    public bool $managerCanFinalApproveClaims = false;
+    public $firmLogoUpload = null;
 
     // Configurable Partner Policies (Independent per Partner)
     public string $officeStart = '10:00';
@@ -203,8 +208,9 @@ class PracticePreview extends Component
         'edit_attendance'   => true,
         'review_leave'      => true,
         'review_claims'     => true,
-        'view_team_reports' => true,
-        'manage_policies'   => true,
+        'view_team_reports'      => true,
+        'manage_policies'        => true,
+        'shared_attendance_pool' => true,
     ];
 
     // Manager / Partner Proxy & Edit Attendance Form State
@@ -300,6 +306,12 @@ class PracticePreview extends Component
     public bool $showAddMemberModal = false;
     public bool $showEditMemberModal = false;
     public bool $showDeleteMemberModal = false;
+    public bool $showResetPasswordModal = false;
+    public ?int $resetPasswordMemberId = null;
+    public string $resetPasswordMemberName = '';
+    public string $resetPasswordMemberEmail = '';
+    public string $resetPasswordMemberRole = '';
+    public string $resetPasswordInput = '';
     public ?int $selectedMemberId = null;
     public string $selectedMemberName = '';
     public string $deleteConfirmationInput = '';
@@ -318,6 +330,10 @@ class PracticePreview extends Component
     public bool $newMemberCanEditAttendance = false;
     public bool $newMemberCanApproveLeave = false;
     public bool $newMemberCanApproveClaims = false;
+    public bool $newMemberCanManagePolicies = false;
+    public bool $newMemberCanManagePayroll = false;
+    public bool $newMemberCanFinalApproveLeave = false;
+    public bool $newMemberCanFinalApproveClaims = false;
 
     // Edit Member Form Fields
     public ?int $editMemberId = null;
@@ -335,6 +351,10 @@ class PracticePreview extends Component
     public bool $editMemberCanEditAttendance = false;
     public bool $editMemberCanApproveLeave = false;
     public bool $editMemberCanApproveClaims = false;
+    public bool $editMemberCanManagePolicies = false;
+    public bool $editMemberCanManagePayroll = false;
+    public bool $editMemberCanFinalApproveLeave = false;
+    public bool $editMemberCanFinalApproveClaims = false;
 
     protected const ROLES = ['partner', 'manager', 'student'];
     protected const SECTIONS = [
@@ -457,14 +477,25 @@ class PracticePreview extends Component
             $this->myPaymentMode = $user->payment_account_mode ?? 'bKash';
             $this->myPaymentAccountNo = $user->payment_account_no ?? '';
             if ($user->isManager() || $user->isPartner()) {
-                $this->managerCanProxyAttendance = (bool) $user->can_proxy_attendance;
-                $this->managerCanEditAttendance  = (bool) $user->can_edit_attendance;
-                $this->managerCanApproveLeave    = (bool) $user->can_approve_leave;
-                $this->managerCanApproveClaims   = (bool) $user->can_approve_claims;
+                $this->managerCanProxyAttendance    = (bool) $user->can_proxy_attendance;
+                $this->managerCanEditAttendance     = (bool) $user->can_edit_attendance;
+                $this->managerCanApproveLeave       = (bool) $user->can_approve_leave;
+                $this->managerCanApproveClaims      = (bool) $user->can_approve_claims;
+                $this->managerCanManagePolicies     = $user->isPartner() || (bool) ($user->can_manage_policies ?? false);
+                $this->managerCanManagePayroll      = $user->isPartner() || (bool) ($user->can_manage_payroll ?? false);
+                $this->managerCanFinalApproveLeave  = $user->isPartner() || (bool) ($user->can_final_approve_leave ?? false);
+                $this->managerCanFinalApproveClaims = $user->isPartner() || (bool) ($user->can_final_approve_claims ?? false);
             }
         }
 
         $this->loadPartnerPolicy();
+        if (Auth::check() && Auth::user()->isManager()) {
+            $u = Auth::user();
+            $this->managerCanManagePolicies     = (bool) ($u->can_manage_policies ?? false) || (bool) ($this->managerPermissions['manage_policies'] ?? false);
+            $this->managerCanManagePayroll      = (bool) ($u->can_manage_payroll ?? false) || (bool) ($this->managerPermissions['manage_payroll'] ?? false);
+            $this->managerCanFinalApproveLeave  = (bool) ($u->can_final_approve_leave ?? false) || (bool) ($this->managerPermissions['final_approve_leave'] ?? false);
+            $this->managerCanFinalApproveClaims = (bool) ($u->can_final_approve_claims ?? false) || (bool) ($this->managerPermissions['final_approve_claims'] ?? false);
+        }
         $this->loadHolidays();
         $this->refreshTodayWorkException();
         $this->loadTeamMembers();
@@ -545,6 +576,97 @@ class PracticePreview extends Component
         }
     }
 
+
+    /**
+     * Flexible Partner-to-Manager Authority Delegation Helpers:
+     * A Partner can delegate full operational authority (Policy & Holidays,
+     * Payroll Approval/Disbursement, Final Leave Sanction, Final Claim Sanction)
+     * to any trusted Manager (individually in Team Roster or unit-wide in Settings).
+     */
+    public function userCanManagePolicies(): bool
+    {
+        if ($this->previewRole === 'partner') {
+            return true;
+        }
+        if ($this->previewRole !== 'manager') {
+            return false;
+        }
+        if (Auth::check()) {
+            /** @var User $u */
+            $u = Auth::user();
+            if ($u->isPlatformAdmin() || $u->isPartner()) {
+                return true;
+            }
+            if ((bool) ($u->can_manage_policies ?? false)) {
+                return true;
+            }
+        }
+        return $this->managerCanManagePolicies || (bool) ($this->managerPermissions['manage_policies'] ?? false);
+    }
+
+    public function userCanManagePayroll(): bool
+    {
+        if ($this->previewRole === 'partner') {
+            return true;
+        }
+        if ($this->previewRole !== 'manager') {
+            return false;
+        }
+        if (Auth::check()) {
+            /** @var User $u */
+            $u = Auth::user();
+            if ($u->isPlatformAdmin() || $u->isPartner()) {
+                return true;
+            }
+            if ((bool) ($u->can_manage_payroll ?? false)) {
+                return true;
+            }
+        }
+        return $this->managerCanManagePayroll || (bool) ($this->managerPermissions['manage_payroll'] ?? false);
+    }
+
+    public function userCanFinalApproveLeave(): bool
+    {
+        if ($this->previewRole === 'partner') {
+            return true;
+        }
+        if ($this->previewRole !== 'manager') {
+            return false;
+        }
+        if (Auth::check()) {
+            /** @var User $u */
+            $u = Auth::user();
+            if ($u->isPlatformAdmin() || $u->isPartner()) {
+                return true;
+            }
+            if ((bool) ($u->can_final_approve_leave ?? false)) {
+                return true;
+            }
+        }
+        return $this->managerCanFinalApproveLeave || (bool) ($this->managerPermissions['final_approve_leave'] ?? false);
+    }
+
+    public function userCanFinalApproveClaims(): bool
+    {
+        if ($this->previewRole === 'partner') {
+            return true;
+        }
+        if ($this->previewRole !== 'manager') {
+            return false;
+        }
+        if (Auth::check()) {
+            /** @var User $u */
+            $u = Auth::user();
+            if ($u->isPlatformAdmin() || $u->isPartner()) {
+                return true;
+            }
+            if ((bool) ($u->can_final_approve_claims ?? false)) {
+                return true;
+            }
+        }
+        return $this->managerCanFinalApproveClaims || (bool) ($this->managerPermissions['final_approve_claims'] ?? false);
+    }
+
     protected function resolveFirmModel(): ?Firm
     {
         if (! Schema::hasTable('firms')) {
@@ -555,6 +677,42 @@ class PracticePreview extends Component
         } catch (\Throwable) {
             return null;
         }
+    }
+
+
+    /**
+     * Send an instant email notification to a student when their Leave or
+     * Conveyance Claim is approved/rejected, and build a 1-click WhatsApp URL.
+     */
+    protected function dispatchStudentDecisionAlert(?User $student, string $subject, string $bodyText): void
+    {
+        if (! $student || empty($student->email)) {
+            return;
+        }
+        if (app()->runningUnitTests() || app()->environment('testing')) {
+            return;
+        }
+        try {
+            \Illuminate\Support\Facades\Mail::raw($bodyText, function ($msg) use ($student, $subject) {
+                $msg->to($student->email, $student->name)->subject($subject);
+            });
+        } catch (\Throwable $e) {
+            Log::warning('Decision alert email skipped for ' . $student->email . ': ' . $e->getMessage());
+        }
+    }
+
+    public static function formatWhatsAppUrl(?string $phone, string $message): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+        if ($digits === '') {
+            return 'https://wa.me/?text=' . rawurlencode($message);
+        }
+        if (str_starts_with($digits, '01') && strlen($digits) === 11) {
+            $digits = '88' . $digits;
+        } elseif (str_starts_with($digits, '1') && strlen($digits) === 10) {
+            $digits = '880' . $digits;
+        }
+        return 'https://wa.me/' . $digits . '?text=' . rawurlencode($message);
     }
 
     protected function recordAuditLog(string $module, string $action, string $summary, ?string $targetRef = null, array $metadata = []): void
@@ -673,7 +831,7 @@ class PracticePreview extends Component
         }
 
         match ($kind) {
-            'policy'     => $this->showPolicyModal = $this->previewRole === 'partner',
+            'policy'     => $this->showPolicyModal = $this->userCanManagePolicies(),
             'correction' => $this->showCorrectionModal = $this->previewRole !== 'student',
             'claim'      => $this->showClaimReviewModal = $this->previewRole !== 'student',
             'leave'      => $this->showLeaveReviewModal = $this->previewRole !== 'student',
@@ -690,6 +848,9 @@ class PracticePreview extends Component
         $this->showAddMemberModal = false;
         $this->showEditMemberModal = false;
         $this->showDeleteMemberModal = false;
+        $this->showResetPasswordModal = false;
+        $this->resetPasswordMemberId = null;
+        $this->resetPasswordInput = '';
         $this->showAddNewClientModal = false;
         $this->showCheckoutModeModal = false;
         $this->showFinalCheckoutReview = false;
@@ -858,16 +1019,16 @@ class PracticePreview extends Component
                 : array_values(array_filter($this->claimQueue, fn ($q) => ! Auth::check() || Auth::user()->isPlatformAdmin() || empty($q['partner_unit']) || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit || count($this->availablePartnerUnits) <= 1)));
 
         // Compute actionable unread/pending items for Manager & Partner notification badges & Dashboard Inbox
-        $pendingLeaveItems = $this->previewRole === 'manager'
-            ? array_values(array_filter($scopedLeaveQueue, fn ($q) => ($q['status'] ?? '') === 'pending_manager'))
-            : ($this->previewRole === 'partner'
-                ? array_values(array_filter($scopedLeaveQueue, fn ($q) => in_array($q['status'] ?? '', ['pending_partner', 'pending_manager'], true)))
+        $pendingLeaveItems = ($this->previewRole === 'partner' || $this->userCanFinalApproveLeave())
+            ? array_values(array_filter($scopedLeaveQueue, fn ($q) => in_array($q['status'] ?? '', ['pending_partner', 'pending_manager'], true)))
+            : ($this->previewRole === 'manager'
+                ? array_values(array_filter($scopedLeaveQueue, fn ($q) => ($q['status'] ?? '') === 'pending_manager'))
                 : []);
 
-        $pendingClaimItems = $this->previewRole === 'manager'
-            ? array_values(array_filter($scopedClaimQueue, fn ($q) => in_array($q['status'] ?? '', ['pending_manager', 'Manager Review'], true)))
-            : ($this->previewRole === 'partner'
-                ? array_values(array_filter($scopedClaimQueue, fn ($q) => in_array($q['status'] ?? '', ['pending_partner', 'Escalated to Partner', 'Escalated to Partner (Late)', 'pending_manager'], true)))
+        $pendingClaimItems = ($this->previewRole === 'partner' || $this->userCanFinalApproveClaims())
+            ? array_values(array_filter($scopedClaimQueue, fn ($q) => in_array($q['status'] ?? '', ['pending_partner', 'Escalated to Partner', 'Escalated to Partner (Late)', 'pending_manager'], true)))
+            : ($this->previewRole === 'manager'
+                ? array_values(array_filter($scopedClaimQueue, fn ($q) => in_array($q['status'] ?? '', ['pending_manager', 'Manager Review'], true)))
                 : []);
 
         $pendingCorrectionItems = $this->previewRole !== 'student'
@@ -918,6 +1079,10 @@ class PracticePreview extends Component
 
         return view('livewire.practice.preview', [
             'colorPalettes'              => Firm::colorPalettes(),
+            'canManagePolicies'          => $this->userCanManagePolicies(),
+            'canManagePayroll'           => $this->userCanManagePayroll(),
+            'canFinalApproveLeave'       => $this->userCanFinalApproveLeave(),
+            'canFinalApproveClaims'      => $this->userCanFinalApproveClaims(),
             'pendingLeaveItems'          => $pendingLeaveItems,
             'pendingClaimItems'          => $pendingClaimItems,
             'pendingLeaveCount'          => $pendingLeaveCount,
@@ -943,6 +1108,7 @@ class PracticePreview extends Component
             'allTeamMembers'    => $this->teamMembers,
             'availableManagers' => $this->availableManagers,
             'canManageTeam'     => $this->userCanManageTeam(),
+            'canResetPasswords' => $this->userCanResetPasswords(),
             'studentGrids'      => $this->studentGrids,
             'partnerUnit'       => $this->partnerUnit,
             'roleLabel'         => match ($this->previewRole) {

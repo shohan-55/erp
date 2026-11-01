@@ -109,12 +109,25 @@
                                     {{ $request['status_label'] }}
                                 </span>
                                 @if($request['status'] === 'approved')
-                                    <button type="button" wire:click="exportLeaveSanctionLetter('{{ $request['id'] }}')" class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100" title="Print Official Leave Sanction Letter">
-                                        <i data-lucide="printer" class="h-3 w-3"></i> Print Letter
+                                    <button type="button" wire:click="exportLeaveSanctionLetter('{{ $request['id'] }}')" class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100" title="Download Official PDF Leave Sanction Letter">
+                                        <i data-lucide="file-down" class="h-3 w-3"></i> PDF Letter
                                     </button>
+                                    @php
+                                        $waLeaveMsg = "Hello " . ($request['name'] ?? '') . ", your " . ($request['type'] ?? 'Leave') . " application (" . ($request['id'] ?? '') . " for " . ($request['period'] ?? '') . ") has been APPROVED. — " . ($firm['name'] ?? 'Practice');
+                                        $waLeaveUrl = \App\Livewire\Practice\PracticePreview::formatWhatsAppUrl($request['phone'] ?? null, $waLeaveMsg);
+                                    @endphp
+                                    <a href="{{ $waLeaveUrl }}" target="_blank" rel="noopener" data-no-loading class="inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-white px-2 py-1 text-[10px] font-extrabold text-emerald-800 hover:bg-emerald-50" title="Send WhatsApp Approval Confirmation">
+                                        WhatsApp ↗
+                                    </a>
                                 @endif
 
                                 @if($previewRole === 'manager' && $request['status'] === 'pending_manager')
+                                    @if($canFinalApproveLeave ?? false)
+                                        <button type="button" wire:click="partnerApproveLeave('{{ $request['id'] }}', 'Sanctioned by authorized Manager.')"
+                                                class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
+                                            Approve Full ✓
+                                        </button>
+                                    @endif
                                     <button type="button" wire:click="managerRecommendLeave('{{ $request['id'] }}', 'Verified with audit engagement schedule. Recommended.')"
                                             class="rounded-lg bg-[#FCDF02] px-3 py-1.5 text-xs font-bold text-[#17191F] hover:bg-[#F3D604]">
                                         Forward to Partner →
@@ -127,7 +140,7 @@
                                             class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50">
                                         Reject
                                     </button>
-                                @elseif($previewRole === 'partner' && in_array($request['status'], ['pending_partner', 'pending_manager']))
+                                @elseif(($previewRole === 'partner' || ($canFinalApproveLeave ?? false)) && in_array($request['status'], ['pending_partner', 'pending_manager']))
                                     <button type="button" wire:click="partnerApproveLeave('{{ $request['id'] }}', 'Sanctioned by Partner.')"
                                             class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
                                         Approve Full

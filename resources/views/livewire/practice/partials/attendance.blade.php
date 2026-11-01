@@ -54,6 +54,7 @@
             lng: @entangle('currentLng'),
             gettingGps: false,
             captureGpsForCheckin() {
+                if (this.gettingGps) return;
                 if (!navigator.geolocation) {
                     $wire.togglePreviewSession();
                     return;
@@ -69,10 +70,11 @@
                         this.gettingGps = false;
                         $wire.togglePreviewSession();
                     },
-                    { enableHighAccuracy: true, timeout: 6000 }
+                    { enableHighAccuracy: true, timeout: 3000, maximumAge: 30000 }
                 );
             },
             captureGpsForCheckoutPrompt() {
+                if (this.gettingGps) return;
                 if (!navigator.geolocation) {
                     $wire.initiateCheckoutPrompt();
                     return;
@@ -88,7 +90,7 @@
                         this.gettingGps = false;
                         $wire.initiateCheckoutPrompt();
                     },
-                    { enableHighAccuracy: true, timeout: 6000 }
+                    { enableHighAccuracy: true, timeout: 2500, maximumAge: 30000 }
                 );
             }
          }">
@@ -148,16 +150,32 @@
             </div>
 
             @if(!$previewSessionActive)
-                <button type="button" @click="captureGpsForCheckin()" class="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-3.5 text-sm font-extrabold text-[#17191F] transition hover:bg-[#F3D604]">
-                    <i data-lucide="log-in" class="h-5 w-5"></i>
-                    <span x-show="!gettingGps">{{ $sessionState === 'on_duty_transit' ? 'Check-in at Next Location (Record In GPS)' : 'Check-in (Record In GPS)' }}</span>
-                    <span x-show="gettingGps" x-cloak>Capturing GPS Coordinates...</span>
+                <button type="button"
+                        @click="captureGpsForCheckin()"
+                        :disabled="gettingGps"
+                        wire:loading.attr="disabled"
+                        wire:target="togglePreviewSession,togglePreviewSessionWithGps"
+                        class="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-3.5 text-sm font-extrabold text-[#17191F] transition hover:bg-[#F3D604] disabled:opacity-75 cursor-pointer">
+                    <span x-show="gettingGps" x-cloak class="dw-inline-spinner"></span>
+                    <span wire:loading wire:target="togglePreviewSession,togglePreviewSessionWithGps" class="dw-inline-spinner"></span>
+                    <i x-show="!gettingGps" wire:loading.remove wire:target="togglePreviewSession,togglePreviewSessionWithGps" data-lucide="log-in" class="h-5 w-5"></i>
+                    <span x-show="!gettingGps" wire:loading.remove wire:target="togglePreviewSession,togglePreviewSessionWithGps">{{ $sessionState === 'on_duty_transit' ? 'Check-in at Next Location (Record In GPS)' : 'Check-in (Record In GPS)' }}</span>
+                    <span x-show="gettingGps" x-cloak>Verifying GPS Coordinates...</span>
+                    <span wire:loading wire:target="togglePreviewSession,togglePreviewSessionWithGps">Recording Check-in...</span>
                 </button>
             @else
-                <button type="button" @click="captureGpsForCheckoutPrompt()" class="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#17191F] px-5 py-3.5 text-sm font-extrabold text-white transition hover:bg-slate-800">
-                    <i data-lucide="log-out" class="h-5 w-5 text-[#FCDF02]"></i>
-                    <span x-show="!gettingGps">Out (Choose: Close Duty or On Duty Move)</span>
-                    <span x-show="gettingGps" x-cloak>Capturing Out GPS Coordinates...</span>
+                <button type="button"
+                        @click="captureGpsForCheckoutPrompt()"
+                        :disabled="gettingGps"
+                        wire:loading.attr="disabled"
+                        wire:target="initiateCheckoutPrompt"
+                        class="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[#17191F] px-5 py-3.5 text-sm font-extrabold text-white transition hover:bg-slate-800 disabled:opacity-75 cursor-pointer">
+                    <span x-show="gettingGps" x-cloak class="dw-inline-spinner text-[#FCDF02]"></span>
+                    <span wire:loading wire:target="initiateCheckoutPrompt" class="dw-inline-spinner text-[#FCDF02]"></span>
+                    <i x-show="!gettingGps" wire:loading.remove wire:target="initiateCheckoutPrompt" data-lucide="log-out" class="h-5 w-5 text-[#FCDF02]"></i>
+                    <span x-show="!gettingGps" wire:loading.remove wire:target="initiateCheckoutPrompt">Out (Choose: Close Duty or On Duty Move)</span>
+                    <span x-show="gettingGps" x-cloak>Verifying Out GPS &amp; Opening Options...</span>
+                    <span wire:loading wire:target="initiateCheckoutPrompt">Opening Check-out Options...</span>
                 </button>
             @endif
                         <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">All daily Office and Client Site check-in/out segments are saved with GPS coordinates and visible to your Manager and Partner.</div>

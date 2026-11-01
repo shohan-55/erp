@@ -32,10 +32,16 @@
                 <option value="Bank A/C Transfer">Bank A/C Transfer</option>
             </select>
         </label>
-        <button type="button" wire:click="exportStudentPayrollVoucher" class="inline-flex items-center gap-1.5 rounded-xl bg-[#17191F] px-3.5 py-2.5 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800 transition shadow-sm">
-            <i data-lucide="printer" class="h-4 w-4"></i>
-            <span>Print All Vouchers</span>
+        <button type="button" wire:click="exportStudentPayrollVoucher" class="inline-flex items-center gap-1.5 rounded-xl bg-[#17191F] px-3.5 py-2.5 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800 transition shadow-sm" title="Download Official PDF Vouchers with Firm Letterhead">
+            <i data-lucide="file-text" class="h-4 w-4"></i>
+            <span>PDF Vouchers</span>
         </button>
+        @if($previewRole !== 'student')
+            <button type="button" wire:click="exportDisbursementSheetCsv" class="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2.5 text-xs font-extrabold text-emerald-900 hover:bg-emerald-100 transition shadow-sm" title="Download Ready-to-Pay bKash / Nagad / Bank Disbursement Sheet">
+                <i data-lucide="landmark" class="h-4 w-4 text-emerald-700"></i>
+                <span>bKash / Bank Sheet</span>
+            </button>
+        @endif
         <button type="button" wire:click="exportPayrollCsv" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-extrabold text-slate-700 hover:bg-slate-50 transition shadow-sm">
             <i data-lucide="download" class="h-4 w-4 text-emerald-600"></i>
             <span>Export CSV</span>
@@ -72,7 +78,7 @@
                 <button type="button" wire:click="transitionPayrollPeriod('reviewed')" class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100">
                     Mark Reviewed
                 </button>
-                @if($previewRole === 'partner')
+                @if($previewRole === 'partner' || ($canManagePayroll ?? false))
                     <button type="button" wire:click="transitionPayrollPeriod('approved')" class="rounded-xl bg-[#FCDF02] px-3.5 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604]">
                         Partner Approve
                     </button>
@@ -127,9 +133,18 @@
                             <td class="px-4 py-4 font-bold text-slate-900">৳ {{ number_format($item['net_payable'] ?? 0, 0) }}</td>
                             <td class="px-5 py-4 text-right space-x-1.5">
                                 <span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">{{ $item['status_label'] ?? 'Draft Ledger' }}</span>
-                                <button type="button" wire:click="exportStudentPayrollVoucher('{{ $item['id'] }}')" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-800 hover:bg-amber-50">
-                                    <i data-lucide="printer" class="h-3 w-3"></i> Voucher
+                                <button type="button" wire:click="exportStudentPayrollVoucher('{{ $item['id'] }}')" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-800 hover:bg-amber-50" title="Download PDF Payment Voucher">
+                                    <i data-lucide="file-down" class="h-3 w-3"></i> PDF Voucher
                                 </button>
+                                @if($previewRole !== 'student')
+                                    @php
+                                        $waPayMsg = "Hello " . ($item['name'] ?? 'Student') . ", your monthly stipend & conveyance for period " . $period . " (Net Payable: BDT " . number_format($item['net_payable'] ?? 0, 2) . " via " . ($item['payment_method'] ?? 'bKash/Bank') . ") is " . strtoupper($item['status'] ?? 'Draft') . ". — " . ($firm['name'] ?? 'Practice');
+                                        $waPayUrl = \App\Livewire\Practice\PracticePreview::formatWhatsAppUrl($item['phone'] ?? null, $waPayMsg);
+                                    @endphp
+                                    <a href="{{ $waPayUrl }}" target="_blank" rel="noopener" data-no-loading class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-extrabold text-emerald-800 hover:bg-emerald-100" title="Send 1-Click WhatsApp Payment Alert">
+                                        WhatsApp ↗
+                                    </a>
+                                @endif
                             </td>
                         </tr>
                     @empty

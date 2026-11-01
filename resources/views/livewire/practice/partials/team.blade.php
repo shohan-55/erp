@@ -2,7 +2,7 @@
     <div>
         <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">PRACTICE GOVERNANCE · TEAM MANAGEMENT</p>
         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Team &amp; Member Roster</h2>
-        <p class="mt-1.5 text-xs text-slate-500">Manage practice partners, audit managers, and articled students. Assign supervisors, allowances, and delegated permissions.</p>
+        <p class="mt-1.5 text-xs text-slate-500">Manage practice partners, audit managers, and articled students. Assign supervisors, allowances, delegated permissions, and reset passwords.</p>
     </div>
     <div class="flex items-center gap-2">
         @if($canManageTeam)
@@ -11,7 +11,7 @@
             </button>
         @else
             <span class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
-                <i data-lucide="shield-alert" class="h-4 w-4 text-slate-400"></i> View-Only Roster
+                <i data-lucide="shield-alert" class="h-4 w-4 text-slate-400"></i> {{ ($canResetPasswords ?? false) ? 'Password Reset Enabled' : 'View-Only Roster' }}
             </span>
         @endif
     </div>
@@ -20,7 +20,13 @@
 @if(! $canManageTeam)
     <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 text-xs text-amber-900 flex items-start gap-2.5">
         <i data-lucide="info" class="h-4 w-4 shrink-0 text-amber-700 mt-0.5"></i>
-        <span>You are currently viewing the roster in <strong>read-only</strong> mode. Adding, editing, or removing practice members requires authorization delegated by an active Partner.</span>
+        <span>
+            @if($canResetPasswords ?? false)
+                You can reset member passwords from this roster (the new password is automatically emailed to the member). Adding or removing members requires Team Admin authorization from a Partner.
+            @else
+                You are currently viewing the roster in <strong>read-only</strong> mode. Adding, editing, or removing practice members requires authorization delegated by an active Partner.
+            @endif
+        </span>
     </div>
 @endif
 
@@ -32,6 +38,7 @@
         $managerCount = count(array_filter($rosterPool, fn($m) => ($m['role'] ?? '') === 'manager'));
         $studentCount = count(array_filter($rosterPool, fn($m) => ($m['role'] ?? '') === 'student'));
         $totalCount   = count($rosterPool);
+        $showActionColumn = $canManageTeam || ($canResetPasswords ?? false);
     @endphp
     <div class="rounded-2xl border border-[#E8EAF0] bg-white p-4 shadow-sm">
         <div class="flex items-center justify-between">
@@ -106,7 +113,7 @@
                     <th class="px-3 py-3.5">Partner Unit</th>
                     <th class="px-3 py-3.5">Delegated Permissions</th>
                     <th class="px-3 py-3.5">Allowance</th>
-                    @if($canManageTeam)
+                    @if($showActionColumn)
                         <th class="py-3.5 pl-3 pr-6 text-right">Actions</th>
                     @endif
                 </tr>
@@ -173,7 +180,19 @@
                                 @if(!empty($member['can_approve_claims']))
                                     <span class="rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700" title="Can review conveyance claims">Claims Rev.</span>
                                 @endif
-                                @if(empty($member['can_manage_team']) && empty($member['can_proxy_attendance']) && empty($member['can_edit_attendance']) && empty($member['can_approve_leave']) && empty($member['can_approve_claims']))
+                                @if(!empty($member['can_manage_policies']))
+                                    <span class="rounded bg-teal-100 px-1.5 py-0.5 text-[9px] font-bold text-teal-900 border border-teal-300" title="Can update workspace policy, holidays & exceptions">Policy Admin</span>
+                                @endif
+                                @if(!empty($member['can_manage_payroll']))
+                                    <span class="rounded bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold text-indigo-900 border border-indigo-300" title="Can approve, mark paid & lock payroll">Payroll Admin</span>
+                                @endif
+                                @if(!empty($member['can_final_approve_leave']))
+                                    <span class="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-900" title="Can grant final leave sanction">Final Leave</span>
+                                @endif
+                                @if(!empty($member['can_final_approve_claims']))
+                                    <span class="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-950" title="Can grant final conveyance sanction">Final Claims</span>
+                                @endif
+                                @if(empty($member['can_manage_team']) && empty($member['can_proxy_attendance']) && empty($member['can_edit_attendance']) && empty($member['can_approve_leave']) && empty($member['can_approve_claims']) && empty($member['can_manage_policies']) && empty($member['can_manage_payroll']) && empty($member['can_final_approve_leave']) && empty($member['can_final_approve_claims']))
                                     <span class="text-[10px] text-slate-400">Standard</span>
                                 @endif
                             </div>
@@ -185,24 +204,32 @@
                                 <span class="text-slate-400">—</span>
                             @endif
                         </td>
-                        @if($canManageTeam)
+                        @if($showActionColumn)
                             <td class="py-4 pl-3 pr-6 text-right whitespace-nowrap">
                                 <div class="inline-flex items-center gap-1.5">
-                                    @if(($member['role'] ?? '') === 'student')
+                                    @if(($member['role'] ?? '') === 'student' && $canManageTeam)
                                         <button type="button" wire:click="exportStudentCertificate({{ $member['id'] }}, 'noc')"
                                                 class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 transition" title="Print Official ICAB Articleship &amp; NOC Certificate">
                                             <i data-lucide="award" class="h-3.5 w-3.5"></i> ICAB Cert
                                         </button>
                                     @endif
-                                    <button type="button" wire:click="openEditMemberModal({{ $member['id'] }})"
-                                            class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition" title="Modify role & delegated permissions">
-                                        Permissions
-                                    </button>
-                                    @if(!Auth::check() || Auth::id() !== $member['id'])
-                                        <button type="button" wire:click="confirmDeleteMember({{ $member['id'] }})"
-                                                class="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition" title="Remove member from practice">
-                                            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                                    @if(($canResetPasswords ?? false) && ($previewRole === 'partner' || ($member['role'] ?? '') !== 'partner'))
+                                        <button type="button" wire:click="openResetPasswordModal({{ $member['id'] }})"
+                                                class="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold text-amber-950 hover:bg-amber-100 transition" title="Reset password and email new password to {{ $member['email'] }}">
+                                            <i data-lucide="key-round" class="h-3.5 w-3.5"></i> Reset Pass
                                         </button>
+                                    @endif
+                                    @if($canManageTeam)
+                                        <button type="button" wire:click="openEditMemberModal({{ $member['id'] }})"
+                                                class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition" title="Modify role & delegated permissions">
+                                            Permissions
+                                        </button>
+                                        @if(!Auth::check() || Auth::id() !== $member['id'])
+                                            <button type="button" wire:click="confirmDeleteMember({{ $member['id'] }})"
+                                                    class="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition" title="Remove member from practice">
+                                                <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                                            </button>
+                                        @endif
                                     @endif
                                 </div>
                             </td>
@@ -234,6 +261,7 @@
                     <div>
                         <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-800">Practice Roster Provisioning</p>
                         <h2 class="mt-1 text-lg font-black text-slate-900">Add Practice Team Member</h2>
+                        <p class="mt-0.5 text-[11px] text-slate-500">Login link, username, and password will be sent directly to the member's email.</p>
                     </div>
                     <button type="button" wire:click="closeDialogs" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition"><i data-lucide="x" class="h-5 w-5"></i></button>
                 </div>
@@ -272,14 +300,14 @@
                         <label class="block font-bold text-slate-700">Full Name *
                             <input type="text" wire:model="newMemberName" required placeholder="e.g. Farhana Rahman, ACA" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
                         </label>
-                        <label class="block font-bold text-slate-700">Practice Email *
+                        <label class="block font-bold text-slate-700">Practice Email (Username) *
                             <input type="email" wire:model="newMemberEmail" required placeholder="e.g. farhana@{{ $firm['custom_domain'] ?? ($firmSlug . '.dhakawala.com') }}" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
                         </label>
                     </div>
 
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <label class="block font-bold text-slate-700">Temporary Password
-                            <input type="text" wire:model="newMemberPassword" placeholder="Default: Secret123!" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400 font-mono text-[11px]">
+                        <label class="block font-bold text-slate-700">Initial Password (Emailed to User)
+                            <input type="text" wire:model="newMemberPassword" placeholder="Leave blank to auto-generate" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400 font-mono text-[11px]">
                         </label>
                         <label class="block font-bold text-slate-700">Partner Unit
                             <select wire:model="newMemberPartnerUnit" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
@@ -359,6 +387,38 @@
                                 <p class="text-[10px] text-slate-500">Allows approving conveyance claims within manager limit.</p>
                             </div>
                         </label>
+
+                        <div class="border-t border-amber-200/80 pt-2.5 mt-2 space-y-2.5">
+                            <p class="font-extrabold text-teal-900 uppercase tracking-wider text-[10px]">⚡ Partner-Level Executive Delegation (পলিসি ও ফাইনাল অ্যাপ্রুভাল পাওয়ার)</p>
+                            <label class="flex items-start gap-2.5 cursor-pointer">
+                                <input type="checkbox" wire:model="newMemberCanManagePolicies" class="mt-0.5 rounded border-teal-400 text-teal-600 focus:ring-teal-400">
+                                <div>
+                                    <span class="font-bold text-slate-900">Can Update Firm Policy, Office Hours &amp; Holidays</span>
+                                    <p class="text-[10px] text-slate-500">Allows this manager to update office timing, grace rules, weekly holidays &amp; working-day exceptions on behalf of Partner.</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-2.5 cursor-pointer">
+                                <input type="checkbox" wire:model="newMemberCanManagePayroll" class="mt-0.5 rounded border-teal-400 text-teal-600 focus:ring-teal-400">
+                                <div>
+                                    <span class="font-bold text-slate-900">Can Approve, Mark Paid &amp; Lock Monthly Payroll</span>
+                                    <p class="text-[10px] text-slate-500">Allows full Partner-level payroll approval and disbursement sign-off.</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-2.5 cursor-pointer">
+                                <input type="checkbox" wire:model="newMemberCanFinalApproveLeave" class="mt-0.5 rounded border-teal-400 text-teal-600 focus:ring-teal-400">
+                                <div>
+                                    <span class="font-bold text-slate-900">Can Grant Final Leave Sanction (Without Escalation)</span>
+                                    <p class="text-[10px] text-slate-500">Allows directly approving student leave without waiting for Partner sign-off.</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-2.5 cursor-pointer">
+                                <input type="checkbox" wire:model="newMemberCanFinalApproveClaims" class="mt-0.5 rounded border-teal-400 text-teal-600 focus:ring-teal-400">
+                                <div>
+                                    <span class="font-bold text-slate-900">Can Grant Final Conveyance Sanction (Any Amount / Late)</span>
+                                    <p class="text-[10px] text-slate-500">Allows approving conveyance claims above limit or older claims directly.</p>
+                                </div>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
@@ -367,6 +427,68 @@
                             <i data-lucide="check" class="h-4 w-4"></i>
                             <span wire:loading.remove wire:target="createMember">Create Member</span>
                             <span wire:loading wire:target="createMember">Creating...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+@endif
+
+<!-- ========================================== -->
+<!-- RESET PASSWORD MODAL (PARTNER / MANAGER)   -->
+<!-- ========================================== -->
+@if($showResetPasswordModal ?? false)
+    <div class="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/60 p-4 sm:p-6 backdrop-blur-sm"
+         wire:click.self="closeDialogs" wire:keydown.escape.window="closeDialogs" role="dialog" aria-modal="true">
+        <div class="flex min-h-full items-center justify-center">
+            <div class="w-full max-w-md my-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+                <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-900">
+                            <i data-lucide="key-round" class="h-5 w-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-800">Account Security</p>
+                            <h2 class="text-base font-black text-slate-900">Reset Member Password</h2>
+                        </div>
+                    </div>
+                    <button type="button" wire:click="closeDialogs" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition"><i data-lucide="x" class="h-5 w-5"></i></button>
+                </div>
+
+                <form wire:submit.prevent="resetMemberPassword" class="mt-4 space-y-4 text-xs">
+                    @if($error)
+                        <div class="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-800 flex items-start gap-2" role="alert">
+                            <i data-lucide="alert-circle" class="h-4 w-4 text-rose-600 shrink-0 mt-0.5"></i>
+                            <p>{{ $error }}</p>
+                        </div>
+                    @endif
+
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-1">
+                        <p class="font-bold text-slate-900">{{ $resetPasswordMemberName }}</p>
+                        <p class="text-[11px] text-slate-600">Username / Email: <strong>{{ $resetPasswordMemberEmail }}</strong></p>
+                        <p class="text-[10px] text-slate-500">Role: {{ $resetPasswordMemberRole }}</p>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">
+                            New Password (নতুন পাসওয়ার্ড দিন অথবা অটো-জেনারেট করতে খালি রাখুন)
+                        </label>
+                        <input type="text"
+                               wire:model="resetPasswordInput"
+                               placeholder="Type new password (min 6 chars) or leave blank"
+                               class="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-mono text-xs outline-none focus:border-amber-400 focus:bg-white">
+                        <p class="mt-1.5 text-[11px] text-slate-500 leading-relaxed">
+                            রিসেট করার সাথে সাথেই <strong>{{ $resetPasswordMemberEmail }}</strong> মেইলে লগইন লিংক, ইউজারনেম এবং নতুন পাসওয়ার্ড চলে যাবে।
+                        </p>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
+                        <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">Cancel</button>
+                        <button type="submit" wire:loading.attr="disabled" wire:target="resetMemberPassword" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition shadow-sm">
+                            <i data-lucide="send" class="h-3.5 w-3.5"></i>
+                            <span wire:loading.remove wire:target="resetMemberPassword">Reset &amp; Send Password to Email</span>
+                            <span wire:loading wire:target="resetMemberPassword">Sending...</span>
                         </button>
                     </div>
                 </form>
@@ -420,8 +542,8 @@
                         <label class="block font-bold text-slate-700">Phone Number
                             <input type="text" wire:model="editMemberPhone" placeholder="+880 1711-XXXXXX" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2 outline-none focus:border-amber-400">
                         </label>
-                        <label class="block font-bold text-slate-700">Reset Password (Optional)
-                            <input type="text" wire:model="editMemberNewPassword" placeholder="Min 8 chars to reset" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2 outline-none focus:border-amber-400 font-mono text-[11px]">
+                        <label class="block font-bold text-slate-700">Reset Password (Emailed)
+                            <input type="text" wire:model="editMemberNewPassword" placeholder="Type new pass to reset" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2 outline-none focus:border-amber-400 font-mono text-[11px]">
                         </label>
                     </div>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -510,6 +632,38 @@
                                 <p class="text-[10px] text-slate-500">Allows verifying and modifying student travel claims within policy limits.</p>
                             </div>
                         </label>
+
+                        <div class="border-t border-amber-200/80 pt-2.5 mt-2 space-y-2.5">
+                            <p class="font-extrabold text-teal-900 uppercase tracking-wider text-[10px]">⚡ Partner-Level Executive Delegation (পলিসি ও ফাইনাল অ্যাপ্রুভাল পাওয়ার)</p>
+                            <label class="flex items-start gap-2.5 cursor-pointer">
+                                <input type="checkbox" wire:model="editMemberCanManagePolicies" class="mt-0.5 rounded border-teal-400 text-teal-600 focus:ring-teal-400">
+                                <div>
+                                    <span class="font-bold text-slate-900">Can Update Firm Policy, Office Hours &amp; Holidays</span>
+                                    <p class="text-[10px] text-slate-500">Allows this manager to update office timing, grace rules, weekly holidays &amp; working-day exceptions on behalf of Partner.</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-2.5 cursor-pointer">
+                                <input type="checkbox" wire:model="editMemberCanManagePayroll" class="mt-0.5 rounded border-teal-400 text-teal-600 focus:ring-teal-400">
+                                <div>
+                                    <span class="font-bold text-slate-900">Can Approve, Mark Paid &amp; Lock Monthly Payroll</span>
+                                    <p class="text-[10px] text-slate-500">Allows full Partner-level payroll approval and disbursement sign-off.</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-2.5 cursor-pointer">
+                                <input type="checkbox" wire:model="editMemberCanFinalApproveLeave" class="mt-0.5 rounded border-teal-400 text-teal-600 focus:ring-teal-400">
+                                <div>
+                                    <span class="font-bold text-slate-900">Can Grant Final Leave Sanction (Without Escalation)</span>
+                                    <p class="text-[10px] text-slate-500">Allows directly approving student leave without waiting for Partner sign-off.</p>
+                                </div>
+                            </label>
+                            <label class="flex items-start gap-2.5 cursor-pointer">
+                                <input type="checkbox" wire:model="editMemberCanFinalApproveClaims" class="mt-0.5 rounded border-teal-400 text-teal-600 focus:ring-teal-400">
+                                <div>
+                                    <span class="font-bold text-slate-900">Can Grant Final Conveyance Sanction (Any Amount / Late)</span>
+                                    <p class="text-[10px] text-slate-500">Allows approving conveyance claims above limit or older claims directly.</p>
+                                </div>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">

@@ -4,7 +4,7 @@
         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Rules with accountability.</h2>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">Company defaults, independent Partner governance, and versioned rules. Configured for your practice.</p>
     </div>
-    @if($previewRole === 'partner')
+    @if($previewRole === 'partner' || ($canManagePolicies ?? false))
         <button wire:click="openDialog('policy')" type="button" class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-3 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604]"><i data-lucide="file-plus-2" class="h-4 w-4"></i> Propose Policy Update</button>
     @endif
 </section>
@@ -32,7 +32,7 @@
             </div>
             <p class="border-t border-slate-100 bg-amber-50 px-5 py-3 text-xs leading-relaxed text-amber-900">Late calculation: on time through {{ $graceMinutes }} minutes past {{ $officeStart }}. Arrivals thereafter are flagged for review and supervisor remarks.</p>
 
-            @if(in_array($previewRole, ['partner', 'manager']))
+            @if($previewRole === 'partner' || ($canManagePolicies ?? false))
                 <form wire:submit.prevent="savePolicySettings" class="border-t border-slate-100 bg-slate-50/70 p-5 space-y-4 text-xs">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div>
@@ -73,6 +73,11 @@
                         </button>
                     </div>
                 </form>
+            @elseif($previewRole === 'manager')
+                <div class="border-t border-slate-100 bg-slate-50/80 px-5 py-3.5 text-xs text-slate-600 flex items-center justify-between gap-3">
+                    <span><i data-lucide="lock" class="inline h-3.5 w-3.5 text-slate-400 mr-1"></i> <strong>Read-Only Policy View:</strong> Your Partner can grant you <em>Policy &amp; Holiday Admin</em> permission from <strong>Team &amp; Members</strong> or <strong>Workspace Settings</strong> to edit these rules directly.</span>
+                    <span class="rounded bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700 shrink-0">View Mode</span>
+                </div>
             @endif
         </section>
 

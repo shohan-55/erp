@@ -49,6 +49,7 @@ trait ManagesLeaveWorkflow
                                 'user_id'                => $lr->user_id,
                                 'name'                   => $lr->user?->name ?? 'Practice Member',
                                 'student_code'           => $lr->user?->student_code ?? ('S-' . $lr->user_id),
+                                'phone'                  => $lr->user?->phone ?? '',
                                 'created_at_human'       => $lr->created_at?->diffForHumans() ?? 'Just now',
                                 'manager'                => $lr->engagedManager?->name ?? ($lr->user?->manager?->name ?? 'Direct Report'),
                                 'engaged_manager_id'     => $lr->engaged_manager_id ?? $lr->user?->manager_id,
@@ -493,7 +494,7 @@ trait ManagesLeaveWorkflow
                         $lr->approved_days = $this->partialApprovedDays;
                         $lr->approved_dates_summary = $summary;
                     }
-                    if ($this->previewRole === 'manager') {
+                    if ($this->previewRole === 'manager' && ! $this->userCanFinalApproveLeave()) {
                         $lr->status = 'pending_partner';
                         $lr->manager_remarks = $remarks;
                         $lr->reviewed_by = Auth::id();
@@ -592,8 +593,8 @@ trait ManagesLeaveWorkflow
     {
         $this->enforceAuthenticatedRoleLock();
 
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only a Partner can give final leave approval.';
+        if (! $this->userCanFinalApproveLeave()) {
+            $this->error = 'Only a Partner or an authorized Manager (with Final Leave Approval permission) can give final leave approval.';
             return;
         }
 
@@ -618,6 +619,11 @@ trait ManagesLeaveWorkflow
                     $lr->save();
                     $this->recordAuditLog('leave', 'leave_approved', "Partner approved leave request {$id}.", $id);
                     $this->createPracticeNotification($lr->user_id, 'student', 'Leave Application Approved', "Your leave request ({$id}) has been sanctioned by Partner.", 'calendar-days');
+                    $this->dispatchStudentDecisionAlert(
+                        User::find($lr->user_id),
+                        "Leave Approved ({$id}) — " . ($this->firm['name'] ?? 'Practice'),
+                        "Dear Practice Member,\n\nYour leave application ({$id}) has been approved by the Partner.\nRemarks: {$lr->partner_remarks}\n\n— " . ($this->firm['name'] ?? 'DhakaWala ERP')
+                    );
                 }
             } catch (\Throwable) {}
         }
@@ -632,6 +638,7 @@ trait ManagesLeaveWorkflow
             }
         }
         unset($req);
+        $this->dispatch('toast', ['type' => 'success', 'title' => 'Leave Approved', 'message' => $this->notice ?? "Leave {$id} approved."]);
     }
 
     public function rejectLeave(string $id, string $reason = ''): void

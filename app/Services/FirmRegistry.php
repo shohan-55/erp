@@ -162,7 +162,7 @@ class FirmRegistry
             'designation'      => $firm->kind,
             'short_code'       => strtoupper($firm->initials) . '&C',
             'legal_name'       => $firm->name . ', ' . $firm->kind,
-            'logo_url'         => 'images/' . $firm->slug . '_logo.svg',
+            'logo_url'         => ! empty($firm->logo_url) ? $firm->logo_url : ('images/' . $firm->slug . '_logo.svg'),
             'tagline'          => 'Your Practice. One Connected Workspace.',
             'description'      => 'Manage attendance, leave, conveyance and payroll through a secure, organized workspace designed for professional accounting firms.',
             'office'           => ($firm->region ?: 'Dhaka') . ', Bangladesh',

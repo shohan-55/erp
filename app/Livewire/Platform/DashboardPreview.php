@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Platform;
 
+use App\Mail\TeamInvitationMail;
 use App\Models\AuditLog;
 use App\Models\Firm;
 use App\Models\PartnerPolicy;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -98,7 +100,9 @@ class DashboardPreview extends Component
     public array $editPartnerNames = [];
     public array $editPartnerEmails = [];
     public array $editPartnerUnits = [];
+    public array $editPartnerSharedAttendance = [];
     public array $resetPartnerPasswordInputs = [];
+    public bool $newAddPartnerSharedAttendance = true;
     public string $newAddPartnerName = '';
     public string $newAddPartnerEmail = '';
     public string $newAddPartnerUnit = 'Partner Unit 02';
@@ -443,21 +447,36 @@ class DashboardPreview extends Component
                         'total'    => $users->count(),
                     ];
 
+                    $policiesByUnit = Schema::hasTable('partner_policies')
+                        ? PartnerPolicy::where('firm_id', $firm->id)->get()->keyBy('partner_unit')
+                        : collect();
+
                     $this->editPartnerNames = [];
                     $this->editPartnerEmails = [];
                     $this->editPartnerUnits = [];
+                    $this->editPartnerSharedAttendance = [];
                     foreach ($partners as $p) {
+                        $unitKey = $p->partner_unit ?: 'Partner Unit 01';
+                        $pol = $policiesByUnit->get($unitKey);
+                        $sharedPool = is_array($pol?->manager_permissions) && array_key_exists('shared_attendance_pool', $pol->manager_permissions)
+                            ? (bool) $pol->manager_permissions['shared_attendance_pool']
+                            : true;
                         $this->editPartnerNames[$p->id] = $p->name;
                         $this->editPartnerEmails[$p->id] = $p->email;
-                        $this->editPartnerUnits[$p->id] = $p->partner_unit ?: 'Partner Unit 01';
+                        $this->editPartnerUnits[$p->id] = $unitKey;
+                        $this->editPartnerSharedAttendance[$p->id] = $sharedPool;
                     }
-                    $this->selectedFirmPartners = $partners->map(fn (User $p) => [
-                        'id'           => $p->id,
-                        'name'         => $p->name,
-                        'email'        => $p->email,
-                        'partner_unit' => $p->partner_unit ?: 'Partner Unit 01',
-                        'phone'        => $p->phone ?: '—',
-                    ])->toArray();
+                    $this->selectedFirmPartners = $partners->map(function (User $p) {
+                        $unitKey = $p->partner_unit ?: 'Partner Unit 01';
+                        return [
+                            'id'                     => $p->id,
+                            'name'                   => $p->name,
+                            'email'                  => $p->email,
+                            'partner_unit'           => $unitKey,
+                            'shared_attendance_pool' => (bool) ($this->editPartnerSharedAttendance[$p->id] ?? true),
+                            'phone'                  => $p->phone ?: '—',
+                        ];
+                    })->toArray();
 
                     $nextUnitNum = $partners->count() + 1;
                     $this->newAddPartnerUnit = sprintf('Partner Unit %02d', $nextUnitNum);
@@ -782,6 +801,10 @@ class DashboardPreview extends Component
                 ]);
                 $this->modalError = null;
 
+                if (! $partnerAdopted && $createdPartner && $createdFirm) {
+                    $this->sendPartnerCredentialsEmail($createdPartner, $createdFirm->name, $createdFirm->slug, $partnerPass, false);
+                }
+
                 $workspaceUrl = $createdFirm->workspace_url;
                 // Only report a password when one was actually set on this account;
                 // an adopted orphan keeps its existing credentials.
@@ -964,6 +987,9 @@ class DashboardPreview extends Component
                 ]);
 
                 if (Schema::hasTable('partner_policies')) {
+                    $mgrPerms = array_merge(PartnerPolicy::defaultManagerPermissions(), [
+                        'shared_attendance_pool' => (bool) $this->newAddPartnerSharedAttendance,
+                    ]);
                     PartnerPolicy::updateOrCreate(
                         ['firm_id' => $firm->id, 'partner_unit' => $unit],
                         [
@@ -977,10 +1003,12 @@ class DashboardPreview extends Component
                             'late_days_per_deduction'  => 3,
                             'deduction_days_count'     => 1.00,
                             'student_grids'            => PartnerPolicy::defaultStudentGrids(),
-                            'manager_permissions'      => PartnerPolicy::defaultManagerPermissions(),
+                            'manager_permissions'      => $mgrPerms,
                         ]
                     );
                 }
+
+                $this->sendPartnerCredentialsEmail($partner, $firm->name, $firm->slug, $password, false);
 
                 $partnerCount = User::where('firm_id', $firm->id)->where('role', 'partner')->count();
                 if ($firm->workspaces < $partnerCount) {
@@ -1136,6 +1164,34 @@ class DashboardPreview extends Component
                     }
                     $partner->save();
 
+                    if ($partner->firm_id && Schema::hasTable('partner_policies')) {
+                        $unitTarget = $partner->partner_unit ?: 'Partner Unit 01';
+                        $pol = PartnerPolicy::firstOrNew([
+                            'firm_id'      => $partner->firm_id,
+                            'partner_unit' => $unitTarget,
+                        ]);
+                        if (! $pol->exists) {
+                            $pol->partner_id = $partner->id;
+                            $pol->office_start = '10:00';
+                            $pol->office_end = '18:00';
+                            $pol->grace_minutes = 10;
+                            $pol->manager_conveyance_limit = 300.00;
+                            $pol->conveyance_late_days = 2;
+                            $pol->student_grids = PartnerPolicy::defaultStudentGrids();
+                        }
+                        $perms = is_array($pol->manager_permissions) ? $pol->manager_permissions : PartnerPolicy::defaultManagerPermissions();
+                        $perms['shared_attendance_pool'] = (bool) ($this->editPartnerSharedAttendance[$partnerUserId] ?? true);
+                        $pol->manager_permissions = $perms;
+                        $pol->save();
+                    }
+
+                    if ($newPass !== '' && $partner->firm_id && Schema::hasTable('firms')) {
+                        $fObj = Firm::find($partner->firm_id);
+                        if ($fObj) {
+                            $this->sendPartnerCredentialsEmail($partner, $fObj->name, $fObj->slug, $newPass, true);
+                        }
+                    }
+
                     // Also sync firm primary email if it matched the old partner email
                     if ($partner->firm_id && Schema::hasTable('firms')) {
                         $firm = Firm::find($partner->firm_id);
@@ -1270,6 +1326,35 @@ class DashboardPreview extends Component
         $this->previewNotice = "Seat-based subscription applied: {$seats} seats × ৳{$rate} = ৳" . number_format($this->editSubscriptionFee, 0) . " ({$this->editBillingCycle}).";
     }
 
+    public function togglePartnerUnitAttendanceMode(int $partnerUserId): void
+    {
+        if (! $this->authorizePlatformMutation()) {
+            return;
+        }
+        $current = (bool) ($this->editPartnerSharedAttendance[$partnerUserId] ?? true);
+        $this->editPartnerSharedAttendance[$partnerUserId] = ! $current;
+        $this->updatePartnerAccount($partnerUserId);
+    }
+
+    protected function sendPartnerCredentialsEmail(User $partner, string $firmName, string $firmSlug, string $plainPassword, bool $isPasswordReset = false): bool
+    {
+        try {
+            Mail::to($partner->email)->send(new TeamInvitationMail(
+                member: $partner,
+                firmName: $firmName,
+                firmSlug: $firmSlug,
+                plainPassword: $plainPassword,
+                isPasswordReset: $isPasswordReset,
+            ));
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('Partner credentials email failed for ' . $partner->email . ': ' . $e->getMessage());
+
+            return false;
+        }
+    }
+
     public function resetPartnerPassword(int $partnerUserId): void
     {
         if (! $this->authorizePlatformMutation()) {
@@ -1291,6 +1376,13 @@ class DashboardPreview extends Component
                 if ($partner) {
                     $partner->password = Hash::make($newPass);
                     $partner->save();
+
+                    if ($partner->firm_id && Schema::hasTable('firms')) {
+                        $fObj = Firm::find($partner->firm_id);
+                        if ($fObj) {
+                            $this->sendPartnerCredentialsEmail($partner, $fObj->name, $fObj->slug, $newPass, true);
+                        }
+                    }
 
                     if (Schema::hasTable('audit_logs')) {
                         AuditLog::create([

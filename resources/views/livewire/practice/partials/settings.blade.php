@@ -83,9 +83,9 @@
     </form>
 </section>
 
-@if($previewRole === 'partner')
+@if($previewRole === 'partner' || ($canManagePolicies ?? false))
 <!-- ===================================================================== -->
-<!-- FIRM BRAND COLOR PALETTE SELECTOR (PARTNER CONTROL)                   -->
+<!-- FIRM BRAND LOGO & COLOR PALETTE SELECTOR (PARTNER / DELEGATED MGR)    -->
 <!-- ===================================================================== -->
 <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
     <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
@@ -134,6 +134,29 @@
             <i data-lucide="check-circle-2" class="h-4 w-4"></i> Save Brand Color Palette
         </button>
     </div>
+
+    <!-- Official Firm Logo Uploader (Sidebar, Login Portal & PDF Letterhead) -->
+    <form wire:submit.prevent="uploadFirmLogo" class="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-xs">
+        <div class="flex items-center gap-3.5">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xs overflow-hidden">
+                @if($firmLogoUpload)
+                    <img src="{{ $firmLogoUpload->temporaryUrl() }}" alt="New Firm Logo Preview" class="h-full w-full object-contain">
+                @elseif(!empty($firm['logo_url']) && file_exists(public_path($firm['logo_url'])))
+                    <img src="{{ asset($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="h-full w-full object-contain">
+                @else
+                    <span class="font-black text-sm text-amber-700">{{ strtoupper($firm['initials'] ?? 'CA') }}</span>
+                @endif
+            </div>
+            <div>
+                <p class="font-extrabold text-slate-900">Official Firm Logo (ফার্মের অফিসিয়াল লোগো আপলোড)</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">PNG, JPG, SVG, or WebP (max 2MB). Appears on the workspace sidebar, login portal, and PDF vouchers.</p>
+                <input type="file" wire:model="firmLogoUpload" accept=".png,.jpg,.jpeg,.svg,.webp" class="mt-1.5 block text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-[#17191F] file:px-2.5 file:py-1 file:text-[11px] file:font-bold file:text-[#FCDF02] hover:file:bg-slate-800 cursor-pointer">
+            </div>
+        </div>
+        <button type="submit" class="inline-flex items-center gap-1.5 rounded-xl bg-[#17191F] px-4 py-2.5 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800 shadow-sm">
+            <i data-lucide="upload" class="h-4 w-4"></i> Upload &amp; Apply Logo
+        </button>
+    </form>
 </section>
 @endif
 
@@ -148,8 +171,9 @@
         <div class="flex items-center gap-2">
             <label class="text-xs font-bold text-slate-600">Active Partner Unit:</label>
             <select wire:change="setPartnerUnit($event.target.value)" class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-extrabold text-amber-950 outline-none">
-                <option value="Partner Unit 01" @selected($partnerUnit === 'Partner Unit 01')>Partner Unit 01</option>
-                <option value="Partner Unit 02" @selected($partnerUnit === 'Partner Unit 02')>Partner Unit 02</option>
+                @foreach($availablePartnerUnits as $unitOpt)
+                    <option value="{{ $unitOpt }}" @selected($partnerUnit === $unitOpt)>{{ $unitOpt }}</option>
+                @endforeach
             </select>
         </div>
     @endif
@@ -203,7 +227,7 @@
             </div>
         </div>
 
-        @if(in_array($previewRole, ['partner', 'manager']))
+        @if($previewRole === 'partner' || ($canManagePolicies ?? false))
             <form wire:submit.prevent="savePolicySettings" class="mt-5 space-y-4 text-xs">
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <label class="block font-bold text-slate-700">Office Start
@@ -291,7 +315,7 @@
                         <p class="font-bold text-slate-800">{{ $meta[0] }}</p>
                         <p class="text-[10px] text-slate-500">{{ $meta[1] }}</p>
                     </div>
-                    @if($previewRole === 'partner')
+                    @if($previewRole === 'partner' || ($canManagePolicies ?? false))
                         <button type="button" wire:click="toggleStudentGrid('{{ $key }}')"
                                 class="rounded-lg px-2.5 py-1 text-[11px] font-extrabold transition {{ ($studentGrids[$key] ?? true) ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600' }}">
                             {{ ($studentGrids[$key] ?? true) ? 'ACTIVE' : 'DEACTIVE' }}
@@ -321,11 +345,16 @@
         <div class="mt-5 space-y-2.5">
             @php
                 $permLabels = [
-                    'proxy_attendance'  => ['Proxy Attendance', 'Can submit check-in on behalf of students'],
-                    'edit_attendance'   => ['Edit Late / In-Out Time', 'Can modify late flag and timing errors'],
-                    'review_leave'      => ['Review & Partial Approve Leave', 'Can review student leave, adjust days, and forward to Partner'],
-                    'review_claims'     => ['Review & Adjust Conveyance (±)', 'Can approve up to ৳' . $managerConveyanceLimit . ' and increase/decrease amount'],
-                    'view_team_reports' => ['View Team Audit Reports', 'Can inspect aggregated timesheet and claim reports'],
+                    'proxy_attendance'     => ['Proxy Attendance', 'Can submit check-in on behalf of students'],
+                    'edit_attendance'      => ['Edit Late / In-Out Time', 'Can modify late flag and timing errors'],
+                    'review_leave'         => ['Review & Partial Approve Leave', 'Can review student leave, adjust days, and forward to Partner'],
+                    'review_claims'        => ['Review & Adjust Conveyance (±)', 'Can approve up to ৳' . $managerConveyanceLimit . ' and increase/decrease amount'],
+                    'view_team_reports'    => ['View Team Audit Reports', 'Can inspect aggregated timesheet and claim reports'],
+                    'manage_policies'      => ['⚡ Update Policy, Office Hours & Holidays (Partner Delegation)', 'Allows Managers to edit office hours, grace rules, weekly holidays & working-day exceptions'],
+                    'manage_payroll'       => ['⚡ Approve, Mark Paid & Lock Payroll (Partner Delegation)', 'Allows Managers to approve, disburse and lock monthly payroll ledger'],
+                    'final_approve_leave'  => ['⚡ Final Leave Sanction (Partner Delegation)', 'Allows Managers to directly sanction leave without escalating to Partner'],
+                    'final_approve_claims'   => ['⚡ Final Conveyance Sanction (Partner Delegation)', 'Allows Managers to directly approve claims above limit or older claims'],
+                    'shared_attendance_pool' => ['🔗 Shared Attendance Pool (Main Branch vs Isolated Branch)', 'ALLOWED = Universal Attendance with Main Branch units (Payroll & Leave still isolated per Partner). DISABLED = 100% Isolated Branch (Attendance, Payroll & Leave all separate).'],
                 ];
             @endphp
 
@@ -371,7 +400,7 @@
         </span>
     </div>
 
-    @if($previewRole === 'partner')
+    @if($previewRole === 'partner' || ($canManagePolicies ?? false))
         <form wire:submit.prevent="saveWeeklyOffDays" class="mt-5 space-y-4 text-xs">
             <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
                 @foreach(\App\Models\Firm::WEEKDAY_LABELS as $dow => $dayLabel)
@@ -418,7 +447,7 @@
         </span>
     </div>
 
-    @if($previewRole === 'partner')
+    @if($previewRole === 'partner' || ($canManagePolicies ?? false))
         <form wire:submit.prevent="saveWorkingDayException" class="mt-5 space-y-3.5 text-xs">
             <div class="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                 <label class="block font-bold text-slate-700">Date *
@@ -526,7 +555,7 @@
                             </div>
                             <p class="mt-0.5 text-[11px] font-semibold text-teal-800">{{ $ex['effect_label'] ?? '' }}{{ !empty($ex['override_reason']) ? ' · ' . $ex['override_reason'] : '' }}</p>
                         </div>
-                        @if($previewRole === 'partner')
+                        @if($previewRole === 'partner' || ($canManagePolicies ?? false))
                             <button type="button" wire:click="deleteWorkingDayException({{ $ex['id'] }})" class="rounded p-1 text-slate-400 hover:text-rose-600" title="Remove exception">✕</button>
                         @endif
                     </div>

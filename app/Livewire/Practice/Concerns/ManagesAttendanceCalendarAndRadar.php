@@ -40,6 +40,20 @@ trait ManagesAttendanceCalendarAndRadar
                 // Partner Unit Isolation unless Cross-Partner Combined Attendance is toggled on
                 if (! ($this->viewAllPartnersAttendance && $this->canViewAllPartnersAttendance) && Auth::check()) {
                     $studentsQuery->where('partner_unit', $this->partnerUnit);
+                } elseif ($this->viewAllPartnersAttendance && $this->canViewAllPartnersAttendance && Schema::hasTable('partner_policies')) {
+                    // Exclude any Partner Units explicitly set to Isolated Branch Mode (shared_attendance_pool = false)
+                    $isolatedUnits = PartnerPolicy::where('firm_id', $firmModel->id)
+                        ->get()
+                        ->filter(fn (PartnerPolicy $p) => is_array($p->manager_permissions)
+                            && array_key_exists('shared_attendance_pool', $p->manager_permissions)
+                            && $p->manager_permissions['shared_attendance_pool'] === false)
+                        ->pluck('partner_unit')
+                        ->filter()
+                        ->values()
+                        ->all();
+                    if (! empty($isolatedUnits)) {
+                        $studentsQuery->whereNotIn('partner_unit', $isolatedUnits);
+                    }
                 }
 
                 $students = $studentsQuery->get();
@@ -1077,10 +1091,16 @@ trait ManagesAttendanceCalendarAndRadar
         $refNo = 'REF/' . strtoupper($this->firmSlug) . '/ICAB/' . now()->format('Y') . '/' . $studentCode;
         $filename = 'ICAB_Articleship_Certificate_' . $studentCode . '.html';
 
-        return response()->streamDownload(function () use ($firmName, $firmDesig, $primaryHex, $studentName, $studentCode, $unit, $term, $allowance, $issueDate, $refNo) {
+        $pdfFile = 'ICAB_Articleship_Certificate_' . $studentCode . '.pdf';
+
+        return response()->streamDownload(function () use ($firmName, $firmDesig, $primaryHex, $studentName, $studentCode, $unit, $term, $allowance, $issueDate, $refNo, $pdfFile) {
             echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>" . htmlspecialchars($firmName, ENT_QUOTES) . " - Official ICAB Certificate</title>";
-            echo "<style>body{font-family:Georgia,serif;margin:40px auto;max-width:760px;color:#111;line-height:1.7;padding:32px;border:2px solid {$primaryHex};border-radius:12px}.hdr{border-bottom:3px solid {$primaryHex};padding-bottom:16px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:flex-end}.hdr h1{margin:0;font-size:24px;color:{$primaryHex};font-family:Arial,sans-serif}.hdr p{margin:3px 0 0;font-size:12px;color:#555;font-family:Arial,sans-serif}.meta{display:flex;justify-content:space-between;font-family:Arial,sans-serif;font-size:12px;font-weight:bold;margin-bottom:30px}.title{text-align:center;font-family:Arial,sans-serif;font-size:18px;font-weight:bold;text-decoration:underline;margin:28px 0;text-transform:uppercase}.sig{margin-top:70px;display:flex;justify-content:space-between;font-family:Arial,sans-serif;font-size:12px}@media print{.no-print{display:none}body{border:none;margin:0}}</style></head><body onload='window.print()'>";
-            echo "<div class='no-print' style='margin-bottom:16px;text-align:right'><button onclick='window.print()' style='padding:8px 16px;background:{$primaryHex};color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer'>Print / Save Official PDF</button></div>";
+            echo "<script src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'></script>";
+            echo "<style>body{font-family:Georgia,serif;margin:24px auto;max-width:780px;color:#111;line-height:1.7;background:#f8fafc}.toolbar{display:flex;justify-content:space-between;align-items:center;background:#17191F;color:#fff;padding:12px 18px;border-radius:12px;margin-bottom:18px;font-family:Arial,sans-serif}.cert-card{background:#fff;padding:36px;border:2px solid {$primaryHex};border-radius:12px}.hdr{border-bottom:3px solid {$primaryHex};padding-bottom:16px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:flex-end}.hdr h1{margin:0;font-size:24px;color:{$primaryHex};font-family:Arial,sans-serif}.hdr p{margin:3px 0 0;font-size:12px;color:#555;font-family:Arial,sans-serif}.meta{display:flex;justify-content:space-between;font-family:Arial,sans-serif;font-size:12px;font-weight:bold;margin-bottom:30px}.title{text-align:center;font-family:Arial,sans-serif;font-size:18px;font-weight:bold;text-decoration:underline;margin:28px 0;text-transform:uppercase}.sig{margin-top:70px;display:flex;justify-content:space-between;font-family:Arial,sans-serif;font-size:12px}@media print{.no-print{display:none!important}body{background:#fff;margin:0}}</style>";
+            echo "<script>function dlCertPdf(){var el=document.getElementById('cert-pdf-area');if(window.html2pdf){html2pdf().set({margin:10,filename:'" . addslashes($pdfFile) . "',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(el).save();}else{window.print();}}</script>";
+            echo "</head><body onload='setTimeout(dlCertPdf, 350)'>";
+            echo "<div class='toolbar no-print'><span><strong>" . htmlspecialchars($firmName) . "</strong> · Official ICAB Certificate</span><div><button onclick='dlCertPdf()' style='padding:8px 16px;background:#FCDF02;color:#17191F;border:none;border-radius:8px;font-weight:bold;cursor:pointer;margin-right:8px'>⬇ Download Official PDF</button><button onclick='window.print()' style='padding:8px 16px;background:#fff;color:#111;border:none;border-radius:8px;font-weight:bold;cursor:pointer'>🖨 Print</button></div></div>";
+            echo "<div id='cert-pdf-area' class='cert-card'>";
             echo "<div class='hdr'><div><h1>" . htmlspecialchars($firmName) . "</h1><p>" . htmlspecialchars($firmDesig) . " • ICAB Registered Practice</p></div><div style='text-align:right;font-family:Arial,sans-serif;font-size:11px;color:#444'>Official Practice Letterhead<br>Dhaka, Bangladesh</div></div>";
             echo "<div class='meta'><span>Ref: " . htmlspecialchars($refNo) . "</span><span>Date: {$issueDate}</span></div>";
             echo "<div class='title'>TO WHOM IT MAY CONCERN — ARTICLESHIP &amp; NOC CERTIFICATE</div>";
@@ -1088,7 +1108,7 @@ trait ManagesAttendanceCalendarAndRadar
             echo "<p>According to our official practice register, their registered ICAB Articleship period spans <strong>" . htmlspecialchars($term) . "</strong>, with a sanctioned monthly articleship stipend of <strong>BDT {$allowance}</strong> in accordance with Institute of Chartered Accountants of Bangladesh (ICAB) bylaws.</p>";
             echo "<p>During their tenure with our audit and assurance practice, they have demonstrated high professional integrity, punctuality, and diligence in statutory audit engagements. The firm has no objection to their appearance in upcoming ICAB professional examinations.</p>";
             echo "<div class='sig'><div>___________________________<br><strong>Audit Engagement Manager</strong><br>" . htmlspecialchars($unit) . "</div><div>___________________________<br><strong>Managing Partner / Principal</strong><br>" . htmlspecialchars($firmName) . "</div></div>";
-            echo "</body></html>";
+            echo "</div></body></html>";
         }, $filename, ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 
@@ -1110,11 +1130,16 @@ trait ManagesAttendanceCalendarAndRadar
         $summary = $leave['approved_dates_summary'] ?: "Sanctioned {$appDays} day(s) out of {$reqDays} requested day(s)";
         $issueDate = now()->format('d F Y');
         $filename = 'Official_Leave_Sanction_' . $leaveId . '.html';
+        $pdfFile = 'Official_Leave_Sanction_' . $leaveId . '.pdf';
 
-        return response()->streamDownload(function () use ($firmName, $primaryHex, $leaveId, $studentName, $studentCode, $type, $period, $appDays, $summary, $issueDate) {
+        return response()->streamDownload(function () use ($firmName, $primaryHex, $leaveId, $studentName, $studentCode, $type, $period, $appDays, $summary, $issueDate, $pdfFile) {
             echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>" . htmlspecialchars($firmName, ENT_QUOTES) . " - Leave Sanction Letter</title>";
-            echo "<style>body{font-family:Arial,sans-serif;margin:40px auto;max-width:720px;color:#111;line-height:1.6;padding:28px;border:2px solid {$primaryHex};border-radius:12px}.hdr{border-bottom:2px solid {$primaryHex};padding-bottom:12px;margin-bottom:20px}h1{margin:0;font-size:20px;color:{$primaryHex}}table{width:100%;border-collapse:collapse;margin:20px 0;font-size:13px}th,td{border:1px solid #ddd;padding:10px;text-align:left}th{background:#f8fafc;width:35%}.sig{margin-top:60px;display:flex;justify-content:space-between;font-size:12px}@media print{.no-print{display:none}body{border:none}}</style></head><body onload='window.print()'>";
-            echo "<div class='no-print' style='margin-bottom:14px;text-align:right'><button onclick='window.print()' style='padding:8px 16px;background:{$primaryHex};color:#fff;border:none;border-radius:6px;font-weight:bold;cursor:pointer'>Print Leave Sanction Letter</button></div>";
+            echo "<script src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'></script>";
+            echo "<style>body{font-family:Arial,sans-serif;margin:24px auto;max-width:740px;color:#111;line-height:1.6;background:#f8fafc}.toolbar{display:flex;justify-content:space-between;align-items:center;background:#17191F;color:#fff;padding:12px 18px;border-radius:12px;margin-bottom:16px}.card{background:#fff;padding:30px;border:2px solid {$primaryHex};border-radius:12px}.hdr{border-bottom:2px solid {$primaryHex};padding-bottom:12px;margin-bottom:20px}h1{margin:0;font-size:20px;color:{$primaryHex}}table{width:100%;border-collapse:collapse;margin:20px 0;font-size:13px}th,td{border:1px solid #ddd;padding:10px;text-align:left}th{background:#f8fafc;width:35%}.sig{margin-top:60px;display:flex;justify-content:space-between;font-size:12px}@media print{.no-print{display:none!important}body{background:#fff;margin:0}}</style>";
+            echo "<script>function dlLeavePdf(){var el=document.getElementById('leave-pdf-area');if(window.html2pdf){html2pdf().set({margin:10,filename:'" . addslashes($pdfFile) . "',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(el).save();}else{window.print();}}</script>";
+            echo "</head><body onload='setTimeout(dlLeavePdf, 350)'>";
+            echo "<div class='toolbar no-print'><span><strong>" . htmlspecialchars($firmName) . "</strong> · Leave Sanction Memorandum</span><div><button onclick='dlLeavePdf()' style='padding:8px 16px;background:#FCDF02;color:#17191F;border:none;border-radius:8px;font-weight:bold;cursor:pointer;margin-right:8px'>⬇ Download Official PDF</button><button onclick='window.print()' style='padding:8px 16px;background:#fff;color:#111;border:none;border-radius:8px;font-weight:bold;cursor:pointer'>🖨 Print</button></div></div>";
+            echo "<div id='leave-pdf-area' class='card'>";
             echo "<div class='hdr'><h1>" . htmlspecialchars($firmName) . "</h1><p style='margin:4px 0 0;font-size:12px;color:#555'>Official Leave Sanction Memorandum • Ref: " . htmlspecialchars($leaveId) . " • Date: {$issueDate}</p></div>";
             echo "<table><tr><th>Applicant Name &amp; ID</th><td><strong>" . htmlspecialchars($studentName) . " (" . htmlspecialchars($studentCode) . ")</strong></td></tr>";
             echo "<tr><th>Leave Category</th><td>" . htmlspecialchars($type) . "</td></tr>";
@@ -1122,7 +1147,7 @@ trait ManagesAttendanceCalendarAndRadar
             echo "<tr><th>Sanctioned Duration</th><td><strong>{$appDays} Day(s)</strong> (" . htmlspecialchars($summary) . ")</td></tr></table>";
             echo "<p style='font-size:13px'>The above leave application has been duly verified and sanctioned in accordance with firm attendance and ICAB articleship leave regulations.</p>";
             echo "<div class='sig'><div>___________________________<br>Engaged Audit Manager</div><div>___________________________<br>Partner / Principal Sign-off</div></div>";
-            echo "</body></html>";
+            echo "</div></body></html>";
         }, $filename, ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 
@@ -1134,12 +1159,16 @@ trait ManagesAttendanceCalendarAndRadar
         $end = $this->attendanceReportEnd ?: now()->toDateString();
         $rows = $this->studentRows;
         $filename = 'Printable_Attendance_Sheet_' . $this->firmSlug . '_' . $start . '_to_' . $end . '.html';
+        $pdfFile = 'Attendance_Register_' . $this->firmSlug . '_' . $start . '_to_' . $end . '.pdf';
 
-        return response()->streamDownload(function () use ($firmName, $scopeLabel, $start, $end, $rows) {
+        return response()->streamDownload(function () use ($firmName, $scopeLabel, $start, $end, $rows, $pdfFile) {
             echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>" . htmlspecialchars($firmName, ENT_QUOTES) . " - Attendance Sheet</title>";
-            echo "<style>body{font-family:Arial,sans-serif;margin:24px;color:#111}h1{margin:0;font-size:20px}p{margin:4px 0;font-size:12px;color:#444}table{width:100%;border-collapse:collapse;margin-top:16px;font-size:12px}th,td{border:1px solid #ccc;padding:8px;text-align:left}th{background:#f4f4f6}.sig{margin-top:48px;display:flex;justify-content:space-between;font-size:12px}@media print{.no-print{display:none}}</style>";
-            echo "</head><body onload='window.print()'>";
-            echo "<div class='no-print' style='margin-bottom:12px'><button onclick='window.print()' style='padding:8px 16px;font-weight:bold;cursor:pointer'>Print / Save as PDF</button></div>";
+            echo "<script src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'></script>";
+            echo "<style>body{font-family:Arial,sans-serif;margin:20px;color:#111;background:#f8fafc}.toolbar{display:flex;justify-content:space-between;align-items:center;background:#17191F;color:#fff;padding:12px 18px;border-radius:12px;margin-bottom:16px}.sheet{background:#fff;padding:24px;border-radius:12px;border:1px solid #cbd5e1}h1{margin:0;font-size:20px}p{margin:4px 0;font-size:12px;color:#444}table{width:100%;border-collapse:collapse;margin-top:16px;font-size:11px}th,td{border:1px solid #ccc;padding:7px;text-align:left}th{background:#f4f4f6}.sig{margin-top:48px;display:flex;justify-content:space-between;font-size:12px}@media print{.no-print{display:none!important}body{background:#fff;margin:0}}</style>";
+            echo "<script>function dlAttPdf(){var el=document.getElementById('att-pdf-area');if(window.html2pdf){html2pdf().set({margin:8,filename:'" . addslashes($pdfFile) . "',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}}).from(el).save();}else{window.print();}}</script>";
+            echo "</head><body onload='setTimeout(dlAttPdf, 350)'>";
+            echo "<div class='toolbar no-print'><span><strong>" . htmlspecialchars($firmName) . "</strong> · Official Attendance Register</span><div><button onclick='dlAttPdf()' style='padding:8px 16px;background:#FCDF02;color:#17191F;border:none;border-radius:8px;font-weight:bold;cursor:pointer;margin-right:8px'>⬇ Download Official PDF</button><button onclick='window.print()' style='padding:8px 16px;background:#fff;color:#111;border:none;border-radius:8px;font-weight:bold;cursor:pointer'>🖨 Print</button></div></div>";
+            echo "<div id='att-pdf-area' class='sheet'>";
             echo "<h1>" . htmlspecialchars($firmName) . " — Official Attendance Register</h1>";
             echo "<p><strong>Scope:</strong> " . htmlspecialchars($scopeLabel) . " &nbsp;|&nbsp; <strong>Period:</strong> {$start} to {$end}</p>";
             echo "<table><thead><tr><th>Code</th><th>Student Name</th><th>Partner Unit</th><th>Manager</th><th>Mode &amp; Client</th><th>In Time &amp; GPS</th><th>Out Time &amp; GPS</th><th>Movements</th><th>Status</th></tr></thead><tbody>";
@@ -1159,7 +1188,7 @@ trait ManagesAttendanceCalendarAndRadar
             }
             echo "</tbody></table>";
             echo "<div class='sig'><div>___________________________<br>Audit Manager Signature</div><div>___________________________<br>Partner / Principal Signature</div></div>";
-            echo "</body></html>";
+            echo "</div></body></html>";
         }, $filename, ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 
