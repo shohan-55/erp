@@ -858,6 +858,8 @@ class ProductionWorkspaceTest extends TestCase
         });
         $this->assertSame(hash('sha256', $activationToken), $created->invitation_token);
 
+        // Invitation links are opened in the invited member's unauthenticated browser.
+        \Illuminate\Support\Facades\Auth::logout();
         Livewire::withQueryParams(['token' => $activationToken])->test(AccountActivation::class, ['firmSlug' => 'rac'])
             ->set('password', 'SecureMember123!')
             ->set('passwordConfirmation', 'SecureMember123!')
