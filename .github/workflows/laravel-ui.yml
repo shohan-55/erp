@@ -77,7 +77,19 @@ jobs:
           exit "$result"
 
       - name: Dependency vulnerability audit (PHP)
-        run: composer audit --no-dev --format=summary
+        run: |
+          set +e
+          composer audit --no-dev --format=summary 2>&1 | tee "$RUNNER_TEMP/composer-audit.log"
+          result=${PIPESTATUS[0]}
+          if [ "$result" -ne 0 ]; then
+            python3 - "$RUNNER_TEMP/composer-audit.log" <<'PY'
+          import pathlib, sys
+          text = pathlib.Path(sys.argv[1]).read_text(errors='replace')[-3000:]
+          escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=PHP dependency audit failure::{escaped}')
+          PY
+          fi
+          exit "$result"
 
       - name: Dependency vulnerability audit (JS)
         run: npm audit --omit=dev --audit-level=high

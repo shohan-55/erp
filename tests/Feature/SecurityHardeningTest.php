@@ -192,13 +192,15 @@ class SecurityHardeningTest extends TestCase
 
     public function test_platform_admin_email_alone_grants_no_authority(): void
     {
-        $impostor = User::create([
-            'firm_id'  => $this->firm->id,
-            'name'     => 'Impostor',
-            'email'    => 'admin@dhakawala.com',
-            'password' => Hash::make('ImpostorSecret123!'),
-            'role'     => 'student',
-        ]);
+        $impostor = User::updateOrCreate(
+            ['email' => 'admin@dhakawala.com'],
+            [
+                'firm_id'  => $this->firm->id,
+                'name'     => 'Impostor',
+                'password' => Hash::make('ImpostorSecret123!'),
+                'role'     => 'student',
+            ]
+        );
 
         $this->assertFalse($impostor->isPlatformAdmin());
         $this->assertFalse($impostor->fresh()->isPlatformAdmin());
