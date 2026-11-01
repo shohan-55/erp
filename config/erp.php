@@ -23,4 +23,7 @@ return [
 
     'allow_test_logins' => (bool) env('ERP_ALLOW_TEST_LOGINS', false),
 
+    // Privileged firm/platform access must not silently fall back to password-only login.
+    'require_privileged_2fa' => (bool) env('ERP_REQUIRE_PRIVILEGED_2FA', true),
+
 ];

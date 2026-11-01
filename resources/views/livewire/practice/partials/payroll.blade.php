@@ -78,7 +78,7 @@
                 <button type="button" wire:click="transitionPayrollPeriod('reviewed')" class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100">
                     Mark Reviewed
                 </button>
-                @if($previewRole === 'partner' || ($canManagePayroll ?? false))
+                @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || ($canManagePayroll ?? false))
                     <button type="button" wire:click="transitionPayrollPeriod('approved')" class="rounded-xl bg-[#FCDF02] px-3.5 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604]">
                         Partner Approve
                     </button>

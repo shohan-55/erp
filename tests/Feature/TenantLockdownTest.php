@@ -7,6 +7,7 @@ use App\Livewire\Practice\PracticePreview;
 use App\Models\Firm;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
@@ -62,19 +63,18 @@ class TenantLockdownTest extends TestCase
             ->set('firmSlug', 'firm-b');
     }
 
-    public function test_a_session_switched_to_another_firm_is_refused_on_the_next_request(): void
+    public function test_a_session_switched_to_another_firm_is_refused_during_livewire_hydration(): void
     {
         $this->actingAs($this->partnerA);
+        $component = new PracticePreview();
+        $component->firmSlug = 'firm-a';
 
-        $component = Livewire::test(PracticePreview::class, ['firmSlug' => 'firm-a'])
-            ->assertSet('firmSlug', 'firm-a');
-
-        // Same component snapshot, but the session now belongs to firm B.
-        $this->actingAs($this->partnerB);
-
+        // Simulate the Livewire snapshot surviving a session login to firm B.
+        Auth::login($this->partnerB);
+        $this->assertSame($this->partnerB->id, Auth::id());
         $this->expectException(HttpException::class);
 
-        $component->call('setSection', 'payroll');
+        $component->hydrate();
     }
 
     public function test_partner_of_one_firm_cannot_open_another_firms_workspace_over_http(): void
@@ -91,13 +91,14 @@ class TenantLockdownTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_non_platform_user_cannot_mount_the_platform_component(): void
+    public function test_non_platform_user_is_refused_during_platform_component_hydration(): void
     {
         $this->actingAs($this->partnerA);
+        $component = new DashboardPreview();
 
         $this->expectException(HttpException::class);
 
-        Livewire::test(DashboardPreview::class);
+        $component->hydrate();
     }
 
     public function test_role_lock_still_pins_a_student_to_student(): void

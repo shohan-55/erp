@@ -129,8 +129,14 @@ server and the domain — none of them are optional.
 4. **Cron.** `* * * * * cd /path/to/erp && php artisan schedule:run >> /dev/null 2>&1` plus
    `php artisan queue:work` (or `queue:listen`) under a supervisor. Payroll reminders,
    probation alerts and the audit-log pruning all depend on the scheduler.
-5. **Platform-admin second factor.** `php artisan erp:make-admin <email>` then enrol TOTP on
-   the platform admin account — the 2FA path exists but must be *used* by every operator.
+5. **Privileged second factor (mandatory).** Before exposing the application with
+   `ERP_REQUIRE_PRIVILEGED_2FA=true`, enrol and confirm TOTP for every platform admin and
+   Partner. Enrol Managers before granting Partner delegation; the team editor refuses a
+   grant unless TOTP is confirmed. For each account, run `php artisan erp:two-factor <email>`,
+   add the displayed secret to an authenticator, then run
+   `php artisan erp:two-factor <email> --confirm=123456` with the current code. Store the
+   one-time recovery codes safely outside the server. Password-only privileged sign-in is
+   intentionally denied.
 6. **Files migration.** After deploying this branch, run
    `php artisan erp:privatise-uploads --dry-run`, check the list, then run it for real, and
    remove the now-unnecessary public exposure of `storage/app/public` (delete the

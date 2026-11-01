@@ -5,6 +5,9 @@ namespace Tests\Feature;
 use App\Livewire\Platform\DashboardPreview;
 use App\Models\Firm;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -21,9 +24,32 @@ class Phase03PlatformDashboardTest extends TestCase
 
     public function test_original_platform_login_and_firm_login_still_render(): void
     {
-        $this->get('/platform/login')->assertOk()->assertSee('Platform Administration');
-        $this->get('/c/rac/login')->assertOk()->assertSee('Rahman Anis');
-        $this->get('/')->assertOk()->assertSee('DhakaWala')->assertSee('Rahman Anis');
+        $renderRoutes = function (): void {
+            $this->get('/platform/login')->assertOk()->assertSee('Platform Administration');
+            $this->get('/c/rac/login')->assertOk()->assertSee('Rahman Anis');
+            $this->get('/')->assertOk()->assertSee('DhakaWala')->assertSee('Rahman Anis');
+        };
+
+        if (! Schema::hasTable('firms')) {
+            $renderRoutes();
+            return;
+        }
+
+        DB::beginTransaction();
+        try {
+            Firm::create([
+                'name'          => 'Rahman Anis & Co.',
+                'slug'          => 'rac',
+                'short_code'    => 'RA&C',
+                'status'        => 'active',
+                'tier'          => 'professional',
+                'custom_domain' => 'rahmananis.com',
+            ]);
+
+            $renderRoutes();
+        } finally {
+            DB::rollBack();
+        }
     }
 
     public function test_navigation_changes_only_between_known_preview_sections(): void
@@ -113,7 +139,6 @@ class Phase03PlatformDashboardTest extends TestCase
             ->set('newFirmKind', 'Chartered Accountants')
             ->set('newPartnerName', 'Kamrul Islam, FCA')
             ->set('newPartnerEmail', 'kamrul@apex.com')
-            ->set('newPartnerPassword', 'ApexSecret123!')
             ->set('newFirmPlan', 'Practice')
             ->set('newFirmSeats', 15)
             ->set('newFirmRegion', 'Dhaka')
@@ -350,16 +375,28 @@ class Phase03PlatformDashboardTest extends TestCase
             'firm_id'  => $oldFirm->id,
         ]);
 
-        \Illuminate\Support\Facades\DB::statement('PRAGMA foreign_keys = OFF;');
-        $oldFirm->delete();
-        \Illuminate\Support\Facades\DB::statement('PRAGMA foreign_keys = ON;');
+        $driver = DB::connection()->getDriverName();
+        if ($driver === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = OFF;');
+        } elseif ($driver === 'mysql') {
+            DB::statement('SET FOREIGN_KEY_CHECKS = 0;');
+        }
+
+        try {
+            $oldFirm->delete();
+        } finally {
+            if ($driver === 'sqlite') {
+                DB::statement('PRAGMA foreign_keys = ON;');
+            } elseif ($driver === 'mysql') {
+                DB::statement('SET FOREIGN_KEY_CHECKS = 1;');
+            }
+        }
 
         Livewire::test(DashboardPreview::class)
             ->set('newFirmName', 'A. Qasem & Co.')
             ->set('newFirmSlug', 'aqasem-resilient')
             ->set('newPartnerEmail', 'shohan.orphan@example.com')
             ->set('newPartnerName', 'Ramendra Nath Kar FCA')
-            ->set('newPartnerPassword', 'SecurePass2026!')
             ->set('newFirmPlan', 'Starter')
             ->set('newFirmSeats', 20)
             ->call('createOrganization')
@@ -397,7 +434,6 @@ class Phase03PlatformDashboardTest extends TestCase
             ->set('newFirmSlug', 'dangling-firm')
             ->set('newPartnerEmail', 'partner.recovered@example.com')
             ->set('newPartnerName', 'Recovered Partner')
-            ->set('newPartnerPassword', 'Partner@2026')
             ->call('createOrganization')
             ->assertSet('showProvisionPreview', false)
             ->assertSet('modalError', null);

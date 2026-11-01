@@ -187,6 +187,13 @@ class FirmLogin extends Component
         /** @var User $user */
         $user = Auth::user();
 
+        if ($user && ! $user->email_verified_at) {
+            Auth::logout();
+            $this->validationError = 'Please activate your account using the one-time email link, or request a secure password reset link if the invitation expired.';
+            $this->password = '';
+            return;
+        }
+
         // ─── Deactivated staff accounts (retained for payroll history) ────
         if ($user && Schema::hasTable('users') && Schema::hasColumn('users', 'is_active') && ! $user->isActive()) {
             Auth::logout();
@@ -211,8 +218,8 @@ class FirmLogin extends Component
             return;
         }
 
-        // ─── Optional second factor (P1-3.2) ──────────────────────────────
-        // Inert unless this member has enrolled a TOTP secret.
+        // ─── Required TOTP for privileged accounts ─────────────────────────
+        // Privileged accounts without a confirmed TOTP secret are denied access.
         if ($user && ! $this->twoFactorGate($user)) {
             // Keep the password: the follow-up submit re-runs Auth::attempt
             // together with the code, and forcing a retype here only trains

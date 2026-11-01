@@ -64,7 +64,7 @@
         </label>
 
         <label class="block font-bold text-slate-700">Current Password (only required to change your email)
-            <input type="password" wire:model="myCurrentPassword" autocomplete="current-password" placeholder="Enter current password before changing the sign-in email" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+            <input type="password" wire:model="myCurrentPassword" autocomplete="current-password" placeholder="Required before changing email or password" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
         </label>
 
         <label class="block font-bold text-slate-700">New Login Password (Optional)
@@ -83,7 +83,7 @@
     </form>
 </section>
 
-@if($previewRole === 'partner' || ($canManagePolicies ?? false))
+@if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || ($canManagePolicies ?? false))
 <!-- ===================================================================== -->
 <!-- FIRM BRAND LOGO & COLOR PALETTE SELECTOR (PARTNER / DELEGATED MGR)    -->
 <!-- ===================================================================== -->
@@ -167,7 +167,7 @@
         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Workspace Settings &amp; Partner Policy</h2>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">Configure independent Partner Unit policies, late deduction rules, Manager delegation thresholds, and toggle active Student dashboard grids.</p>
     </div>
-    @if($previewRole === 'partner')
+    @if(($hasPartnerAuthority ?? ($previewRole === 'partner')))
         <div class="flex items-center gap-2">
             <label class="text-xs font-bold text-slate-600">Active Partner Unit:</label>
             <select wire:change="setPartnerUnit($event.target.value)" class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-extrabold text-amber-950 outline-none">
@@ -199,7 +199,7 @@
                 <span class="mt-2 inline-block rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">{{ $partnerUnit }}</span>
             </div>
 
-            @if($previewRole === 'partner')
+            @if(($hasPartnerAuthority ?? ($previewRole === 'partner')))
                 <form wire:submit.prevent="updatePartnerEmail" class="space-y-3">
                     <label class="block text-xs font-bold text-slate-700">Change Partner Email Address
                         <input type="email" wire:model="newPartnerEmail" placeholder="Enter new email (e.g. partner@{{ $firm['custom_domain'] ?? (($firm['slug'] ?? 'practice') . '.dhakawala.com') }})" required
@@ -227,7 +227,7 @@
             </div>
         </div>
 
-        @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+        @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || ($canManagePolicies ?? false))
             <form wire:submit.prevent="savePolicySettings" class="mt-5 space-y-4 text-xs">
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <label class="block font-bold text-slate-700">Office Start
@@ -315,7 +315,7 @@
                         <p class="font-bold text-slate-800">{{ $meta[0] }}</p>
                         <p class="text-[10px] text-slate-500">{{ $meta[1] }}</p>
                     </div>
-                    @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+                    @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || ($canManagePolicies ?? false))
                         <button type="button" wire:click="toggleStudentGrid('{{ $key }}')"
                                 class="rounded-lg px-2.5 py-1 text-[11px] font-extrabold transition {{ ($studentGrids[$key] ?? true) ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600' }}">
                             {{ ($studentGrids[$key] ?? true) ? 'ACTIVE' : 'DEACTIVE' }}
@@ -364,7 +364,7 @@
                         <p class="font-bold text-slate-800">{{ $meta[0] }}</p>
                         <p class="text-[10px] text-slate-500">{{ $meta[1] }}</p>
                     </div>
-                    @if($previewRole === 'partner')
+                    @if(($hasPartnerAuthority ?? ($previewRole === 'partner')))
                         <button type="button" wire:click="toggleManagerPermissionKey('{{ $key }}')"
                                 class="rounded-lg px-2.5 py-1 text-[11px] font-extrabold transition {{ ($managerPermissions[$key] ?? true) ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600' }}">
                             {{ ($managerPermissions[$key] ?? true) ? 'ALLOWED' : 'DISABLED' }}
@@ -400,7 +400,7 @@
         </span>
     </div>
 
-    @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+    @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || ($canManagePolicies ?? false))
         <form wire:submit.prevent="saveWeeklyOffDays" class="mt-5 space-y-4 text-xs">
             <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
                 @foreach(\App\Models\Firm::WEEKDAY_LABELS as $dow => $dayLabel)
@@ -447,7 +447,7 @@
         </span>
     </div>
 
-    @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+    @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || ($canManagePolicies ?? false))
         <form wire:submit.prevent="saveWorkingDayException" class="mt-5 space-y-3.5 text-xs">
             <div class="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                 <label class="block font-bold text-slate-700">Date *
@@ -555,7 +555,7 @@
                             </div>
                             <p class="mt-0.5 text-[11px] font-semibold text-teal-800">{{ $ex['effect_label'] ?? '' }}{{ !empty($ex['override_reason']) ? ' · ' . $ex['override_reason'] : '' }}</p>
                         </div>
-                        @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+                        @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || ($canManagePolicies ?? false))
                             <button type="button" wire:click="deleteWorkingDayException({{ $ex['id'] }})" class="rounded p-1 text-slate-400 hover:text-rose-600" title="Remove exception">✕</button>
                         @endif
                     </div>

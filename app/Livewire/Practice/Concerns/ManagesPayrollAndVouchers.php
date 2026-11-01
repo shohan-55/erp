@@ -104,12 +104,27 @@ trait ManagesPayrollAndVouchers
                 try {
                     [$periodStart, $periodEnd] = $this->payrollPeriodBounds();
 
-                    $students = User::where('firm_id', $firmModel->id)
+                    $studentsQuery = User::where('firm_id', $firmModel->id)
                         ->where('role', 'student')
                         ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
-                        ->when(Auth::check(), fn ($q) => $q->where('partner_unit', $this->partnerUnit))
-                        ->with('manager')
-                        ->get();
+                        ->with('manager');
+
+                    if (! Auth::check()) {
+                        $studentsQuery->whereRaw('1 = 0');
+                    } else {
+                        $actor = Auth::user();
+                        if ($actor->isStudent()) {
+                            $studentsQuery->whereKey($actor->id);
+                        } elseif ($actor->isManager() && ! $actor->hasPartnerAuthority()) {
+                            $studentsQuery->where(function ($q) use ($actor) {
+                                $q->where('partner_unit', $actor->partner_unit)
+                                    ->orWhere('manager_id', $actor->id);
+                            });
+                        } elseif (! $actor->isPlatformAdmin()) {
+                            $studentsQuery->where('partner_unit', $this->partnerUnit);
+                        }
+                    }
+                    $students = $studentsQuery->get();
 
                     if ($students->isNotEmpty()) {
                         $existingRecords = Schema::hasTable('payroll_records')
@@ -224,6 +239,28 @@ trait ManagesPayrollAndVouchers
         ], $this->studentRows ?: []);
     }
 
+    /** Student IDs whose payroll the authenticated actor may see or mutate. */
+    protected function payrollScopeUserIds(Firm $firmModel): array
+    {
+        if (! Auth::check()) {
+            return [];
+        }
+
+        $actor = Auth::user();
+        $query = User::where('firm_id', $firmModel->id)->where('role', User::ROLE_STUDENT);
+
+        if ($actor->isManager() && ! $actor->hasPartnerAuthority()) {
+            $query->where(function ($q) use ($actor) {
+                $q->where('partner_unit', $actor->partner_unit)
+                    ->orWhere('manager_id', $actor->id);
+            });
+        } elseif (! $actor->isPlatformAdmin()) {
+            $query->where('partner_unit', $this->partnerUnit);
+        }
+
+        return $query->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
     public function generatePayrollDraft(): void
     {
         $this->enforceAuthenticatedRoleLock();
@@ -233,13 +270,31 @@ trait ManagesPayrollAndVouchers
             $this->error = 'Only a Manager or Partner can generate or sync the payroll register.';
             return;
         }
+        if ($this->previewRole === 'manager' && ! $this->userHasPartnerAuthority() && ! $this->userCanManagePayroll()) {
+            $this->error = 'Payroll management permission is required to generate the payroll register.';
+            return;
+        }
 
         $firmModel = $this->resolveFirmModel();
         if ($firmModel && Schema::hasTable('payroll_records') && Schema::hasTable('users')) {
-            $students = User::where('firm_id', $firmModel->id)
+            $studentsQuery = User::where('firm_id', $firmModel->id)
                 ->where('role', 'student')
-                ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
-                ->get();
+                ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true));
+
+            if (! Auth::check()) {
+                $studentsQuery->whereRaw('1 = 0');
+            } else {
+                $actor = Auth::user();
+                if ($actor->isManager() && ! $actor->hasPartnerAuthority()) {
+                    $studentsQuery->where(function ($q) use ($actor) {
+                        $q->where('partner_unit', $actor->partner_unit)
+                            ->orWhere('manager_id', $actor->id);
+                    });
+                } elseif (! $actor->isPlatformAdmin()) {
+                    $studentsQuery->where('partner_unit', $this->partnerUnit);
+                }
+            }
+            $students = $studentsQuery->get();
             foreach ($students as $s) {
                 $existing = PayrollRecord::where('firm_id', $firmModel->id)
                     ->where('user_id', $s->id)
@@ -342,6 +397,10 @@ trait ManagesPayrollAndVouchers
             return;
         }
 
+        if ($this->previewRole === 'manager' && ! $this->userHasPartnerAuthority() && ! $this->userCanManagePayroll()) {
+            $this->error = 'Payroll management permission is required to change a ledger state.';
+            return;
+        }
         if (in_array($targetStatus, ['approved', 'paid', 'locked'], true) && ! $this->userCanManagePayroll()) {
             $this->error = 'Only a Partner or an authorized Manager (with Payroll Governance permission) can approve, mark paid, or lock the monthly payroll ledger.';
             return;
@@ -349,10 +408,17 @@ trait ManagesPayrollAndVouchers
 
         $firmModel = $this->resolveFirmModel();
         if ($firmModel && Schema::hasTable('payroll_records')) {
-            $records = PayrollRecord::where('firm_id', $firmModel->id)->where('period', $this->period)->get();
+            $scopedUserIds = $this->payrollScopeUserIds($firmModel);
+            $recordsQuery = PayrollRecord::where('firm_id', $firmModel->id)
+                ->where('period', $this->period)
+                ->whereIn('user_id', $scopedUserIds);
+            $records = $recordsQuery->get();
             if ($records->isEmpty()) {
                 $this->generatePayrollDraft();
-                $records = PayrollRecord::where('firm_id', $firmModel->id)->where('period', $this->period)->get();
+                $records = PayrollRecord::where('firm_id', $firmModel->id)
+                    ->where('period', $this->period)
+                    ->whereIn('user_id', $this->payrollScopeUserIds($firmModel))
+                    ->get();
             }
 
             foreach ($records as $rec) {

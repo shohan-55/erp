@@ -183,6 +183,14 @@ erp-main/
 
 ## ৭. ক্রমানুসারে সকল আপডেটের পূর্ণাঙ্গ তালিকা (Chronological Update & Change Log)
 
+### ✅ Update Phase 15 — Delegated Partner authority, account activation hardening & production checks (`2026-11-02`)
+- **Files:** `User.php`, `Firm.php`, `PracticePreview.php`, `ManagesTeamAndNotifications.php`, the practice workflow/scope traits, `AccountActivation.php`, `ResetPassword.php`, login components, `DashboardPreview.php`, the team/settings views, migration `2026_11_01_000002_add_partner_delegate_authority.php`, feature tests, and CI.
+- **Partner delegation:** a Partner may grant or revoke firm-wide operational authority for an activated Manager. The account retains the Manager role, requires confirmed TOTP before the grant, cannot obtain platform-admin authority, and cannot create or alter real Partner accounts. A Partner can switch units from the roster. Delegation changes are auditable.
+- **Scope and authentication:** ordinary Managers remain unit/direct-report scoped; Partners/delegates work across units through validated unit selection. Attendance, leave, claims, payroll and team records are constrained before entering Livewire public state and mutation targets are guarded. Anonymous requests do not hydrate tenant records.
+- **Credentials:** invitations are hashed-token, seven-day, single-use activations with a row-lock during consumption. Unverified users cannot sign in. Platform/team password resets use the throttled reset broker, never transmit the password, revoke sessions and invalidate invitations.
+- **Privileged sign-in:** `ERP_REQUIRE_PRIVILEGED_2FA` defaults on for Platform Admin, Partner and delegated Manager accounts. Runtime schema healing remains development/test-only; production deploys the migration. CI adds MySQL 8 and makes dependency audits blocking.
+- **Regression coverage:** secure invite/reset, delegation grant/revoke, confirmed-TOTP requirement and cross-unit roster access were added. PHP/Composer are absent in the current sandbox, so PHP/Blade runtime tests and migrations are pending CI/staging; see [`docs/PRODUCTION_REMEDIATION_2026-11-02.md`](docs/PRODUCTION_REMEDIATION_2026-11-02.md).
+
 ### ✅ Update Phase 01 — Security, Middleware & Multi-Tenant Isolation
 - **Files:** `app/Http/Middleware/RequireFirmMember.php`, `RequireRole.php`, `RestrictPreviewInProduction.php`, `routes/web.php`, `.htaccess`.
 - **Details:** Enforced strict tenant isolation, role-based access control, production preview route blocking, cPanel `.htaccess` protection, and symlink-free routes (`firm.voucher.view`, `firm.avatar.view`).

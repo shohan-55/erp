@@ -7,19 +7,12 @@ use App\Support\TwoFactor;
 use Illuminate\Support\Facades\Auth;
 
 /**
- * Optional TOTP second factor for sign-in components (audit P1-3.2).
+ * TOTP second factor for sign-in components.
  *
- * The flow is deliberately the boring one, because a mistake here locks every
- * operator out of the platform:
- *
- *   1. password is verified exactly as before (Auth::attempt);
- *   2. if the account has no confirmed secret, nothing changes at all;
- *   3. if it does, login is undone immediately and the code field appears;
- *   4. the next submit re-checks the password plus the code (or a recovery
- *      code), and only then is the session kept.
- *
- * Accounts without a secret therefore behave exactly as they did before this
- * trait existed.
+ * Platform administrators and Partner-equivalent firm operators must have a
+ * confirmed secret before password-only access is accepted. Lower-privilege
+ * accounts may continue without TOTP. Enrolled accounts must verify a code or
+ * single-use recovery code before their session is kept.
  */
 trait ConfirmsTwoFactor
 {
@@ -37,6 +30,14 @@ trait ConfirmsTwoFactor
     protected function twoFactorGate(User $user): bool
     {
         if (! $user->hasTwoFactorEnabled()) {
+            if (config('erp.require_privileged_2fa', true) && ($user->isPlatformAdmin() || $user->hasPartnerAuthority())) {
+                Auth::logout();
+                $this->requiresTwoFactor = false;
+                $this->twoFactorError = 'Two-factor authentication is required for this account. Ask the platform operator to enrol it with php artisan erp:two-factor.';
+
+                return false;
+            }
+
             $this->requiresTwoFactor = false;
 
             return true;

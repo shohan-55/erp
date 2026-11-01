@@ -10,11 +10,7 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * Direct login credentials & password reset notification email for team members.
- *
- * Delivers the workspace login link, username (email / user ID), and assigned
- * or newly reset password directly to the member's mailbox without requiring
- * a separate activation token step.
+ * One-time account activation link for a newly enrolled team member.
  */
 class TeamInvitationMail extends Mailable
 {
@@ -24,16 +20,13 @@ class TeamInvitationMail extends Mailable
         public User $member,
         public string $firmName,
         public string $firmSlug,
-        public ?string $plainPassword = null,
-        public bool $isPasswordReset = false,
+        public string $activationUrl,
     ) {
     }
 
     public function envelope(): Envelope
     {
-        $subject = $this->isPasswordReset
-            ? 'Your Password Has Been Reset — ' . $this->firmName . ' (DhakaWala ERP)'
-            : 'Your Account Login Credentials for ' . $this->firmName . ' — DhakaWala ERP';
+        $subject = 'Activate Your ' . $this->firmName . ' ERP Account';
 
         return new Envelope(
             subject: $subject,
@@ -42,8 +35,6 @@ class TeamInvitationMail extends Mailable
 
     public function content(): Content
     {
-        $loginUrl = $this->loginUrl();
-
         return new Content(
             view: 'emails.team-invitation',
             with: [
@@ -58,30 +49,9 @@ class TeamInvitationMail extends Mailable
                 'partnerUnit'     => $this->member->partner_unit ?? 'Partner Unit 01',
                 'userId'          => $this->member->student_code ?: ('ID-' . $this->member->id),
                 'email'           => $this->member->email,
-                'plainPassword'   => $this->plainPassword,
-                'loginUrl'        => $loginUrl,
-                'activationUrl'   => $loginUrl,
-                'isPasswordReset' => $this->isPasswordReset,
+                'activationUrl'   => $this->activationUrl,
             ],
         );
     }
 
-    protected function loginUrl(): string
-    {
-        try {
-            $firm = $this->member->firm;
-            if ($firm && ! empty($firm->custom_domain)) {
-                return 'https://' . $firm->custom_domain . '/c/' . $this->firmSlug . '/login';
-            }
-            if ($firm && ! empty($firm->custom_subdomain)) {
-                return 'https://' . $firm->custom_subdomain . '.dhakawala.com/c/' . $this->firmSlug . '/login';
-            }
-
-            return route('firm.login', [
-                'firmSlug' => $this->firmSlug,
-            ]);
-        } catch (\Throwable) {
-            return url('/c/' . $this->firmSlug . '/login');
-        }
-    }
 }

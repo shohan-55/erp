@@ -15,7 +15,8 @@ permissions:
 jobs:
   ui-verification:
     name: PHPUnit and Vite build
-    runs-on: ubuntu-latest
+    # Playwright's pinned browser/dependency matrix currently supports Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout code
@@ -25,7 +26,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, fileinfo
+          extensions: mbstring, dom, xml, pdo_sqlite, pdo_mysql, sqlite3, fileinfo
           coverage: none
           tools: composer:v2
 
@@ -50,17 +51,48 @@ jobs:
         run: npm run build
 
       - name: Run full Laravel feature and unit tests
-        run: php artisan test --stop-on-failure
+        run: |
+          set +e
+          php artisan test --stop-on-failure --log-junit="$RUNNER_TEMP/phpunit.xml" 2>&1 | tee "$RUNNER_TEMP/phpunit.log"
+          result=${PIPESTATUS[0]}
+          if [ "$result" -ne 0 ]; then
+            python3 - "$RUNNER_TEMP/phpunit.xml" "$RUNNER_TEMP/phpunit.log" <<'PY'
+          import pathlib, sys, xml.etree.ElementTree as ET
+          report, log = map(pathlib.Path, sys.argv[1:])
+          details = []
+          if report.exists():
+              for case in ET.parse(report).iter('testcase'):
+                  for failure in case:
+                      if failure.tag in ('failure', 'error'):
+                          message = failure.get('message', '')
+                          if len(message) > 1200:
+                              message = message[-1200:]
+                          details.append(f"{case.get('classname')}::{case.get('name')}\n{message}\n{(failure.text or '')[:700]}")
+          if not details:
+              details = [log.read_text(errors='replace')[-2500:]]
+          message = '\n---\n'.join(details[:4])[:3500]
+          escaped = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=Laravel test failure::{escaped}')
+          PY
+          fi
+          exit "$result"
 
-      # Advisories are reported but do not fail the build yet: the repository
-      # has no triaged baseline, so a fresh advisory must not block a hotfix.
-      # Remove `continue-on-error` once the reports are clean.
       - name: Dependency vulnerability audit (PHP)
-        continue-on-error: true
-        run: composer audit --no-dev --format=summary
+        run: |
+          set +e
+          composer audit --no-dev 2>&1 | tee "$RUNNER_TEMP/composer-audit.log"
+          result=${PIPESTATUS[0]}
+          if [ "$result" -ne 0 ]; then
+            python3 - "$RUNNER_TEMP/composer-audit.log" <<'PY'
+          import pathlib, sys
+          text = pathlib.Path(sys.argv[1]).read_text(errors='replace')[-3000:]
+          escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=PHP dependency audit failure::{escaped}')
+          PY
+          fi
+          exit "$result"
 
       - name: Dependency vulnerability audit (JS)
-        continue-on-error: true
         run: npm audit --omit=dev --audit-level=high
 
       - name: Install Playwright browser for visual verification
@@ -72,22 +104,48 @@ jobs:
         run: |
           sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env
           sed -i 's/^CACHE_STORE=.*/CACHE_STORE=file/' .env
+          # Keep generated Livewire and Vite URLs on the local HTTP preview origin.
+          sed -i 's|^APP_URL=.*|APP_URL=http://127.0.0.1:8000|' .env
           # Design preview routes are fail-closed; enable them only for this throwaway CI server.
           echo 'ERP_DEMO_MODE=true' >> .env
-          nohup php artisan serve --host=127.0.0.1 --port=8000 > /tmp/laravel-preview.log 2>&1 &
+          APP_ENV=testing DB_CONNECTION=sqlite DB_DATABASE=:memory: ERP_DEMO_MODE=true nohup php artisan serve --host=127.0.0.1 --port=8000 > /tmp/laravel-preview.log 2>&1 &
           for i in $(seq 1 20); do
             if curl --silent --fail http://127.0.0.1:8000/platform/dashboard-preview > /tmp/platform-preview.html; then
               break
             fi
             sleep 1
           done
-          grep -q 'One platform. Clear boundaries.' /tmp/platform-preview.html
+          grep -q 'Manage every firm from here.' /tmp/platform-preview.html
 
       - name: Browser test and capture responsive screenshots
-        run: node tests/browser/phase03-preview.mjs
+        run: |
+          set +e
+          node tests/browser/phase03-preview.mjs 2>&1 | tee "$RUNNER_TEMP/browser-phase03.log"
+          result=${PIPESTATUS[0]}
+          if [ "$result" -ne 0 ]; then
+            python3 - "$RUNNER_TEMP/browser-phase03.log" <<'PY'
+          import pathlib, sys
+          text = pathlib.Path(sys.argv[1]).read_text(errors='replace')[-2500:]
+          escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=Phase 03 browser test failure::{escaped}')
+          PY
+          fi
+          exit "$result"
 
       - name: Browser test all practice design phases and capture screenshots
-        run: node tests/browser/practice-phases.mjs
+        run: |
+          set +e
+          node tests/browser/practice-phases.mjs 2>&1 | tee "$RUNNER_TEMP/browser-practice.log"
+          result=${PIPESTATUS[0]}
+          if [ "$result" -ne 0 ]; then
+            python3 - "$RUNNER_TEMP/browser-practice.log" <<'PY'
+          import pathlib, sys
+          text = pathlib.Path(sys.argv[1]).read_text(errors='replace')[-2500:]
+          escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=Practice browser test failure::{escaped}')
+          PY
+          fi
+          exit "$result"
 
       - name: Upload Phase 04-10 screenshots
         if: always()
@@ -107,3 +165,76 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+
+  mysql-feature-tests:
+    name: Laravel feature tests (MySQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: erp_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: erp_test
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      ERP_ALLOW_TEST_LOGINS: true
+      ERP_REQUIRE_PRIVILEGED_2FA: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_mysql, fileinfo
+          coverage: none
+          tools: composer:v2
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Initialize local test environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run full Laravel feature and unit tests against MySQL
+        run: |
+          set +e
+          php artisan test --stop-on-failure --log-junit="$RUNNER_TEMP/phpunit-mysql.xml" 2>&1 | tee "$RUNNER_TEMP/phpunit-mysql.log"
+          result=${PIPESTATUS[0]}
+          if [ "$result" -ne 0 ]; then
+            python3 - "$RUNNER_TEMP/phpunit-mysql.xml" "$RUNNER_TEMP/phpunit-mysql.log" <<'PY'
+          import pathlib, sys, xml.etree.ElementTree as ET
+          report, log = map(pathlib.Path, sys.argv[1:])
+          details = []
+          if report.exists():
+              for case in ET.parse(report).iter('testcase'):
+                  for failure in case:
+                      if failure.tag in ('failure', 'error'):
+                          message = failure.get('message', '')
+                          if len(message) > 1200:
+                              message = message[-1200:]
+                          details.append(f"{case.get('classname')}::{case.get('name')}\n{message}\n{(failure.text or '')[:700]}")
+          if not details:
+              details = [log.read_text(errors='replace')[-2500:]]
+          message = '\n---\n'.join(details[:4])[:3500]
+          escaped = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=MySQL test failure::{escaped}')
+          PY
+          fi
+          exit "$result"

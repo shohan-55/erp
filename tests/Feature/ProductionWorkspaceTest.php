@@ -337,7 +337,7 @@ class ProductionWorkspaceTest extends TestCase
             'password'         => Hash::make('TempPass123!'),
             'role'             => 'student',
             'student_code'     => 'S-199',
-            'invitation_token' => 'valid-invite-token-xyz',
+            'invitation_token' => hash('sha256', 'valid-invite-token-xyz'),
         ]);
 
         Livewire::withQueryParams(['token' => 'valid-invite-token-xyz'])
@@ -770,6 +770,7 @@ class ProductionWorkspaceTest extends TestCase
             ->set("myPhone", "+8801711223344")
             ->set("myPaymentMode", "bKash")
             ->set("myPaymentAccountNo", "01711-223344")
+            ->set("myCurrentPassword", "Secret123!")
             ->set("myNewPassword", "UpdatedPass2026!")
             ->set("myNewPasswordConfirm", "UpdatedPass2026!")
             ->call("updateOwnProfileAndPassword")
@@ -821,58 +822,72 @@ class ProductionWorkspaceTest extends TestCase
         ]);
     }
 
-    public function test_account_opening_sends_direct_login_credentials_and_manager_or_partner_can_reset_password_with_email(): void
+    public function test_member_invitation_and_password_reset_never_expose_passwords(): void
     {
         \Illuminate\Support\Facades\Mail::fake();
+        \Illuminate\Support\Facades\Notification::fake();
         $this->actingAs($this->partner);
 
         Livewire::test(PracticePreview::class, [
-            "firmSlug"    => "rac",
-            "previewRole" => "partner",
-            "section"     => "team",
+            'firmSlug'    => 'rac',
+            'previewRole' => 'partner',
+            'section'     => 'team',
         ])
-            ->call("openAddMemberModal")
-            ->set("newMemberName", "Nafis Iqbal")
-            ->set("newMemberEmail", "nafis.student@rahmananis.com")
-            ->set("newMemberPassword", "InitialPass2026!")
-            ->set("newMemberRole", "student")
-            ->set("newMemberStudentCode", "S-120")
-            ->call("createMember")
-            ->assertSet("error", null);
+            ->call('openAddMemberModal')
+            ->set('newMemberName', 'Nafis Iqbal')
+            ->set('newMemberEmail', 'nafis.student@rahmananis.com')
+            ->set('newMemberRole', 'student')
+            ->set('newMemberStudentCode', 'S-120')
+            ->call('createMember')
+            ->assertSet('error', null);
 
-        $created = User::where("email", "nafis.student@rahmananis.com")->first();
-        $this->assertNotNull($created);
-        $this->assertNotNull($created->email_verified_at);
-        $this->assertNull($created->invitation_token);
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check("InitialPass2026!", $created->password));
+        $created = User::where('email', 'nafis.student@rahmananis.com')->firstOrFail();
+        $this->assertNull($created->email_verified_at);
+        $this->assertNotNull($created->invitation_token);
+        $this->assertFalse(Hash::check('InitialPass2026!', $created->password));
 
-        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\TeamInvitationMail::class, function (\App\Mail\TeamInvitationMail $mail) {
-            return $mail->hasTo("nafis.student@rahmananis.com")
-                && $mail->plainPassword === "InitialPass2026!"
-                && $mail->isPasswordReset === false;
+        $activationToken = null;
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\TeamInvitationMail::class, function (\App\Mail\TeamInvitationMail $mail) use (&$activationToken) {
+            parse_str((string) parse_url($mail->activationUrl, PHP_URL_QUERY), $query);
+            $activationToken = $query['token'] ?? null;
+
+            return $mail->hasTo('nafis.student@rahmananis.com')
+                && is_string($activationToken)
+                && strlen($activationToken) >= 40
+                && ! property_exists($mail, 'plainPassword');
         });
+        $this->assertSame(hash('sha256', $activationToken), $created->invitation_token);
 
-        // Manager resets the student password and new password is emailed automatically
-        $this->actingAs($this->manager);
-        Livewire::test(PracticePreview::class, [
-            "firmSlug"    => "rac",
-            "previewRole" => "manager",
-            "section"     => "team",
-        ])
-            ->call("openResetPasswordModal", $created->id)
-            ->assertSet("showResetPasswordModal", true)
-            ->set("resetPasswordInput", "ManagerResetPass99!")
-            ->call("resetMemberPassword")
-            ->assertSet("error", null)
-            ->assertSet("showResetPasswordModal", false);
+        // Invitation links are opened in the invited member's unauthenticated browser.
+        \Illuminate\Support\Facades\Auth::logout();
+        Livewire::withQueryParams(['token' => $activationToken])->test(AccountActivation::class, ['firmSlug' => 'rac'])
+            ->set('password', 'SecureMember123!')
+            ->set('passwordConfirmation', 'SecureMember123!')
+            ->set('termsAccepted', true)
+            ->call('submitActivation')
+            ->assertSet('previewState', 'completed');
 
         $created->refresh();
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check("ManagerResetPass99!", $created->password));
+        $this->assertNotNull($created->email_verified_at);
+        $this->assertNull($created->invitation_token);
+        $this->assertTrue(Hash::check('SecureMember123!', $created->password));
 
-        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\TeamInvitationMail::class, function (\App\Mail\TeamInvitationMail $mail) {
-            return $mail->hasTo("nafis.student@rahmananis.com")
-                && $mail->plainPassword === "ManagerResetPass99!"
-                && $mail->isPasswordReset === true;
-        });
+        // Manager requests a reset link; the member's current password remains unchanged.
+        $this->actingAs($this->manager);
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'manager',
+            'section'     => 'team',
+        ])
+            ->call('openResetPasswordModal', $created->id)
+            ->assertSet('showResetPasswordModal', true)
+            ->call('resetMemberPassword')
+            ->assertSet('error', null)
+            ->assertSet('showResetPasswordModal', false);
+
+        $created->refresh();
+        $this->assertTrue(Hash::check('SecureMember123!', $created->password));
+        \Illuminate\Support\Facades\Notification::assertSentTo($created, \Illuminate\Auth\Notifications\ResetPassword::class);
     }
+
 }

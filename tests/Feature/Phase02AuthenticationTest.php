@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Firm;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Livewire\Livewire;
 use App\Livewire\Auth\FirmLogin;
@@ -12,6 +14,22 @@ use App\Livewire\Auth\AccountActivation;
 
 class Phase02AuthenticationTest extends TestCase
 {
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Firm::create([
+            'name'          => 'Rahman Anis & Co.',
+            'slug'          => 'rac',
+            'short_code'    => 'RA&C',
+            'status'        => 'active',
+            'tier'          => 'professional',
+            'custom_domain' => 'rahmananis.com',
+        ]);
+    }
+
     /**
      * Test CA Firm login page renders with official RA&C branding.
      */

@@ -6,10 +6,14 @@
 **Stack:** Laravel 13 · PHP 8.4 · Livewire 4 · Blade · Tailwind 4 · Vite 8
 **Codebase size:** 177 files, ~20,050 lines (PHP + Blade), 24 Blade views, 20 migrations
 
-> ### 📌 Remediation status — updated 30 October 2026
+> ### 📌 Remediation status — updated 2 November 2026
 >
 > This document is the **original snapshot** of the codebase at `16c15ae`; the findings below
-> are kept verbatim so the reasoning stays auditable. What has since been fixed:
+> are kept verbatim so the reasoning stays auditable. The 2 November follow-up adds revocable
+> Partner-equivalent authority for TOTP-enrolled Managers, hashed single-use activation tokens,
+> broker-based password resets, unverified-account login rejection, SQL-level workspace scoping,
+> DB-backed authenticated permission checks that reject forged Livewire permission flags, and a MySQL 8 CI job. See [`PRODUCTION_REMEDIATION_2026-11-02.md`](PRODUCTION_REMEDIATION_2026-11-02.md)
+> for exact constraints, operator rollout steps and verification limits. What has since been fixed:
 >
 > **P0 (all 7) — fixed.** Invitation-based account takeover, manager→partner escalation,
 > hard-coded super-admin emails, the wrong default timezone, hard-coded passwords, fail-open
@@ -22,8 +26,9 @@
 > partner-unit scoping on attendance/leave/claims; subscription-expiry enforcement
 > (`RequireActiveSubscription`); CSV formula-injection guard (`CsvSafe`); escaped HTML
 > exports; composite indexes on the hot paths; date-range queries instead of `LIKE '2026-10%'`;
-> **TOTP two-factor authentication** for platform, firm and portal sign-in (opt-in, inert
-> until confirmed); scheduled `erp:backup`, `erp:flag-missed-checkouts`,
+> **TOTP two-factor authentication** for privileged sign-in (now mandatory for platform admins,
+> Partners and delegated Managers unless `ERP_REQUIRE_PRIVILEGED_2FA` is deliberately disabled);
+> scheduled `erp:backup`, `erp:flag-missed-checkouts`,
 > `erp:subscription-expiry-reminder`; `/health` readiness probe; CI on every branch plus
 > Dependabot; the 120 KB inline CSS bundle moved into a cached stylesheet.
 >
@@ -43,10 +48,11 @@
 > **Still open (honest list):** payment gateway / invoicing / dunning; Policies + Service
 > extraction out of the Livewire monoliths (still 1.9k + 0.9k lines); pagination and
 > `#[Lazy]` for the 70-property public state; removal of per-request
-> `Schema::hasTable/hasColumn` probing and runtime DDL; MySQL service container in CI;
-> soft deletes and tamper-evident audit logs; email-verification enforcement; Sentry /
-> error tracking; i18n and an accessibility
-> pass; terms/privacy pages.
+> `Schema::hasTable/hasColumn` probing (production runtime DDL is disabled; local/test fallback remains);
+> soft deletes and tamper-evident audit logs; email-change verification (self-service email changes
+> still take effect immediately after current-password confirmation); Sentry / error tracking; i18n
+> and an accessibility pass; terms/privacy pages. A MySQL 8 CI job is configured but must still run
+> successfully on this branch.
 >
 > **Verification (updated 30 October, evening):** the suite has now been executed on a real
 > PHP 8.4.25 runtime — **152 tests, 590 assertions, all green** — together with a fresh
@@ -56,6 +62,12 @@
 > nothing, guests bounced to the wrong login page) plus two stale test expectations; all are
 > fixed. How this was done without CI, and what is still unverified (MySQL, browsers,
 > PHP 8.3), is documented in [`RUNNING_TESTS_WITHOUT_CI.md`](RUNNING_TESTS_WITHOUT_CI.md).
+>
+> **2 November branch verification:** PHP and Composer are absent and `vendor/` is not present;
+> no Laravel tests, Blade compilation or migration execution were run for this follow-up. A
+> temporary Node PHP parser accepted 33 changed `.php`-suffixed paths (not a Blade compile),
+> `npm run build` succeeded (`app-Cv_4VRsS.css`), and the production npm audit reported zero
+> vulnerabilities. Branch CI/staging must pass before production rollout.
 
 ---
 

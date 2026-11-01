@@ -59,7 +59,9 @@ class PracticePreview extends Component
     public ?string $error = null;
 
     // Multi-Partner Unit Architecture & Shared Attendance View
+    #[Locked]
     public string $partnerUnit = 'Partner Unit 01';
+    #[Locked]
     public array $availablePartnerUnits = ['Partner Unit 01', 'Partner Unit 02'];
     public bool $canViewAllPartnersAttendance = true;
     public bool $viewAllPartnersAttendance = false;
@@ -311,7 +313,6 @@ class PracticePreview extends Component
     public string $resetPasswordMemberName = '';
     public string $resetPasswordMemberEmail = '';
     public string $resetPasswordMemberRole = '';
-    public string $resetPasswordInput = '';
     public ?int $selectedMemberId = null;
     public string $selectedMemberName = '';
     public string $deleteConfirmationInput = '';
@@ -320,12 +321,12 @@ class PracticePreview extends Component
     public string $newMemberRole = 'student';
     public string $newMemberName = '';
     public string $newMemberEmail = '';
-    public string $newMemberPassword = '';
     public string $newMemberPartnerUnit = 'Partner Unit 01';
     public string $newMemberStudentCode = '';
     public ?int $newMemberManagerId = null;
     public float $newMemberMonthlyAllowance = 6000.00;
     public bool $newMemberCanManageTeam = false;
+    public bool $newMemberIsPartnerDelegate = false;
     public bool $newMemberCanProxyAttendance = false;
     public bool $newMemberCanEditAttendance = false;
     public bool $newMemberCanApproveLeave = false;
@@ -340,13 +341,13 @@ class PracticePreview extends Component
     public string $editMemberName = '';
     public string $editMemberEmail = '';
     public string $editMemberPhone = '';
-    public string $editMemberNewPassword = '';
     public string $editMemberRole = 'student';
     public string $editMemberPartnerUnit = 'Partner Unit 01';
     public string $editMemberStudentCode = '';
     public ?int $editMemberManagerId = null;
     public float $editMemberMonthlyAllowance = 6000.00;
     public bool $editMemberCanManageTeam = false;
+    public bool $editMemberIsPartnerDelegate = false;
     public bool $editMemberCanProxyAttendance = false;
     public bool $editMemberCanEditAttendance = false;
     public bool $editMemberCanApproveLeave = false;
@@ -481,10 +482,10 @@ class PracticePreview extends Component
                 $this->managerCanEditAttendance     = (bool) $user->can_edit_attendance;
                 $this->managerCanApproveLeave       = (bool) $user->can_approve_leave;
                 $this->managerCanApproveClaims      = (bool) $user->can_approve_claims;
-                $this->managerCanManagePolicies     = $user->isPartner() || (bool) ($user->can_manage_policies ?? false);
-                $this->managerCanManagePayroll      = $user->isPartner() || (bool) ($user->can_manage_payroll ?? false);
-                $this->managerCanFinalApproveLeave  = $user->isPartner() || (bool) ($user->can_final_approve_leave ?? false);
-                $this->managerCanFinalApproveClaims = $user->isPartner() || (bool) ($user->can_final_approve_claims ?? false);
+                $this->managerCanManagePolicies     = $user->hasPartnerAuthority() || (bool) ($user->can_manage_policies ?? false);
+                $this->managerCanManagePayroll      = $user->hasPartnerAuthority() || (bool) ($user->can_manage_payroll ?? false);
+                $this->managerCanFinalApproveLeave  = $user->hasPartnerAuthority() || (bool) ($user->can_final_approve_leave ?? false);
+                $this->managerCanFinalApproveClaims = $user->hasPartnerAuthority() || (bool) ($user->can_final_approve_claims ?? false);
             }
         }
 
@@ -567,13 +568,51 @@ class PracticePreview extends Component
 
     protected function enforceAuthenticatedRoleLock(): void
     {
-        if (Auth::check()) {
-            /** @var User $user */
-            $user = Auth::user();
-            if ($user->isFirmMember() && in_array($user->role, self::ROLES, true)) {
-                $this->previewRole = $user->role;
-            }
+        if (! Auth::check()) {
+            return;
         }
+
+        /** @var User $user */
+        $user = Auth::user();
+        if ($user->isFirmMember() && in_array($user->role, self::ROLES, true)) {
+            $this->previewRole = $user->role;
+        }
+
+        // Ordinary staff cannot forge the selected partner unit through the
+        // Livewire payload. A Partner-delegated Manager may choose among real
+        // units, but the list itself is always rebuilt from the database.
+        if (! $user->hasPartnerAuthority()) {
+            $this->partnerUnit = (string) ($user->partner_unit ?: 'Partner Unit 01');
+            $this->availablePartnerUnits = [$this->partnerUnit];
+            return;
+        }
+
+        $firmModel = $this->resolveFirmModel();
+        if (! $firmModel) {
+            return;
+        }
+
+        $units = [];
+        for ($i = 1; $i <= max(1, (int) ($firmModel->workspaces ?: 1)); $i++) {
+            $units[] = sprintf('Partner Unit %02d', $i);
+        }
+        $units = array_values(array_unique(array_merge(
+            $units,
+            User::where('firm_id', $firmModel->id)->whereNotNull('partner_unit')->pluck('partner_unit')->all()
+        )));
+        $this->availablePartnerUnits = $units;
+        if (! in_array($this->partnerUnit, $units, true)) {
+            $this->partnerUnit = (string) ($user->partner_unit ?: ($units[0] ?? 'Partner Unit 01'));
+        }
+    }
+
+    public function userHasPartnerAuthority(): bool
+    {
+        if (Auth::check()) {
+            return Auth::user()->hasPartnerAuthority();
+        }
+
+        return $this->previewRole === 'partner';
     }
 
 
@@ -583,88 +622,100 @@ class PracticePreview extends Component
      * Payroll Approval/Disbursement, Final Leave Sanction, Final Claim Sanction)
      * to any trusted Manager (individually in Team Roster or unit-wide in Settings).
      */
+    public function userCanProxyAttendance(): bool
+    {
+        if (Auth::check()) {
+            $u = Auth::user();
+            return $u->hasPartnerAuthority() || ($u->isManager() && (bool) ($u->can_proxy_attendance ?? false));
+        }
+
+        return $this->previewRole === 'partner'
+            || ($this->previewRole === 'manager' && $this->managerCanProxyAttendance);
+    }
+
+    public function userCanEditAttendance(): bool
+    {
+        if (Auth::check()) {
+            $u = Auth::user();
+            return $u->hasPartnerAuthority() || ($u->isManager() && (bool) ($u->can_edit_attendance ?? false));
+        }
+
+        return $this->previewRole === 'partner'
+            || ($this->previewRole === 'manager' && $this->managerCanEditAttendance);
+    }
+
+    public function userCanApproveLeave(): bool
+    {
+        if (Auth::check()) {
+            $u = Auth::user();
+            return $u->hasPartnerAuthority() || ($u->isManager() && (bool) ($u->can_approve_leave ?? false));
+        }
+
+        return $this->previewRole === 'partner'
+            || ($this->previewRole === 'manager' && $this->managerCanApproveLeave);
+    }
+
+    public function userCanApproveClaims(): bool
+    {
+        if (Auth::check()) {
+            $u = Auth::user();
+            return $u->hasPartnerAuthority() || ($u->isManager() && (bool) ($u->can_approve_claims ?? false));
+        }
+
+        return $this->previewRole === 'partner'
+            || ($this->previewRole === 'manager' && $this->managerCanApproveClaims);
+    }
+
     public function userCanManagePolicies(): bool
     {
-        if ($this->previewRole === 'partner') {
-            return true;
-        }
-        if ($this->previewRole !== 'manager') {
-            return false;
-        }
         if (Auth::check()) {
-            /** @var User $u */
             $u = Auth::user();
-            if ($u->isPlatformAdmin() || $u->isPartner()) {
-                return true;
-            }
-            if ((bool) ($u->can_manage_policies ?? false)) {
-                return true;
-            }
+            return $u->hasPartnerAuthority()
+                || ($u->isManager() && (bool) ($u->can_manage_policies ?? false));
         }
-        return $this->managerCanManagePolicies || (bool) ($this->managerPermissions['manage_policies'] ?? false);
+
+        return $this->previewRole === 'partner'
+            || ($this->previewRole === 'manager'
+                && ($this->managerCanManagePolicies || (bool) ($this->managerPermissions['manage_policies'] ?? false)));
     }
 
     public function userCanManagePayroll(): bool
     {
-        if ($this->previewRole === 'partner') {
-            return true;
-        }
-        if ($this->previewRole !== 'manager') {
-            return false;
-        }
         if (Auth::check()) {
-            /** @var User $u */
             $u = Auth::user();
-            if ($u->isPlatformAdmin() || $u->isPartner()) {
-                return true;
-            }
-            if ((bool) ($u->can_manage_payroll ?? false)) {
-                return true;
-            }
+            return $u->hasPartnerAuthority()
+                || ($u->isManager() && (bool) ($u->can_manage_payroll ?? false));
         }
-        return $this->managerCanManagePayroll || (bool) ($this->managerPermissions['manage_payroll'] ?? false);
+
+        return $this->previewRole === 'partner'
+            || ($this->previewRole === 'manager'
+                && ($this->managerCanManagePayroll || (bool) ($this->managerPermissions['manage_payroll'] ?? false)));
     }
 
     public function userCanFinalApproveLeave(): bool
     {
-        if ($this->previewRole === 'partner') {
-            return true;
-        }
-        if ($this->previewRole !== 'manager') {
-            return false;
-        }
         if (Auth::check()) {
-            /** @var User $u */
             $u = Auth::user();
-            if ($u->isPlatformAdmin() || $u->isPartner()) {
-                return true;
-            }
-            if ((bool) ($u->can_final_approve_leave ?? false)) {
-                return true;
-            }
+            return $u->hasPartnerAuthority()
+                || ($u->isManager() && (bool) ($u->can_final_approve_leave ?? false));
         }
-        return $this->managerCanFinalApproveLeave || (bool) ($this->managerPermissions['final_approve_leave'] ?? false);
+
+        return $this->previewRole === 'partner'
+            || ($this->previewRole === 'manager'
+                && ($this->managerCanFinalApproveLeave || (bool) ($this->managerPermissions['final_approve_leave'] ?? false)));
     }
 
     public function userCanFinalApproveClaims(): bool
     {
-        if ($this->previewRole === 'partner') {
-            return true;
-        }
-        if ($this->previewRole !== 'manager') {
-            return false;
-        }
         if (Auth::check()) {
-            /** @var User $u */
             $u = Auth::user();
-            if ($u->isPlatformAdmin() || $u->isPartner()) {
-                return true;
-            }
-            if ((bool) ($u->can_final_approve_claims ?? false)) {
-                return true;
-            }
+            return $u->hasPartnerAuthority()
+                || ($u->isManager() && (bool) ($u->can_final_approve_claims ?? false));
         }
-        return $this->managerCanFinalApproveClaims || (bool) ($this->managerPermissions['final_approve_claims'] ?? false);
+
+        return $this->previewRole === 'partner'
+            || ($this->previewRole === 'manager'
+                && ($this->managerCanFinalApproveClaims || (bool) ($this->managerPermissions['final_approve_claims'] ?? false)));
     }
 
     protected function resolveFirmModel(): ?Firm
@@ -850,7 +901,6 @@ class PracticePreview extends Component
         $this->showDeleteMemberModal = false;
         $this->showResetPasswordModal = false;
         $this->resetPasswordMemberId = null;
-        $this->resetPasswordInput = '';
         $this->showAddNewClientModal = false;
         $this->showCheckoutModeModal = false;
         $this->showFinalCheckoutReview = false;
@@ -1019,13 +1069,13 @@ class PracticePreview extends Component
                 : array_values(array_filter($this->claimQueue, fn ($q) => ! Auth::check() || Auth::user()->isPlatformAdmin() || empty($q['partner_unit']) || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit || count($this->availablePartnerUnits) <= 1)));
 
         // Compute actionable unread/pending items for Manager & Partner notification badges & Dashboard Inbox
-        $pendingLeaveItems = ($this->previewRole === 'partner' || $this->userCanFinalApproveLeave())
+        $pendingLeaveItems = ($this->userHasPartnerAuthority() || $this->userCanFinalApproveLeave())
             ? array_values(array_filter($scopedLeaveQueue, fn ($q) => in_array($q['status'] ?? '', ['pending_partner', 'pending_manager'], true)))
             : ($this->previewRole === 'manager'
                 ? array_values(array_filter($scopedLeaveQueue, fn ($q) => ($q['status'] ?? '') === 'pending_manager'))
                 : []);
 
-        $pendingClaimItems = ($this->previewRole === 'partner' || $this->userCanFinalApproveClaims())
+        $pendingClaimItems = ($this->userHasPartnerAuthority() || $this->userCanFinalApproveClaims())
             ? array_values(array_filter($scopedClaimQueue, fn ($q) => in_array($q['status'] ?? '', ['pending_partner', 'Escalated to Partner', 'Escalated to Partner (Late)', 'pending_manager'], true)))
             : ($this->previewRole === 'manager'
                 ? array_values(array_filter($scopedClaimQueue, fn ($q) => in_array($q['status'] ?? '', ['pending_manager', 'Manager Review'], true)))
@@ -1079,6 +1129,7 @@ class PracticePreview extends Component
 
         return view('livewire.practice.preview', [
             'colorPalettes'              => Firm::colorPalettes(),
+            'hasPartnerAuthority'        => $this->userHasPartnerAuthority(),
             'canManagePolicies'          => $this->userCanManagePolicies(),
             'canManagePayroll'           => $this->userCanManagePayroll(),
             'canFinalApproveLeave'       => $this->userCanFinalApproveLeave(),

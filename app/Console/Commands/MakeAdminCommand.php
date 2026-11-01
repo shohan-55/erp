@@ -25,6 +25,7 @@ class MakeAdminCommand extends Command
             $user->email = $email;
             $user->name = 'Platform Super Admin';
             $user->role = User::ROLE_PLATFORM_ADMIN;
+            $user->email_verified_at = now();
             $plainPassword = $password ?: Str::password(20);
             $user->password = Hash::make($plainPassword);
             $user->save();
@@ -36,6 +37,7 @@ class MakeAdminCommand extends Command
         }
 
         $user->role = User::ROLE_PLATFORM_ADMIN;
+        $user->email_verified_at = $user->email_verified_at ?? now();
         if ($password) {
             $user->password = Hash::make($password);
         }

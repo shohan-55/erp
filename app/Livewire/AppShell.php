@@ -196,8 +196,15 @@ class AppShell extends Component
             return;
         }
 
-        // ─── Optional second factor (P1-3.2) ──────────────────────────────
-        // Inert unless this account has enrolled a TOTP secret.
+        if ($user && ! $user->email_verified_at) {
+            Auth::logout();
+            $this->loginError = 'Please activate your account using the one-time email link, or request a secure password reset link if the invitation expired.';
+            $this->password = '';
+            return;
+        }
+
+        // ─── Required TOTP for privileged accounts ─────────────────────────
+        // Privileged accounts without a confirmed TOTP secret are denied access.
         if ($user && ! $this->twoFactorGate($user)) {
             // Keep the password: the follow-up submit re-runs Auth::attempt
             // together with the code, and forcing a retype here only trains

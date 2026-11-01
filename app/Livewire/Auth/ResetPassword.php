@@ -109,8 +109,11 @@ class ResetPassword extends Component
             ],
             function ($user, $password) {
                 $user->forceFill([
-                    'password'       => Hash::make($password),
-                    'remember_token' => null,
+                    'password'         => Hash::make($password),
+                    'remember_token'    => null,
+                    'email_verified_at'  => $user->email_verified_at ?? now(),
+                    'invitation_token'   => null,
+                    'invitation_sent_at' => null,
                 ])->save();
 
                 // A reset is a recovery action: every existing session for that

@@ -64,7 +64,7 @@
             <section class="overflow-hidden rounded-2xl border border-[#E8EAF0] bg-white shadow-sm">
                 <div class="border-b border-slate-100 px-5 py-4 flex items-center justify-between">
                     <div>
-                        <h3 class="text-sm font-extrabold">{{ $previewRole === 'partner' ? 'Partner Final Approval Queue' : 'Manager Review & Recommendation Queue' }}</h3>
+                        <h3 class="text-sm font-extrabold">{{ ($hasPartnerAuthority ?? ($previewRole === 'partner')) ? 'Partner Final Approval Queue' : 'Manager Review & Recommendation Queue' }}</h3>
                         <p class="mt-1 text-xs text-slate-500">{{ $partnerUnit }} · Supports Full Approve, Partial Approve (আংশিক ছুটি), or Reject</p>
                     </div>
                     <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">{{ count($leaveQueue) }} Requests</span>
@@ -74,7 +74,7 @@
                     @forelse($leaveQueue as $request)
                         @php
                             $isUnreadLeave = ($previewRole === 'manager' && ($request['status'] ?? '') === 'pending_manager')
-                                || ($previewRole === 'partner' && in_array($request['status'] ?? '', ['pending_partner', 'pending_manager'], true));
+                                || (($hasPartnerAuthority ?? ($previewRole === 'partner')) && in_array($request['status'] ?? '', ['pending_partner', 'pending_manager'], true));
                         @endphp
                         <div wire:key="leave-{{ $request['id'] }}" class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between transition {{ $isUnreadLeave ? 'bg-rose-50/35 border-l-4 border-l-rose-500' : 'bg-white' }}">
                             <div class="min-w-0">
@@ -140,7 +140,7 @@
                                             class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50">
                                         Reject
                                     </button>
-                                @elseif(($previewRole === 'partner' || ($canFinalApproveLeave ?? false)) && in_array($request['status'], ['pending_partner', 'pending_manager']))
+                                @elseif((($hasPartnerAuthority ?? ($previewRole === 'partner')) || ($canFinalApproveLeave ?? false)) && in_array($request['status'], ['pending_partner', 'pending_manager']))
                                     <button type="button" wire:click="partnerApproveLeave('{{ $request['id'] }}', 'Sanctioned by Partner.')"
                                             class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
                                         Approve Full

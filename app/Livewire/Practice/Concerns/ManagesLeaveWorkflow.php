@@ -37,6 +37,22 @@ trait ManagesLeaveWorkflow
                         $userIds = DB::table('users')->where('firm_id', $firmModel->id)->pluck('id')->all();
                         $leavesQuery->whereIn('user_id', $userIds);
                     }
+                    if (Auth::check()) {
+                        $actor = Auth::user();
+                        if ($actor->isStudent()) {
+                            $leavesQuery->where('user_id', $actor->id);
+                        } elseif ($actor->isManager() && ! $actor->hasPartnerAuthority()) {
+                            $leavesQuery->whereHas('user', function ($q) use ($actor) {
+                                $q->where('partner_unit', $actor->partner_unit)
+                                    ->orWhere('manager_id', $actor->id);
+                            });
+                        } elseif ($actor->hasPartnerAuthority() && ! $actor->isPlatformAdmin()) {
+                            $leavesQuery->whereHas('user', fn ($q) => $q->where('partner_unit', $this->partnerUnit));
+                        }
+                    } else {
+                        // Anonymous demo requests must never hydrate real firm records.
+                        $leavesQuery->whereRaw('1 = 0');
+                    }
                     $dbLeaves = $leavesQuery->orderByDesc('id')->get();
                     if ($dbLeaves->isNotEmpty()) {
                         $this->leaveQueue = $dbLeaves->map(function (LeaveRequest $lr) {
@@ -547,7 +563,7 @@ trait ManagesLeaveWorkflow
             return;
         }
 
-        if ($this->previewRole === 'manager' && ! $this->managerCanApproveLeave) {
+        if ($this->previewRole === 'manager' && ! $this->userHasPartnerAuthority() && ! $this->userCanApproveLeave()) {
             $this->error = 'Partner has disabled Leave Review permission for Managers.';
             return;
         }
@@ -607,6 +623,9 @@ trait ManagesLeaveWorkflow
                     $query->where('firm_id', $firmModel->id);
                 }
                 $lr = $query->first();
+                if ($lr && ! $this->guardUserScope(User::find($lr->user_id), 'approve leave for')) {
+                    return;
+                }
                 if ($lr) {
                     $lr->status = 'approved';
                     if (Schema::hasColumn('leave_requests', 'approved_days') && ! $lr->approved_days) {
