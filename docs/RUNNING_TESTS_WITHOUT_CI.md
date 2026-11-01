@@ -1,7 +1,6 @@
 # Running the test suite without CI
 
-GitHub Actions minutes for this repository are exhausted, so the suite has to be
-runnable (and trustworthy) outside CI. It is:
+Run the suite locally with the following commands. CI also runs the SQLite suite and a MySQL 8 service job; a green local SQLite run is not a replacement for the MySQL rehearsal. It is:
 
 ```bash
 composer install              # once
@@ -14,12 +13,7 @@ composer test                 # = php artisan config:clear && php artisan test
 cache/session/mail, `BCRYPT_ROUNDS=4`), so no database server or `.env` tweaking
 is required.
 
-Expected output:
-
-```
-Tests: 152, Assertions: 590
-OK
-```
+The exact test/assertion count changes as regressions are added; the expected result is an `OK` full-suite summary with zero failures.
 
 The suite takes ~20 s on a normal laptop (and ~1 min on a slow cPanel box).
 
@@ -62,9 +56,6 @@ all are fixed in `830672e` and pinned by the suite.
 4. Click through one real sign-in, one check-in/check-out and one payroll
    period on staging.
 
-## If CI minutes come back
+## CI
 
-`.github/workflows/laravel-ui.yml` is already wired for `pull_request` pushes to
-`main`/`feature/**`/`fix/**`/`arena/**`, runs `php artisan test
---stop-on-failure`, and keeps `composer audit` / `npm audit` as non-blocking
-steps. Nothing else needs changing — the suite it runs is the one above.
+`.github/workflows/laravel-ui.yml` runs the SQLite feature/unit suite and Vite build, blocking Composer/npm production audits, browser checks, and a separate MySQL 8 feature/unit test job. In this remediation branch, native PHP/Composer are absent. A temporary PHP-WASM run passed PHP lint, fresh SQLite migrations, Blade view caching, the Unit suite (1 test), and one non-database feature test; DB-backed PHPUnit tests crash the WASM runtime and are not counted as passed. Treat CI/staging on the production PHP runtime as required before release.

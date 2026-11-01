@@ -122,8 +122,15 @@ class PlatformLogin extends Component
         /** @var User $user */
         $user = Auth::user();
 
-        // ─── Optional second factor (P1-3.2) ──────────────────────────────
-        // Inert for every account that has not enrolled a TOTP secret.
+        if ($user && ! $user->email_verified_at) {
+            Auth::logout();
+            $this->validationError = 'Verify this operator email before signing in. Ask another platform administrator to send a secure reset link if needed.';
+            $this->password = '';
+            return;
+        }
+
+        // ─── Required TOTP for privileged accounts ─────────────────────────
+        // Privileged accounts without a confirmed TOTP secret are denied access.
         if (! $this->twoFactorGate($user)) {
             // Keep the password: the follow-up submit re-runs Auth::attempt
             // together with the code, and forcing a retype here only trains

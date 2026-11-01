@@ -28,7 +28,30 @@ trait ManagesPoliciesHolidaysAndSettings
     {
         $this->enforceAuthenticatedRoleLock();
 
-        if (in_array($unit, $this->availablePartnerUnits, true)) {
+        if (Auth::check()) {
+            /** @var User $actor */
+            $actor = Auth::user();
+            if (! $actor->hasPartnerAuthority() && $unit !== $actor->partner_unit) {
+                $this->error = 'You may only access your assigned partner unit.';
+                return;
+            }
+        }
+
+        $firmModel = $this->resolveFirmModel();
+        $validUnits = [];
+        if ($firmModel) {
+            for ($i = 1; $i <= max(1, (int) ($firmModel->workspaces ?: 1)); $i++) {
+                $validUnits[] = sprintf('Partner Unit %02d', $i);
+            }
+            $validUnits = array_values(array_unique(array_merge(
+                $validUnits,
+                User::where('firm_id', $firmModel->id)->whereNotNull('partner_unit')->pluck('partner_unit')->all()
+            )));
+        } else {
+            $validUnits = $this->availablePartnerUnits;
+        }
+
+        if (in_array($unit, $validUnits, true)) {
             $this->partnerUnit = $unit;
 
             if (Schema::hasTable('firms') && Schema::hasTable('users')) {
@@ -127,8 +150,8 @@ trait ManagesPoliciesHolidaysAndSettings
         $this->error = null;
         $this->notice = null;
 
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only an authenticated Partner can update the practice email address.';
+        if (! $this->userHasPartnerAuthority()) {
+            $this->error = 'Only a Partner or a Manager with delegated Partner authority can update the practice email address.';
             return;
         }
 
@@ -354,8 +377,9 @@ trait ManagesPoliciesHolidaysAndSettings
             && $email !== ''
             && strtolower((string) Auth::user()->email) !== $email;
 
-        if ($emailIsChanging && ! Hash::check($this->myCurrentPassword, (string) Auth::user()->password)) {
-            $this->error = 'Please enter your current password to change your sign-in email address.';
+        if (($emailIsChanging || $newPass !== '')
+            && ! Hash::check($this->myCurrentPassword, (string) Auth::user()->password)) {
+            $this->error = 'Please enter your current password before changing your sign-in email or password.';
             return;
         }
 
@@ -593,8 +617,8 @@ trait ManagesPoliciesHolidaysAndSettings
     public function addCustomLeaveType(): void
     {
         $this->enforceAuthenticatedRoleLock();
-        if (! in_array($this->previewRole, ['partner', 'manager'], true)) {
-            $this->error = 'Only a Partner or Manager can configure custom leave types.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Policy-management permission is required to configure custom leave types.';
             return;
         }
         $label = trim($this->newLeaveTypeLabel);
@@ -640,8 +664,8 @@ trait ManagesPoliciesHolidaysAndSettings
     {
         $this->enforceAuthenticatedRoleLock();
 
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only a Partner can modify Manager permissions.';
+        if (! $this->userHasPartnerAuthority()) {
+            $this->error = 'Only a Partner or a Manager with delegated Partner authority can modify Manager permissions.';
             return;
         }
 
@@ -1328,8 +1352,8 @@ trait ManagesPoliciesHolidaysAndSettings
     public function seedAnnualGovernmentHolidays(): void
     {
         $this->enforceAuthenticatedRoleLock();
-        if (! in_array($this->previewRole, ['partner', 'manager'], true)) {
-            $this->error = 'Only a Partner or Manager can load or update the annual Government Holiday calendar.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Policy-management permission is required to update the Government Holiday calendar.';
             return;
         }
 
@@ -1363,8 +1387,8 @@ trait ManagesPoliciesHolidaysAndSettings
         $this->enforceAuthenticatedRoleLock();
         $this->error = null;
 
-        if (! in_array($this->previewRole, ['partner', 'manager'], true)) {
-            $this->error = 'Only a Partner or Manager can add holidays or declare a Holiday as an Open Working Day.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Policy-management permission is required to add or change holidays.';
             return;
         }
 
@@ -1440,8 +1464,8 @@ trait ManagesPoliciesHolidaysAndSettings
     public function toggleHolidayOfficeOpenOverride(int $holidayId): void
     {
         $this->enforceAuthenticatedRoleLock();
-        if (! in_array($this->previewRole, ['partner', 'manager'], true)) {
-            $this->error = 'Only a Partner or Manager can override a holiday to keep the office open.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Policy-management permission is required to override a holiday.';
             return;
         }
 
@@ -1479,8 +1503,8 @@ trait ManagesPoliciesHolidaysAndSettings
     public function deleteHoliday(int $holidayId): void
     {
         $this->enforceAuthenticatedRoleLock();
-        if (! in_array($this->previewRole, ['partner', 'manager'], true)) {
-            $this->error = 'Only a Partner or Manager can remove a calendar holiday.';
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Policy-management permission is required to remove a calendar holiday.';
             return;
         }
 
@@ -1577,8 +1601,8 @@ trait ManagesPoliciesHolidaysAndSettings
     public function voteOnPolicyProposal(int $proposalId): void
     {
         $this->enforceAuthenticatedRoleLock();
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only a Partner can cast a governance consensus vote.';
+        if (! $this->userHasPartnerAuthority()) {
+            $this->error = 'Only a Partner or a Manager with delegated Partner authority can cast a governance consensus vote.';
             return;
         }
 

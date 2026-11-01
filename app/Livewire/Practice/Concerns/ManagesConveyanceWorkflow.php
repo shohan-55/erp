@@ -38,6 +38,22 @@ trait ManagesConveyanceWorkflow
                         $userIds = DB::table('users')->where('firm_id', $firmModel->id)->pluck('id')->all();
                         $claimsQuery->whereIn('user_id', $userIds);
                     }
+                    if (Auth::check()) {
+                        $actor = Auth::user();
+                        if ($actor->isStudent()) {
+                            $claimsQuery->where('user_id', $actor->id);
+                        } elseif ($actor->isManager() && ! $actor->hasPartnerAuthority()) {
+                            $claimsQuery->whereHas('user', function ($q) use ($actor) {
+                                $q->where('partner_unit', $actor->partner_unit)
+                                    ->orWhere('manager_id', $actor->id);
+                            });
+                        } elseif ($actor->hasPartnerAuthority() && ! $actor->isPlatformAdmin()) {
+                            $claimsQuery->whereHas('user', fn ($q) => $q->where('partner_unit', $this->partnerUnit));
+                        }
+                    } else {
+                        // Anonymous demo requests must never hydrate real firm records.
+                        $claimsQuery->whereRaw('1 = 0');
+                    }
                     $dbClaims = $claimsQuery->orderByDesc('id')->get();
                     if ($dbClaims->isNotEmpty()) {
                         $this->claimQueue = $dbClaims->map(fn (ConveyanceClaim $cc) => [
@@ -528,7 +544,7 @@ trait ManagesConveyanceWorkflow
             return;
         }
 
-        if ($this->previewRole === 'manager' && ! $this->managerCanApproveClaims) {
+        if ($this->previewRole === 'manager' && ! $this->userHasPartnerAuthority() && ! $this->userCanApproveClaims()) {
             $this->error = 'Partner has disabled Conveyance Claim Review permission for Managers.';
             return;
         }
@@ -557,7 +573,7 @@ trait ManagesConveyanceWorkflow
                         $cc->adjustment_remark = $adjustmentRemark ?: "{$diffDirection} by " . ucfirst($this->previewRole);
                         $exceedsLimit = $adjustedAmount > $this->managerConveyanceLimit;
                         $mustEscalate = ($action === 'escalate') || (! $this->userCanFinalApproveClaims() && ($exceedsLimit || (bool) $cc->is_late));
-                        $cc->status = ($this->previewRole === 'partner' || ($this->userCanFinalApproveClaims() && $action !== 'escalate'))
+                        $cc->status = ($this->userHasPartnerAuthority() || ($this->userCanFinalApproveClaims() && $action !== 'escalate'))
                             ? 'approved'
                             : ($mustEscalate ? 'pending_partner' : 'approved');
                     }
@@ -598,7 +614,7 @@ trait ManagesConveyanceWorkflow
                 $isLate = ! empty($claim['is_late']);
                 $mustEscalate = ($action === 'escalate') || $exceedsLimit || $isLate;
 
-                if ($this->previewRole !== 'partner' && $mustEscalate) {
+                if (! $this->userHasPartnerAuthority() && $mustEscalate) {
                     $claim['status'] = 'pending_partner';
                     $claim['status_label'] = 'Escalated to Partner';
                     $reason = ($action === 'escalate' ? 'Forwarded by Manager for Partner review. ' : '')
@@ -636,6 +652,9 @@ trait ManagesConveyanceWorkflow
                     $query->where('firm_id', $firmModel->id);
                 }
                 $cc = $query->first();
+                if ($cc && ! $this->guardUserScope(User::find($cc->user_id), 'approve claims for')) {
+                    return;
+                }
                 if ($cc) {
                     $cc->status = 'approved';
                     $cc->partner_remarks = $remarks ?: ('Sanctioned by Partner ' . $this->partnerUnit . '.');
@@ -674,6 +693,10 @@ trait ManagesConveyanceWorkflow
 
         if ($this->previewRole === 'student') {
             $this->error = 'Students cannot reject claims.';
+            return;
+        }
+        if ($this->previewRole === 'manager' && ! $this->userHasPartnerAuthority() && ! $this->userCanApproveClaims()) {
+            $this->error = 'Claim-review permission is required to reject conveyance claims.';
             return;
         }
         if (Schema::hasTable('conveyance_claims')) {

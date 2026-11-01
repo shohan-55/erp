@@ -37,10 +37,27 @@ trait ManagesAttendanceCalendarAndRadar
                     ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
                     ->with('manager');
 
-                // Partner Unit Isolation unless Cross-Partner Combined Attendance is toggled on
-                if (! ($this->viewAllPartnersAttendance && $this->canViewAllPartnersAttendance) && Auth::check()) {
+                // Enforce visibility in SQL before data enters Livewire public
+                // component state. A normal Manager sees only their unit and
+                // direct reports; Students see only themselves. Partner-level
+                // authority is explicit and remains firm-scoped.
+                if (Auth::check()) {
+                    $actor = Auth::user();
+                    if ($actor->isStudent()) {
+                        $studentsQuery->whereKey($actor->id);
+                    } elseif ($actor->isManager() && ! $actor->hasPartnerAuthority()) {
+                        $studentsQuery->where(function ($q) use ($actor) {
+                            $q->where('partner_unit', $actor->partner_unit)
+                                ->orWhere('manager_id', $actor->id);
+                        });
+                    } elseif (! ($this->viewAllPartnersAttendance && $this->canViewAllPartnersAttendance)) {
+                        $studentsQuery->where('partner_unit', $this->partnerUnit);
+                    }
+                } elseif (! ($this->viewAllPartnersAttendance && $this->canViewAllPartnersAttendance)) {
                     $studentsQuery->where('partner_unit', $this->partnerUnit);
-                } elseif ($this->viewAllPartnersAttendance && $this->canViewAllPartnersAttendance && Schema::hasTable('partner_policies')) {
+                }
+
+                if ($this->viewAllPartnersAttendance && $this->canViewAllPartnersAttendance && Schema::hasTable('partner_policies') && (! Auth::check() || Auth::user()->hasPartnerAuthority())) {
                     // Exclude any Partner Units explicitly set to Isolated Branch Mode (shared_attendance_pool = false)
                     $isolatedUnits = PartnerPolicy::where('firm_id', $firmModel->id)
                         ->get()
@@ -285,6 +302,24 @@ trait ManagesAttendanceCalendarAndRadar
         if ($this->previewRole === 'student') {
             $this->error = 'Students cannot approve missed check-out requests.';
             return;
+        }
+
+        if (Auth::check() && Schema::hasTable('users')) {
+            $firmModel = $this->resolveFirmModel();
+            $target = $firmModel
+                ? User::where('firm_id', $firmModel->id)
+                    ->where('role', User::ROLE_STUDENT)
+                    ->where(function ($q) use ($studentCode) {
+                        $q->where('student_code', $studentCode);
+                        if (str_starts_with($studentCode, 'U-')) {
+                            $q->orWhere('id', (int) substr($studentCode, 2));
+                        }
+                    })->first()
+                : null;
+
+            if (! $target || ! $this->guardUserScope($target, 'approve missed check-out for')) {
+                return;
+            }
         }
 
         $approvedOut = '18:00';
@@ -1207,8 +1242,8 @@ trait ManagesAttendanceCalendarAndRadar
     {
         $this->enforceAuthenticatedRoleLock();
 
-        if ($this->previewRole !== 'partner') {
-            $this->error = 'Only a Partner can modify Manager permissions.';
+        if (! $this->userHasPartnerAuthority()) {
+            $this->error = 'Only a Partner or a Manager with delegated Partner authority can modify Manager permissions.';
             return;
         }
 
@@ -1254,11 +1289,11 @@ trait ManagesAttendanceCalendarAndRadar
         }
 
         if ($this->previewRole === 'manager') {
-            if ($this->editModeType === 'proxy' && ! $this->managerCanProxyAttendance) {
+            if ($this->editModeType === 'proxy' && ! $this->userHasPartnerAuthority() && ! $this->userCanProxyAttendance()) {
                 $this->error = 'Partner has disabled Proxy Attendance permission for Managers.';
                 return;
             }
-            if ($this->editModeType === 'edit' && ! $this->managerCanEditAttendance) {
+            if ($this->editModeType === 'edit' && ! $this->userHasPartnerAuthority() && ! $this->userCanEditAttendance()) {
                 $this->error = 'Partner has disabled Attendance Edit permission for Managers.';
                 return;
             }
@@ -1385,7 +1420,7 @@ trait ManagesAttendanceCalendarAndRadar
             return;
         }
 
-        if ($kind === 'policy' && Auth::check() && $this->previewRole === 'partner') {
+        if ($kind === 'policy' && Auth::check() && $this->userHasPartnerAuthority()) {
             $this->submitPolicyProposal();
             return;
         }

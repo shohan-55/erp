@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -41,7 +42,6 @@ class DashboardPreview extends Component
     public string $newFirmKind = 'Chartered Accountants';
     public string $newPartnerName = '';
     public string $newPartnerEmail = '';
-    public string $newPartnerPassword = '';
     public string $newFirmPlan = 'Practice';
     public int $newFirmSeats = 10;
     public int $newFirmWorkspaces = 3;
@@ -101,12 +101,10 @@ class DashboardPreview extends Component
     public array $editPartnerEmails = [];
     public array $editPartnerUnits = [];
     public array $editPartnerSharedAttendance = [];
-    public array $resetPartnerPasswordInputs = [];
     public bool $newAddPartnerSharedAttendance = true;
     public string $newAddPartnerName = '';
     public string $newAddPartnerEmail = '';
     public string $newAddPartnerUnit = 'Partner Unit 02';
-    public string $newAddPartnerPassword = '';
 
     // Global Platform Broadcast Notice (DhakaWala -> All / Specific Firm)
     public string $broadcastTargetSlug = 'all';
@@ -117,6 +115,7 @@ class DashboardPreview extends Component
     // Super Admin Own Profile & Platform Operator Management
     public string $adminProfileName = '';
     public string $adminProfileEmail = '';
+    public string $adminCurrentPassword = '';
     public string $adminNewPassword = '';
     public string $adminNewPasswordConfirm = '';
     public array $platformOperators = [];
@@ -429,7 +428,6 @@ class DashboardPreview extends Component
     {
         $this->selectedFirmPartners = [];
         $this->selectedFirmStats = ['partners' => 0, 'managers' => 0, 'students' => 0, 'total' => 0];
-        $this->resetPartnerPasswordInputs = [];
 
         try {
             if (Schema::hasTable('firms') && Schema::hasTable('users')) {
@@ -611,9 +609,7 @@ class DashboardPreview extends Component
         $cleanEmail = strtolower(trim($this->newPartnerEmail));
         $customDomain = ! empty(trim($this->newFirmCustomDomain)) ? strtolower(trim($this->newFirmCustomDomain)) : null;
         $customSubdomain = ! empty(trim($this->newFirmCustomSubdomain)) ? strtolower(trim($this->newFirmCustomSubdomain)) : null;
-        $partnerPass = trim((string) $this->newPartnerPassword) !== ''
-            ? trim($this->newPartnerPassword)
-            : Str::password(14);
+        $partnerPass = Str::password(48);
 
         try {
             if (Schema::hasTable('firms')) {
@@ -662,6 +658,7 @@ class DashboardPreview extends Component
                 $createdFirm = null;
                 $createdPartner = null;
                 $partnerAdopted = false;
+                $activationSent = false;
 
                 DB::transaction(function () use ($slug, $cleanEmail, $partnerPass, $customDomain, $customSubdomain, &$createdFirm, &$createdPartner, &$partnerAdopted) {
                     $initials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $this->newFirmName) ?: 'DW', 0, 2));
@@ -731,7 +728,6 @@ class DashboardPreview extends Component
                             'can_edit_attendance'  => true,
                             'can_approve_leave'    => true,
                             'can_approve_claims'   => true,
-                            'email_verified_at'    => now(),
                         ]);
                         $partner = $existingUser;
                         $partnerAdopted = true;
@@ -748,7 +744,7 @@ class DashboardPreview extends Component
                             'can_edit_attendance'  => true,
                             'can_approve_leave'    => true,
                             'can_approve_claims'   => true,
-                            'email_verified_at'    => now(),
+                            'email_verified_at'    => null,
                         ]);
                     }
 
@@ -795,21 +791,22 @@ class DashboardPreview extends Component
                     'newFirmSlug',
                     'newPartnerName',
                     'newPartnerEmail',
-                    'newPartnerPassword',
                     'newFirmCustomDomain',
                     'newFirmCustomSubdomain',
                 ]);
                 $this->modalError = null;
 
                 if (! $partnerAdopted && $createdPartner && $createdFirm) {
-                    $this->sendPartnerCredentialsEmail($createdPartner, $createdFirm->name, $createdFirm->slug, $partnerPass, false);
+                    $activationSent = $this->sendPartnerCredentialsEmail($createdPartner, $createdFirm->name, $createdFirm->slug);
                 }
 
                 $workspaceUrl = $createdFirm->workspace_url;
-                // Only report a password when one was actually set on this account;
-                // an adopted orphan keeps its existing credentials.
-                $partnerCredential = $partnerAdopted ? ' (existing password retained)' : " / {$partnerPass}";
-                $this->previewNotice = "Organization '{$createdFirm->name}' created! Workspace live at: {$workspaceUrl}. Initial Partner: {$createdPartner->email}{$partnerCredential}";
+                $partnerSetup = $partnerAdopted
+                    ? ' Existing account credentials were retained.'
+                    : ($activationSent
+                        ? ' A secure activation link was emailed.'
+                        : ' Activation email could not be delivered; fix mail delivery and send a password reset link before sign-in.');
+                $this->previewNotice = "Organization '{$createdFirm->name}' created! Workspace live at: {$workspaceUrl}. Initial Partner: {$createdPartner->email}.{$partnerSetup}";
                 $this->dispatch('toast', [
                     'type'    => 'success',
                     'title'   => 'Organization Created',
@@ -948,9 +945,7 @@ class DashboardPreview extends Component
         $name = trim($this->newAddPartnerName);
         $email = strtolower(trim($this->newAddPartnerEmail));
         $unit = trim($this->newAddPartnerUnit) ?: 'Partner Unit 02';
-        $password = trim((string) $this->newAddPartnerPassword) !== ''
-            ? trim($this->newAddPartnerPassword)
-            : Str::password(14);
+        $password = Str::password(48);
 
         if ($name === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->previewNotice = 'Please provide a valid Partner Name and Email address.';
@@ -983,7 +978,7 @@ class DashboardPreview extends Component
                     'can_edit_attendance'  => true,
                     'can_approve_leave'    => true,
                     'can_approve_claims'   => true,
-                    'email_verified_at'    => now(),
+                    'email_verified_at'    => null,
                 ]);
 
                 if (Schema::hasTable('partner_policies')) {
@@ -1008,7 +1003,7 @@ class DashboardPreview extends Component
                     );
                 }
 
-                $this->sendPartnerCredentialsEmail($partner, $firm->name, $firm->slug, $password, false);
+                $activationSent = $this->sendPartnerCredentialsEmail($partner, $firm->name, $firm->slug);
 
                 $partnerCount = User::where('firm_id', $firm->id)->where('role', 'partner')->count();
                 if ($firm->workspaces < $partnerCount) {
@@ -1030,11 +1025,12 @@ class DashboardPreview extends Component
 
                 $this->newAddPartnerName = '';
                 $this->newAddPartnerEmail = '';
-                $this->newAddPartnerPassword = '';
                 $this->syncFirmsFromDatabase();
                 $this->loadPlatformAuditLogs();
                 $this->selectFirm($firm->slug);
-                $this->previewNotice = "Added Partner '{$partner->name}' ({$unit}) to {$firm->name}! Login: {$partner->email} / {$password}";
+                $this->previewNotice = $activationSent
+                    ? "Added Partner '{$partner->name}' ({$unit}) to {$firm->name}. A secure activation link was emailed to {$partner->email}."
+                    : "Added Partner '{$partner->name}' ({$unit}) to {$firm->name}, but activation email delivery failed. Fix mail delivery and send a secure reset link before sign-in.";
                 $this->dispatch('toast', [
                     'type'    => 'success',
                     'title'   => 'Partner Added',
@@ -1129,17 +1125,12 @@ class DashboardPreview extends Component
         $newName = trim($this->editPartnerNames[$partnerUserId] ?? '');
         $newEmail = strtolower(trim($this->editPartnerEmails[$partnerUserId] ?? ''));
         $newUnit = trim($this->editPartnerUnits[$partnerUserId] ?? '');
-        $newPass = trim($this->resetPartnerPasswordInputs[$partnerUserId] ?? '');
 
         if ($newEmail !== '' && ! filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
             $this->previewNotice = 'Please enter a valid Partner email address.';
             return;
         }
 
-        if ($newPass !== '' && strlen($newPass) < 8) {
-            $this->previewNotice = 'New Partner password must be at least 8 characters.';
-            return;
-        }
 
         try {
             if (Schema::hasTable('users')) {
@@ -1158,9 +1149,6 @@ class DashboardPreview extends Component
                     }
                     if ($newUnit !== '') {
                         $partner->partner_unit = $newUnit;
-                    }
-                    if ($newPass !== '') {
-                        $partner->password = Hash::make($newPass);
                     }
                     $partner->save();
 
@@ -1185,12 +1173,6 @@ class DashboardPreview extends Component
                         $pol->save();
                     }
 
-                    if ($newPass !== '' && $partner->firm_id && Schema::hasTable('firms')) {
-                        $fObj = Firm::find($partner->firm_id);
-                        if ($fObj) {
-                            $this->sendPartnerCredentialsEmail($partner, $fObj->name, $fObj->slug, $newPass, true);
-                        }
-                    }
 
                     // Also sync firm primary email if it matched the old partner email
                     if ($partner->firm_id && Schema::hasTable('firms')) {
@@ -1211,16 +1193,15 @@ class DashboardPreview extends Component
                             'module'     => 'platform',
                             'action'     => 'partner_account_updated',
                             'target_ref' => $partner->email,
-                            'summary'    => "Updated Partner account ({$partner->name}, Email: {$partner->email})" . ($newPass !== '' ? ' and reset password.' : '.'),
+                            'summary'    => "Updated Partner account ({$partner->name}, Email: {$partner->email}).",
                         ]);
                     }
 
-                    $this->resetPartnerPasswordInputs[$partnerUserId] = '';
                     $this->syncFirmsFromDatabase();
                     if ($this->editFirmSlug) {
                         $this->loadSelectedFirmRoster($this->editFirmSlug);
                     }
-                    $this->previewNotice = "Updated Partner ({$partner->name} · {$partner->email})" . ($newPass !== '' ? " & password set to: {$newPass}" : ".");
+                    $this->previewNotice = "Updated Partner ({$partner->name} · {$partner->email}).";
                     $this->dispatch('toast', [
                         'type'    => 'success',
                         'title'   => 'Partner Updated',
@@ -1336,20 +1317,28 @@ class DashboardPreview extends Component
         $this->updatePartnerAccount($partnerUserId);
     }
 
-    protected function sendPartnerCredentialsEmail(User $partner, string $firmName, string $firmSlug, string $plainPassword, bool $isPasswordReset = false): bool
+    protected function sendPartnerCredentialsEmail(User $partner, string $firmName, string $firmSlug): bool
     {
+        $rawToken = Str::random(64);
+        $partner->forceFill([
+            'invitation_token' => hash('sha256', $rawToken),
+            'invitation_sent_at' => now(),
+            'email_verified_at' => null,
+        ])->save();
+
         try {
+            $activationUrl = route('firm.activate', ['firmSlug' => $firmSlug, 'token' => $rawToken]);
             Mail::to($partner->email)->send(new TeamInvitationMail(
                 member: $partner,
                 firmName: $firmName,
                 firmSlug: $firmSlug,
-                plainPassword: $plainPassword,
-                isPasswordReset: $isPasswordReset,
+                activationUrl: $activationUrl,
             ));
 
             return true;
         } catch (\Throwable $e) {
-            Log::warning('Partner credentials email failed for ' . $partner->email . ': ' . $e->getMessage());
+            $partner->forceFill(['invitation_token' => null])->save();
+            Log::warning('Partner activation email failed for ' . $partner->email . ': ' . $e->getMessage());
 
             return false;
         }
@@ -1361,50 +1350,33 @@ class DashboardPreview extends Component
             return;
         }
 
-        $newPass = trim((string) ($this->resetPartnerPasswordInputs[$partnerUserId] ?? ''));
-        if ($newPass === '') {
-            $newPass = Str::password(14);
-        }
-        if (strlen($newPass) < 8) {
-            $this->previewNotice = 'Partner password must be at least 8 characters.';
+        $partner = User::whereKey($partnerUserId)->where('role', User::ROLE_PARTNER)->first();
+        if (! $partner) {
+            $this->previewNotice = 'Partner account not found.';
             return;
         }
 
-        try {
-            if (Schema::hasTable('users')) {
-                $partner = User::where('id', $partnerUserId)->where('role', 'partner')->first();
-                if ($partner) {
-                    $partner->password = Hash::make($newPass);
-                    $partner->save();
-
-                    if ($partner->firm_id && Schema::hasTable('firms')) {
-                        $fObj = Firm::find($partner->firm_id);
-                        if ($fObj) {
-                            $this->sendPartnerCredentialsEmail($partner, $fObj->name, $fObj->slug, $newPass, true);
-                        }
-                    }
-
-                    if (Schema::hasTable('audit_logs')) {
-                        AuditLog::create([
-                            'firm_id'    => $partner->firm_id,
-                            'actor_id'   => Auth::id(),
-                            'actor_name' => Auth::user()?->name ?? 'Platform Admin',
-                            'actor_role' => 'platform_admin',
-                            'module'     => 'platform',
-                            'action'     => 'partner_password_reset',
-                            'target_ref' => $partner->email,
-                            'summary'    => "Reset password for Partner {$partner->name} ({$partner->email}).",
-                        ]);
-                    }
-
-                    $this->resetPartnerPasswordInputs[$partnerUserId] = '';
-                    $this->loadPlatformAuditLogs();
-                    $this->previewNotice = "Password reset for Partner {$partner->name} ({$partner->email}) to: {$newPass}";
-                }
-            }
-        } catch (\Throwable $e) {
-            $this->previewNotice = 'Failed to reset Partner password: ' . $e->getMessage();
+        $status = Password::sendResetLink(['email' => $partner->email]);
+        if ($status !== Password::RESET_LINK_SENT) {
+            $this->previewNotice = 'A secure reset link could not be sent. Please wait before retrying.';
+            return;
         }
+
+        if (Schema::hasTable('audit_logs')) {
+            AuditLog::create([
+                'firm_id'    => $partner->firm_id,
+                'actor_id'   => Auth::id(),
+                'actor_name' => Auth::user()?->name ?? 'Platform Admin',
+                'actor_role' => 'platform_admin',
+                'module'     => 'platform',
+                'action'     => 'partner_password_reset_requested',
+                'target_ref' => $partner->email,
+                'summary'    => "Requested a secure password reset link for Partner {$partner->name} ({$partner->email}).",
+            ]);
+        }
+
+        $this->loadPlatformAuditLogs();
+        $this->previewNotice = "A single-use password reset link was emailed to {$partner->email}. No password was exposed to the operator.";
     }
 
     /**
@@ -1508,13 +1480,29 @@ class DashboardPreview extends Component
                     return;
                 }
 
+                $credentialChanging = $email !== strtolower($admin->email) || $newPass !== '';
+                if ($credentialChanging && ! Hash::check($this->adminCurrentPassword, (string) $admin->password)) {
+                    $this->previewNotice = 'Enter your current password before changing the operator email or password.';
+                    return;
+                }
+
                 $admin->name = $name;
                 $admin->email = $email;
                 if ($newPass !== '') {
                     $admin->password = Hash::make($newPass);
+                    $admin->remember_token = null;
                 }
                 $admin->save();
 
+                if ($newPass !== '' && Schema::hasTable('sessions') && Schema::hasColumn('sessions', 'user_id')) {
+                    $currentSessionId = session()->getId();
+                    DB::table('sessions')
+                        ->where('user_id', $admin->id)
+                        ->when($currentSessionId !== '', fn ($q) => $q->where('id', '!=', $currentSessionId))
+                        ->delete();
+                }
+
+                $this->adminCurrentPassword = '';
                 $this->adminNewPassword = '';
                 $this->adminNewPasswordConfirm = '';
                 $this->loadPlatformOperators();

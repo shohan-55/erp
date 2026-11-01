@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Auth\AccountActivation;
+use App\Livewire\Auth\FirmLogin;
 use App\Livewire\Practice\PracticePreview;
 use App\Models\Firm;
 use App\Models\User;
@@ -18,7 +19,7 @@ use Tests\TestCase;
  * silently come back:
  *   1. Invitation activation must require a real, unexpired, single-use token.
  *   2. Platform authority must come from the role column, never an email match.
- *   3. A delegated Manager may only manage Articled Students.
+ *   3. A Manager with only Team Admin permission may manage Students, not Partner or Manager accounts; an explicit TOTP-gated Partner delegation is tested separately.
  *   4. Changing the sign-in email requires the current password.
  *   5. Attendance/payroll clock runs in Asia/Dhaka.
  */
@@ -82,12 +83,26 @@ class SecurityHardeningTest extends TestCase
             'password'         => Hash::make('TempPass123!'),
             'role'             => 'student',
             'student_code'     => 'S-199',
-            'invitation_token' => 'invite-token-valid-xyz',
+            'invitation_token' => hash('sha256', 'invite-token-valid-xyz'),
             'invitation_sent_at' => now(),
         ], $overrides));
     }
 
     // ─── 1. Account activation ───────────────────────────────────────────────
+
+    public function test_unverified_firm_account_cannot_sign_in_before_activation(): void
+    {
+        config(['erp.allow_test_logins' => false]);
+        $this->student->forceFill(['email_verified_at' => null])->save();
+
+        Livewire::test(FirmLogin::class, ['firmSlug' => 'rac'])
+            ->set('email', $this->student->email)
+            ->set('password', 'StudentSecret123!')
+            ->call('submitLogin')
+            ->assertSee('Please activate your account');
+
+        $this->assertGuest();
+    }
 
     public function test_activation_email_parameter_can_no_longer_claim_an_account(): void
     {
@@ -158,7 +173,7 @@ class SecurityHardeningTest extends TestCase
             'email'            => 'outsider@otherfirm.com',
             'password'         => Hash::make('OutsiderSecret123!'),
             'role'             => 'student',
-            'invitation_token' => 'cross-firm-token-abc',
+            'invitation_token' => hash('sha256', 'cross-firm-token-abc'),
             'invitation_sent_at' => now(),
         ]);
 
@@ -214,6 +229,138 @@ class SecurityHardeningTest extends TestCase
         return $this->manager->fresh();
     }
 
+    public function test_partner_cannot_grant_partner_authority_until_manager_has_confirmed_totp(): void
+    {
+        $this->actingAs($this->partner);
+
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'partner',
+            'section'     => 'team',
+        ])
+            ->set('editMemberId', $this->manager->id)
+            ->set('editMemberRole', 'manager')
+            ->set('editMemberIsPartnerDelegate', true)
+            ->call('updateMember')
+            ->assertNotSet('error', null);
+
+        $this->assertFalse($this->manager->fresh()->is_partner_delegate);
+    }
+
+    public function test_partner_can_grant_and_revoke_partner_equivalent_manager_authority(): void
+    {
+        $this->manager->forceFill([
+            'two_factor_secret' => 'TOTP-TEST-SECRET',
+            'two_factor_confirmed_at' => now(),
+        ])->save();
+
+        $this->actingAs($this->partner);
+
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'partner',
+            'section'     => 'team',
+        ])
+            ->set('editMemberId', $this->manager->id)
+            ->set('editMemberRole', 'manager')
+            ->set('editMemberIsPartnerDelegate', true)
+            ->call('updateMember')
+            ->assertSet('error', null);
+
+        $delegate = $this->manager->fresh();
+        $this->assertTrue($delegate->is_partner_delegate);
+        $this->assertTrue($delegate->hasPartnerAuthority());
+        $this->assertTrue($delegate->canManageTeam());
+
+        $otherUnitStudent = User::create([
+            'firm_id'      => $this->firm->id,
+            'name'         => 'Other Unit Student',
+            'email'        => 'other-unit@rahmananis.com',
+            'password'     => Hash::make('StudentSecret123!'),
+            'role'         => User::ROLE_STUDENT,
+            'partner_unit' => 'Partner Unit 02',
+        ]);
+        $this->actingAs($delegate);
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'manager',
+            'section'     => 'team',
+        ])
+            ->call('setPartnerUnit', 'Partner Unit 02')
+            ->assertSet('partnerUnit', 'Partner Unit 02')
+            ->assertSee($otherUnitStudent->name);
+
+        // The grant is explicit and reversible; the former Manager immediately loses it.
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'partner',
+            'section'     => 'team',
+        ])
+            ->set('editMemberId', $delegate->id)
+            ->set('editMemberRole', 'manager')
+            ->set('editMemberIsPartnerDelegate', false)
+            ->call('updateMember')
+            ->assertSet('error', null);
+
+        $this->assertFalse($delegate->fresh()->hasPartnerAuthority());
+    }
+
+    public function test_forged_livewire_permission_properties_do_not_grant_manager_authority(): void
+    {
+        $this->actingAs($this->manager->fresh());
+
+        $component = new PracticePreview();
+        $component->previewRole = 'manager';
+        $component->managerCanProxyAttendance = true;
+        $component->managerCanEditAttendance = true;
+        $component->managerCanApproveLeave = true;
+        $component->managerCanApproveClaims = true;
+        $component->managerCanManagePolicies = true;
+        $component->managerCanManagePayroll = true;
+        $component->managerCanFinalApproveLeave = true;
+        $component->managerCanFinalApproveClaims = true;
+        $component->managerPermissions = array_fill_keys([
+            'proxy_attendance', 'edit_attendance', 'review_leave', 'review_claims',
+            'manage_policies', 'manage_payroll', 'final_approve_leave', 'final_approve_claims',
+        ], true);
+
+        $this->assertFalse($component->userCanProxyAttendance());
+        $this->assertFalse($component->userCanEditAttendance());
+        $this->assertFalse($component->userCanApproveLeave());
+        $this->assertFalse($component->userCanApproveClaims());
+        $this->assertFalse($component->userCanManagePolicies());
+        $this->assertFalse($component->userCanManagePayroll());
+        $this->assertFalse($component->userCanFinalApproveLeave());
+        $this->assertFalse($component->userCanFinalApproveClaims());
+    }
+
+    public function test_manager_permissions_are_read_from_the_authenticated_user_record(): void
+    {
+        $this->manager->forceFill([
+            'can_proxy_attendance' => true,
+            'can_edit_attendance' => true,
+            'can_approve_leave' => true,
+            'can_approve_claims' => true,
+            'can_manage_policies' => true,
+            'can_manage_payroll' => true,
+            'can_final_approve_leave' => true,
+            'can_final_approve_claims' => true,
+        ])->save();
+        $this->actingAs($this->manager->fresh());
+
+        $component = new PracticePreview();
+        $component->previewRole = 'manager';
+
+        $this->assertTrue($component->userCanProxyAttendance());
+        $this->assertTrue($component->userCanEditAttendance());
+        $this->assertTrue($component->userCanApproveLeave());
+        $this->assertTrue($component->userCanApproveClaims());
+        $this->assertTrue($component->userCanManagePolicies());
+        $this->assertTrue($component->userCanManagePayroll());
+        $this->assertTrue($component->userCanFinalApproveLeave());
+        $this->assertTrue($component->userCanFinalApproveClaims());
+    }
+
     public function test_manager_cannot_reset_a_partner_password(): void
     {
         $this->actingAs($this->delegatedManager());
@@ -225,8 +372,7 @@ class SecurityHardeningTest extends TestCase
         ])
             ->set('editMemberId', $this->partner->id)
             ->set('editMemberRole', 'partner')
-            ->set('editMemberNewPassword', 'TakeoverPass123!')
-            ->call('updateMember')
+                        ->call('updateMember')
             ->assertNotSet('error', null);
 
         $this->assertTrue(

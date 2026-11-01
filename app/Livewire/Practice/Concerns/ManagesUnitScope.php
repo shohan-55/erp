@@ -41,8 +41,13 @@ trait ManagesUnitScope
         /** @var User $actor */
         $actor = Auth::user();
 
-        if ($actor->isPlatformAdmin() || $actor->isPartner()) {
+        if ($actor->isPlatformAdmin()) {
             return true;
+        }
+
+        if ($actor->hasPartnerAuthority()) {
+            return (int) $target->firm_id === (int) $actor->firm_id
+                && $target->role !== User::ROLE_PLATFORM_ADMIN;
         }
 
         if (! $actor->isManager()) {

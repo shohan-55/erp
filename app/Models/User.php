@@ -45,6 +45,7 @@ class User extends Authenticatable
         'can_approve_leave',
         'can_approve_claims',
         'can_manage_team',
+        'is_partner_delegate',
         'can_manage_policies',
         'can_manage_payroll',
         'can_final_approve_leave',
@@ -84,6 +85,7 @@ class User extends Authenticatable
             'can_approve_leave'      => 'boolean',
             'can_approve_claims'     => 'boolean',
             'can_manage_team'          => 'boolean',
+            'is_partner_delegate'      => 'boolean',
             'can_manage_policies'      => 'boolean',
             'can_manage_payroll'       => 'boolean',
             'can_final_approve_leave'  => 'boolean',
@@ -185,9 +187,20 @@ class User extends Authenticatable
         return $this->is_active === null ? true : (bool) $this->is_active;
     }
 
+    /**
+     * Firm-level authority can be explicitly delegated by a Partner to a Manager.
+     * Delegation never changes the account's role and cannot grant platform access.
+     */
+    public function hasPartnerAuthority(): bool
+    {
+        return $this->isPlatformAdmin()
+            || $this->isPartner()
+            || ($this->isManager() && (bool) $this->is_partner_delegate);
+    }
+
     public function canManageTeam(): bool
     {
-        return $this->isPlatformAdmin() || $this->isPartner() || (bool) $this->can_manage_team;
+        return $this->hasPartnerAuthority() || (bool) $this->can_manage_team;
     }
 
     public function belongsToFirm(string $slug): bool

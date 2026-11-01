@@ -465,6 +465,9 @@
                                 <label class="block font-bold text-slate-700">Operator Email
                                     <input type="email" wire:model="adminProfileEmail" required class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
                                 </label>
+                                <label class="block font-bold text-slate-700">Current Password (required for credential changes)
+                                    <input type="password" wire:model="adminCurrentPassword" autocomplete="current-password" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                                </label>
                                 <label class="block font-bold text-slate-700">New Root Password (Optional)
                                     <input type="password" wire:model="adminNewPassword" placeholder="Min 8 chars to change" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
                                 </label>
@@ -682,7 +685,7 @@
                                                     {{ ($fp['shared_attendance_pool'] ?? true) ? '🔗 Shared Attendance (Main Branch)' : '🔒 Isolated Branch (All Separate)' }}
                                                 </button>
                                             </div>
-                                            <span class="text-[10px] font-semibold text-slate-400">Edit Partner Name, Email, Unit or Reset Password (Emailed)</span>
+                                            <span class="text-[10px] font-semibold text-slate-400">Edit Partner Name, Email or Unit; use secure reset-link action for passwords</span>
                                         </div>
                                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             <div>
@@ -697,14 +700,15 @@
                                                 <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Partner Unit</label>
                                                 <input type="text" wire:model="editPartnerUnits.{{ $fp['id'] }}" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-800">
                                             </div>
-                                            <div>
-                                                <label class="block text-[10px] font-bold text-slate-500 mb-0.5">New Password (Optional)</label>
-                                                <div class="flex gap-1.5">
-                                                    <input type="text" wire:model="resetPartnerPasswordInputs.{{ $fp['id'] }}" placeholder="Leave blank or type new pass" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
-                                                    <button type="button" wire:click="updatePartnerAccount({{ $fp['id'] }})" class="shrink-0 rounded-lg bg-slate-900 px-3 py-1.5 text-[10px] font-extrabold text-white hover:bg-slate-800 cursor-pointer">
-                                                        Save Email &amp; Pass
-                                                    </button>
-                                                </div>
+                                            <div class="flex items-end">
+                                                <button type="button" wire:click="updatePartnerAccount({{ $fp['id'] }})" class="rounded-lg bg-slate-900 px-3 py-1.5 text-[10px] font-extrabold text-white hover:bg-slate-800 cursor-pointer">
+                                                    Save Profile
+                                                </button>
+                                            </div>
+                                            <div class="sm:col-span-2">
+                                                <button type="button" wire:click="resetPartnerPassword({{ $fp['id'] }})" class="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[10px] font-extrabold text-emerald-900 hover:bg-emerald-100 cursor-pointer">
+                                                    Send single-use password reset link
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -719,8 +723,8 @@
                                     <input type="text" wire:model="newAddPartnerName" placeholder="Partner Full Name (e.g. Anwarul Kabir, FCA)" class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
                                     <input type="email" wire:model="newAddPartnerEmail" placeholder="partner2@firm.com" class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
                                     <input type="text" wire:model="newAddPartnerUnit" placeholder="Partner Unit 02" class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold">
-                                    <div class="flex gap-1.5">
-                                        <input type="text" wire:model="newAddPartnerPassword" placeholder="Pass (Emailed to Partner)" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
+                                    <div class="flex flex-col gap-1.5">
+                                        <p class="text-[10px] text-slate-500">A one-time activation link will be emailed; the Partner sets their own password.</p>
                                         <button type="button" wire:click="addPartnerToFirm('{{ $selectedFirm['slug'] }}')" class="shrink-0 rounded-lg bg-[#FCDF02] px-3 py-1.5 text-[11px] font-extrabold text-[#16181D] hover:bg-[#F3D604]">
                                             + Add Partner
                                         </button>
@@ -1164,14 +1168,9 @@
                             @error('newPartnerEmail') <p class="mt-1 text-xs text-rose-600 font-medium">{{ $message }}</p> @enderror
                         </div>
 
-                        {{-- Initial Password --}}
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                                Initial Partner Password
-                            </label>
-                            <input type="text" wire:model="newPartnerPassword" placeholder="Default: Partner@2026"
-                                   class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-200">
-                        </div>
+                        <p class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-900">
+                            A secure, one-time activation link will be sent to the Partner. They create their own password; passwords are never emailed.
+                        </p>
 
                         {{-- Subscription Plan & Seats --}}
                         <div class="grid grid-cols-2 gap-2">

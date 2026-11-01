@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -131,12 +132,13 @@ trait ManagesTeamAndNotifications
                         $authUser = Auth::user();
                         $userId = $authUser->id;
                         $userRole = $authUser->role;
-                        $dbNotes = $dbNotes->filter(function (PracticeNotification $n) use ($userId, $userRole) {
+                        $hasPartnerAuthority = $authUser->hasPartnerAuthority();
+                        $dbNotes = $dbNotes->filter(function (PracticeNotification $n) use ($userId, $userRole, $hasPartnerAuthority) {
                             if ($n->user_id !== null) {
                                 if ((int) $n->user_id === (int) $userId) {
                                     return true;
                                 }
-                                if ($n->target_role && $n->target_role === $userRole) {
+                                if ($n->target_role && ($n->target_role === $userRole || $hasPartnerAuthority)) {
                                     return true;
                                 }
                                 return false;
@@ -145,7 +147,7 @@ trait ManagesTeamAndNotifications
                                 return in_array((int) $userId, array_map('intval', $n->recipient_ids), true);
                             }
                             if (! empty($n->target_role)) {
-                                return $n->target_role === $userRole || $userRole === 'partner';
+                                return $n->target_role === $userRole || $hasPartnerAuthority;
                             }
                             return true;
                         })->values();
@@ -233,25 +235,31 @@ trait ManagesTeamAndNotifications
     public function userCanManageTeam(): bool
     {
         if (Auth::check()) {
-            /** @var User $user */
-            $user = Auth::user();
-            return $user->canManageTeam();
+            return Auth::user()->canManageTeam();
         }
+
         return $this->previewRole === 'partner';
     }
 
-    /**
-     * Any Partner, Manager, or authorized team administrator can reset member passwords
-     * and trigger the automated credentials email to the member's mailbox.
-     */
+    /** Only a real Partner or platform operator may grant/revoke Partner authority. */
+    protected function actorCanGrantPartnerDelegation(): bool
+    {
+        if (! Auth::check()) {
+            return $this->previewRole === 'partner';
+        }
+
+        return Auth::user()->isPlatformAdmin() || Auth::user()->isPartner();
+    }
+
     public function userCanResetPasswords(): bool
     {
-        if (Auth::check()) {
-            /** @var User $user */
-            $user = Auth::user();
-            return $user->isPlatformAdmin() || $user->isPartner() || $user->isManager() || (bool) $user->can_manage_team;
+        if (! Auth::check()) {
+            return in_array($this->previewRole, ['partner', 'manager'], true);
         }
-        return in_array($this->previewRole, ['partner', 'manager'], true);
+
+        $user = Auth::user();
+
+        return $user->hasPartnerAuthority() || $user->isManager() || (bool) $user->can_manage_team;
     }
 
     protected function canResetTargetUserPassword(User $target): bool
@@ -260,72 +268,86 @@ trait ManagesTeamAndNotifications
             return in_array($this->previewRole, ['partner', 'manager'], true);
         }
 
-        /** @var User $actor */
         $actor = Auth::user();
-
-        if ($actor->isPlatformAdmin() || $actor->isPartner()) {
-            return true;
+        if ($actor->isPlatformAdmin()) {
+            return $target->role !== User::ROLE_PLATFORM_ADMIN;
         }
 
-        if ($actor->isManager() || $actor->can_manage_team) {
-            return ! in_array($target->role, [User::ROLE_PARTNER, User::ROLE_PLATFORM_ADMIN], true);
+        if ($actor->hasPartnerAuthority()) {
+            return (int) $actor->firm_id === (int) $target->firm_id
+                && $target->role !== User::ROLE_PLATFORM_ADMIN
+                && ($target->role !== User::ROLE_PARTNER || $actor->isPartner());
         }
 
-        return false;
+        return ($actor->isManager() || $actor->can_manage_team)
+            && $target->isStudent()
+            && (int) $actor->firm_id === (int) $target->firm_id
+            && $this->actorMayManageUser($target);
     }
 
-    /**
-     * Role hierarchy guard for role assignment.
-     *
-     * A Partner (or Platform Super Admin) may assign any firm role. A delegated
-     * Manager may only ever assign the Articled Student role — otherwise they
-     * could mint themselves (or an accomplice) a Partner account.
-     */
+    /** A Partner delegate has firm-wide account-management authority, but only
+     * an actual Partner can issue a new Partner-delegation grant. */
     protected function canManageTargetRole(string $targetRole): bool
     {
+        if (! in_array($targetRole, [User::ROLE_PARTNER, User::ROLE_MANAGER, User::ROLE_STUDENT], true)) {
+            return false;
+        }
+
         if (! Auth::check()) {
             return $this->previewRole === 'partner';
         }
 
-        /** @var User $actor */
         $actor = Auth::user();
 
-        if ($actor->isPlatformAdmin() || $actor->isPartner()) {
-            return in_array($targetRole, [User::ROLE_PARTNER, User::ROLE_MANAGER, User::ROLE_STUDENT], true);
-        }
-
-        if (! $actor->can_manage_team) {
-            return false;
-        }
-
-        return $targetRole === User::ROLE_STUDENT;
+        return $actor->isPlatformAdmin()
+            || ($actor->hasPartnerAuthority() && ($targetRole !== User::ROLE_PARTNER || $actor->isPartner()))
+            || (($actor->isManager() || $actor->can_manage_team) && $targetRole === User::ROLE_STUDENT);
     }
 
-    /**
-     * Role hierarchy guard for editing / deleting an existing account.
-     *
-     * A delegated Manager may only touch Articled Students. Partners and other
-     * Managers are out of scope, so a Manager can never reset a Partner password,
-     * demote a Partner, or delete an account above their own level.
-     */
     protected function canManageTargetUser(User $target): bool
     {
         if (! Auth::check()) {
             return $this->previewRole === 'partner';
         }
 
-        /** @var User $actor */
         $actor = Auth::user();
-
-        if ($actor->isPlatformAdmin() || $actor->isPartner()) {
-            return true;
+        if ($actor->isPlatformAdmin()) {
+            return $target->role !== User::ROLE_PLATFORM_ADMIN;
+        }
+        if ($actor->hasPartnerAuthority()) {
+            return (int) $actor->firm_id === (int) $target->firm_id
+                && $target->role !== User::ROLE_PLATFORM_ADMIN
+                && ($target->role !== User::ROLE_PARTNER || $actor->isPartner());
         }
 
-        if (! $actor->can_manage_team) {
+        return ($actor->isManager() || $actor->can_manage_team)
+            && $target->isStudent()
+            && (int) $actor->firm_id === (int) $target->firm_id
+            && $this->actorMayManageUser($target);
+    }
+
+    protected function validManagerAssignment(int $managerId, string $unit, Firm $firm): bool
+    {
+        $manager = User::where('firm_id', $firm->id)
+            ->whereKey($managerId)
+            ->where('role', User::ROLE_MANAGER)
+            ->where('partner_unit', $unit)
+            ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
+            ->first();
+
+        if (! $manager) {
             return false;
         }
 
-        return $target->role === User::ROLE_STUDENT;
+        if (! Auth::check()) {
+            return true;
+        }
+
+        $actor = Auth::user();
+
+        return $actor->isPlatformAdmin()
+            || $actor->hasPartnerAuthority()
+            || ($actor->isManager() && (int) $actor->firm_id === (int) $firm->id && $actor->partner_unit === $unit);
     }
 
     public function getAvailableManagersProperty(): array
@@ -341,9 +363,27 @@ trait ManagesTeamAndNotifications
             $firmModel = $this->resolveFirmModel();
             if ($firmModel) {
                 try {
-                    $dbUsers = User::with('manager')
+                    $usersQuery = User::with('manager')
                         ->where('firm_id', $firmModel->id)
-                        ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
+                        ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true));
+
+                    if (! Auth::check()) {
+                        $usersQuery->whereRaw('1 = 0');
+                    } else {
+                        $actor = Auth::user();
+                        if ($actor->isStudent()) {
+                            $usersQuery->whereKey($actor->id);
+                        } elseif ($actor->isManager() && ! $actor->hasPartnerAuthority()) {
+                            $usersQuery->where(function ($q) use ($actor) {
+                                $q->where('partner_unit', $actor->partner_unit)
+                                    ->orWhere('manager_id', $actor->id);
+                            });
+                        } elseif ($actor->hasPartnerAuthority() && ! $actor->isPlatformAdmin()) {
+                            $usersQuery->where('partner_unit', $this->partnerUnit);
+                        }
+                    }
+
+                    $dbUsers = $usersQuery
                         ->orderByRaw("CASE role WHEN 'partner' THEN 1 WHEN 'manager' THEN 2 WHEN 'student' THEN 3 ELSE 4 END")
                         ->orderBy('name')
                         ->get();
@@ -376,6 +416,7 @@ trait ManagesTeamAndNotifications
                                 'manager_name'         => $u->manager?->name ?? '—',
                                 'monthly_allowance'    => (float) ($u->monthly_allowance ?? ($u->role === 'student' ? 6000 : ($u->role === 'manager' ? 25000 : 0))),
                                 'can_manage_team'          => (bool) $u->can_manage_team,
+                                'is_partner_delegate'      => (bool) $u->is_partner_delegate,
                                 'can_proxy_attendance'     => (bool) $u->can_proxy_attendance,
                                 'can_edit_attendance'      => (bool) $u->can_edit_attendance,
                                 'can_approve_leave'        => (bool) $u->can_approve_leave,
@@ -536,13 +577,13 @@ trait ManagesTeamAndNotifications
     {
         $this->newMemberName = '';
         $this->newMemberEmail = '';
-        $this->newMemberPassword = '';
         $this->newMemberRole = 'student';
         $this->newMemberStudentCode = '';
         $this->newMemberManagerId = null;
         $this->newMemberPartnerUnit = $this->partnerUnit;
         $this->newMemberMonthlyAllowance = 6000.00;
         $this->newMemberCanManageTeam = false;
+        $this->newMemberIsPartnerDelegate = false;
         $this->newMemberCanProxyAttendance = false;
         $this->newMemberCanEditAttendance = false;
         $this->newMemberCanApproveLeave = false;
@@ -580,11 +621,25 @@ trait ManagesTeamAndNotifications
         ]);
 
         if (! $this->canManageTargetRole($this->newMemberRole)) {
-            $this->error = 'Security rule: Only a Partner can enroll Manager or Partner accounts.';
+            $this->error = 'Security rule: Only a Partner or Partner-delegated Manager can enroll this role.';
+            return;
+        }
+        if ($this->newMemberRole === User::ROLE_MANAGER && $this->newMemberIsPartnerDelegate) {
+            $this->error = 'A Manager must first activate their account and complete operator-assisted TOTP enrolment before Partner-level authority can be granted.';
             return;
         }
 
         $firmModel = $this->resolveFirmModel();
+        if (! in_array((string) $this->newMemberPartnerUnit, $this->availablePartnerUnits, true)) {
+            $this->error = 'Select a valid Partner Unit available in this firm and within your authority.';
+            return;
+        }
+        if ($firmModel && $this->newMemberRole === User::ROLE_STUDENT
+            && $this->newMemberManagerId
+            && ! $this->validManagerAssignment((int) $this->newMemberManagerId, (string) $this->newMemberPartnerUnit, $firmModel)) {
+            $this->error = 'Select an active Manager from this firm and the selected Partner Unit.';
+            return;
+        }
 
         if ($firmModel && Schema::hasTable('users')) {
             // Check seat limit allocated by DhakaWala
@@ -606,16 +661,16 @@ trait ManagesTeamAndNotifications
             $user->firm_id = $firmModel->id;
             $user->name = trim($this->newMemberName);
             $user->email = strtolower(trim($this->newMemberEmail));
-            $plainPassword = trim((string) $this->newMemberPassword) !== ''
-                ? trim($this->newMemberPassword)
-                : Str::password(10, true, true, false);
-            $user->password = Hash::make($plainPassword);
+            $user->password = Hash::make(Str::password(48));
             $user->role = $this->newMemberRole;
             $user->partner_unit = $this->newMemberPartnerUnit ?: $this->partnerUnit;
             $user->monthly_allowance = (float) $this->newMemberMonthlyAllowance;
             $user->student_code = $this->newMemberRole === 'student' ? ($this->newMemberStudentCode ?: ('S-' . rand(100, 999))) : null;
             $user->manager_id = ($this->newMemberRole === 'student' && !empty($this->newMemberManagerId)) ? (int) $this->newMemberManagerId : null;
             $user->can_manage_team = (bool) $this->newMemberCanManageTeam;
+            $user->is_partner_delegate = $this->newMemberRole === User::ROLE_MANAGER
+                && $this->actorCanGrantPartnerDelegation()
+                && $this->newMemberIsPartnerDelegate;
             $user->can_proxy_attendance = (bool) $this->newMemberCanProxyAttendance;
             $user->can_edit_attendance = (bool) $this->newMemberCanEditAttendance;
             $user->can_approve_leave = (bool) $this->newMemberCanApproveLeave;
@@ -626,13 +681,13 @@ trait ManagesTeamAndNotifications
                 $user->can_final_approve_leave = (bool) $this->newMemberCanFinalApproveLeave;
                 $user->can_final_approve_claims = (bool) $this->newMemberCanFinalApproveClaims;
             }
-            $user->email_verified_at = now();
+            $user->email_verified_at = null;
             if (Schema::hasColumn('users', 'is_active')) {
                 $user->is_active = true;
             }
             if (Schema::hasColumn('users', 'invitation_token')) {
                 $user->invitation_token = null;
-                $user->invitation_sent_at = now();
+                $user->invitation_sent_at = null;
             }
             if ($this->newMemberRole === 'student' && Schema::hasColumn('users', 'articleship_start_date')) {
                 $user->articleship_start_date = $this->validDate($this->newMemberArticleshipStart) ? $this->newMemberArticleshipStart : now()->toDateString();
@@ -640,14 +695,14 @@ trait ManagesTeamAndNotifications
             }
             $user->save();
 
-            // Send direct login credentials (login link, username/email, and password).
-            $invitationSent = $this->sendInvitationEmail($user, (string) ($firmModel->name ?? 'Practice'), $plainPassword, false);
+            // Send a single-use activation link; never send a password by email.
+            $invitationSent = $this->sendInvitationEmail($user, (string) ($firmModel->name ?? 'Practice'));
 
             $this->recordAuditLog('team', 'member_enrolled', "Enrolled {$user->name} ({$user->email}) as " . ucfirst($user->role) . '.', $user->email);
 
             $this->notice = $invitationSent
-                ? "Successfully enrolled {$user->name} as " . ucfirst($user->role) . " and emailed the login link, username ({$user->email}), and password ({$plainPassword}) to {$user->email}."
-                : "Enrolled {$user->name} as " . ucfirst($user->role) . " (Login: {$user->email} | Password: {$plainPassword}). The credentials email could not be sent — share the password securely.";
+                ? "Successfully enrolled {$user->name} as " . ucfirst($user->role) . ". A secure account-activation link was emailed to {$user->email}."
+                : "Enrolled {$user->name}, but the activation email could not be sent. Please retry the invitation before sharing access.";
         } else {
             $newId = count($this->teamMembers) + 1;
             $managerName = '—';
@@ -719,13 +774,13 @@ trait ManagesTeamAndNotifications
         $this->editMemberName = $member['name'];
         $this->editMemberEmail = $member['email'];
         $this->editMemberPhone = ($member['phone'] ?? '') !== '—' ? ($member['phone'] ?? '') : '';
-        $this->editMemberNewPassword = '';
         $this->editMemberRole = $member['role'];
         $this->editMemberStudentCode = $member['student_code'] ?? '';
         $this->editMemberManagerId = $member['manager_id'] ?? null;
         $this->editMemberPartnerUnit = $member['partner_unit'] ?? $this->partnerUnit;
         $this->editMemberMonthlyAllowance = (float) ($member['monthly_allowance'] ?? 0);
         $this->editMemberCanManageTeam = (bool) ($member['can_manage_team'] ?? false);
+        $this->editMemberIsPartnerDelegate = (bool) ($member['is_partner_delegate'] ?? false);
         $this->editMemberCanProxyAttendance = (bool) ($member['can_proxy_attendance'] ?? false);
         $this->editMemberCanEditAttendance = (bool) ($member['can_edit_attendance'] ?? false);
         $this->editMemberCanApproveLeave = (bool) ($member['can_approve_leave'] ?? false);
@@ -761,7 +816,6 @@ trait ManagesTeamAndNotifications
         $this->resetPasswordMemberName = $member['name'];
         $this->resetPasswordMemberEmail = $member['email'];
         $this->resetPasswordMemberRole = $member['role_label'] ?? ucfirst($member['role']);
-        $this->resetPasswordInput = '';
         $this->showResetPasswordModal = true;
     }
 
@@ -772,76 +826,39 @@ trait ManagesTeamAndNotifications
         $this->notice = null;
 
         if (! $this->userCanResetPasswords()) {
-            $this->error = 'Unauthorized: Only a Partner or Manager can reset member passwords.';
+            $this->error = 'Unauthorized: only an authorized Partner or Manager can request a member password reset.';
             return;
         }
 
         $targetId = $memberId ?: $this->resetPasswordMemberId;
-        if (! $targetId) {
-            $this->error = 'Please select a member account to reset.';
-            return;
-        }
-
-        $typedPassword = trim((string) $this->resetPasswordInput);
-        if ($typedPassword !== '' && strlen($typedPassword) < 6) {
-            $this->error = 'New password must be at least 6 characters long (or leave blank to auto-generate).';
-            return;
-        }
-
-        $plainPassword = $typedPassword !== ''
-            ? $typedPassword
-            : Str::password(10, true, true, false);
-
         $firmModel = $this->resolveFirmModel();
+        $user = $firmModel
+            ? User::where('firm_id', $firmModel->id)->whereKey($targetId)->first()
+            : null;
 
-        if ($firmModel && Schema::hasTable('users')) {
-            $user = User::where('firm_id', $firmModel->id)->where('id', $targetId)->first();
-            if (! $user) {
-                $this->error = 'Member account not found in this workspace.';
-                return;
-            }
-
-            if (! $this->canResetTargetUserPassword($user)) {
-                $this->error = 'Security rule: A Manager cannot reset a Partner account password.';
-                return;
-            }
-
-            $user->password = Hash::make($plainPassword);
-            $user->email_verified_at = $user->email_verified_at ?? now();
-            if (Schema::hasColumn('users', 'invitation_token')) {
-                $user->invitation_token = null;
-            }
-            $user->save();
-
-            if (Schema::hasTable('sessions') && Schema::hasColumn('sessions', 'user_id')) {
-                DB::table('sessions')->where('user_id', $user->id)->delete();
-            }
-
-            $emailSent = $this->sendInvitationEmail($user, (string) ($firmModel->name ?? 'Practice'), $plainPassword, true);
-
-            $this->recordAuditLog(
-                'team',
-                'member_password_reset',
-                ucfirst($this->previewRole) . " reset password for {$user->name} ({$user->email}) and dispatched new credentials email.",
-                $user->email
-            );
-
-            $this->notice = $emailSent
-                ? "Password reset for {$user->name} ({$user->email}). New password ({$plainPassword}) and login link have been emailed to {$user->email}."
-                : "Password reset for {$user->name} ({$user->email}) to: {$plainPassword} (Email delivery unavailable — please share this password with the member).";
-        } else {
-            $member = collect($this->teamMembers)->firstWhere('id', $targetId);
-            $mName = $member['name'] ?? ('Member #' . $targetId);
-            $mEmail = $member['email'] ?? 'member@practice.com';
-            $this->notice = "Password reset for {$mName} ({$mEmail}). New password ({$plainPassword}) sent to {$mEmail}.";
+        if (! $user || ! $this->canResetTargetUserPassword($user)) {
+            $this->error = 'Member account not found or outside your authorized scope.';
+            return;
         }
 
-        $this->resetPasswordInput = '';
+        $status = Password::sendResetLink(['email' => $user->email]);
+        if ($status !== Password::RESET_LINK_SENT) {
+            $this->error = 'A reset link could not be sent. Please wait before retrying or contact the platform administrator.';
+            return;
+        }
+
+        $this->recordAuditLog(
+            'team',
+            'member_password_reset_requested',
+            (Auth::user()?->name ?? ucfirst($this->previewRole) . ' (preview)') . " requested a secure password reset link for {$user->name} ({$user->email}).",
+            $user->email
+        );
+        $this->notice = "A secure, single-use password reset link was sent to {$user->email}. No password was exposed to the requester.";
         $this->closeDialogs();
         $this->loadTeamMembers();
         $this->dispatch('toast', [
             'type'    => 'success',
-            'title'   => 'Password Reset & Emailed',
+            'title'   => 'Secure Reset Link Sent',
             'message' => $this->notice,
         ]);
     }
@@ -867,7 +884,26 @@ trait ManagesTeamAndNotifications
                 }
 
                 if (! $this->canManageTargetRole($this->editMemberRole)) {
-                    $this->error = 'Security rule: Only a Partner can assign the ' . ucfirst($this->editMemberRole) . ' role.';
+                    $this->error = 'Security rule: This account cannot assign the ' . ucfirst($this->editMemberRole) . ' role.';
+                    return;
+                }
+
+                if (! in_array((string) $this->editMemberPartnerUnit, $this->availablePartnerUnits, true)) {
+                    $this->error = 'Select a valid Partner Unit available in this firm and within your authority.';
+                    return;
+                }
+                if ($firmModel && $this->editMemberRole === User::ROLE_STUDENT
+                    && $this->editMemberManagerId
+                    && ! $this->validManagerAssignment((int) $this->editMemberManagerId, (string) $this->editMemberPartnerUnit, $firmModel)) {
+                    $this->error = 'Select an active Manager from this firm and the selected Partner Unit.';
+                    return;
+                }
+
+                if ($this->editMemberRole === User::ROLE_MANAGER
+                    && $this->editMemberIsPartnerDelegate
+                    && $this->actorCanGrantPartnerDelegation()
+                    && ! $user->hasTwoFactorEnabled()) {
+                    $this->error = 'The Manager must complete TOTP enrolment before receiving Partner-level authority.';
                     return;
                 }
 
@@ -876,11 +912,15 @@ trait ManagesTeamAndNotifications
                     return;
                 }
 
-                $newPlainPassword = trim((string) $this->editMemberNewPassword);
-                if ($newPlainPassword !== '' && strlen($newPlainPassword) < 6) {
-                    $this->error = 'New password must be at least 6 characters long.';
+                if ($user->role === User::ROLE_PARTNER
+                    && $this->editMemberRole !== User::ROLE_PARTNER
+                    && ! $this->firmHasAnotherActivePartner($firmModel, $user->id)) {
+                    $this->error = 'The firm must retain at least one active Partner account.';
                     return;
                 }
+
+                $originalRole = $user->role;
+                $wasPartnerDelegate = (bool) $user->is_partner_delegate;
 
                 if (! empty(trim($this->editMemberName))) {
                     $user->name = trim($this->editMemberName);
@@ -892,13 +932,6 @@ trait ManagesTeamAndNotifications
                 if (filter_var($cleanEmail, FILTER_VALIDATE_EMAIL) && $cleanEmail !== $user->email) {
                     if (! User::where('email', $cleanEmail)->where('id', '!=', $user->id)->exists()) {
                         $user->email = $cleanEmail;
-                    }
-                }
-                if ($newPlainPassword !== '') {
-                    $user->password = Hash::make($newPlainPassword);
-                    $user->email_verified_at = $user->email_verified_at ?? now();
-                    if (Schema::hasColumn('users', 'invitation_token')) {
-                        $user->invitation_token = null;
                     }
                 }
                 $user->role = $this->editMemberRole;
@@ -919,6 +952,10 @@ trait ManagesTeamAndNotifications
                     $user->manager_id = null;
                 }
                 $user->can_manage_team = (bool) $this->editMemberCanManageTeam;
+                $user->is_partner_delegate = $this->editMemberRole === User::ROLE_MANAGER
+                    && ($this->actorCanGrantPartnerDelegation()
+                        ? $this->editMemberIsPartnerDelegate
+                        : ($originalRole === User::ROLE_MANAGER && $wasPartnerDelegate));
                 $user->can_proxy_attendance = (bool) $this->editMemberCanProxyAttendance;
                 $user->can_edit_attendance = (bool) $this->editMemberCanEditAttendance;
                 $user->can_approve_leave = (bool) $this->editMemberCanApproveLeave;
@@ -932,20 +969,16 @@ trait ManagesTeamAndNotifications
                 $user->save();
 
                 $passwordResetSuffix = '.';
-                if ($newPlainPassword !== '') {
-                    if (Schema::hasTable('sessions') && Schema::hasColumn('sessions', 'user_id')) {
-                        DB::table('sessions')->where('user_id', $user->id)->delete();
-                    }
-                    $emailSent = $this->sendInvitationEmail($user, (string) ($firmModel->name ?? 'Practice'), $newPlainPassword, true);
-                    $passwordResetSuffix = $emailSent
-                        ? " and emailed the new password ({$newPlainPassword}) to {$user->email}."
-                        : " and reset password to {$newPlainPassword} (email could not be sent).";
+                if ($wasPartnerDelegate !== (bool) $user->is_partner_delegate) {
+                    $passwordResetSuffix = $user->is_partner_delegate
+                        ? ' and granted Partner-level firm authority.'
+                        : ' and revoked Partner-level firm authority.';
                 }
 
                 $this->recordAuditLog(
                     'team',
-                    $newPlainPassword !== '' ? 'member_password_reset' : 'member_updated',
-                    "Updated profile and permissions for {$user->name} ({$user->role})" . ($newPlainPassword !== '' ? ' and reset password.' : '.'),
+                    'member_updated',
+                    "Updated profile and permissions for {$user->name} ({$user->role}){$passwordResetSuffix}",
                     $user->email
                 );
                 $this->notice = "Updated permissions and profile for {$user->name}{$passwordResetSuffix}";
@@ -1060,6 +1093,12 @@ trait ManagesTeamAndNotifications
                     return;
                 }
 
+                if ($user->role === User::ROLE_PARTNER
+                    && ! $this->firmHasAnotherActivePartner($firmModel, $user->id)) {
+                    $this->error = 'The firm must retain at least one active Partner account.';
+                    return;
+                }
+
                 $userEmail = $user->email;
 
                 // DATA RETENTION: a staff exit must not erase payroll or attendance.
@@ -1102,6 +1141,20 @@ trait ManagesTeamAndNotifications
             'title'   => 'Member Removed',
             'message' => $this->notice ?? 'Team member removed from practice.',
         ]);
+    }
+
+    /** Keep a firm recoverable by retaining one active Partner account. */
+    protected function firmHasAnotherActivePartner(Firm $firm, int $excludeUserId): bool
+    {
+        $partners = User::where('firm_id', $firm->id)
+            ->where('role', User::ROLE_PARTNER)
+            ->where('id', '!=', $excludeUserId);
+
+        if (Schema::hasColumn('users', 'is_active')) {
+            $partners->where('is_active', true);
+        }
+
+        return $partners->exists();
     }
 
     /**
@@ -1156,29 +1209,35 @@ trait ManagesTeamAndNotifications
         }
     }
 
-    /**
-     * Email login credentials (login link, username, and password) to a newly
-     * enrolled member or a member whose password was reset by a Manager/Partner.
-     *
-     * Returns false when delivery fails so the caller can fall back to showing
-     * the password on screen.
-     */
-    protected function sendInvitationEmail(User $user, string $firmName, ?string $plainPassword = null, bool $isPasswordReset = false): bool
+    /** Send a hashed, short-lived, single-use activation token by email. */
+    protected function sendInvitationEmail(User $user, string $firmName): bool
     {
+        $rawToken = Str::random(64);
+        $user->forceFill([
+            'invitation_token' => hash('sha256', $rawToken),
+            'invitation_sent_at' => now(),
+            'email_verified_at' => null,
+        ])->save();
+
         try {
+            $activationUrl = route('firm.activate', [
+                'firmSlug' => $this->firmSlug,
+                'token' => $rawToken,
+            ]);
             Mail::to($user->email)->send(new TeamInvitationMail(
                 member: $user,
                 firmName: $firmName,
                 firmSlug: $this->firmSlug,
-                plainPassword: $plainPassword,
-                isPasswordReset: $isPasswordReset,
+                activationUrl: $activationUrl,
             ));
 
             return true;
         } catch (\Throwable $e) {
-            Log::warning('Credentials email failed for ' . $user->email . ': ' . $e->getMessage());
+            $user->forceFill(['invitation_token' => null])->save();
+            Log::warning('Account activation email failed for ' . $user->email . ': ' . $e->getMessage());
 
             return false;
         }
     }
+
 }

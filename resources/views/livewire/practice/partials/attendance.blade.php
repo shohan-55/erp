@@ -12,12 +12,12 @@
                     <span>{{ $viewAllPartnersAttendance ? 'All Partners Combined (Active)' : 'All Partners Combined View' }}</span>
                 </button>
             @endif
-            @if($previewRole === 'partner' || $managerCanProxyAttendance)
+            @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || $managerCanProxyAttendance)
                 <button wire:click="openDialog('correction', 'S-101', 'proxy')" type="button" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-extrabold text-slate-800 hover:bg-slate-50">
                     <i data-lucide="user-check" class="h-4 w-4"></i> Give Proxy Attendance
                 </button>
             @endif
-            @if($previewRole === 'partner' || $managerCanEditAttendance)
+            @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || $managerCanEditAttendance)
                 <button wire:click="openDialog('correction', 'S-102', 'edit')" type="button" class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold hover:bg-[#F3D604]">
                     <i data-lucide="pencil-line" class="h-4 w-4"></i> Correction Review
                 </button>
@@ -26,7 +26,7 @@
     @endif
 </section>
 
-@if($previewRole === 'partner')
+@if(($hasPartnerAuthority ?? ($previewRole === 'partner')))
     <section class="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 sm:p-5">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -46,7 +46,7 @@
     </section>
 @endif
 
-@if($previewRole !== 'partner')
+@if(! ($hasPartnerAuthority ?? ($previewRole === 'partner')))
     <div class="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(270px,1fr)]"
          x-data="{
             locText: @entangle('currentLocationName'),
@@ -328,10 +328,10 @@
                         </td>
                         @if($previewRole !== 'student')
                             <td class="px-4 py-4 text-right space-x-1">
-                                @if($previewRole === 'partner' || $managerCanEditAttendance)
+                                @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || $managerCanEditAttendance)
                                     <button type="button" wire:click="openDialog('correction', '{{ $item['id'] }}', 'edit')" class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-amber-50">Edit Time/Late</button>
                                 @endif
-                                @if($previewRole === 'partner' || $managerCanProxyAttendance)
+                                @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || $managerCanProxyAttendance)
                                     <button type="button" wire:click="openDialog('correction', '{{ $item['id'] }}', 'proxy')" class="rounded-lg bg-[#17191F] px-2.5 py-1.5 text-xs font-bold text-[#FCDF02] hover:bg-slate-800">Proxy</button>
                                 @endif
                             </td>
@@ -369,10 +369,10 @@
                         View Movements ({{ count($item['movement_logs'] ?? []) ?: 1 }})
                     </button>
                     @if($previewRole !== 'student')
-                        @if($previewRole === 'partner' || $managerCanEditAttendance)
+                        @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || $managerCanEditAttendance)
                             <button type="button" wire:click="openDialog('correction', '{{ $item['id'] }}', 'edit')" class="flex-1 rounded-lg border border-slate-200 py-1.5 text-xs font-bold">Edit Late/Time</button>
                         @endif
-                        @if($previewRole === 'partner' || $managerCanProxyAttendance)
+                        @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || $managerCanProxyAttendance)
                             <button type="button" wire:click="openDialog('correction', '{{ $item['id'] }}', 'proxy')" class="flex-1 rounded-lg bg-[#17191F] py-1.5 text-xs font-bold text-[#FCDF02]">Give Proxy</button>
                         @endif
                     @endif

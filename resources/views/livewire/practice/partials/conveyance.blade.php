@@ -159,7 +159,7 @@
             <section class="overflow-hidden rounded-2xl border border-[#E8EAF0] bg-white shadow-sm">
                 <div class="border-b border-slate-100 p-5 flex items-center justify-between">
                     <div>
-                        <h3 class="text-sm font-extrabold">{{ $previewRole === 'partner' ? 'Partner Final Approval & Escalation Queue' : 'Manager Review & Adjustment Queue' }}</h3>
+                        <h3 class="text-sm font-extrabold">{{ ($hasPartnerAuthority ?? ($previewRole === 'partner')) ? 'Partner Final Approval & Escalation Queue' : 'Manager Review & Adjustment Queue' }}</h3>
                         <p class="mt-1 text-xs text-slate-500">Managers can approve within {{ $conveyanceLateDays }} working days, increase/decrease amounts, or send to Partner for review.</p>
                     </div>
                     <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-700">{{ count($claimQueue) }} Claims</span>
@@ -169,7 +169,7 @@
                     @forelse($claimQueue as $request)
                         @php
                             $isUnreadClaim = ($previewRole === 'manager' && in_array($request['status'] ?? '', ['pending_manager', 'Manager Review'], true))
-                                || ($previewRole === 'partner' && in_array($request['status'] ?? '', ['pending_partner', 'Escalated to Partner', 'Escalated to Partner (Late)', 'pending_manager'], true));
+                                || (($hasPartnerAuthority ?? ($previewRole === 'partner')) && in_array($request['status'] ?? '', ['pending_partner', 'Escalated to Partner', 'Escalated to Partner (Late)', 'pending_manager'], true));
                         @endphp
                         <div wire:key="conv-claim-{{ $request['id'] }}" class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between transition {{ $isUnreadClaim ? 'bg-amber-50/40 border-l-4 border-l-amber-500' : 'bg-white' }}">
                             <div class="min-w-0">
@@ -237,7 +237,7 @@
                                             class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50">
                                         Reject
                                     </button>
-                                @elseif(($previewRole === 'partner' || ($canFinalApproveClaims ?? false)) && in_array($request['status'], ['pending_partner', 'Escalated to Partner', 'Escalated to Partner (Late)', 'pending_manager']))
+                                @elseif((($hasPartnerAuthority ?? ($previewRole === 'partner')) || ($canFinalApproveClaims ?? false)) && in_array($request['status'], ['pending_partner', 'Escalated to Partner', 'Escalated to Partner (Late)', 'pending_manager']))
                                     <button type="button" wire:click="partnerApproveClaim('{{ $request['id'] }}', 'Partner approved claim.')"
                                             class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">
                                         Sanction

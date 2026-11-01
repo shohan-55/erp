@@ -7,6 +7,7 @@ use App\Models\Firm;
 use App\Models\User;
 use App\Services\FirmRegistry;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
@@ -224,26 +225,45 @@ class AccountActivation extends Component
             $this->targetUserId = $dbUser->id;
 
             try {
-                $dbUser->password = Hash::make($this->password);
-                $dbUser->email_verified_at = now();
-                if (Schema::hasColumn('users', 'invitation_token')) {
-                    $dbUser->invitation_token = null;
-                }
-                $dbUser->save();
+                $activatedUser = DB::transaction(function () use ($dbUser) {
+                    $lockedUser = User::whereKey($dbUser->id)
+                        ->where('firm_id', $dbUser->firm_id)
+                        ->where('invitation_token', hash('sha256', (string) $this->token))
+                        ->lockForUpdate()
+                        ->first();
 
-                if (Schema::hasTable('audit_logs')) {
-                    AuditLog::create([
-                        'firm_id'    => $dbUser->firm_id,
-                        'actor_id'   => $dbUser->id,
-                        'actor_name' => $dbUser->name,
-                        'actor_role' => $dbUser->role,
-                        'module'     => 'team',
-                        'action'     => 'account_activated',
-                        'target_ref' => $dbUser->email,
-                        'summary'    => "Member {$dbUser->name} completed invitation account activation.",
-                    ]);
+                    if (! $lockedUser || $this->invitationHasExpired($lockedUser)) {
+                        return null;
+                    }
+
+                    $lockedUser->password = Hash::make($this->password);
+                    $lockedUser->email_verified_at = now();
+                    $lockedUser->invitation_token = null;
+                    $lockedUser->save();
+
+                    if (Schema::hasTable('audit_logs')) {
+                        AuditLog::create([
+                            'firm_id'    => $lockedUser->firm_id,
+                            'actor_id'   => $lockedUser->id,
+                            'actor_name' => $lockedUser->name,
+                            'actor_role' => $lockedUser->role,
+                            'module'     => 'team',
+                            'action'     => 'account_activated',
+                            'target_ref' => $lockedUser->email,
+                            'summary'    => "Member {$lockedUser->name} completed invitation account activation.",
+                        ]);
+                    }
+
+                    return $lockedUser;
+                });
+
+                if (! $activatedUser) {
+                    $this->previewState = 'expired';
+                    $this->validationError = 'This invitation link is invalid, expired, or already used. Please ask your Partner or Manager to issue a new invitation.';
+                    return;
                 }
 
+                $dbUser = $activatedUser;
                 $this->previewState = 'completed';
                 $this->dispatch('toast', [
                     'title'   => 'Account Activated',

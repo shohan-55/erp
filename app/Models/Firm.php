@@ -175,6 +175,15 @@ class Firm extends Model
         }
 
         try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('users')
+                && ! \Illuminate\Support\Facades\Schema::hasColumn('users', 'is_partner_delegate')) {
+                \Illuminate\Support\Facades\Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    if (! \Illuminate\Support\Facades\Schema::hasColumn('users', 'is_partner_delegate')) {
+                        $table->boolean('is_partner_delegate')->default(false);
+                    }
+                });
+            }
+
             if (\Illuminate\Support\Facades\Schema::hasTable('firms') && ! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'theme_palette')) {
                 \Illuminate\Support\Facades\Schema::table('firms', function (\Illuminate\Database\Schema\Blueprint $table) {
                     if (! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'theme_palette')) {

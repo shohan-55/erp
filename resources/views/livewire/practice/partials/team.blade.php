@@ -2,9 +2,18 @@
     <div>
         <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">PRACTICE GOVERNANCE · TEAM MANAGEMENT</p>
         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Team &amp; Member Roster</h2>
-        <p class="mt-1.5 text-xs text-slate-500">Manage practice partners, audit managers, and articled students. Assign supervisors, allowances, delegated permissions, and reset passwords.</p>
+        <p class="mt-1.5 text-xs text-slate-500">Manage practice partners, audit managers, and articled students. Assign supervisors, allowances and permissions; password resets use secure one-time links.</p>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="flex flex-wrap items-center gap-2">
+        @if($hasPartnerAuthority ?? ($previewRole === 'partner'))
+            <label class="text-[10px] font-bold text-slate-500">Active unit
+                <select wire:change="setPartnerUnit($event.target.value)" class="ml-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-2 text-[11px] font-bold text-amber-950">
+                    @foreach($availablePartnerUnits as $unitOption)
+                        <option value="{{ $unitOption }}" @selected($partnerUnit === $unitOption)>{{ $unitOption }}</option>
+                    @endforeach
+                </select>
+            </label>
+        @endif
         @if($canManageTeam)
             <button type="button" wire:click="openAddMemberModal" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold text-[#17191F] transition hover:bg-[#F3D604] shadow-sm">
                 <i data-lucide="user-plus" class="h-4 w-4"></i> Add New Member
@@ -22,7 +31,7 @@
         <i data-lucide="info" class="h-4 w-4 shrink-0 text-amber-700 mt-0.5"></i>
         <span>
             @if($canResetPasswords ?? false)
-                You can reset member passwords from this roster (the new password is automatically emailed to the member). Adding or removing members requires Team Admin authorization from a Partner.
+                You can send a member a secure, single-use password reset link. Adding or removing members requires Team Admin authorization from a Partner.
             @else
                 You are currently viewing the roster in <strong>read-only</strong> mode. Adding, editing, or removing practice members requires authorization delegated by an active Partner.
             @endif
@@ -165,6 +174,9 @@
                         </td>
                         <td class="px-3 py-4">
                             <div class="flex flex-wrap gap-1 max-w-[240px]">
+                                @if(!empty($member['is_partner_delegate']))
+                                    <span class="rounded bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold text-violet-950 border border-violet-300" title="Partner-level firm authority; revocable by a Partner">Partner Delegate</span>
+                                @endif
                                 @if(!empty($member['can_manage_team']))
                                     <span class="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-900 border border-amber-300" title="Can add and remove team members">Team Admin</span>
                                 @endif
@@ -192,7 +204,7 @@
                                 @if(!empty($member['can_final_approve_claims']))
                                     <span class="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-950" title="Can grant final conveyance sanction">Final Claims</span>
                                 @endif
-                                @if(empty($member['can_manage_team']) && empty($member['can_proxy_attendance']) && empty($member['can_edit_attendance']) && empty($member['can_approve_leave']) && empty($member['can_approve_claims']) && empty($member['can_manage_policies']) && empty($member['can_manage_payroll']) && empty($member['can_final_approve_leave']) && empty($member['can_final_approve_claims']))
+                                @if(empty($member['is_partner_delegate']) && empty($member['can_manage_team']) && empty($member['can_proxy_attendance']) && empty($member['can_edit_attendance']) && empty($member['can_approve_leave']) && empty($member['can_approve_claims']) && empty($member['can_manage_policies']) && empty($member['can_manage_payroll']) && empty($member['can_final_approve_leave']) && empty($member['can_final_approve_claims']))
                                     <span class="text-[10px] text-slate-400">Standard</span>
                                 @endif
                             </div>
@@ -213,7 +225,7 @@
                                             <i data-lucide="award" class="h-3.5 w-3.5"></i> ICAB Cert
                                         </button>
                                     @endif
-                                    @if(($canResetPasswords ?? false) && ($previewRole === 'partner' || ($member['role'] ?? '') !== 'partner'))
+                                    @if(($canResetPasswords ?? false) && (($hasPartnerAuthority ?? ($previewRole === 'partner')) || ($member['role'] ?? '') !== 'partner'))
                                         <button type="button" wire:click="openResetPasswordModal({{ $member['id'] }})"
                                                 class="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold text-amber-950 hover:bg-amber-100 transition" title="Reset password and email new password to {{ $member['email'] }}">
                                             <i data-lucide="key-round" class="h-3.5 w-3.5"></i> Reset Pass
@@ -306,9 +318,9 @@
                     </div>
 
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <label class="block font-bold text-slate-700">Initial Password (Emailed to User)
-                            <input type="text" wire:model="newMemberPassword" placeholder="Leave blank to auto-generate" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400 font-mono text-[11px]">
-                        </label>
+                        <p class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-900">
+                            A one-time activation link will be emailed. The member creates their own password; passwords are never emailed.
+                        </p>
                         <label class="block font-bold text-slate-700">Partner Unit
                             <select wire:model="newMemberPartnerUnit" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
                                 @foreach($availablePartnerUnits as $unit)
@@ -317,6 +329,12 @@
                             </select>
                         </label>
                     </div>
+
+                    @if($newMemberRole === 'manager')
+                        <p class="rounded-xl border border-violet-200 bg-violet-50 p-3 text-[11px] leading-relaxed text-violet-950">
+                            To grant this Manager Partner-level authority later, first have them activate their account and complete TOTP enrolment. A Partner can then grant or revoke delegation from this team panel.
+                        </p>
+                    @endif
 
                     @if($newMemberRole === 'student')
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">
@@ -470,24 +488,15 @@
                         <p class="text-[10px] text-slate-500">Role: {{ $resetPasswordMemberRole }}</p>
                     </div>
 
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1">
-                            New Password (নতুন পাসওয়ার্ড দিন অথবা অটো-জেনারেট করতে খালি রাখুন)
-                        </label>
-                        <input type="text"
-                               wire:model="resetPasswordInput"
-                               placeholder="Type new password (min 6 chars) or leave blank"
-                               class="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-mono text-xs outline-none focus:border-amber-400 focus:bg-white">
-                        <p class="mt-1.5 text-[11px] text-slate-500 leading-relaxed">
-                            রিসেট করার সাথে সাথেই <strong>{{ $resetPasswordMemberEmail }}</strong> মেইলে লগইন লিংক, ইউজারনেম এবং নতুন পাসওয়ার্ড চলে যাবে।
-                        </p>
-                    </div>
+                    <p class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[11px] leading-relaxed text-emerald-900">
+                        We will email <strong>{{ $resetPasswordMemberEmail }}</strong> a time-limited, single-use reset link. The requester will not see or receive the member’s password.
+                    </p>
 
                     <div class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
                         <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">Cancel</button>
                         <button type="submit" wire:loading.attr="disabled" wire:target="resetMemberPassword" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition shadow-sm">
                             <i data-lucide="send" class="h-3.5 w-3.5"></i>
-                            <span wire:loading.remove wire:target="resetMemberPassword">Reset &amp; Send Password to Email</span>
+                            <span wire:loading.remove wire:target="resetMemberPassword">Send Secure Reset Link</span>
                             <span wire:loading wire:target="resetMemberPassword" style="display:none">Sending...</span>
                         </button>
                     </div>
@@ -542,9 +551,9 @@
                         <label class="block font-bold text-slate-700">Phone Number
                             <input type="text" wire:model="editMemberPhone" placeholder="+880 1711-XXXXXX" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2 outline-none focus:border-amber-400">
                         </label>
-                        <label class="block font-bold text-slate-700">Reset Password (Emailed)
-                            <input type="text" wire:model="editMemberNewPassword" placeholder="Type new pass to reset" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2 outline-none focus:border-amber-400 font-mono text-[11px]">
-                        </label>
+                        <p class="rounded-xl border border-emerald-200 bg-emerald-50 p-2.5 text-[11px] leading-relaxed text-emerald-900">
+                            Password changes use the secure <strong>Reset Pass</strong> action and a single-use link. No password is shown or emailed.
+                        </p>
                     </div>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <label class="block font-bold text-slate-700">Role
@@ -562,6 +571,16 @@
                             </select>
                         </label>
                     </div>
+
+                    @if($editMemberRole === 'manager' && (auth()->user()?->isPartner() || auth()->user()?->isPlatformAdmin()))
+                        <label class="flex items-start gap-2.5 rounded-xl border border-violet-200 bg-violet-50 p-3 cursor-pointer">
+                            <input type="checkbox" wire:model="editMemberIsPartnerDelegate" class="mt-0.5 rounded border-violet-300 text-violet-700 focus:ring-violet-400">
+                            <span>
+                                <span class="block font-bold text-violet-950">Partner-equivalent firm authority</span>
+                                <span class="mt-0.5 block text-[10px] text-violet-800">Grant or revoke this Manager’s firm-wide authority after confirmed TOTP enrolment. They can manage units, team roles, policies, approvals and payroll, but never platform administration.</span>
+                            </span>
+                        </label>
+                    @endif
 
                     @if($editMemberRole === 'student')
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">

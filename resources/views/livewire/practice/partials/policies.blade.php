@@ -4,7 +4,7 @@
         <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Rules with accountability.</h2>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">Company defaults, independent Partner governance, and versioned rules. Configured for your practice.</p>
     </div>
-    @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+    @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || ($canManagePolicies ?? false))
         <button wire:click="openDialog('policy')" type="button" class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-3 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604]"><i data-lucide="file-plus-2" class="h-4 w-4"></i> Propose Policy Update</button>
     @endif
 </section>
@@ -32,7 +32,7 @@
             </div>
             <p class="border-t border-slate-100 bg-amber-50 px-5 py-3 text-xs leading-relaxed text-amber-900">Late calculation: on time through {{ $graceMinutes }} minutes past {{ $officeStart }}. Arrivals thereafter are flagged for review and supervisor remarks.</p>
 
-            @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+            @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) || ($canManagePolicies ?? false))
                 <form wire:submit.prevent="savePolicySettings" class="border-t border-slate-100 bg-slate-50/70 p-5 space-y-4 text-xs">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div>
@@ -112,7 +112,7 @@
                                 <span class="rounded-full px-2.5 py-1 text-[10px] font-bold {{ $prop['status'] === 'enacted' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900' }}">
                                     {{ strtoupper(str_replace('_', ' ', $prop['status'])) }}
                                 </span>
-                                @if($previewRole === 'partner' && $prop['status'] === 'pending_consensus')
+                                @if(($hasPartnerAuthority ?? ($previewRole === 'partner')) && $prop['status'] === 'pending_consensus')
                                     <button type="button" wire:click="voteOnPolicyProposal({{ $prop['id'] }})" class="rounded-lg bg-[#17191F] px-3 py-1.5 text-[11px] font-bold text-[#FCDF02] hover:bg-slate-800">
                                         Cast Partner Vote
                                     </button>

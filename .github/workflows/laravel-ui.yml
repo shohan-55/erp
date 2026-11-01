@@ -25,7 +25,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, dom, xml, pdo_sqlite, sqlite3, fileinfo
+          extensions: mbstring, dom, xml, pdo_sqlite, pdo_mysql, sqlite3, fileinfo
           coverage: none
           tools: composer:v2
 
@@ -52,15 +52,10 @@ jobs:
       - name: Run full Laravel feature and unit tests
         run: php artisan test --stop-on-failure
 
-      # Advisories are reported but do not fail the build yet: the repository
-      # has no triaged baseline, so a fresh advisory must not block a hotfix.
-      # Remove `continue-on-error` once the reports are clean.
       - name: Dependency vulnerability audit (PHP)
-        continue-on-error: true
         run: composer audit --no-dev --format=summary
 
       - name: Dependency vulnerability audit (JS)
-        continue-on-error: true
         run: npm audit --omit=dev --audit-level=high
 
       - name: Install Playwright browser for visual verification
@@ -107,3 +102,52 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+
+  mysql-feature-tests:
+    name: Laravel feature tests (MySQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: erp_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: erp_test
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      ERP_ALLOW_TEST_LOGINS: true
+      ERP_REQUIRE_PRIVILEGED_2FA: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, xml, pdo_mysql, fileinfo
+          coverage: none
+          tools: composer:v2
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Initialize local test environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run full Laravel feature and unit tests against MySQL
+        run: php artisan test --stop-on-failure

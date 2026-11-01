@@ -13,7 +13,7 @@ use Livewire\Livewire;
 use Tests\TestCase;
 
 /**
- * P1-3.2 — optional TOTP second factor.
+ * TOTP second factor and the mandatory privileged-account production gate.
  *
  * The algorithm tests pin the RFC 6238 reference vectors (SHA-1, 6 digits,
  * 30 second steps) so a future refactor cannot quietly break every enrolled
@@ -168,6 +168,21 @@ class TwoFactorAuthenticationTest extends TestCase
         $this->assertTrue(Auth::check());
     }
 
+    public function test_privileged_account_without_confirmed_totp_is_denied_when_gate_is_enabled(): void
+    {
+        config(['erp.require_privileged_2fa' => true]);
+        $this->makeUser(['email' => 'owner@rac.com', 'email_verified_at' => now()]);
+
+        Livewire::test(PlatformLogin::class)
+            ->set('email', 'owner@rac.com')
+            ->set('password', 'Secret123!')
+            ->call('submitLogin')
+            ->assertSet('requiresTwoFactor', false)
+            ->assertSet('validationError', 'Two-factor authentication is required for this account. Ask the platform operator to enrol it with php artisan erp:two-factor.');
+
+        $this->assertFalse(Auth::check());
+    }
+
     public function test_an_enrolled_account_cannot_sign_in_without_a_code(): void
     {
         $user = $this->makeUser(['email' => 'secure@rac.com']);
@@ -277,8 +292,9 @@ class TwoFactorAuthenticationTest extends TestCase
             'name'        => 'Platform Operator',
             'email'       => 'operator@rac.com',
             'password'    => Hash::make('Secret123!'),
-            'role'        => 'platform_admin',
-            'is_active'   => true,
+            'role'              => 'platform_admin',
+            'is_active'         => true,
+            'email_verified_at' => now(),
         ], $attributes));
     }
 
