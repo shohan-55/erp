@@ -131,8 +131,11 @@ class FileAndLoginGuardTest extends TestCase
         $this->assertGuest();
     }
 
-    public function test_a_real_account_still_signs_in_normally(): void
+    public function test_a_real_verified_account_still_signs_in_normally(): void
     {
+        // Real users now have to complete the secure invitation flow before
+        // password sign-in; this test covers a verified, active account.
+        $this->student->forceFill(['email_verified_at' => now()])->save();
         config(['erp.allow_test_logins' => false]);
 
         Livewire::test(FirmLogin::class, ['firmSlug' => 'rac'])
