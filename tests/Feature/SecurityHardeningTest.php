@@ -290,7 +290,8 @@ class SecurityHardeningTest extends TestCase
             ->assertSet('partnerUnit', 'Partner Unit 02')
             ->assertSee($otherUnitStudent->name);
 
-        // The grant is explicit and reversible; the former Manager immediately loses it.
+        // The grant is explicit and reversible; a Partner revokes the delegation.
+        $this->actingAs($this->partner);
         Livewire::test(PracticePreview::class, [
             'firmSlug'    => 'rac',
             'previewRole' => 'partner',

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\Platform\DashboardPreview;
 use App\Models\Firm;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -21,9 +22,20 @@ class Phase03PlatformDashboardTest extends TestCase
 
     public function test_original_platform_login_and_firm_login_still_render(): void
     {
-        $this->get('/platform/login')->assertOk()->assertSee('Platform Administration');
-        $this->get('/c/rac/login')->assertOk()->assertSee('Rahman Anis');
-        $this->get('/')->assertOk()->assertSee('DhakaWala')->assertSee('Rahman Anis');
+        DB::transaction(function (): void {
+            Firm::create([
+                'name'          => 'Rahman Anis & Co.',
+                'slug'          => 'rac',
+                'short_code'    => 'RA&C',
+                'status'        => 'active',
+                'tier'          => 'professional',
+                'custom_domain' => 'rahmananis.com',
+            ]);
+
+            $this->get('/platform/login')->assertOk()->assertSee('Platform Administration');
+            $this->get('/c/rac/login')->assertOk()->assertSee('Rahman Anis');
+            $this->get('/')->assertOk()->assertSee('DhakaWala')->assertSee('Rahman Anis');
+        });
     }
 
     public function test_navigation_changes_only_between_known_preview_sections(): void
