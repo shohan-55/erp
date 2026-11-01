@@ -126,8 +126,9 @@ class AccountActivation extends Component
                 return null;
             }
 
+            // Invitations persist only a SHA-256 hash, never the raw bearer token.
             $dbUser = User::where('firm_id', $firmModel->id)
-                ->where('invitation_token', $this->token)
+                ->where('invitation_token', hash('sha256', $this->token))
                 ->first();
 
             if (! $dbUser || $this->invitationHasExpired($dbUser)) {

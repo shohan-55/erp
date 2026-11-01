@@ -113,7 +113,6 @@ class Phase03PlatformDashboardTest extends TestCase
             ->set('newFirmKind', 'Chartered Accountants')
             ->set('newPartnerName', 'Kamrul Islam, FCA')
             ->set('newPartnerEmail', 'kamrul@apex.com')
-            ->set('newPartnerPassword', 'ApexSecret123!')
             ->set('newFirmPlan', 'Practice')
             ->set('newFirmSeats', 15)
             ->set('newFirmRegion', 'Dhaka')
@@ -359,7 +358,6 @@ class Phase03PlatformDashboardTest extends TestCase
             ->set('newFirmSlug', 'aqasem-resilient')
             ->set('newPartnerEmail', 'shohan.orphan@example.com')
             ->set('newPartnerName', 'Ramendra Nath Kar FCA')
-            ->set('newPartnerPassword', 'SecurePass2026!')
             ->set('newFirmPlan', 'Starter')
             ->set('newFirmSeats', 20)
             ->call('createOrganization')
@@ -397,7 +395,6 @@ class Phase03PlatformDashboardTest extends TestCase
             ->set('newFirmSlug', 'dangling-firm')
             ->set('newPartnerEmail', 'partner.recovered@example.com')
             ->set('newPartnerName', 'Recovered Partner')
-            ->set('newPartnerPassword', 'Partner@2026')
             ->call('createOrganization')
             ->assertSet('showProvisionPreview', false)
             ->assertSet('modalError', null);
