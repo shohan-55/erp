@@ -116,10 +116,34 @@ jobs:
           grep -q 'Manage every firm from here.' /tmp/platform-preview.html
 
       - name: Browser test and capture responsive screenshots
-        run: node tests/browser/phase03-preview.mjs
+        run: |
+          set +e
+          node tests/browser/phase03-preview.mjs 2>&1 | tee "$RUNNER_TEMP/browser-phase03.log"
+          result=${PIPESTATUS[0]}
+          if [ "$result" -ne 0 ]; then
+            python3 - "$RUNNER_TEMP/browser-phase03.log" <<'PY'
+          import pathlib, sys
+          text = pathlib.Path(sys.argv[1]).read_text(errors='replace')[-2500:]
+          escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=Phase 03 browser test failure::{escaped}')
+          PY
+          fi
+          exit "$result"
 
       - name: Browser test all practice design phases and capture screenshots
-        run: node tests/browser/practice-phases.mjs
+        run: |
+          set +e
+          node tests/browser/practice-phases.mjs 2>&1 | tee "$RUNNER_TEMP/browser-practice.log"
+          result=${PIPESTATUS[0]}
+          if [ "$result" -ne 0 ]; then
+            python3 - "$RUNNER_TEMP/browser-practice.log" <<'PY'
+          import pathlib, sys
+          text = pathlib.Path(sys.argv[1]).read_text(errors='replace')[-2500:]
+          escaped = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=Practice browser test failure::{escaped}')
+          PY
+          fi
+          exit "$result"
 
       - name: Upload Phase 04-10 screenshots
         if: always()
