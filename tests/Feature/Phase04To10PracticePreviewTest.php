@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Livewire\Practice\PracticePreview;
 use App\Models\Firm;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -16,7 +18,7 @@ class Phase04To10PracticePreviewTest extends TestCase
     {
         parent::setUp();
 
-        Firm::create([
+        $firm = Firm::create([
             'name'          => 'Rahman Anis & Co.',
             'slug'          => 'rac',
             'short_code'    => 'RA&C',
@@ -24,6 +26,41 @@ class Phase04To10PracticePreviewTest extends TestCase
             'tier'          => 'professional',
             'custom_domain' => 'rahmananis.com',
         ]);
+
+        $manager = User::create([
+            'firm_id'      => $firm->id,
+            'name'         => 'Sample Manager 01',
+            'email'        => 'manager@rac.test',
+            'password'     => Hash::make('Secret123!'),
+            'role'         => 'manager',
+            'partner_unit' => 'Partner Unit 01',
+        ]);
+
+        User::create([
+            'firm_id'      => $firm->id,
+            'name'         => 'Sample Partner 01',
+            'email'        => 'partner@rac.test',
+            'password'     => Hash::make('Secret123!'),
+            'role'         => 'partner',
+            'partner_unit' => 'Partner Unit 01',
+        ]);
+
+        foreach ([
+            ['Sample Student 01', 'student01@rac.test', 'Partner Unit 01', $manager->id],
+            ['Sample Student 02', 'student02@rac.test', 'Partner Unit 01', $manager->id],
+            ['Sample Student 03', 'student03@rac.test', 'Partner Unit 02', null],
+            ['Sample Student 04', 'student04@rac.test', 'Partner Unit 01', null],
+        ] as [$name, $email, $unit, $managerId]) {
+            User::create([
+                'firm_id'      => $firm->id,
+                'name'         => $name,
+                'email'        => $email,
+                'password'     => Hash::make('Secret123!'),
+                'role'         => 'student',
+                'partner_unit' => $unit,
+                'manager_id'   => $managerId,
+            ]);
+        }
     }
 
     public function test_all_planned_practice_roles_render_as_ui_previews(): void
@@ -55,16 +92,19 @@ class Phase04To10PracticePreviewTest extends TestCase
 
     public function test_student_and_manager_views_are_scoped_in_sample_presentation(): void
     {
+        $this->actingAs(User::where('email', 'student01@rac.test')->firstOrFail());
         Livewire::test(PracticePreview::class, ['firmSlug'=>'rac', 'previewRole'=>'student', 'section'=>'attendance'])
             ->assertSee('Sample Student 01')
             ->assertDontSee('Sample Student 02')
             ->assertDontSee('Sample Student 03');
 
+        $this->actingAs(User::where('email', 'manager@rac.test')->firstOrFail());
         Livewire::test(PracticePreview::class, ['firmSlug'=>'rac', 'previewRole'=>'manager', 'section'=>'attendance'])
             ->assertSee('Sample Student 01')
             ->assertSee('Sample Student 02')
             ->assertDontSee('Sample Student 03');
 
+        $this->actingAs(User::where('email', 'partner@rac.test')->firstOrFail());
         Livewire::test(PracticePreview::class, ['firmSlug'=>'rac', 'previewRole'=>'partner', 'section'=>'attendance'])
             ->assertSee('Sample Student 04');
     }
