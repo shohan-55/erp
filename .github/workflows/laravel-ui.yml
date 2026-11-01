@@ -15,7 +15,8 @@ permissions:
 jobs:
   ui-verification:
     name: PHPUnit and Vite build
-    runs-on: ubuntu-latest
+    # Playwright's pinned browser/dependency matrix currently supports Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout code
