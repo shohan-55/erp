@@ -7,6 +7,7 @@ use App\Livewire\Practice\PracticePreview;
 use App\Models\Firm;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
@@ -70,7 +71,8 @@ class TenantLockdownTest extends TestCase
             ->assertSet('firmSlug', 'firm-a');
 
         // Same component snapshot, but the session now belongs to firm B.
-        $this->actingAs($this->partnerB);
+        // Persist the changed identity in the web session just as a real login would.
+        Auth::login($this->partnerB);
 
         $this->expectException(HttpException::class);
 

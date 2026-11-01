@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Livewire\Platform\DashboardPreview;
 use App\Models\Firm;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -22,7 +24,19 @@ class Phase03PlatformDashboardTest extends TestCase
 
     public function test_original_platform_login_and_firm_login_still_render(): void
     {
-        DB::transaction(function (): void {
+        $renderRoutes = function (): void {
+            $this->get('/platform/login')->assertOk()->assertSee('Platform Administration');
+            $this->get('/c/rac/login')->assertOk()->assertSee('Rahman Anis');
+            $this->get('/')->assertOk()->assertSee('DhakaWala')->assertSee('Rahman Anis');
+        };
+
+        if (! Schema::hasTable('firms')) {
+            $renderRoutes();
+            return;
+        }
+
+        DB::beginTransaction();
+        try {
             Firm::create([
                 'name'          => 'Rahman Anis & Co.',
                 'slug'          => 'rac',
@@ -32,10 +46,10 @@ class Phase03PlatformDashboardTest extends TestCase
                 'custom_domain' => 'rahmananis.com',
             ]);
 
-            $this->get('/platform/login')->assertOk()->assertSee('Platform Administration');
-            $this->get('/c/rac/login')->assertOk()->assertSee('Rahman Anis');
-            $this->get('/')->assertOk()->assertSee('DhakaWala')->assertSee('Rahman Anis');
-        });
+            $renderRoutes();
+        } finally {
+            DB::rollBack();
+        }
     }
 
     public function test_navigation_changes_only_between_known_preview_sections(): void
