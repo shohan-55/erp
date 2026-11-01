@@ -63,18 +63,18 @@ class TenantLockdownTest extends TestCase
             ->set('firmSlug', 'firm-b');
     }
 
-    public function test_a_session_switched_to_another_firm_cannot_mount_the_previous_workspace(): void
+    public function test_a_session_switched_to_another_firm_is_refused_during_livewire_hydration(): void
     {
         $this->actingAs($this->partnerA);
+        $component = new PracticePreview();
+        $component->firmSlug = 'firm-a';
 
-        Livewire::test(PracticePreview::class, ['firmSlug' => 'firm-a'])
-            ->assertSet('firmSlug', 'firm-a');
-
-        // Start a fresh Livewire request after the authenticated session switches tenants.
+        // Simulate the Livewire snapshot surviving a session login to firm B.
         Auth::login($this->partnerB);
+        $this->assertSame($this->partnerB->id, Auth::id());
         $this->expectException(HttpException::class);
 
-        Livewire::test(PracticePreview::class, ['firmSlug' => 'firm-a']);
+        $component->hydrate();
     }
 
     public function test_partner_of_one_firm_cannot_open_another_firms_workspace_over_http(): void
