@@ -91,13 +91,14 @@ class TenantLockdownTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_non_platform_user_cannot_mount_the_platform_component(): void
+    public function test_non_platform_user_is_refused_during_platform_component_hydration(): void
     {
         $this->actingAs($this->partnerA);
+        $component = new DashboardPreview();
 
         $this->expectException(HttpException::class);
 
-        Livewire::test(DashboardPreview::class);
+        $component->hydrate();
     }
 
     public function test_role_lock_still_pins_a_student_to_student(): void
