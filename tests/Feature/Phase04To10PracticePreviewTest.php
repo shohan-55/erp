@@ -261,6 +261,8 @@ class Phase04To10PracticePreviewTest extends TestCase
 
     public function test_attendance_search_and_status_filter_are_scoped(): void
     {
+        $this->actingAs(User::where('email', 'manager@rac.test')->firstOrFail());
+
         Livewire::test(PracticePreview::class, ['firmSlug'=>'rac', 'previewRole'=>'manager', 'section'=>'attendance'])
             ->set('search','Sample Student 02')
             ->assertSee('Sample Student 02')
