@@ -104,6 +104,8 @@ jobs:
         run: |
           sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env
           sed -i 's/^CACHE_STORE=.*/CACHE_STORE=file/' .env
+          # Keep generated Livewire and Vite URLs on the local HTTP preview origin.
+          sed -i 's|^APP_URL=.*|APP_URL=http://127.0.0.1:8000|' .env
           # Design preview routes are fail-closed; enable them only for this throwaway CI server.
           echo 'ERP_DEMO_MODE=true' >> .env
           APP_ENV=testing DB_CONNECTION=sqlite DB_DATABASE=:memory: ERP_DEMO_MODE=true nohup php artisan serve --host=127.0.0.1 --port=8000 > /tmp/laravel-preview.log 2>&1 &
