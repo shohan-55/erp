@@ -770,7 +770,7 @@ class ProductionWorkspaceTest extends TestCase
             ->set("myPhone", "+8801711223344")
             ->set("myPaymentMode", "bKash")
             ->set("myPaymentAccountNo", "01711-223344")
-            ->set("myCurrentPassword", "StudentSecret123!")
+            ->set("myCurrentPassword", "Secret123!")
             ->set("myNewPassword", "UpdatedPass2026!")
             ->set("myNewPasswordConfirm", "UpdatedPass2026!")
             ->call("updateOwnProfileAndPassword")
