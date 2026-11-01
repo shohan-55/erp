@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Practice\PracticePreview;
+use App\Models\Attendance;
 use App\Models\Firm;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -61,6 +62,13 @@ class Phase04To10PracticePreviewTest extends TestCase
                 'manager_id'   => $managerId,
             ]);
         }
+
+        Attendance::create([
+            'firm_id' => $firm->id,
+            'user_id' => User::where('email', 'student02@rac.test')->value('id'),
+            'date'    => now()->toDateString(),
+            'status'  => 'Late',
+        ]);
     }
 
     public function test_all_planned_practice_roles_render_as_ui_previews(): void
