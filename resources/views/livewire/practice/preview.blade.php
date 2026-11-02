@@ -432,7 +432,7 @@
                     .erp-anim-check { stroke-dasharray: 100; stroke-dashoffset: 100; animation: erp-check-draw 0.65s 0.2s ease-out forwards; }
                     .erp-anim-ring { animation: erp-pulse-ring 1.6s cubic-bezier(0, 0, 0.2, 1) infinite; }
                 </style>
-                <div class="erp-anim-card relative w-full max-w-md overflow-hidden rounded-3xl border-2 border-white/20 bg-[#11141B] p-7 text-center text-white shadow-2xl">
+                <div style="background-color: #11141B; color: #FFFFFF;" class="erp-anim-card relative w-full max-w-md overflow-hidden rounded-3xl border-2 border-white/20 bg-[#17191F] p-7 text-center text-white shadow-2xl">
                     @php
                         $cTheme = $celebrationData['badge_theme'] ?? 'emerald';
                         $ringHex = $cTheme === 'emerald' ? '#10B981' : ($cTheme === 'amber' ? '#F59E0B' : '#F43F5E');

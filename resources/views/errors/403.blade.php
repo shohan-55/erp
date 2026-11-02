@@ -17,7 +17,7 @@
     <x-brand-theme-style />
 </head>
 <body class="min-h-full flex items-center justify-center p-4 sm:p-6 bg-[#090D16] text-white font-sans antialiased">
-    <div class="w-full max-w-lg rounded-3xl border border-white/15 bg-[#11141C] p-6 sm:p-8 shadow-2xl">
+    <div style="background-color: #11141C; color: #FFFFFF;" class="w-full max-w-lg rounded-3xl border border-white/15 bg-[#17191F] p-6 sm:p-8 shadow-2xl">
         <div class="flex items-center justify-between border-b border-white/10 pb-5">
             <div class="flex items-center gap-3">
                 <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/15 border border-amber-400/30 text-[#FCDF02] font-black text-sm">

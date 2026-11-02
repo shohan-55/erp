@@ -14,33 +14,33 @@
 @if(in_array($previewRole, ['student', 'manager'], true) && !empty($myLeaveBalanceSummary))
     <!-- Personal Leave Passbook & Live Deducting Balance Banner -->
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-[#11141C] via-[#171B26] to-[#11141C] px-5 py-4 text-white">
+        <div style="background: linear-gradient(90deg, #11141C 0%, #171B26 50%, #0D1117 100%); color: #FFFFFF;" class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-[#17191F] px-5 py-4 text-white">
             <div class="flex items-center gap-3">
                 <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FCDF02] text-[#17191F] font-black">
                     <i data-lucide="calendar-check-2" class="h-5 w-5"></i>
                 </div>
                 <div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="rounded-full bg-emerald-500/20 border border-emerald-400/40 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
+                        <span style="background-color: rgba(16, 185, 129, 0.22); border-color: rgba(52, 211, 153, 0.45); color: #6EE7B7;" class="rounded-full bg-emerald-500/20 border border-emerald-400/40 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
                             {{ $myLeaveBalanceSummary['regime_label'] ?? 'Profile Leave Ledger' }}
                         </span>
                         @if(($myLeaveBalanceSummary['regime'] ?? '') === 'icab_articleship' && !empty($myLeaveBalanceSummary['active_window']['label']))
-                            <span class="rounded-full bg-amber-400/20 border border-amber-300/40 px-2.5 py-0.5 text-[10px] font-extrabold text-[#FCDF02]">
+                            <span style="background-color: rgba(252, 223, 2, 0.18); border-color: rgba(252, 223, 2, 0.45); color: #FCDF02;" class="rounded-full bg-amber-400/20 border border-amber-300/40 px-2.5 py-0.5 text-[10px] font-extrabold text-[#FCDF02]">
                                 Active Cycle: {{ $myLeaveBalanceSummary['active_window']['label'] }} ({{ $myLeaveBalanceSummary['active_window']['period_label'] ?? '' }})
                             </span>
                         @else
-                            <span class="rounded-full bg-indigo-500/25 border border-indigo-400/40 px-2.5 py-0.5 text-[10px] font-extrabold text-indigo-200">
+                            <span style="background-color: rgba(99, 102, 241, 0.28); border-color: rgba(129, 140, 248, 0.45); color: #E0E7FF;" class="rounded-full bg-indigo-500/25 border border-indigo-400/40 px-2.5 py-0.5 text-[10px] font-extrabold text-indigo-200">
                                 Yearly Reset: {{ $myLeaveBalanceSummary['calendar_year_label'] ?? 'Jan 1 – Dec 31' }}
                             </span>
                             @if(($myLeaveBalanceSummary['carry_forward_earned'] ?? 0) > 0)
-                                <span class="rounded-full bg-emerald-500/25 border border-emerald-400/40 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-200">
+                                <span style="background-color: rgba(16, 185, 129, 0.25); border-color: rgba(52, 211, 153, 0.45); color: #A7F3D0;" class="rounded-full bg-emerald-500/25 border border-emerald-400/40 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-200">
                                     +{{ $myLeaveBalanceSummary['carry_forward_earned'] }}d Carry-Forward Earned Included
                                 </span>
                             @endif
                         @endif
-                        <h3 class="text-sm font-extrabold text-white">My Profile Leave Balance &amp; Entitlement Passbook</h3>
+                        <h3 style="color: #FFFFFF;" class="text-sm font-extrabold text-white">My Profile Leave Balance &amp; Entitlement Passbook</h3>
                     </div>
-                    <p class="mt-0.5 text-[11px] text-slate-300">
+                    <p style="color: #E2E8F0;" class="mt-0.5 text-[11px] text-slate-200">
                         @if(($myLeaveBalanceSummary['regime'] ?? '') === 'icab_articleship')
                             Evenly split at <strong>{{ $myLeaveBalanceSummary['per_year_cap'] ?? 60 }} days/year</strong> across your {{ $myLeaveBalanceSummary['articleship_duration_years'] ?? 3 }}-year articleship (12-month anniversary cycles from joining date). Unused regular leave rolls into your <strong>ICAB Study &amp; Exam Pool</strong>.
                         @else
@@ -50,9 +50,9 @@
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <div class="rounded-xl border border-white/15 bg-white/10 px-3.5 py-2 text-right">
-                    <span class="block text-[10px] font-bold uppercase tracking-wider text-slate-300">Total Available Leave</span>
-                    <strong class="text-base font-black text-[#FCDF02]">{{ $myLeaveBalanceSummary['total_available'] ?? 0 }} <span class="text-xs font-semibold text-white/80">/ {{ $myLeaveBalanceSummary['total_cap'] ?? 180 }} Days</span></strong>
+                <div style="background-color: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.22);" class="rounded-xl border border-white/15 bg-white/10 px-3.5 py-2 text-right">
+                    <span style="color: #E2E8F0;" class="block text-[10px] font-bold uppercase tracking-wider text-slate-200">Total Available Leave</span>
+                    <strong style="color: #FCDF02;" class="text-base font-black text-[#FCDF02]">{{ $myLeaveBalanceSummary['total_available'] ?? 0 }} <span style="color: #FFFFFF;" class="text-xs font-semibold text-white">/ {{ $myLeaveBalanceSummary['total_cap'] ?? 180 }} Days</span></strong>
                 </div>
             </div>
         </div>

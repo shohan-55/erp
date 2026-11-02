@@ -10,16 +10,16 @@
     class="space-y-5">
 
     <!-- Top Executive Settings & Policy Navigation Bar -->
-    <section class="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-r from-[#11141C] via-[#171B26] to-[#0D1117] p-6 text-white shadow-xl">
+    <section style="background: linear-gradient(135deg, #11141C 0%, #171B26 55%, #0D1117 100%); color: #FFFFFF;" class="relative overflow-hidden rounded-3xl border border-slate-800 bg-[#17191F] p-6 text-white shadow-xl">
         <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
             <div>
-                <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#FCDF02]">PRACTICE GOVERNANCE · POLICY &amp; PERMISSIONS</p>
-                <h2 class="mt-1 text-2xl font-black tracking-tight text-white">Workspace Settings &amp; Partner Policy</h2>
-                <p class="mt-1.5 max-w-2xl text-xs sm:text-sm leading-relaxed text-slate-300">Configure independent Partner Unit policies, late deduction rules, Manager delegation thresholds, holidays, and personal profile settings.</p>
+                <p style="color: #FCDF02;" class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#FCDF02]">PRACTICE GOVERNANCE · POLICY &amp; PERMISSIONS</p>
+                <h2 style="color: #FFFFFF;" class="mt-1 text-2xl font-black tracking-tight text-white">Workspace Settings &amp; Partner Policy</h2>
+                <p style="color: #E2E8F0;" class="mt-1.5 max-w-2xl text-xs sm:text-sm leading-relaxed text-slate-200">Configure independent Partner Unit policies, late deduction rules, Manager delegation thresholds, holidays, and personal profile settings.</p>
             </div>
             @if($previewRole === 'partner')
                 <div class="flex items-center gap-2 shrink-0">
-                    <label class="text-xs font-bold text-slate-300">Active Partner Unit:</label>
+                    <label style="color: #E2E8F0;" class="text-xs font-bold text-slate-200">Active Partner Unit:</label>
                     <select wire:change="setPartnerUnit($event.target.value)" class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-extrabold text-amber-950 outline-none">
                         @foreach($availablePartnerUnits as $unitOpt)
                             <option value="{{ $unitOpt }}" @selected($partnerUnit === $unitOpt)>{{ $unitOpt }}</option>
@@ -32,26 +32,26 @@
         <div class="mt-5 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-4">
             @if($previewRole !== 'student')
                 <button type="button" @click="activeSettingsTab = 'policy_unit'"
-                        :class="activeSettingsTab === 'policy_unit' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/5 text-slate-300 hover:bg-white/15 font-bold'"
+                        :class="activeSettingsTab === 'policy_unit' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/10 text-white hover:bg-white/20 border border-white/15 font-bold'"
                         class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition cursor-pointer">
                     <i data-lucide="sliders" class="h-3.5 w-3.5"></i>
                     <span>1. Unit Policy &amp; Account</span>
                 </button>
                 <button type="button" @click="activeSettingsTab = 'permissions'"
-                        :class="activeSettingsTab === 'permissions' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/5 text-slate-300 hover:bg-white/15 font-bold'"
+                        :class="activeSettingsTab === 'permissions' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/10 text-white hover:bg-white/20 border border-white/15 font-bold'"
                         class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition cursor-pointer">
                     <i data-lucide="shield-check" class="h-3.5 w-3.5"></i>
                     <span>2. Role Permissions &amp; Grids</span>
                 </button>
                 <button type="button" @click="activeSettingsTab = 'holidays'"
-                        :class="activeSettingsTab === 'holidays' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/5 text-slate-300 hover:bg-white/15 font-bold'"
+                        :class="activeSettingsTab === 'holidays' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/10 text-white hover:bg-white/20 border border-white/15 font-bold'"
                         class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition cursor-pointer">
                     <i data-lucide="calendar-days" class="h-3.5 w-3.5"></i>
                     <span>3. Holidays &amp; Exceptions</span>
                 </button>
                 @if($previewRole === 'partner' || ($canManagePolicies ?? false))
                     <button type="button" @click="activeSettingsTab = 'branding'"
-                            :class="activeSettingsTab === 'branding' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/5 text-slate-300 hover:bg-white/15 font-bold'"
+                            :class="activeSettingsTab === 'branding' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/10 text-white hover:bg-white/20 border border-white/15 font-bold'"
                             class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition cursor-pointer">
                         <i data-lucide="palette" class="h-3.5 w-3.5"></i>
                         <span>4. Brand Theme &amp; Logo</span>
@@ -59,7 +59,7 @@
                 @endif
             @endif
             <button type="button" @click="activeSettingsTab = 'profile'; openProfileEdit = true"
-                    :class="activeSettingsTab === 'profile' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/5 text-slate-300 hover:bg-white/15 font-bold'"
+                    :class="activeSettingsTab === 'profile' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/10 text-white hover:bg-white/20 border border-white/15 font-bold'"
                     class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition cursor-pointer">
                 <i data-lucide="user-cog" class="h-3.5 w-3.5"></i>
                 <span>My Profile &amp; Payment A/C</span>

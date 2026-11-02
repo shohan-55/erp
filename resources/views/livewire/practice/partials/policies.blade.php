@@ -1,26 +1,26 @@
 <div x-data="{ activePolicyTab: 'overview', editPolicyOpen: false, editGovOpen: false }" class="space-y-5">
     <!-- Top Executive Policy Header -->
-    <section class="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-r from-[#11141C] via-[#171B26] to-[#0D1117] p-6 text-white shadow-xl">
+    <section style="background: linear-gradient(135deg, #11141C 0%, #171B26 55%, #0D1117 100%); color: #FFFFFF;" class="relative overflow-hidden rounded-3xl border border-slate-800 bg-[#17191F] p-6 text-white shadow-xl">
         <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
             <div class="space-y-1.5">
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="rounded-full bg-[#FCDF02] px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#17191F]">
                         POLICY &amp; GOVERNANCE HUB
                     </span>
-                    <span class="rounded-full border border-white/15 bg-white/10 px-3 py-0.5 text-[11px] font-bold text-emerald-300">
+                    <span style="background-color: rgba(16, 185, 129, 0.2); border-color: rgba(52, 211, 153, 0.45); color: #6EE7B7;" class="rounded-full border border-white/15 bg-white/10 px-3 py-0.5 text-[11px] font-bold text-emerald-300">
                         {{ $partnerUnit }} · Active Baseline
                     </span>
                 </div>
-                <h2 class="text-2xl font-black tracking-tight text-white">Rules with accountability.</h2>
-                <p class="max-w-2xl text-xs sm:text-sm leading-relaxed text-slate-300">
+                <h2 style="color: #FFFFFF;" class="text-2xl font-black tracking-tight text-white">Rules with accountability.</h2>
+                <p style="color: #E2E8F0;" class="max-w-2xl text-xs sm:text-sm leading-relaxed text-slate-200">
                     Company defaults, independent Partner governance, ICAB Articleship (3-Yr: 180d / 4-Yr: 240d) &amp; Corporate leave rules, and versioned compliance audit trail.
                 </p>
             </div>
 
             <div class="flex flex-wrap items-center gap-2.5 shrink-0">
                 @if($previewRole === 'partner' || ($canManagePolicies ?? false))
-                    <button type="button" @click="activePolicyTab = 'overview'; editPolicyOpen = !editPolicyOpen" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-white/20 transition cursor-pointer">
-                        <i data-lucide="sliders-horizontal" class="h-4 w-4 text-[#FCDF02]"></i>
+                    <button type="button" @click="activePolicyTab = 'overview'; editPolicyOpen = !editPolicyOpen" style="background-color: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.28); color: #FFFFFF;" class="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-white/20 transition cursor-pointer">
+                        <i data-lucide="sliders-horizontal" class="h-4 w-4" style="color: #FCDF02;"></i>
                         <span x-text="editPolicyOpen ? 'Close Policy Editor' : 'Edit Unit Policy'">Edit Unit Policy</span>
                     </button>
                     <button wire:click="openDialog('policy')" type="button" class="inline-flex items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] shadow-md cursor-pointer">
@@ -41,7 +41,7 @@
             ] as $pTab)
                 <button type="button"
                         @click="activePolicyTab = '{{ $pTab['id'] }}'"
-                        :class="activePolicyTab === '{{ $pTab['id'] }}' ? 'bg-[#FCDF02] text-[#17191F] shadow-sm font-black' : 'bg-white/5 text-slate-300 hover:bg-white/15 font-bold'"
+                        :class="activePolicyTab === '{{ $pTab['id'] }}' ? 'bg-[#FCDF02] text-[#17191F] shadow-sm font-black' : 'bg-white/10 text-white hover:bg-white/20 border border-white/15 font-bold'"
                         class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition cursor-pointer">
                     <i data-lucide="{{ $pTab['icon'] }}" class="h-3.5 w-3.5"></i>
                     <span>{{ $pTab['label'] }}</span>
@@ -191,27 +191,27 @@
             </div>
             <div class="mt-4 grid gap-3 sm:grid-cols-2 text-xs">
                 <div class="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
-                    <p class="text-[10px] font-black uppercase text-emerald-800">3-YEAR ARTICLESHIP</p>
+                    <p class="text-[10px] font-black uppercase text-emerald-800">3-YEAR ARTICLESHIP (60 DAYS / YR)</p>
                     <p class="mt-1 text-xl font-black text-slate-900">Max 180 Days</p>
                     <p class="mt-1.5 text-[11px] text-slate-600 leading-relaxed">
-                        Default regular leaves: Casual (14d) + Sick (14d) + Emergency (7d) = 35d. Remaining <strong>145 Days</strong> automatically assigned as <strong>ICAB Study / Exam Leave</strong>.
+                        Per-year regular leaves multiplied by 3 yrs: Casual (14×3 = 42d) + Sick (14×3 = 42d) + Emergency (7×3 = 21d) = 105d. Remaining <strong>75 Days (25d/yr)</strong> assigned as <strong>ICAB Study Leave</strong>. Tracked in 12-month anniversary cycles from joining date.
                     </p>
                 </div>
                 <div class="rounded-xl border border-teal-200 bg-teal-50/50 p-4">
-                    <p class="text-[10px] font-black uppercase text-teal-800">4-YEAR ARTICLESHIP</p>
+                    <p class="text-[10px] font-black uppercase text-teal-800">4-YEAR ARTICLESHIP (60 DAYS / YR)</p>
                     <p class="mt-1 text-xl font-black text-slate-900">Max 240 Days</p>
                     <p class="mt-1.5 text-[11px] text-slate-600 leading-relaxed">
-                        Default regular leaves: Casual (14d) + Sick (14d) + Emergency (7d) = 35d. Remaining <strong>205 Days</strong> automatically assigned as <strong>ICAB Study / Exam Leave</strong>.
+                        Per-year regular leaves multiplied by 4 yrs: Casual (14×4 = 56d) + Sick (14×4 = 56d) + Emergency (7×4 = 28d) = 140d. Remaining <strong>100 Days (25d/yr)</strong> assigned as <strong>ICAB Study Leave</strong>. Tracked in 12-month anniversary cycles from joining date.
                     </p>
                 </div>
             </div>
             <div class="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 text-xs">
                 <div class="flex items-center justify-between">
-                    <span class="font-extrabold text-indigo-950">Bangladesh Corporate Staff / Manager Standard Leave</span>
+                    <span class="font-extrabold text-indigo-950">Bangladesh Corporate Staff / Manager Leave (Jan–Dec Reset + Carry-Forward)</span>
                     <span class="rounded bg-indigo-100 px-2 py-0.5 text-[10px] font-black text-indigo-900">Default 44 Days/Yr</span>
                 </div>
                 <p class="mt-1 text-[11px] text-slate-600">
-                    Casual Leave (10d) · Medical / Sick Leave (14d) · Earned / Privilege Leave (15d) · Emergency / Festival Leave (5d). Fully customizable when creating or editing any profile.
+                    Casual Leave (10d/yr) · Medical / Sick Leave (14d/yr) · Base Earned Leave (15d/yr) · Emergency / Festival Leave (5d/yr). Resets every <strong>Jan 1 – Dec 31</strong>, and unused regular leave automatically carries forward into <strong>Earned Leave</strong>.
                 </p>
             </div>
         </section>
