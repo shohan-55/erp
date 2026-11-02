@@ -41,14 +41,20 @@
 
 <div class="grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(260px,1fr)]">
     <div class="space-y-5">
-        @if($previewRole === 'student')
-            <!-- Student Multi-Transport Claim Submission Form -->
+        @if(in_array($previewRole, ['student', 'manager'], true))
+            <!-- Student & Manager Multi-Transport Claim Submission Form -->
             <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-7">
                 <div class="flex flex-wrap items-center justify-between gap-3">
-                    <h3 class="text-base font-extrabold">New Multi-Leg Conveyance Claim</h3>
-                    <span class="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-800">Within {{ $conveyanceLateDays }} Days = Manager Approval</span>
+                    <h3 class="text-base font-extrabold">{{ $previewRole === 'manager' ? 'Submit Manager Conveyance Claim' : 'New Multi-Leg Conveyance Claim' }}</h3>
+                    <span class="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-800">
+                        {{ $previewRole === 'manager' ? 'Manager Claim → Direct Partner Approval' : 'Within ' . $conveyanceLateDays . ' Days = Manager Approval' }}
+                    </span>
                 </div>
-                <p class="mt-2 text-xs leading-relaxed text-slate-500">Add each transport change (From, To, Transport Mode, Amount). Claims older than {{ $conveyanceLateDays }} working days require Partner final approval.</p>
+                <p class="mt-2 text-xs leading-relaxed text-slate-500">
+                    {{ $previewRole === 'manager'
+                        ? 'Managers can submit multi-leg audit visit conveyance claims here. Manager claims are routed directly to the Partner for sanction and synced with monthly payroll.'
+                        : 'Add each transport change (From, To, Transport Mode, Amount). Claims older than ' . $conveyanceLateDays . ' working days require Partner final approval.' }}
+                </p>
 
                 <form wire:key="student-claim-form-{{ $formResetIteration ?? 1 }}" wire:submit.prevent="requestClaimSubmissionConfirm" class="mt-6 space-y-4" novalidate>
                     <div class="grid gap-3 sm:grid-cols-2">
@@ -150,11 +156,13 @@
                     </div>
 
                     <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-3.5 text-sm font-extrabold hover:bg-[#F3D604]">
-                        <i data-lucide="clipboard-check" class="h-4 w-4"></i> Submit Conveyance Claim
+                        <i data-lucide="clipboard-check" class="h-4 w-4"></i> {{ $previewRole === 'manager' ? 'Submit Manager Conveyance Claim to Partner' : 'Submit Conveyance Claim' }}
                     </button>
                 </form>
             </section>
-        @else
+        @endif
+
+        @if($previewRole !== 'student')
             <!-- Multi-Tier Claim Review Queue for Manager & Partner -->
             <section class="overflow-hidden rounded-2xl border border-[#E8EAF0] bg-white shadow-sm">
                 <div class="border-b border-slate-100 p-5 flex items-center justify-between">

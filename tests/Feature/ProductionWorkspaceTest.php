@@ -880,4 +880,114 @@ class ProductionWorkspaceTest extends TestCase
                 && $mail->isPasswordReset === true;
         });
     }
+
+    public function test_all_policies_including_existing_leave_quotas_geofence_and_governance_rules_are_editable(): void
+    {
+        $this->actingAs($this->partner);
+
+        $component = Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'partner',
+            'section'     => 'policies',
+        ])
+            ->set('geofenceRadiusKm', 2.25)
+            ->set('policyTimezone', 'Asia/Dhaka')
+            ->set('newGovernanceRule', 'Mandatory working paper sign-off before audit closure')
+            ->call('addGovernanceRule')
+            ->assertSet('error', null)
+            ->call('updateLeaveQuota', 0, 'Annual / Casual Leave (Revised)', 18)
+            ->assertSet('error', null);
+
+        $quotas = $component->get('leaveQuotas');
+        $this->assertSame(18, $quotas[0]['days']);
+        $this->assertSame('Annual / Casual Leave (Revised)', $quotas[0]['label']);
+        $this->assertContains('Mandatory working paper sign-off before audit closure', $component->get('governanceRules'));
+    }
+
+    public function test_manager_can_submit_conveyance_claim_for_partner_approval_and_sync_with_payroll(): void
+    {
+        $this->manager->update(['monthly_allowance' => 30000]);
+        $this->actingAs($this->manager->fresh());
+
+        $claimDate = now()->toDateString();
+
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'manager',
+            'section'     => 'conveyance',
+        ])
+            ->set('claimDate', $claimDate)
+            ->set('claimClientName', 'BEXIMCO Textiles Audit')
+            ->set('claimRoute', 'Firm HQ -> BEXIMCO -> Firm HQ')
+            ->set('claimPurpose', 'Managerial audit supervision visit')
+            ->set('claimAmount', 650)
+            ->call('submitConveyanceClaim')
+            ->assertSet('error', null);
+
+        $mgrClaim = ConveyanceClaim::where('user_id', $this->manager->id)->first();
+        $this->assertNotNull($mgrClaim);
+        $this->assertSame('pending_partner', $mgrClaim->status);
+
+        // Manager cannot self-approve their own claim
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'manager',
+            'section'     => 'conveyance',
+        ])
+            ->call('managerReviewClaim', 'CC-' . $mgrClaim->id, 650, 'Self approve attempt', 'approve')
+            ->assertNotSet('error', null);
+
+        // Partner approves the Manager's claim and generates payroll
+        $this->actingAs($this->partner);
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'partner',
+            'section'     => 'conveyance',
+        ])
+            ->call('partnerApproveClaim', 'CC-' . $mgrClaim->id, 'Approved Manager audit visit claim')
+            ->assertSet('error', null)
+            ->set('period', now()->format('Y-m'))
+            ->call('generatePayrollDraft')
+            ->assertSet('error', null);
+
+        $this->assertDatabaseHas('payroll_records', [
+            'firm_id'             => $this->firm->id,
+            'user_id'             => $this->manager->id,
+            'period'              => now()->format('Y-m'),
+            'base_allowance'      => 30000.00,
+            'approved_conveyance' => 650.00,
+        ]);
+    }
+
+    public function test_partner_can_add_custom_designations_and_promote_or_demote_members(): void
+    {
+        $this->actingAs($this->partner);
+
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'partner',
+            'section'     => 'team',
+        ])
+            ->set('newDesignationTitle', 'Senior Articled Supervisor')
+            ->set('newDesignationBaseRole', 'manager')
+            ->call('addCustomDesignation')
+            ->assertSet('error', null)
+            ->call('openPromoteDemoteModal', $this->student->id)
+            ->assertSet('showPromoteDemoteModal', true)
+            ->set('promoteActionType', 'promote')
+            ->set('promoteNewRole', 'manager')
+            ->set('promoteNewDesignation', 'Senior Articled Supervisor')
+            ->set('promoteNewAllowance', 18000)
+            ->set('promoteRemarks', 'Promoted upon completing ICAB CC and strong audit performance')
+            ->call('submitPromotionOrDemotion')
+            ->assertSet('error', null)
+            ->assertSet('showPromoteDemoteModal', false);
+
+        $promoted = $this->student->fresh();
+        $this->assertSame('manager', $promoted->role);
+        $this->assertSame('Senior Articled Supervisor', $promoted->designation);
+        $this->assertSame(18000.0, (float) $promoted->monthly_allowance);
+        $this->assertNotEmpty($promoted->promotion_history);
+        $this->assertSame('Promoted', $promoted->promotion_history[0]['action_label']);
+    }
 }

@@ -104,10 +104,12 @@ trait ManagesPayrollAndVouchers
                 try {
                     [$periodStart, $periodEnd] = $this->payrollPeriodBounds();
 
+                    $payrollRoles = app()->runningUnitTests() ? ['student', 'manager'] : ['student', 'manager'];
                     $students = User::where('firm_id', $firmModel->id)
-                        ->where('role', 'student')
+                        ->whereIn('role', $payrollRoles)
                         ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
                         ->when(Auth::check(), fn ($q) => $q->where('partner_unit', $this->partnerUnit))
+                        ->orderByRaw("CASE role WHEN 'manager' THEN 1 WHEN 'student' THEN 2 ELSE 3 END")
                         ->with('manager')
                         ->get();
 
@@ -158,8 +160,10 @@ trait ManagesPayrollAndVouchers
                             $rowStatus = $rec ? $rec->status : 'draft';
 
                             return [
-                                'id'                       => $s->student_code ?? ('U-' . $s->id),
+                                'id'                       => $s->student_code ?? ($s->role === 'manager' ? ('MGR-' . $s->id) : ('U-' . $s->id)),
                                 'db_id'                    => $s->id,
+                                'role'                     => $s->role,
+                                'designation'              => $s->displayDesignation(),
                                 'name'                     => $s->name,
                                 'manager'                  => $s->manager?->name ?? 'Direct Report',
                                 'partner_unit'             => $s->partner_unit ?? $this->partnerUnit,
@@ -237,7 +241,7 @@ trait ManagesPayrollAndVouchers
         $firmModel = $this->resolveFirmModel();
         if ($firmModel && Schema::hasTable('payroll_records') && Schema::hasTable('users')) {
             $students = User::where('firm_id', $firmModel->id)
-                ->where('role', 'student')
+                ->whereIn('role', ['student', 'manager'])
                 ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
                 ->get();
             foreach ($students as $s) {

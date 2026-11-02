@@ -16,25 +16,41 @@ class PartnerPolicy extends Model
         'grace_minutes',
         'manager_conveyance_limit',
         'conveyance_late_days',
+        'geofence_radius_km',
+        'policy_timezone',
         'late_penalty_enabled',
         'late_days_per_deduction',
         'deduction_days_count',
         'leave_quotas',
         'student_grids',
         'manager_permissions',
+        'governance_rules',
     ];
 
     protected $casts = [
         'grace_minutes'            => 'integer',
         'manager_conveyance_limit' => 'decimal:2',
         'conveyance_late_days'     => 'integer',
+        'geofence_radius_km'       => 'decimal:2',
         'late_penalty_enabled'     => 'boolean',
         'late_days_per_deduction'  => 'integer',
         'deduction_days_count'     => 'decimal:2',
         'leave_quotas'             => 'array',
         'student_grids'            => 'array',
         'manager_permissions'      => 'array',
+        'governance_rules'         => 'array',
     ];
+
+    public static function defaultGovernanceRules(): array
+    {
+        return [
+            'No cross-partner private record visibility',
+            'Immutable audit trail for policy changes',
+            'Recheck roster and eligibility before enactment',
+            'Version-stamped attendance and payroll',
+            'Corporate clients may use centralized rules later',
+        ];
+    }
 
     public static function defaultStudentGrids(): array
     {

@@ -269,6 +269,14 @@
                         <input type="number" wire:model="conveyanceLateDays" min="1" max="30" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
                         <span class="mt-1 block text-[10px] text-slate-500">Claims &gt; {{ $conveyanceLateDays }} days old require Partner sanction</span>
                     </label>
+                    <label class="block font-bold text-slate-700">GPS Geofence Radius (KM)
+                        <input type="number" wire:model="geofenceRadiusKm" min="0.05" max="50" step="0.05" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+                        <span class="mt-1 block text-[10px] text-slate-500">Allowed GPS check-in radius ({{ $geofenceRadiusKm }} km)</span>
+                    </label>
+                    <label class="block font-bold text-slate-700">Policy Timezone
+                        <input type="text" wire:model="policyTimezone" placeholder="Asia/Dhaka" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+                        <span class="mt-1 block text-[10px] text-slate-500">Official timezone for attendance timestamps</span>
+                    </label>
                 </div>
                 <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-[#17191F] px-4 py-2.5 text-xs font-extrabold text-white hover:bg-slate-800">
                     <i data-lucide="save" class="h-4 w-4 text-[#FCDF02]"></i> Save Policy Settings

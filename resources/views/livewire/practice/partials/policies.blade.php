@@ -24,8 +24,8 @@
                     ['title'=>'Office End','value'=>$officeEnd . ' PM','icon'=>'clock-3'],
                     ['title'=>'Late Grace','value'=>$graceMinutes . ' min','icon'=>'timer'],
                     ['title'=>'Weekly Holiday','value'=>$weeklyOffSummary,'icon'=>'calendar-off'],
-                    ['title'=>'Timezone','value'=>'Asia/Dhaka','icon'=>'globe-2'],
-                    ['title'=>'Payroll Penalty','value'=>'Configured in Policy','icon'=>'shield-check']
+                    ['title'=>'Timezone & Geofence','value'=>($policyTimezone ?? 'Asia/Dhaka') . ' · ' . number_format((float) ($geofenceRadiusKm ?? 1.5), 2) . ' km','icon'=>'globe-2'],
+                    ['title'=>'Payroll Penalty','value'=>$latePenaltyEnabled ? ($lateDaysPerDeduction . 'd Late = ' . $deductionDaysCount . 'd Cut') : 'No Financial Cut','icon'=>'shield-check']
                 ] as $policy)
                     <div wire:key="policy-{{ $loop->index }}" class="min-w-0 rounded-xl border border-slate-100 bg-slate-50 p-4"><i data-lucide="{{ $policy['icon'] }}" class="h-5 w-5 text-amber-800"></i><p class="mt-3 text-[11px] font-semibold text-slate-500">{{ $policy['title'] }}</p><p class="mt-1 text-sm font-extrabold text-[#20232A]">{{ $policy['value'] }}</p></div>
                 @endforeach
@@ -60,6 +60,15 @@
                         </label>
                         <label class="block font-bold text-slate-700">Mgr Claim Limit (৳)
                             <input type="number" wire:model="managerConveyanceLimit" min="50" max="10000" step="10" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 font-bold">
+                        </label>
+                        <label class="block font-bold text-slate-700">Claim Window (Days)
+                            <input type="number" wire:model="conveyanceLateDays" min="1" max="30" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 font-bold">
+                        </label>
+                        <label class="block font-bold text-slate-700">Geofence Radius (KM)
+                            <input type="number" wire:model="geofenceRadiusKm" min="0.05" max="50" step="0.05" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 font-bold">
+                        </label>
+                        <label class="block font-bold text-slate-700">Policy Timezone
+                            <input type="text" wire:model="policyTimezone" placeholder="Asia/Dhaka" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 font-bold">
                         </label>
                     </div>
 
@@ -158,16 +167,35 @@
             </div>
             <p class="mt-5 text-[11px] leading-relaxed text-amber-200">Override permission boundaries, effective dates and version history are logged in the compliance trail.</p>
         </section>
-        <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm"><h3 class="text-sm font-extrabold">Governance Requirements</h3><div class="mt-4 space-y-3">
-            @foreach ([
-                'No cross-partner private record visibility',
-                'Immutable audit trail for policy changes',
-                'Recheck roster and eligibility before enactment',
-                'Version-stamped attendance and payroll',
-                'Corporate clients may use centralized rules later'
-            ] as $rule)
-                <div class="flex items-start gap-2 text-xs leading-relaxed text-slate-600"><i data-lucide="check-circle-2" class="mt-0.5 h-4 w-4 shrink-0 text-amber-700"></i>{{ $rule }}</div>
-            @endforeach
-        </div></section>
+        <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
+            <div class="flex items-center justify-between gap-2">
+                <h3 class="text-sm font-extrabold">Governance Requirements</h3>
+                @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+                    <span class="rounded bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">Editable</span>
+                @endif
+            </div>
+            <div class="mt-4 space-y-2.5">
+                @foreach (($governanceRules ?? []) as $gIdx => $rule)
+                    <div wire:key="gov-rule-{{ $gIdx }}" class="flex items-center gap-2 text-xs leading-relaxed text-slate-600">
+                        <i data-lucide="check-circle-2" class="h-4 w-4 shrink-0 text-amber-700"></i>
+                        @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+                            <input type="text" wire:model="governanceRules.{{ $gIdx }}" class="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-amber-400">
+                            <button type="button" wire:click="removeGovernanceRule({{ $gIdx }})" class="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600" title="Remove rule">✕</button>
+                        @else
+                            <span>{{ $rule }}</span>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+            @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+                <div class="mt-3 space-y-2 border-t border-slate-100 pt-3 text-xs">
+                    <div class="flex gap-1.5">
+                        <input type="text" wire:model="newGovernanceRule" placeholder="Add new governance rule..." class="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs outline-none focus:border-amber-400">
+                        <button type="button" wire:click="addGovernanceRule" class="rounded-xl bg-[#FCDF02] px-3 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604]">+ Add</button>
+                    </div>
+                    <button type="button" wire:click="savePolicySettings" class="w-full rounded-xl bg-[#17191F] py-2 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800">Save Governance Rules</button>
+                </div>
+            @endif
+        </section>
     </aside>
 </div>

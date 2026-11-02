@@ -215,16 +215,37 @@
     <!-- Aside policy & Partner customizable leave quota overview -->
     <aside class="space-y-5">
         <section class="rounded-2xl border border-[#E8EAF0] bg-[#17191F] p-5 text-white shadow-sm">
-            <h3 class="text-sm font-extrabold">Partner Leave Quotas ({{ $partnerUnit }})</h3>
-            <p class="mt-2 text-xs leading-relaxed text-slate-300">Leave categories and annual day limits configured by {{ $partnerUnit }}.</p>
-            <div class="mt-5 space-y-3 text-xs">
-                @foreach($leaveQuotas as $q)
-                    <div class="flex justify-between border-b border-white/10 pb-2.5">
-                        <span class="text-slate-400">{{ $q['label'] }}</span>
-                        <strong class="text-[#FCDF02]">{{ $q['days'] }} Days / Year</strong>
+            <div class="flex items-center justify-between gap-2">
+                <h3 class="text-sm font-extrabold">Partner Leave Quotas ({{ $partnerUnit }})</h3>
+                @if(in_array($previewRole, ['partner', 'manager']))
+                    <span class="rounded bg-white/10 px-2 py-0.5 text-[10px] font-bold text-[#FCDF02]">Editable</span>
+                @endif
+            </div>
+            <p class="mt-2 text-xs leading-relaxed text-slate-300">Leave categories and annual day limits configured by {{ $partnerUnit }}. Every category and day limit is editable.</p>
+            <div class="mt-5 space-y-2.5 text-xs">
+                @foreach($leaveQuotas as $qIdx => $q)
+                    <div wire:key="leave-quota-row-{{ $q['key'] ?? $qIdx }}" class="flex items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                        @if(in_array($previewRole, ['partner', 'manager']))
+                            <input type="text" wire:model="leaveQuotas.{{ $qIdx }}.label" class="min-w-0 flex-1 rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-white outline-none focus:border-amber-400">
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <input type="number" wire:model="leaveQuotas.{{ $qIdx }}.days" min="0" max="365" class="w-16 rounded-lg border border-white/15 bg-white/10 px-2 py-1.5 text-center text-xs font-extrabold text-[#FCDF02] outline-none focus:border-amber-400">
+                                <span class="text-[10px] text-slate-400">d/yr</span>
+                                @if(count($leaveQuotas) > 1)
+                                    <button type="button" wire:click="removeLeaveCategory('{{ $q['key'] }}')" class="rounded p-1 text-slate-400 hover:bg-rose-500/20 hover:text-rose-300" title="Remove leave category">✕</button>
+                                @endif
+                            </div>
+                        @else
+                            <span class="text-slate-400">{{ $q['label'] }}</span>
+                            <strong class="text-[#FCDF02]">{{ $q['days'] }} Days / Year</strong>
+                        @endif
                     </div>
                 @endforeach
             </div>
+            @if(in_array($previewRole, ['partner', 'manager']))
+                <button type="button" wire:click="saveLeaveQuotas" class="mt-4 w-full rounded-xl bg-[#FCDF02] py-2.5 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604]">
+                    Save Edited Leave Quotas
+                </button>
+            @endif
         </section>
 
         @if(in_array($previewRole, ['partner', 'manager']))

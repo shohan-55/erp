@@ -74,6 +74,44 @@
     </div>
 </section>
 
+<!-- Custom Firm Designations & Rank Hierarchy Manager -->
+@if($canManageTeam)
+    <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
+        <div class="flex flex-col justify-between gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
+            <div>
+                <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-800">CA PRACTICE HIERARCHY · CUSTOM DESIGNATIONS</p>
+                <h3 class="mt-0.5 text-sm font-extrabold text-slate-900">Firm Designations &amp; Career Ranks ({{ count($customDesignations ?? []) }})</h3>
+                <p class="mt-0.5 text-xs text-slate-500">Add custom designations beyond Partner, Manager, and Articled Student (e.g. Senior Manager, Assistant Manager, Audit Supervisor, Course Complete, Tax Consultant) and promote or demote members anytime.</p>
+            </div>
+            <form wire:submit.prevent="addCustomDesignation" class="flex flex-wrap items-center gap-2 text-xs">
+                <input type="text" wire:model="newDesignationTitle" placeholder="New Designation (e.g. Assistant Manager)" required
+                       class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold outline-none focus:border-amber-400">
+                <select wire:model="newDesignationBaseRole" class="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-bold outline-none focus:border-amber-400">
+                    <option value="student">Student / Trainee Tier</option>
+                    <option value="manager">Manager / Officer Tier</option>
+                    @if($previewRole === 'partner')
+                        <option value="partner">Partner / Director Tier</option>
+                    @endif
+                </select>
+                <button type="submit" class="inline-flex items-center gap-1.5 rounded-xl bg-[#17191F] px-3.5 py-2 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800">
+                    <i data-lucide="plus" class="h-3.5 w-3.5"></i> Add Designation
+                </button>
+            </form>
+        </div>
+        <div class="mt-3.5 flex flex-wrap gap-1.5">
+            @foreach(($customDesignations ?? []) as $desigItem)
+                <span wire:key="desig-chip-{{ $loop->index }}" class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-bold {{ ($desigItem['base_role'] ?? '') === 'partner' ? 'border-amber-300 bg-amber-50 text-amber-950' : (($desigItem['base_role'] ?? '') === 'manager' ? 'border-indigo-200 bg-indigo-50 text-indigo-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800') }}">
+                    <span>{{ $desigItem['title'] }}</span>
+                    <span class="rounded bg-black/10 px-1 py-0.2 text-[9px] uppercase">{{ $desigItem['base_role'] ?? 'staff' }}</span>
+                    @if(count($customDesignations ?? []) > 3)
+                        <button type="button" wire:click="removeCustomDesignation('{{ addslashes($desigItem['title']) }}')" class="ml-0.5 text-slate-400 hover:text-rose-600" title="Remove designation">✕</button>
+                    @endif
+                </span>
+            @endforeach
+        </div>
+    </section>
+@endif
+
 <!-- Filter Tabs & Table Container -->
 <section class="rounded-2xl border border-[#E8EAF0] bg-white shadow-sm overflow-hidden">
     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4 sm:px-6">
@@ -153,9 +191,17 @@
                             </div>
                         </td>
                         <td class="px-3 py-4 whitespace-nowrap">
-                            <span class="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold {{ $member['role'] === 'partner' ? 'bg-amber-100 text-amber-900 border border-amber-300' : ($member['role'] === 'manager' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200') }}">
-                                {{ $member['role_label'] }}
-                            </span>
+                            <div class="flex flex-col items-start gap-1">
+                                <span class="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold {{ $member['role'] === 'partner' ? 'bg-amber-100 text-amber-900 border border-amber-300' : ($member['role'] === 'manager' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200') }}">
+                                    {{ $member['designation'] ?? $member['role_label'] }}
+                                </span>
+                                <span class="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                                    Tier: {{ ucfirst($member['role']) }}
+                                    @if(!empty($member['promotion_history']) && count($member['promotion_history']) > 0)
+                                        · <span class="text-emerald-700 font-bold">{{ $member['promotion_history'][0]['action_label'] ?? 'Updated' }} ({{ $member['promotion_history'][0]['date'] ?? '' }})</span>
+                                    @endif
+                                </span>
+                            </div>
                         </td>
                         <td class="px-3 py-4 text-slate-600 whitespace-nowrap">
                             {{ $member['manager_name'] ?? '—' }}
@@ -220,6 +266,10 @@
                                         </button>
                                     @endif
                                     @if($canManageTeam)
+                                        <button type="button" wire:click="openPromoteDemoteModal({{ $member['id'] }})"
+                                                class="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-bold text-indigo-800 hover:bg-indigo-100 transition" title="Promote, demote, or change designation & salary">
+                                            <i data-lucide="trending-up" class="h-3.5 w-3.5"></i> Promote / Demote
+                                        </button>
                                         <button type="button" wire:click="openEditMemberModal({{ $member['id'] }})"
                                                 class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition" title="Modify role & delegated permissions">
                                             Permissions
@@ -284,15 +334,27 @@
                             </div>
                         </div>
                     @endif
-                    <div>
-                        <label class="block font-bold text-slate-700 mb-1.5">Member Practice Role</label>
-                        <div class="grid grid-cols-3 gap-2">
-                            @foreach(['manager' => 'Audit Manager', 'student' => 'Articled Student', 'partner' => 'Partner'] as $rVal => $rText)
-                                <button type="button" wire:click="$set('newMemberRole', '{{ $rVal }}')"
-                                        class="rounded-xl border p-2 text-center font-bold transition {{ $newMemberRole === $rVal ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-300' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}">
-                                    {{ $rText }}
-                                </button>
-                            @endforeach
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1.5">Base Access Role</label>
+                            <div class="grid grid-cols-3 gap-1.5">
+                                @foreach(['manager' => 'Manager', 'student' => 'Student', 'partner' => 'Partner'] as $rVal => $rText)
+                                    <button type="button" wire:click="$set('newMemberRole', '{{ $rVal }}')"
+                                            class="rounded-xl border p-2 text-center font-bold transition {{ $newMemberRole === $rVal ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-300' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}">
+                                        {{ $rText }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-700 mb-1.5">Official Designation / Title *</label>
+                            <input type="text" wire:model="newMemberDesignation" list="firm-designations-datalist" placeholder="e.g. Senior Manager / Assistant Manager / Course Complete"
+                                   class="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs font-bold outline-none focus:border-amber-400">
+                            <datalist id="firm-designations-datalist">
+                                @foreach(($customDesignations ?? []) as $dOpt)
+                                    <option value="{{ $dOpt['title'] }}">{{ strtoupper($dOpt['base_role'] ?? '') }}</option>
+                                @endforeach
+                            </datalist>
                         </div>
                     </div>
 
@@ -546,13 +608,17 @@
                             <input type="text" wire:model="editMemberNewPassword" placeholder="Type new pass to reset" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2 outline-none focus:border-amber-400 font-mono text-[11px]">
                         </label>
                     </div>
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <label class="block font-bold text-slate-700">Role
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <label class="block font-bold text-slate-700">Base Access Tier
                             <select wire:model="editMemberRole" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
-                                <option value="partner">Partner / Principal</option>
-                                <option value="manager">Audit Manager</option>
-                                <option value="student">Articled Student</option>
+                                <option value="partner">Partner / Principal Tier</option>
+                                <option value="manager">Manager / Officer Tier</option>
+                                <option value="student">Student / Trainee Tier</option>
                             </select>
+                        </label>
+                        <label class="block font-bold text-slate-700">Official Designation
+                            <input type="text" wire:model="editMemberDesignation" list="firm-designations-datalist" placeholder="e.g. Assistant Manager"
+                                   class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-bold outline-none focus:border-amber-400">
                         </label>
                         <label class="block font-bold text-slate-700">Partner Unit
                             <select wire:model="editMemberPartnerUnit" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
@@ -735,6 +801,100 @@
                         <i data-lucide="trash-2" class="h-4 w-4"></i> Permanently Remove
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+@endif
+
+<!-- ========================================================= -->
+<!-- PROMOTE / DEMOTE & DESIGNATION CHANGE MODAL               -->
+<!-- ========================================================= -->
+@if($showPromoteDemoteModal ?? false)
+    <div class="fixed inset-0 z-[75] overflow-y-auto bg-slate-950/60 p-4 sm:p-6 backdrop-blur-sm"
+         wire:click.self="closeDialogs" wire:keydown.escape.window="closeDialogs" role="dialog" aria-modal="true">
+        <div class="flex min-h-full items-center justify-center">
+            <div class="w-full max-w-lg my-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+                <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div>
+                        <p class="text-[10px] font-extrabold uppercase tracking-widest text-indigo-700">CAREER PROGRESSION &amp; RANK GOVERNANCE</p>
+                        <h2 class="mt-1 text-lg font-black text-slate-900">Promote / Demote Practice Member</h2>
+                        <p class="mt-0.5 text-xs font-semibold text-slate-500">{{ $promoteMemberName }} · Current: <span class="text-indigo-700 font-bold">{{ $promoteMemberCurrentDesignation }}</span> (৳{{ number_format($promoteMemberCurrentAllowance, 0) }})</p>
+                    </div>
+                    <button type="button" wire:click="closeDialogs" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition"><i data-lucide="x" class="h-5 w-5"></i></button>
+                </div>
+
+                <form wire:submit.prevent="submitPromotionOrDemotion" class="mt-4 space-y-4 text-xs">
+                    @if($error)
+                        <div class="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-semibold text-rose-800 flex items-start gap-2" role="alert">
+                            <i data-lucide="alert-circle" class="h-4 w-4 text-rose-600 shrink-0 mt-0.5"></i>
+                            <p>{{ $error }}</p>
+                        </div>
+                    @endif
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">Action Type (পদোন্নতি / ডিমোশন / পদবী পরিবর্তন)</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            @foreach(['promote' => '⬆️ Promote (পদোন্নতি)', 'demote' => '⬇️ Demote (ডিমোশন)', 'transfer' => '🔄 Reassign Title'] as $actKey => $actLabel)
+                                <button type="button" wire:click="$set('promoteActionType', '{{ $actKey }}')"
+                                        class="rounded-xl border p-2.5 text-center font-extrabold transition {{ $promoteActionType === $actKey ? ($actKey === 'demote' ? 'border-rose-400 bg-rose-50 text-rose-900 ring-2 ring-rose-200' : 'border-emerald-400 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-200') : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}">
+                                    {{ $actLabel }}
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1.5">Quick Select Firm Designation</label>
+                        <div class="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                            @foreach(($customDesignations ?? []) as $dItem)
+                                <button type="button" wire:click="selectPresetDesignationForPromotion('{{ addslashes($dItem['title']) }}', '{{ $dItem['base_role'] ?? 'student' }}')"
+                                        class="rounded-lg border px-2.5 py-1 text-[11px] font-bold transition {{ $promoteNewDesignation === ($dItem['title'] ?? '') ? 'border-amber-400 bg-[#17191F] text-[#FCDF02]' : 'border-slate-200 bg-white text-slate-700 hover:bg-amber-50' }}">
+                                    {{ $dItem['title'] }}
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <label class="block font-bold text-slate-700">New Designation Title *
+                            <input type="text" wire:model="promoteNewDesignation" required placeholder="e.g. Senior Audit Manager"
+                                   class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-bold outline-none focus:border-amber-400">
+                        </label>
+                        <label class="block font-bold text-slate-700">New Base Access Tier *
+                            <select wire:model="promoteNewRole" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-bold outline-none focus:border-amber-400">
+                                <option value="student">Student / Trainee Tier</option>
+                                <option value="manager">Manager / Officer Tier</option>
+                                @if($previewRole === 'partner')
+                                    <option value="partner">Partner / Principal Tier</option>
+                                @endif
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <label class="block font-bold text-slate-700">Revised Monthly Pay / Stipend (BDT)
+                            <input type="number" wire:model="promoteNewAllowance" min="0" step="100"
+                                   class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-extrabold outline-none focus:border-amber-400">
+                            <span class="mt-1 block text-[10px] text-slate-400">Previous: ৳{{ number_format($promoteMemberCurrentAllowance, 0) }}</span>
+                        </label>
+                        <label class="block font-bold text-slate-700">Effective Date
+                            <input type="date" wire:model="promoteEffectiveDate"
+                                   class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+                        </label>
+                    </div>
+
+                    <label class="block font-bold text-slate-700">Appraisal / Order Remarks
+                        <input type="text" wire:model="promoteRemarks" placeholder="e.g. Completed ICAB Articleship / Promoted for outstanding audit performance"
+                               class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+                    </label>
+
+                    <div class="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
+                        <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">Cancel</button>
+                        <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-[#17191F] px-5 py-2.5 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800 transition shadow-sm">
+                            <i data-lucide="award" class="h-4 w-4"></i> Confirm &amp; Record Order
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

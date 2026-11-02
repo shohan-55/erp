@@ -38,6 +38,7 @@ class User extends Authenticatable
         'firm_id',
         'student_code',
         'role',
+        'designation',
         'manager_id',
         'partner_unit',
         'can_proxy_attendance',
@@ -54,6 +55,7 @@ class User extends Authenticatable
         'payment_account_no',
         'articleship_start_date',
         'articleship_end_date',
+        'promotion_history',
         'invitation_token',
         'invitation_sent_at',
         'email_verified_at',
@@ -78,6 +80,7 @@ class User extends Authenticatable
             'invitation_sent_at'     => 'datetime',
             'articleship_start_date' => 'date',
             'articleship_end_date'   => 'date',
+            'promotion_history'      => 'array',
             'password'               => 'hashed',
             'can_proxy_attendance'   => 'boolean',
             'can_edit_attendance'    => 'boolean',
@@ -166,6 +169,19 @@ class User extends Authenticatable
     public function isFirmMember(): bool
     {
         return in_array($this->role, [self::ROLE_PARTNER, self::ROLE_MANAGER, self::ROLE_STUDENT], true);
+    }
+
+    public function displayDesignation(): string
+    {
+        if (! empty($this->designation) && is_string($this->designation)) {
+            return trim($this->designation);
+        }
+
+        return match ($this->role) {
+            self::ROLE_PARTNER => 'Partner / Principal',
+            self::ROLE_MANAGER => 'Audit Manager',
+            default            => 'Articled Student',
+        };
     }
 
     /**

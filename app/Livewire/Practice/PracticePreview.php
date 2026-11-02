@@ -112,6 +112,10 @@ class PracticePreview extends Component
     public bool $latePenaltyEnabled = true;
     public int $lateDaysPerDeduction = 3; // e.g. 3 days late = 1 day deduction
     public float $deductionDaysCount = 1.00;
+    public float $geofenceRadiusKm = 1.50;
+    public string $policyTimezone = 'Asia/Dhaka';
+    public array $governanceRules = [];
+    public string $newGovernanceRule = '';
 
     // Check-in Celebration Animation Overlay (#UserProposal2)
     public bool $showCheckinCelebration = false;
@@ -317,8 +321,26 @@ class PracticePreview extends Component
     public string $selectedMemberName = '';
     public string $deleteConfirmationInput = '';
 
+    // Custom Firm Designations & Promotion / Demotion Workflow State
+    public array $customDesignations = [];
+    public string $newDesignationTitle = '';
+    public string $newDesignationBaseRole = 'manager';
+    public bool $showPromoteDemoteModal = false;
+    public ?int $promoteMemberId = null;
+    public string $promoteMemberName = '';
+    public string $promoteMemberCurrentRole = 'student';
+    public string $promoteMemberCurrentDesignation = 'Articled Student';
+    public float $promoteMemberCurrentAllowance = 0.00;
+    public string $promoteActionType = 'promote'; // 'promote', 'demote', 'transfer'
+    public string $promoteNewRole = 'student';
+    public string $promoteNewDesignation = '';
+    public float $promoteNewAllowance = 0.00;
+    public string $promoteEffectiveDate = '';
+    public string $promoteRemarks = '';
+
     // Add Member Form Fields
     public string $newMemberRole = 'student';
+    public string $newMemberDesignation = 'Articled Student';
     public string $newMemberName = '';
     public string $newMemberEmail = '';
     public string $newMemberPassword = '';
@@ -343,6 +365,7 @@ class PracticePreview extends Component
     public string $editMemberPhone = '';
     public string $editMemberNewPassword = '';
     public string $editMemberRole = 'student';
+    public string $editMemberDesignation = 'Articled Student';
     public string $editMemberPartnerUnit = 'Partner Unit 01';
     public string $editMemberStudentCode = '';
     public ?int $editMemberManagerId = null;
@@ -379,6 +402,8 @@ class PracticePreview extends Component
         $this->attendanceReportStart = now()->startOfMonth()->toDateString();
         $this->attendanceReportEnd = now()->toDateString();
         $this->leaveQuotas = PartnerPolicy::defaultLeaveQuotas();
+        $this->governanceRules = PartnerPolicy::defaultGovernanceRules();
+        $this->promoteEffectiveDate = now()->toDateString();
 
         $domain = $this->firm['custom_domain'] ?? ($this->firmSlug . '.dhakawala.com');
         $this->partnerEmail = 'partner@' . $domain;
@@ -489,6 +514,7 @@ class PracticePreview extends Component
             }
         }
 
+        $this->loadCustomDesignations();
         $this->loadPartnerPolicy();
         if (Auth::check() && Auth::user()->isManager()) {
             $u = Auth::user();
@@ -851,6 +877,7 @@ class PracticePreview extends Component
         $this->showEditMemberModal = false;
         $this->showDeleteMemberModal = false;
         $this->showResetPasswordModal = false;
+        $this->showPromoteDemoteModal = false;
         $this->resetPasswordMemberId = null;
         $this->resetPasswordInput = '';
         $this->showAddNewClientModal = false;
@@ -1013,7 +1040,8 @@ class PracticePreview extends Component
                             return true;
                         }
                         if (Auth::user()->isManager()) {
-                            return ($q['manager'] ?? '') === Auth::user()->name
+                            return (int) ($q['user_id'] ?? 0) === (int) Auth::id()
+                                || ($q['manager'] ?? '') === Auth::user()->name
                                 || ($q['manager'] ?? '') === 'Direct Report'
                                 || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit;
                         }
@@ -1054,9 +1082,11 @@ class PracticePreview extends Component
             : ($this->previewRole === 'manager'
                 ? array_values(array_filter($this->payrollRows, function ($r) {
                     if (Auth::check() && Auth::user()->isManager()) {
-                        return ($r['manager'] ?? '') === Auth::user()->name || (($r['partner_unit'] ?? '') === $this->partnerUnit && ($r['manager'] ?? '') === 'Direct Report');
+                        return (int) ($r['db_id'] ?? 0) === (int) Auth::id()
+                            || ($r['manager'] ?? '') === Auth::user()->name
+                            || (($r['partner_unit'] ?? '') === $this->partnerUnit && ($r['manager'] ?? '') === 'Direct Report');
                     }
-                    return ($r['manager'] ?? '') === 'Sample Manager A';
+                    return ($r['manager'] ?? '') === 'Sample Manager A' || ($r['role'] ?? '') === 'manager';
                 }))
                 : $this->payrollRows);
 
@@ -1109,9 +1139,10 @@ class PracticePreview extends Component
             'auditLogsList'     => $this->auditLogsList,
             'holidaysList'      => $this->holidaysList,
             'subscriptionAlert' => $this->subscriptionAlert,
-            'teamMembers'       => $filteredTeamMembers,
-            'allTeamMembers'    => $unitScopedTeamMembers,
-            'availableManagers' => $this->availableManagers,
+            'teamMembers'        => $filteredTeamMembers,
+            'allTeamMembers'     => $unitScopedTeamMembers,
+            'customDesignations' => $this->customDesignations,
+            'availableManagers'  => $this->availableManagers,
             'canManageTeam'     => $this->userCanManageTeam(),
             'canResetPasswords' => $this->userCanResetPasswords(),
             'studentGrids'      => $this->studentGrids,

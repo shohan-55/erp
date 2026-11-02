@@ -326,6 +326,123 @@ trait ManagesTeamAndNotifications
         return $target->role === User::ROLE_STUDENT;
     }
 
+    public function loadCustomDesignations(): void
+    {
+        $defaults = Firm::defaultDesignations();
+        if (Schema::hasTable('firms')) {
+            try {
+                $firmModel = $this->resolveFirmModel();
+                if ($firmModel && Schema::hasColumn('firms', 'custom_designations')) {
+                    $stored = $firmModel->custom_designations;
+                    if (! empty($stored) && is_array($stored)) {
+                        $this->customDesignations = array_values($stored);
+                        return;
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::debug($e->getMessage());
+            }
+        }
+        if (empty($this->customDesignations)) {
+            $this->customDesignations = $defaults;
+        }
+    }
+
+    public function addCustomDesignation(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        if (! $this->userCanManageTeam()) {
+            $this->error = 'Only a Partner or authorized Team Admin can add custom designations.';
+            return;
+        }
+
+        $title = trim($this->newDesignationTitle);
+        $baseRole = in_array($this->newDesignationBaseRole, ['partner', 'manager', 'student'], true)
+            ? $this->newDesignationBaseRole
+            : 'manager';
+
+        if (mb_strlen($title) < 2 || mb_strlen($title) > 100) {
+            $this->error = 'Please enter a valid designation title (2–100 characters).';
+            return;
+        }
+
+        if (! $this->canManageTargetRole($baseRole)) {
+            $this->error = 'Security rule: Only a Partner can create a Partner-tier designation.';
+            return;
+        }
+
+        foreach ($this->customDesignations as $existing) {
+            if (strcasecmp((string) ($existing['title'] ?? ''), $title) === 0) {
+                $this->error = "Designation '{$title}' already exists in this firm.";
+                return;
+            }
+        }
+
+        $this->customDesignations[] = [
+            'title'     => $title,
+            'base_role' => $baseRole,
+        ];
+
+        $this->persistCustomDesignations();
+        $this->recordAuditLog('team', 'designation_added', "Added custom designation '{$title}' (Base role: " . ucfirst($baseRole) . ').', $title);
+        $this->newDesignationTitle = '';
+        $this->notice = "Custom designation '{$title}' added to firm roster options.";
+        $this->dispatch('toast', [
+            'type'    => 'success',
+            'title'   => 'Designation Added',
+            'message' => $this->notice,
+        ]);
+    }
+
+    public function removeCustomDesignation(string $title): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        if (! $this->userCanManageTeam()) {
+            $this->error = 'Only a Partner or authorized Team Admin can remove designations.';
+            return;
+        }
+
+        if (count($this->customDesignations) <= 3) {
+            $this->error = 'At least 3 core designations must remain in the firm.';
+            return;
+        }
+
+        $this->customDesignations = array_values(array_filter(
+            $this->customDesignations,
+            fn (array $d) => strcasecmp((string) ($d['title'] ?? ''), trim($title)) !== 0
+        ));
+
+        $this->persistCustomDesignations();
+        $this->recordAuditLog('team', 'designation_removed', "Removed custom designation '{$title}'.", $title);
+        $this->notice = "Removed designation '{$title}' from firm list.";
+    }
+
+    protected function persistCustomDesignations(): void
+    {
+        if (Schema::hasTable('firms') && Schema::hasColumn('firms', 'custom_designations')) {
+            try {
+                $firmModel = $this->resolveFirmModel();
+                if ($firmModel) {
+                    $firmModel->custom_designations = $this->customDesignations;
+                    $firmModel->save();
+                }
+            } catch (\Throwable $e) {
+                Log::debug($e->getMessage());
+            }
+        }
+    }
+
+    public function updatedNewMemberRole(string $role): void
+    {
+        $this->newMemberDesignation = match ($role) {
+            'partner' => 'Partner / Principal',
+            'manager' => 'Audit Manager',
+            default   => 'Articled Student',
+        };
+    }
+
     public function getAvailableManagersProperty(): array
     {
         return array_values(array_filter($this->teamMembers, function ($m) {
@@ -365,12 +482,9 @@ trait ManagesTeamAndNotifications
                                 'name'                 => $u->name,
                                 'email'                => $u->email,
                                 'role'                 => $u->role,
-                                'role_label'           => match ($u->role) {
-                                    'partner' => 'Partner / Principal',
-                                    'manager' => 'Audit Manager',
-                                    'student' => 'Articled Student',
-                                    default   => ucfirst($u->role),
-                                },
+                                'designation'          => $u->displayDesignation(),
+                                'role_label'           => $u->displayDesignation(),
+                                'promotion_history'    => is_array($u->promotion_history) ? $u->promotion_history : [],
                                 'avatar_url'             => $u->avatar_url ?? null,
                                 'phone'                  => $u->phone ?: '—',
                                 'payment_account_mode'   => $redactSensitive ? '—' : ($u->payment_account_mode ?: 'bKash'),
@@ -548,6 +662,7 @@ trait ManagesTeamAndNotifications
         $this->newMemberEmail = '';
         $this->newMemberPassword = '';
         $this->newMemberRole = 'student';
+        $this->newMemberDesignation = 'Articled Student';
         $this->newMemberStudentCode = '';
         $this->newMemberManagerId = null;
         $this->newMemberPartnerUnit = $this->partnerUnit;
@@ -628,6 +743,14 @@ trait ManagesTeamAndNotifications
                 : Str::password(16, true, true, true);
             $user->password = Hash::make($initialSecret);
             $user->role = $this->newMemberRole;
+            $defaultDesig = match ($this->newMemberRole) {
+                'partner' => 'Partner / Principal',
+                'manager' => 'Audit Manager',
+                default   => 'Articled Student',
+            };
+            if (Schema::hasColumn('users', 'designation')) {
+                $user->designation = trim($this->newMemberDesignation) ?: $defaultDesig;
+            }
             $user->partner_unit = $this->newMemberPartnerUnit ?: $this->partnerUnit;
             $user->monthly_allowance = (float) $this->newMemberMonthlyAllowance;
             $user->student_code = $this->newMemberRole === 'student' ? ($this->newMemberStudentCode ?: ('S-' . rand(100, 999))) : null;
@@ -683,7 +806,13 @@ trait ManagesTeamAndNotifications
                 'name'                 => trim($this->newMemberName),
                 'email'                => strtolower(trim($this->newMemberEmail)),
                 'role'                 => $this->newMemberRole,
-                'role_label'           => match ($this->newMemberRole) {
+                'designation'          => trim($this->newMemberDesignation) ?: match ($this->newMemberRole) {
+                    'partner' => 'Partner / Principal',
+                    'manager' => 'Audit Manager',
+                    'student' => 'Articled Student',
+                    default   => ucfirst($this->newMemberRole),
+                },
+                'role_label'           => trim($this->newMemberDesignation) ?: match ($this->newMemberRole) {
                     'partner' => 'Partner / Principal',
                     'manager' => 'Audit Manager',
                     'student' => 'Articled Student',
@@ -739,6 +868,7 @@ trait ManagesTeamAndNotifications
         $this->editMemberPhone = ($member['phone'] ?? '') !== '—' ? ($member['phone'] ?? '') : '';
         $this->editMemberNewPassword = '';
         $this->editMemberRole = $member['role'];
+        $this->editMemberDesignation = $member['designation'] ?? ($member['role_label'] ?? 'Articled Student');
         $this->editMemberStudentCode = $member['student_code'] ?? '';
         $this->editMemberManagerId = $member['manager_id'] ?? null;
         $this->editMemberPartnerUnit = $member['partner_unit'] ?? $this->partnerUnit;
@@ -922,6 +1052,13 @@ trait ManagesTeamAndNotifications
                     }
                 }
                 $user->role = $this->editMemberRole;
+                if (Schema::hasColumn('users', 'designation')) {
+                    $user->designation = trim($this->editMemberDesignation) ?: match ($this->editMemberRole) {
+                        'partner' => 'Partner / Principal',
+                        'manager' => 'Audit Manager',
+                        default   => 'Articled Student',
+                    };
+                }
                 $user->partner_unit = $this->editMemberPartnerUnit;
                 $user->monthly_allowance = (float) $this->editMemberMonthlyAllowance;
                 if ($this->editMemberRole === 'student') {
@@ -1016,6 +1153,195 @@ trait ManagesTeamAndNotifications
             'type'    => 'success',
             'title'   => 'Member Updated',
             'message' => $this->notice ?? 'Member profile and permissions updated.',
+        ]);
+    }
+
+    public function openPromoteDemoteModal($id): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        if (! $this->userCanManageTeam()) {
+            $this->error = 'Only Partners or authorized Team Admins can promote or demote practice members.';
+            return;
+        }
+
+        $member = collect($this->teamMembers)->firstWhere('id', $id);
+        if (! $member) {
+            $this->error = 'Member not found.';
+            return;
+        }
+
+        $this->closeDialogs();
+        $this->promoteMemberId = (int) $member['id'];
+        $this->promoteMemberName = $member['name'];
+        $this->promoteMemberCurrentRole = $member['role'];
+        $this->promoteMemberCurrentDesignation = $member['designation'] ?? ($member['role_label'] ?? 'Articled Student');
+        $this->promoteMemberCurrentAllowance = (float) ($member['monthly_allowance'] ?? 0);
+        $this->promoteActionType = 'promote';
+        $this->promoteNewRole = $member['role'];
+        $this->promoteNewDesignation = $this->promoteMemberCurrentDesignation;
+        $this->promoteNewAllowance = $this->promoteMemberCurrentAllowance;
+        $this->promoteEffectiveDate = now()->toDateString();
+        $this->promoteRemarks = '';
+        $this->showPromoteDemoteModal = true;
+    }
+
+    public function selectPresetDesignationForPromotion(string $title, string $baseRole): void
+    {
+        $this->promoteNewDesignation = $title;
+        if (in_array($baseRole, ['partner', 'manager', 'student'], true) && $this->canManageTargetRole($baseRole)) {
+            $this->promoteNewRole = $baseRole;
+        }
+    }
+
+    public function submitPromotionOrDemotion(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        $this->notice = null;
+
+        if (! $this->userCanManageTeam()) {
+            $this->error = 'Unauthorized: Only Partners or authorized Team Admins can record promotions or demotions.';
+            return;
+        }
+
+        if (! $this->promoteMemberId) {
+            $this->error = 'Please select a member to promote or demote.';
+            return;
+        }
+
+        $newDesig = trim($this->promoteNewDesignation);
+        if (mb_strlen($newDesig) < 2 || mb_strlen($newDesig) > 120) {
+            $this->error = 'Please enter or select a valid new designation (2–120 characters).';
+            return;
+        }
+
+        if (! in_array($this->promoteNewRole, ['partner', 'manager', 'student'], true)) {
+            $this->error = 'Select a valid base access tier.';
+            return;
+        }
+
+        if (! $this->canManageTargetRole($this->promoteNewRole)) {
+            $this->error = 'Security rule: Only a Partner can promote or assign a member to the ' . ucfirst($this->promoteNewRole) . ' tier.';
+            return;
+        }
+
+        $actionType = in_array($this->promoteActionType, ['promote', 'demote', 'transfer'], true)
+            ? $this->promoteActionType
+            : 'promote';
+        $actionVerb = match ($actionType) {
+            'demote'   => 'Demoted',
+            'transfer' => 'Reassigned',
+            default    => 'Promoted',
+        };
+        $effectiveDate = $this->validDate($this->promoteEffectiveDate) ? $this->promoteEffectiveDate : now()->toDateString();
+        $remarks = trim($this->promoteRemarks) ?: "{$actionVerb} to {$newDesig} effective {$effectiveDate}.";
+
+        // Ensure custom designation is also in the firm's list if newly typed
+        $existsInList = false;
+        foreach ($this->customDesignations as $cd) {
+            if (strcasecmp((string) ($cd['title'] ?? ''), $newDesig) === 0) {
+                $existsInList = true;
+                break;
+            }
+        }
+        if (! $existsInList) {
+            $this->customDesignations[] = [
+                'title'     => $newDesig,
+                'base_role' => $this->promoteNewRole,
+            ];
+            $this->persistCustomDesignations();
+        }
+
+        $firmModel = $this->resolveFirmModel();
+        if ($firmModel && Schema::hasTable('users')) {
+            $user = User::where('firm_id', $firmModel->id)->where('id', $this->promoteMemberId)->first();
+            if (! $user) {
+                $this->error = 'Member account not found in this workspace.';
+                return;
+            }
+
+            if (! $this->canManageTargetUser($user)) {
+                $this->error = 'Security rule: You cannot promote or demote an account with equal or higher privileges.';
+                return;
+            }
+
+            if (Auth::check() && (int) Auth::id() === (int) $user->id && $user->role !== $this->promoteNewRole) {
+                $this->error = 'Security rule: You cannot change your own base access role.';
+                return;
+            }
+
+            $oldRole = $user->role;
+            $oldDesig = $user->displayDesignation();
+            $oldAllowance = (float) ($user->monthly_allowance ?? 0);
+            $newAllowance = max(0.0, (float) $this->promoteNewAllowance);
+
+            $user->role = $this->promoteNewRole;
+            if (Schema::hasColumn('users', 'designation')) {
+                $user->designation = $newDesig;
+            }
+            $user->monthly_allowance = $newAllowance;
+            if ($this->promoteNewRole !== 'student') {
+                $user->manager_id = null;
+            }
+
+            $historyEntry = [
+                'date'             => $effectiveDate,
+                'action'           => $actionType,
+                'action_label'     => $actionVerb,
+                'from_role'        => $oldRole,
+                'to_role'          => $this->promoteNewRole,
+                'from_designation' => $oldDesig,
+                'to_designation'   => $newDesig,
+                'from_allowance'   => $oldAllowance,
+                'to_allowance'     => $newAllowance,
+                'remarks'          => $remarks,
+                'actor'            => Auth::user()?->name ?? ucfirst($this->previewRole),
+            ];
+
+            if (Schema::hasColumn('users', 'promotion_history')) {
+                $hist = is_array($user->promotion_history) ? $user->promotion_history : [];
+                array_unshift($hist, $historyEntry);
+                $user->promotion_history = $hist;
+            }
+            $user->save();
+
+            $this->recordAuditLog(
+                'team',
+                'member_' . $actionType,
+                "{$actionVerb} {$user->name} from {$oldDesig} (" . ucfirst($oldRole) . ", ৳{$oldAllowance}) to {$newDesig} (" . ucfirst($this->promoteNewRole) . ", ৳{$newAllowance}). Effective: {$effectiveDate}. Remarks: {$remarks}",
+                $user->email
+            );
+
+            $notifTitle = $actionType === 'promote'
+                ? "Congratulations! Promoted to {$newDesig}"
+                : "Official Designation Update: {$newDesig}";
+            $notifMsg = "{$user->name}: Your practice designation has been updated from {$oldDesig} to {$newDesig} (effective {$effectiveDate}, monthly allowance/pay: ৳" . number_format($newAllowance, 0) . "). Note: {$remarks}";
+            $this->createPracticeNotification($user->id, $user->role, $notifTitle, $notifMsg, 'award');
+
+            $this->notice = "{$actionVerb} {$user->name} from {$oldDesig} to {$newDesig} (৳" . number_format($newAllowance, 0) . "/month).";
+        } else {
+            foreach ($this->teamMembers as &$m) {
+                if ((int) $m['id'] === (int) $this->promoteMemberId) {
+                    $m['role'] = $this->promoteNewRole;
+                    $m['designation'] = $newDesig;
+                    $m['role_label'] = $newDesig;
+                    $m['monthly_allowance'] = max(0.0, (float) $this->promoteNewAllowance);
+                    break;
+                }
+            }
+            unset($m);
+            $this->notice = "{$actionVerb} {$this->promoteMemberName} to {$newDesig}.";
+        }
+
+        $this->closeDialogs();
+        $this->loadTeamMembers();
+        $this->loadAttendanceRows();
+        $this->loadPayrollRows();
+        $this->dispatch('toast', [
+            'type'    => 'success',
+            'title'   => "{$actionVerb}: {$newDesig}",
+            'message' => $this->notice,
         ]);
     }
 

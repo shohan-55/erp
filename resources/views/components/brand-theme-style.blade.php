@@ -383,60 +383,107 @@
 
 
 /* =====================================================================
-   Global Interactive Button Feedback, Spinner, & Top Progress Bar Engine
+   Global Interactive Button Feedback, Harmonic Wave Animation, & Top Progress Bar Engine
    ===================================================================== */
-@keyframes dw-spin {
-    to { transform: rotate(360deg); }
+@keyframes dw-wave-equalizer {
+    0%, 100% { transform: scaleY(0.38); opacity: 0.55; }
+    50%      { transform: scaleY(1.08); opacity: 1; }
+}
+@keyframes dw-shimmer-glide {
+    0%   { transform: translateX(-130%) skewX(-22deg); }
+    100% { transform: translateX(230%) skewX(-22deg); }
+}
+@keyframes dw-busy-aura {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand-primary, #0D9488) 42%, transparent), 0 4px 14px -3px rgba(15, 23, 42, 0.18); }
+    50%      { box-shadow: 0 0 0 5px color-mix(in srgb, var(--brand-primary, #0D9488) 0%, transparent), 0 6px 18px -2px rgba(15, 23, 42, 0.26); }
 }
 @keyframes dw-progress-indeterminate {
     0%   { transform: translateX(-100%) scaleX(0.25); }
     50%  { transform: translateX(0%) scaleX(0.6); }
     100% { transform: translateX(100%) scaleX(0.25); }
 }
-@keyframes dw-btn-pulse {
-    0%, 100% { opacity: 0.92; }
-    50%      { opacity: 0.72; }
-}
 
 /* Tactile Press Feedback on every interactive button */
 button:not(:disabled),
 [role="button"]:not(:disabled) {
-    transition: transform 0.12s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
+    transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease, background-color 0.15s ease, opacity 0.15s ease;
 }
 button:not(:disabled):active,
 [role="button"]:not(:disabled):active {
-    transform: scale(0.97) !important;
+    transform: scale(0.965) !important;
 }
 
-/* Automatic Busy / Loading State on Clicked Buttons */
+/* Action-Locked Busy State with Glassmorphic Shimmer Sweep & Luminous Aura */
 button.dw-btn-busy,
 a.dw-btn-busy {
     position: relative !important;
+    overflow: hidden !important;
     pointer-events: none !important;
     cursor: wait !important;
-    animation: dw-btn-pulse 1.1s ease-in-out infinite !important;
-    filter: saturate(0.92);
+    transform: translateY(-0.5px) !important;
+    animation: dw-busy-aura 1.25s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+}
+button.dw-btn-busy::after,
+a.dw-btn-busy::after {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    width: 55% !important;
+    height: 100% !important;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.38), transparent) !important;
+    animation: dw-shimmer-glide 1.05s cubic-bezier(0.4, 0, 0.2, 1) infinite !important;
+    pointer-events: none !important;
 }
 
+/* 3-Capsule Harmonic Wave Loader (Replaces Old Rotating Circle Spinner) */
 button.dw-btn-busy > .dw-auto-spinner {
-    display: inline-block !important;
+    display: inline-flex !important;
 }
 :where(.dw-inline-spinner) {
-    display: inline-block;
+    display: inline-flex;
 }
 button.dw-btn-busy > .dw-auto-spinner,
 .dw-inline-spinner {
-    width: 1em;
-    height: 1em;
-    min-width: 14px;
+    align-items: center;
+    justify-content: center;
+    gap: 2.5px;
+    width: 16px;
+    height: 14px;
+    min-width: 16px;
     min-height: 14px;
-    border: 2.2px solid currentColor;
-    border-right-color: transparent !important;
-    border-radius: 9999px;
-    animation: dw-spin 0.6s linear infinite;
+    margin-right: 0.48rem;
     vertical-align: -0.15em;
-    margin-right: 0.45rem;
     flex-shrink: 0;
+    position: relative;
+}
+button.dw-btn-busy > .dw-auto-spinner > .dw-wave-bar {
+    display: block;
+    width: 3px;
+    height: 13px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    transform-origin: center center;
+    animation: dw-wave-equalizer 0.78s ease-in-out infinite;
+}
+button.dw-btn-busy > .dw-auto-spinner > .dw-wave-bar:nth-child(2) {
+    animation-delay: 0.15s;
+}
+button.dw-btn-busy > .dw-auto-spinner > .dw-wave-bar:nth-child(3) {
+    animation-delay: 0.30s;
+}
+/* Fallback harmonic wave bars for standalone .dw-inline-spinner spans */
+.dw-inline-spinner::before,
+.dw-inline-spinner::after {
+    content: "";
+    display: block;
+    width: 3.5px;
+    height: 13px;
+    border-radius: 9999px;
+    background-color: currentColor;
+    animation: dw-wave-equalizer 0.78s ease-in-out infinite;
+}
+.dw-inline-spinner::after {
+    animation-delay: 0.22s;
 }
 [wire\:loading],
 [wire\:loading\.delay],
@@ -544,33 +591,39 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
 
     var activeTimers = new WeakMap();
     var barSafetyTimer = null;
+    var inFlightRequests = 0;
 
     function startTopBar() {
         ensureProgressElements();
         var bar = document.getElementById('dw-top-progress-bar');
         if (bar) bar.classList.add('dw-active');
         clearTimeout(barSafetyTimer);
-        barSafetyTimer = setTimeout(stopTopBar, 8000);
+        barSafetyTimer = setTimeout(stopTopBar, 20000);
     }
 
     function stopTopBar() {
+        if (inFlightRequests > 0) return;
         clearTimeout(barSafetyTimer);
         var bar = document.getElementById('dw-top-progress-bar');
         if (bar) bar.classList.remove('dw-active');
     }
 
-    function markButtonBusy(btn, customTimeoutMs) {
+    function markButtonBusy(btn, customTimeoutMs, isGps) {
         if (!btn || btn.disabled || btn.classList.contains('dw-btn-busy')) return;
         if (btn.hasAttribute('data-no-loading')) return;
 
         btn.classList.add('dw-btn-busy');
+        if (isGps) {
+            btn.setAttribute('data-dw-gps-pending', '1');
+        }
 
-        // Inject a crisp inline spinner unless the button already renders its own wire:loading or x-show spinner
-        var hasOwnSpinner = btn.querySelector('.dw-inline-spinner, [wire\\:loading]');
+        // Inject 3-capsule harmonic wave animation unless the button already has a visible .dw-inline-spinner
+        var hasOwnSpinner = btn.querySelector('.dw-inline-spinner');
         if (!hasOwnSpinner) {
             var sp = document.createElement('span');
             sp.className = 'dw-auto-spinner';
             sp.setAttribute('aria-hidden', 'true');
+            sp.innerHTML = '<span class="dw-wave-bar"></span><span class="dw-wave-bar"></span><span class="dw-wave-bar"></span>';
             btn.insertBefore(sp, btn.firstChild);
             btn.classList.add('dw-has-auto-spinner');
         }
@@ -580,13 +633,17 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
         var prev = activeTimers.get(btn);
         if (prev) clearTimeout(prev);
         var t = setTimeout(function () {
+            btn.removeAttribute('data-dw-gps-pending');
             clearButtonBusy(btn);
-        }, customTimeoutMs || 8000);
+        }, customTimeoutMs || 20000);
         activeTimers.set(btn, t);
     }
 
     function clearButtonBusy(btn) {
         if (!btn) return;
+        if (btn.getAttribute('data-dw-gps-pending') === '1' || inFlightRequests > 0) {
+            return;
+        }
         btn.classList.remove('dw-btn-busy', 'dw-has-auto-spinner');
         var sp = btn.querySelector(':scope > .dw-auto-spinner');
         if (sp) sp.remove();
@@ -594,9 +651,16 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
         if (prev) clearTimeout(prev);
     }
 
-    function clearAllBusyButtons() {
-        document.querySelectorAll('.dw-btn-busy').forEach(clearButtonBusy);
-        stopTopBar();
+    function clearAllBusyButtonsIfIdle() {
+        if (inFlightRequests > 0) return;
+        document.querySelectorAll('.dw-btn-busy').forEach(function (btn) {
+            if (btn.getAttribute('data-dw-gps-pending') !== '1') {
+                clearButtonBusy(btn);
+            }
+        });
+        if (!document.querySelector('.dw-btn-busy')) {
+            stopTopBar();
+        }
     }
 
     // 1. Instant capture on any click on a wire:click button or @click attendance button
@@ -604,7 +668,6 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
         var btn = e.target.closest('button, a[wire\\:click]');
         if (!btn || btn.disabled) return;
 
-        // Check if button triggers a Livewire action or GPS check-in/out
         var attrs = btn.attributes;
         var isLivewireOrAction = false;
         var isGpsAction = false;
@@ -617,12 +680,12 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
             if ((name.indexOf('@click') === 0 || name.indexOf('x-on:click') === 0) &&
                 (val.indexOf('Gps') !== -1 || val.indexOf('$wire.') !== -1)) {
                 isLivewireOrAction = true;
-                isGpsAction = true;
+                isGpsAction = val.indexOf('Gps') !== -1;
             }
         }
 
         if (isLivewireOrAction) {
-            markButtonBusy(btn, isGpsAction ? 9000 : 6000);
+            markButtonBusy(btn, 20000, isGpsAction);
         }
     }, true);
 
@@ -632,17 +695,16 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
         if (!form || form.tagName !== 'FORM') return;
         var submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
         if (submitBtn) {
-            markButtonBusy(submitBtn, 8000);
+            markButtonBusy(submitBtn, 20000, false);
         } else {
             startTopBar();
         }
     }, true);
 
-    // 3. Hook into Livewire lifecycle to clear spinners immediately when server responds
+    // 3. Hook into Livewire request lifecycle so animation stays active until action + DOM morph 100% finishes
     document.addEventListener('livewire:init', function () {
         if (!window.Livewire) return;
 
-        // Ensure Toast listener is registered once across all layouts
         if (!window.__dwToastListenerBound) {
             window.__dwToastListenerBound = true;
             Livewire.on('toast', function (data) {
@@ -655,19 +717,31 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
 
         if (typeof Livewire.hook === 'function') {
             Livewire.hook('request', function (_ref) {
-                startTopBar();
-                _ref.respond(function () {
-                    setTimeout(clearAllBusyButtons, 60);
+                inFlightRequests++;
+                // Once the Livewire request starts, any pending GPS acquisition has handed off to the server call
+                document.querySelectorAll('[data-dw-gps-pending="1"]').forEach(function (b) {
+                    b.removeAttribute('data-dw-gps-pending');
                 });
+                startTopBar();
+
+                var finalizeRequest = function () {
+                    inFlightRequests = Math.max(0, inFlightRequests - 1);
+                    // Wait for DOM morph & next animation frame so button animation stays until UI update is complete
+                    requestAnimationFrame(function () {
+                        setTimeout(clearAllBusyButtonsIfIdle, 90);
+                    });
+                };
+
                 _ref.succeed(function () {
-                    setTimeout(clearAllBusyButtons, 60);
+                    finalizeRequest();
                 });
                 _ref.fail(function () {
-                    clearAllBusyButtons();
+                    inFlightRequests = Math.max(0, inFlightRequests - 1);
+                    document.querySelectorAll('[data-dw-gps-pending="1"]').forEach(function (b) {
+                        b.removeAttribute('data-dw-gps-pending');
+                    });
+                    clearAllBusyButtonsIfIdle();
                 });
-            });
-            Livewire.hook('morph.updated', function () {
-                setTimeout(clearAllBusyButtons, 40);
             });
         }
     });

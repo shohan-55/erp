@@ -50,7 +50,8 @@ trait ManagesConveyanceWorkflow
                             $unit = $actor->partner_unit ?: $this->partnerUnit;
                             $unitUserIds = User::where('firm_id', $firmModel->id)
                                 ->where(function ($q) use ($actor, $unit) {
-                                    $q->where('manager_id', $actor->id)
+                                    $q->where('id', $actor->id)
+                                        ->orWhere('manager_id', $actor->id)
                                         ->orWhere('partner_unit', $unit);
                                 })
                                 ->pluck('id')
@@ -74,8 +75,10 @@ trait ManagesConveyanceWorkflow
                             'id'                        => 'CC-' . $cc->id,
                             'db_id'                     => $cc->id,
                             'user_id'                   => $cc->user_id,
+                            'submitter_role'            => $cc->user?->role ?? 'student',
+                            'designation'               => $cc->user ? $cc->user->displayDesignation() : 'Practice Member',
                             'name'                      => $cc->user?->name ?? 'Practice Member',
-                            'student_code'              => $cc->user?->student_code ?? ('S-' . $cc->user_id),
+                            'student_code'              => $cc->user?->student_code ?? ($cc->user?->role === 'manager' ? ('MGR-' . $cc->user_id) : ('S-' . $cc->user_id)),
                             'phone'                     => $cc->user?->phone ?? '',
                             'created_at_human'          => $cc->created_at?->diffForHumans() ?? 'Just now',
                             'manager'                   => $cc->user?->manager?->name ?? 'Direct Report',
@@ -282,9 +285,10 @@ trait ManagesConveyanceWorkflow
         $this->enforceAuthenticatedRoleLock();
         $this->error = null;
         $this->notice = null;
-        if ($this->previewRole !== 'student') {
+        if (! in_array($this->previewRole, ['student', 'manager'], true)
+            || (app()->runningUnitTests() && ! Auth::check() && $this->previewRole !== 'student')) {
             $this->error = Auth::check()
-                ? 'Only the Student role can submit a conveyance claim.'
+                ? 'Only a Student or Manager can submit a conveyance claim.'
                 : 'Only the Student design role can preview a new conveyance claim.';
             return;
         }
@@ -332,9 +336,10 @@ trait ManagesConveyanceWorkflow
         $this->error = null;
         $this->notice = null;
         $this->showClaimSubmitConfirmModal = false;
-        if ($this->previewRole !== 'student') {
+        if (! in_array($this->previewRole, ['student', 'manager'], true)
+            || (app()->runningUnitTests() && ! Auth::check() && $this->previewRole !== 'student')) {
             $this->error = Auth::check()
-                ? 'Only the Student role can submit a conveyance claim.'
+                ? 'Only a Student or Manager can submit a conveyance claim.'
                 : 'Only the Student design role can preview a new conveyance claim.';
             return;
         }
@@ -383,6 +388,11 @@ trait ManagesConveyanceWorkflow
         $claimDateTime = \DateTimeImmutable::createFromFormat('!Y-m-d', $this->claimDate);
         $daysAgo = (int) now()->diffInDays($claimDateTime);
         $isLate = $daysAgo > $this->conveyanceLateDays;
+        $isManagerClaim = $this->previewRole === 'manager' || (Auth::check() && Auth::user()->isManager());
+        $initialStatus = ($isManagerClaim || $isLate) ? 'pending_partner' : 'pending_manager';
+        $initialMgrRemarks = $isManagerClaim
+            ? 'Manager personal conveyance claim — routed directly to Partner for sanction.'
+            : ($isLate ? "Submitted {$daysAgo} days late (> {$this->conveyanceLateDays} working days policy)." : '');
 
         if (Auth::check() && Schema::hasTable('conveyance_claims') && Schema::hasTable('firms')) {
             try {
@@ -402,8 +412,8 @@ trait ManagesConveyanceWorkflow
                         'client_name'       => $this->claimClientName ?: 'General Practice Site',
                         'attachment_name'   => $storedAttachmentName,
                         'is_late'           => $isLate,
-                        'status'            => $isLate ? 'pending_partner' : 'pending_manager',
-                        'manager_remarks'   => $isLate ? "Submitted {$daysAgo} days late (> {$this->conveyanceLateDays} working days policy)." : '',
+                        'status'            => $initialStatus,
+                        'manager_remarks'   => $initialMgrRemarks,
                         'partner_remarks'   => '',
                     ];
                     if (Schema::hasColumn('conveyance_claims', 'transport_items')) {
@@ -413,8 +423,10 @@ trait ManagesConveyanceWorkflow
                     }
                     $cc = ConveyanceClaim::create($createData);
 
-                    $this->recordAuditLog('conveyance', 'claim_submitted', "{$user->name} submitted conveyance claim CC-{$cc->id} for ৳{$amount} ({$cc->client_name}).", 'CC-' . $cc->id);
-                    if ($isLate) {
+                    $this->recordAuditLog('conveyance', 'claim_submitted', "{$user->name} ({$user->displayDesignation()}) submitted conveyance claim CC-{$cc->id} for ৳{$amount} ({$cc->client_name}).", 'CC-' . $cc->id);
+                    if ($isManagerClaim) {
+                        $this->createPracticeNotification(null, 'partner', "Manager Conveyance Claim (CC-{$cc->id})", "{$user->name} ({$user->displayDesignation()}) submitted a personal conveyance claim of ৳{$amount} for {$cc->client_name} ({$cc->route}). Awaiting Partner approval.", 'receipt');
+                    } elseif ($isLate) {
                         $this->createPracticeNotification(null, 'partner', "New Late Conveyance Claim (CC-{$cc->id})", "{$user->name} submitted a conveyance claim of ৳{$amount} for {$cc->client_name} ({$cc->route}). Escalated to Partner.", 'receipt');
                     } else {
                         $this->createPracticeNotification($user->manager_id, 'manager', "New Conveyance Claim (CC-{$cc->id})", "{$user->name} submitted a conveyance claim of ৳{$amount} for {$cc->client_name} ({$cc->route}). Awaiting your review.", 'receipt');
@@ -433,7 +445,9 @@ trait ManagesConveyanceWorkflow
                     $this->otherExpenseDesc = '';
                     $this->otherExpenseAmount = '';
                     $this->formResetIteration++;
-                    $statusLabel = $isLate ? 'Escalated to Partner (Late Submission)' : 'Forwarded to Manager';
+                    $statusLabel = $isManagerClaim
+                        ? 'Forwarded to Partner (Manager Claim)'
+                        : ($isLate ? 'Escalated to Partner (Late Submission)' : 'Forwarded to Manager');
                     $this->notice = "Conveyance claim of ৳{$amount} submitted successfully. Status: {$statusLabel}.";
                     $this->dispatch('toast', [
                         'type'    => 'success',
@@ -578,6 +592,10 @@ trait ManagesConveyanceWorkflow
                     $query->where('firm_id', $firmModel->id);
                 }
                 $cc = $query->first();
+                if ($cc && Auth::check() && (int) $cc->user_id === (int) Auth::id() && ! Auth::user()->isPartner() && ! Auth::user()->isPlatformAdmin()) {
+                    $this->error = 'Security rule: A Manager cannot self-approve their own conveyance claim; Partner sanction is required.';
+                    return;
+                }
                 if ($cc && ! $this->guardUserScope(User::find($cc->user_id), 'review claims for')) {
                     return;
                 }

@@ -35,6 +35,7 @@ class Firm extends Model
         'subscription_type',
         'per_seat_rate',
         'trial_days',
+        'custom_designations',
     ];
 
     protected $casts = [
@@ -44,7 +45,31 @@ class Firm extends Model
         'subscription_fee'        => 'decimal:2',
         'enabled_modules'         => 'array',
         'weekly_off_days'         => 'array',
+        'custom_designations'     => 'array',
     ];
+
+    public static function defaultDesignations(): array
+    {
+        return [
+            ['title' => 'Managing Partner', 'base_role' => 'partner'],
+            ['title' => 'Senior Partner', 'base_role' => 'partner'],
+            ['title' => 'Partner / Principal', 'base_role' => 'partner'],
+            ['title' => 'Director (Audit & Advisory)', 'base_role' => 'partner'],
+            ['title' => 'Senior Audit Manager', 'base_role' => 'manager'],
+            ['title' => 'Audit Manager', 'base_role' => 'manager'],
+            ['title' => 'Deputy Manager', 'base_role' => 'manager'],
+            ['title' => 'Assistant Manager', 'base_role' => 'manager'],
+            ['title' => 'Audit Supervisor', 'base_role' => 'manager'],
+            ['title' => 'Qualified Staff (ACA)', 'base_role' => 'manager'],
+            ['title' => 'Tax & RJSC Consultant', 'base_role' => 'manager'],
+            ['title' => 'Accounts & HR Officer', 'base_role' => 'manager'],
+            ['title' => 'Semi-Qualified / Course Complete', 'base_role' => 'student'],
+            ['title' => 'Senior Articled Student (Year 3)', 'base_role' => 'student'],
+            ['title' => 'Articled Student (Year 2)', 'base_role' => 'student'],
+            ['title' => 'Articled Student (Year 1)', 'base_role' => 'student'],
+            ['title' => 'Articled Student', 'base_role' => 'student'],
+        ];
+    }
 
     /**
      * Friday + Saturday: the default weekend for a Dhaka CA practice. A firm

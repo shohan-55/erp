@@ -118,8 +118,31 @@ trait ManagesPoliciesHolidaysAndSettings
                     if (! empty($policy->student_grids)) {
                         $this->studentGrids = array_merge($this->studentGrids, $policy->student_grids);
                     }
-                    if (! empty($policy->manager_permissions)) {
-                        $this->managerPermissions = array_merge($this->managerPermissions, $policy->manager_permissions);
+                    if (! empty($policy->manager_permissions) && is_array($policy->manager_permissions)) {
+                        $cleanPerms = array_filter(
+                            $policy->manager_permissions,
+                            fn ($k) => ! str_starts_with((string) $k, '_meta_'),
+                            ARRAY_FILTER_USE_KEY
+                        );
+                        $this->managerPermissions = array_merge($this->managerPermissions, $cleanPerms);
+                        if (isset($policy->manager_permissions['_meta_geofence_radius_km'])) {
+                            $this->geofenceRadiusKm = max(0.05, (float) $policy->manager_permissions['_meta_geofence_radius_km']);
+                        }
+                        if (! empty($policy->manager_permissions['_meta_policy_timezone'])) {
+                            $this->policyTimezone = (string) $policy->manager_permissions['_meta_policy_timezone'];
+                        }
+                        if (! empty($policy->manager_permissions['_meta_governance_rules']) && is_array($policy->manager_permissions['_meta_governance_rules'])) {
+                            $this->governanceRules = array_values(array_filter(array_map('trim', $policy->manager_permissions['_meta_governance_rules'])));
+                        }
+                    }
+                    if (Schema::hasColumn('partner_policies', 'geofence_radius_km') && $policy->geofence_radius_km !== null) {
+                        $this->geofenceRadiusKm = max(0.05, (float) $policy->geofence_radius_km);
+                    }
+                    if (Schema::hasColumn('partner_policies', 'policy_timezone') && ! empty($policy->policy_timezone)) {
+                        $this->policyTimezone = (string) $policy->policy_timezone;
+                    }
+                    if (Schema::hasColumn('partner_policies', 'governance_rules') && ! empty($policy->governance_rules) && is_array($policy->governance_rules)) {
+                        $this->governanceRules = array_values(array_filter(array_map('trim', $policy->governance_rules)));
                     }
                     $unitSharedAtt = is_array($policy->manager_permissions) && array_key_exists('shared_attendance_pool', $policy->manager_permissions)
                         ? (bool) $policy->manager_permissions['shared_attendance_pool']
@@ -549,12 +572,40 @@ trait ManagesPoliciesHolidaysAndSettings
             return;
         }
 
+        $this->geofenceRadiusKm = round(max(0.05, min(50.0, (float) $this->geofenceRadiusKm)), 2);
+        $this->policyTimezone = trim($this->policyTimezone) ?: 'Asia/Dhaka';
+
+        // Normalize leaveQuotas & governanceRules
+        $normalizedQuotas = [];
+        foreach ($this->leaveQuotas as $q) {
+            $lbl = trim((string) ($q['label'] ?? ''));
+            if ($lbl === '') {
+                continue;
+            }
+            $key = trim((string) ($q['key'] ?? '')) ?: Str::slug($lbl, '_');
+            $days = max(0, min(365, (int) ($q['days'] ?? 0)));
+            $normalizedQuotas[] = ['key' => $key, 'label' => $lbl, 'days' => $days];
+        }
+        if (! empty($normalizedQuotas)) {
+            $this->leaveQuotas = $normalizedQuotas;
+        }
+        $this->governanceRules = array_values(array_filter(array_map('trim', $this->governanceRules), fn ($r) => $r !== ''));
+        if (empty($this->governanceRules)) {
+            $this->governanceRules = PartnerPolicy::defaultGovernanceRules();
+        }
+
         if (Schema::hasTable('partner_policies')) {
             try {
                 $firmModel = $this->resolveFirmModel();
                 if ($firmModel) {
                     $partnerUser = User::where('firm_id', $firmModel->id)->where('role', 'partner')->first();
                     $partnerId = $partnerUser ? $partnerUser->id : (Auth::id() ?? 1);
+
+                    $permsWithMeta = array_merge($this->managerPermissions, [
+                        '_meta_geofence_radius_km' => $this->geofenceRadiusKm,
+                        '_meta_policy_timezone'    => $this->policyTimezone,
+                        '_meta_governance_rules'   => $this->governanceRules,
+                    ]);
 
                     $policyData = [
                         'partner_id'               => $partnerId,
@@ -564,7 +615,7 @@ trait ManagesPoliciesHolidaysAndSettings
                         'manager_conveyance_limit' => $this->managerConveyanceLimit,
                         'conveyance_late_days'     => $this->conveyanceLateDays,
                         'student_grids'            => $this->studentGrids,
-                        'manager_permissions'      => $this->managerPermissions,
+                        'manager_permissions'      => $permsWithMeta,
                     ];
 
                     if (Schema::hasColumn('partner_policies', 'late_penalty_enabled')) {
@@ -572,6 +623,15 @@ trait ManagesPoliciesHolidaysAndSettings
                         $policyData['late_days_per_deduction'] = max(1, $this->lateDaysPerDeduction);
                         $policyData['deduction_days_count'] = max(0, $this->deductionDaysCount);
                         $policyData['leave_quotas'] = $this->leaveQuotas;
+                    }
+                    if (Schema::hasColumn('partner_policies', 'geofence_radius_km')) {
+                        $policyData['geofence_radius_km'] = $this->geofenceRadiusKm;
+                    }
+                    if (Schema::hasColumn('partner_policies', 'policy_timezone')) {
+                        $policyData['policy_timezone'] = $this->policyTimezone;
+                    }
+                    if (Schema::hasColumn('partner_policies', 'governance_rules')) {
+                        $policyData['governance_rules'] = $this->governanceRules;
                     }
 
                     PartnerPolicy::updateOrCreate(
@@ -625,6 +685,105 @@ trait ManagesPoliciesHolidaysAndSettings
         $this->newLeaveTypeDays = 10;
         $this->savePolicySettings();
         $this->notice = "Added custom leave category '{$label}' to {$this->partnerUnit} policy.";
+    }
+
+    public function saveLeaveQuotas(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        if (! $this->userCanManagePolicies() && ! in_array($this->previewRole, ['partner', 'manager'], true)) {
+            $this->error = 'Only a Partner or authorized Manager can edit leave quotas.';
+            return;
+        }
+        $this->savePolicySettings();
+        $this->notice = "Updated leave quotas for {$this->partnerUnit}.";
+        $this->dispatch('toast', [
+            'type'    => 'success',
+            'title'   => 'Leave Quotas Updated',
+            'message' => $this->notice,
+        ]);
+    }
+
+    public function updateLeaveQuota(int $index, string $label, int $days): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        if (! $this->userCanManagePolicies() && ! in_array($this->previewRole, ['partner', 'manager'], true)) {
+            $this->error = 'Only a Partner or authorized Manager can edit leave quotas.';
+            return;
+        }
+        if (! isset($this->leaveQuotas[$index])) {
+            $this->error = 'Leave category not found.';
+            return;
+        }
+        $cleanLabel = trim($label);
+        if (mb_strlen($cleanLabel) < 2 || $days < 0 || $days > 365) {
+            $this->error = 'Enter a valid leave category label and annual quota (0–365 days).';
+            return;
+        }
+        $this->leaveQuotas[$index]['label'] = $cleanLabel;
+        $this->leaveQuotas[$index]['days'] = $days;
+        $this->savePolicySettings();
+        $this->notice = "Updated '{$cleanLabel}' quota to {$days} days/year.";
+    }
+
+    public function removeLeaveCategory(string $key): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        if (! $this->userCanManagePolicies() && ! in_array($this->previewRole, ['partner', 'manager'], true)) {
+            $this->error = 'Only a Partner or authorized Manager can remove leave categories.';
+            return;
+        }
+        if (count($this->leaveQuotas) <= 1) {
+            $this->error = 'At least one leave category must remain active in the policy.';
+            return;
+        }
+        $this->leaveQuotas = array_values(array_filter(
+            $this->leaveQuotas,
+            fn (array $q) => ($q['key'] ?? '') !== $key
+        ));
+        $this->savePolicySettings();
+        $this->notice = "Removed leave category '{$key}' from {$this->partnerUnit} policy.";
+    }
+
+    public function addGovernanceRule(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or authorized Manager can modify governance requirements.';
+            return;
+        }
+        $rule = trim($this->newGovernanceRule);
+        if (mb_strlen($rule) < 4) {
+            $this->error = 'Please enter a governance rule of at least 4 characters.';
+            return;
+        }
+        $this->governanceRules[] = $rule;
+        $this->newGovernanceRule = '';
+        $this->savePolicySettings();
+        $this->notice = "Added governance requirement: '{$rule}'.";
+    }
+
+    public function removeGovernanceRule(int $index): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or authorized Manager can modify governance requirements.';
+            return;
+        }
+        if (count($this->governanceRules) <= 1) {
+            $this->error = 'At least one governance requirement must remain.';
+            return;
+        }
+        if (isset($this->governanceRules[$index])) {
+            unset($this->governanceRules[$index]);
+            $this->governanceRules = array_values($this->governanceRules);
+            $this->savePolicySettings();
+            $this->notice = 'Governance requirement removed and policy saved.';
+        }
     }
 
     public function toggleStudentGrid(string $gridKey): void
@@ -1262,14 +1421,14 @@ trait ManagesPoliciesHolidaysAndSettings
                         return [
                             'lat'    => (float) $client->target_lat,
                             'lng'    => (float) $client->target_lng,
-                            'radius' => (float) ($client->allowed_radius_km ?: 1.50),
+                            'radius' => (float) ($client->allowed_radius_km ?: max(0.05, $this->geofenceRadiusKm)),
                         ];
                     }
                 }
             } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
-            return ['lat' => 23.7279, 'lng' => 90.4178, 'radius' => 1.50];
+            return ['lat' => 23.7279, 'lng' => 90.4178, 'radius' => max(0.05, (float) $this->geofenceRadiusKm)];
         }
-        return ['lat' => 23.7516, 'lng' => 90.3943, 'radius' => 1.50];
+        return ['lat' => 23.7516, 'lng' => 90.3943, 'radius' => max(0.05, (float) $this->geofenceRadiusKm)];
     }
 
     // ─── Government & Custom Holiday Calendar + Office Open Override (#2) ────
