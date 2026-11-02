@@ -441,10 +441,143 @@ trait ManagesTeamAndNotifications
             'manager' => 'Audit Manager',
             default   => 'Articled Student',
         };
+        if ($role === 'student') {
+            $this->newMemberArticleshipYears = 3;
+            $this->newMemberTotalLeaveCap = 180;
+            $this->newMemberLeaveCasual = 14;
+            $this->newMemberLeaveSick = 14;
+            $this->newMemberLeaveEmergency = 7;
+            $this->newMemberLeaveStudy = 145;
+        } elseif ($role === 'manager') {
+            $this->newMemberTotalLeaveCap = 44;
+            $this->newMemberLeaveCasual = 10;
+            $this->newMemberLeaveSick = 14;
+            $this->newMemberLeaveEarned = 15;
+            $this->newMemberLeaveEmergency = 5;
+        }
     }
+
+    public function selectNewMemberArticleshipYears(int $years): void
+    {
+        $this->newMemberArticleshipYears = ($years === 4) ? 4 : 3;
+        $this->newMemberTotalLeaveCap = ($this->newMemberArticleshipYears === 4) ? 240 : 180;
+        if ($this->validDate($this->newMemberArticleshipStart)) {
+            $dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $this->newMemberArticleshipStart);
+            $this->newMemberArticleshipEnd = $dt->modify("+{$this->newMemberArticleshipYears} years -1 day")->format('Y-m-d');
+        }
+        $this->recalculateNewMemberLeaveBreakdown();
+    }
+
+    public function updatedNewMemberArticleshipYears($value): void
+    {
+        $this->selectNewMemberArticleshipYears((int) $value);
+    }
+
+    public function recalculateNewMemberLeaveBreakdown(): void
+    {
+        if ($this->newMemberRole === 'student') {
+            $cap = max(1, (int) $this->newMemberTotalLeaveCap);
+            $reg = max(0, (int) $this->newMemberLeaveCasual)
+                + max(0, (int) $this->newMemberLeaveSick)
+                + max(0, (int) $this->newMemberLeaveEmergency);
+            $this->newMemberLeaveStudy = max(0, $cap - $reg);
+        } else {
+            $this->newMemberTotalLeaveCap = max(0, (int) $this->newMemberLeaveCasual)
+                + max(0, (int) $this->newMemberLeaveSick)
+                + max(0, (int) $this->newMemberLeaveEarned)
+                + max(0, (int) $this->newMemberLeaveEmergency);
+        }
+    }
+
+    public function updatedNewMemberTotalLeaveCap(): void { $this->recalculateNewMemberLeaveBreakdown(); }
+    public function updatedNewMemberLeaveCasual(): void { $this->recalculateNewMemberLeaveBreakdown(); }
+    public function updatedNewMemberLeaveSick(): void { $this->recalculateNewMemberLeaveBreakdown(); }
+    public function updatedNewMemberLeaveEmergency(): void { $this->recalculateNewMemberLeaveBreakdown(); }
+    public function updatedNewMemberLeaveEarned(): void { $this->recalculateNewMemberLeaveBreakdown(); }
+
+    public function updatedEditMemberRole(string $role): void
+    {
+        if ($role === 'student') {
+            $this->editMemberArticleshipYears = in_array($this->editMemberArticleshipYears, [3, 4], true) ? $this->editMemberArticleshipYears : 3;
+            $this->editMemberTotalLeaveCap = ($this->editMemberArticleshipYears === 4) ? 240 : 180;
+            $this->editMemberLeaveCasual = 14;
+            $this->editMemberLeaveSick = 14;
+            $this->editMemberLeaveEmergency = 7;
+            $this->recalculateEditMemberLeaveBreakdown();
+        } elseif ($role === 'manager') {
+            $this->editMemberLeaveCasual = 10;
+            $this->editMemberLeaveSick = 14;
+            $this->editMemberLeaveEarned = 15;
+            $this->editMemberLeaveEmergency = 5;
+            $this->recalculateEditMemberLeaveBreakdown();
+        }
+    }
+
+    public function selectEditMemberArticleshipYears(int $years): void
+    {
+        $this->editMemberArticleshipYears = ($years === 4) ? 4 : 3;
+        $this->editMemberTotalLeaveCap = ($this->editMemberArticleshipYears === 4) ? 240 : 180;
+        if ($this->validDate($this->editMemberArticleshipStart)) {
+            $dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $this->editMemberArticleshipStart);
+            $this->editMemberArticleshipEnd = $dt->modify("+{$this->editMemberArticleshipYears} years -1 day")->format('Y-m-d');
+        }
+        $this->recalculateEditMemberLeaveBreakdown();
+    }
+
+    public function updatedEditMemberArticleshipYears($value): void
+    {
+        $this->selectEditMemberArticleshipYears((int) $value);
+    }
+
+    public function recalculateEditMemberLeaveBreakdown(): void
+    {
+        if ($this->editMemberRole === 'student') {
+            $cap = max(1, (int) $this->editMemberTotalLeaveCap);
+            $reg = max(0, (int) $this->editMemberLeaveCasual)
+                + max(0, (int) $this->editMemberLeaveSick)
+                + max(0, (int) $this->editMemberLeaveEmergency);
+            $this->editMemberLeaveStudy = max(0, $cap - $reg);
+        } else {
+            $this->editMemberTotalLeaveCap = max(0, (int) $this->editMemberLeaveCasual)
+                + max(0, (int) $this->editMemberLeaveSick)
+                + max(0, (int) $this->editMemberLeaveEarned)
+                + max(0, (int) $this->editMemberLeaveEmergency);
+        }
+    }
+
+    public function updatedEditMemberTotalLeaveCap(): void { $this->recalculateEditMemberLeaveBreakdown(); }
+    public function updatedEditMemberLeaveCasual(): void { $this->recalculateEditMemberLeaveBreakdown(); }
+    public function updatedEditMemberLeaveSick(): void { $this->recalculateEditMemberLeaveBreakdown(); }
+    public function updatedEditMemberLeaveEmergency(): void { $this->recalculateEditMemberLeaveBreakdown(); }
+    public function updatedEditMemberLeaveEarned(): void { $this->recalculateEditMemberLeaveBreakdown(); }
 
     public function getAvailableManagersProperty(): array
     {
+        if (Schema::hasTable('users') && Schema::hasTable('firms')) {
+            try {
+                $firmModel = $this->resolveFirmModel();
+                if ($firmModel) {
+                    $dbManagers = User::where('firm_id', $firmModel->id)
+                        ->where('role', 'manager')
+                        ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
+                        ->orderBy('name')
+                        ->get();
+                    if ($dbManagers->isNotEmpty()) {
+                        return $dbManagers->map(fn (User $m) => [
+                            'id'           => $m->id,
+                            'name'         => $m->name,
+                            'email'        => $m->email,
+                            'role'         => $m->role,
+                            'designation'  => $m->displayDesignation(),
+                            'partner_unit' => $m->partner_unit ?: $this->partnerUnit,
+                        ])->toArray();
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::debug($e->getMessage());
+            }
+        }
+
         return array_values(array_filter($this->teamMembers, function ($m) {
             return ($m['role'] ?? '') === 'manager';
         }));
@@ -475,24 +608,47 @@ trait ManagesTeamAndNotifications
                     if ($dbUsers->isNotEmpty()) {
                         $isStudentViewer = Auth::check() && Auth::user()->isStudent();
                         $viewerId = Auth::id();
-                        $this->teamMembers = $dbUsers->map(function (User $u) use ($isStudentViewer, $viewerId) {
+                        $leavesByUser = Schema::hasTable('leave_requests')
+                            ? LeaveRequest::where('firm_id', $firmModel->id)
+                                ->whereIn('status', ['pending_manager', 'pending_partner', 'approved', 'Awaiting Manager', 'Awaiting Partner'])
+                                ->get()
+                                ->groupBy('user_id')
+                            : collect();
+
+                        $this->teamMembers = $dbUsers->map(function (User $u) use ($isStudentViewer, $viewerId, $leavesByUser) {
                             $redactSensitive = $isStudentViewer && (int) $u->id !== (int) $viewerId;
+                            $ent = $u->resolvedLeaveEntitlement();
+                            $uLeaves = $leavesByUser->get($u->id, collect());
+                            $usedDays = (int) $uLeaves->where('status', 'approved')->sum(fn ($l) => (int) ($l->approved_days ?: ($l->requested_days ?: 1)));
+                            $pendingDays = (int) $uLeaves->whereIn('status', ['pending_manager', 'pending_partner', 'Awaiting Manager', 'Awaiting Partner'])->sum(fn ($l) => (int) ($l->requested_days ?: 1));
+                            $availDays = max(0, (int) $ent['total_leave_cap'] - ($usedDays + $pendingDays));
+                            $artYears = (int) ($ent['articleship_duration_years'] ?: 3);
+                            $defaultEnd = $artYears === 4 ? '2030-03-09' : '2029-03-09';
+                            $defaultEndLabel = $artYears === 4 ? '09 Mar 2030' : '09 Mar 2029';
+
                             return [
                                 'id'                   => $u->id,
                                 'name'                 => $u->name,
-                                'email'                => $u->email,
+                                'email'                => $redactSensitive ? '—' : $u->email,
                                 'role'                 => $u->role,
                                 'designation'          => $u->displayDesignation(),
                                 'role_label'           => $u->displayDesignation(),
-                                'promotion_history'    => is_array($u->promotion_history) ? $u->promotion_history : [],
+                                'promotion_history'    => $redactSensitive ? [] : (is_array($u->promotion_history) ? $u->promotion_history : []),
                                 'avatar_url'             => $u->avatar_url ?? null,
-                                'phone'                  => $u->phone ?: '—',
+                                'phone'                  => $redactSensitive ? '—' : ($u->phone ?: '—'),
                                 'payment_account_mode'   => $redactSensitive ? '—' : ($u->payment_account_mode ?: 'bKash'),
                                 'payment_account_no'     => $redactSensitive ? '—' : ($u->payment_account_no ?: '—'),
+                                'articleship_duration_years' => $artYears,
+                                'total_leave_cap'            => $redactSensitive ? 0 : (int) $ent['total_leave_cap'],
+                                'leave_regime_label'         => $redactSensitive ? '—' : $ent['regime_label'],
+                                'leave_allocations'          => $redactSensitive ? [] : $ent['allocations'],
+                                'leave_used_days'            => $redactSensitive ? 0 : $usedDays,
+                                'leave_pending_days'         => $redactSensitive ? 0 : $pendingDays,
+                                'leave_available_days'       => $redactSensitive ? 0 : $availDays,
                                 'articleship_start_date' => $u->articleship_start_date?->format('Y-m-d') ?? ($u->role === 'student' ? '2026-03-10' : null),
-                                'articleship_end_date'   => $u->articleship_end_date?->format('Y-m-d') ?? ($u->role === 'student' ? '2029-03-09' : null),
+                                'articleship_end_date'   => $u->articleship_end_date?->format('Y-m-d') ?? ($u->role === 'student' ? $defaultEnd : null),
                                 'articleship_period'     => $u->role === 'student'
-                                    ? (($u->articleship_start_date?->format('d M Y') ?? '10 Mar 2026') . ' → ' . ($u->articleship_end_date?->format('d M Y') ?? '09 Mar 2029'))
+                                    ? (($u->articleship_start_date?->format('d M Y') ?? '10 Mar 2026') . ' → ' . ($u->articleship_end_date?->format('d M Y') ?? $defaultEndLabel) . " ({$artYears} Yrs)")
                                     : '—',
                                 'student_code'           => $u->student_code ?? ($u->role === 'student' ? ('S-' . $u->id) : null),
                                 'partner_unit'         => $u->partner_unit ?? $this->partnerUnit,
@@ -678,13 +834,21 @@ trait ManagesTeamAndNotifications
         $this->newMemberCanFinalApproveClaims = false;
         $this->newMemberArticleshipStart = now()->toDateString();
         $this->newMemberArticleshipEnd = now()->addYears(3)->subDay()->toDateString();
+        $this->newMemberArticleshipYears = 3;
+        $this->newMemberTotalLeaveCap = 180;
+        $this->newMemberLeaveCasual = 14;
+        $this->newMemberLeaveSick = 14;
+        $this->newMemberLeaveEmergency = 7;
+        $this->newMemberLeaveStudy = 145;
+        $this->newMemberLeaveEarned = 15;
     }
 
     public function updatedNewMemberArticleshipStart(string $value): void
     {
         if ($this->validDate($value)) {
+            $years = in_array((int) $this->newMemberArticleshipYears, [3, 4], true) ? (int) $this->newMemberArticleshipYears : 3;
             $dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
-            $this->newMemberArticleshipEnd = $dt->modify('+3 years -1 day')->format('Y-m-d');
+            $this->newMemberArticleshipEnd = $dt->modify("+{$years} years -1 day")->format('Y-m-d');
         }
     }
 
@@ -775,9 +939,33 @@ trait ManagesTeamAndNotifications
                 $user->invitation_token = $invitationToken;
                 $user->invitation_sent_at = now();
             }
+            User::ensureRuntimeSchemaColumns();
+            $this->recalculateNewMemberLeaveBreakdown();
+            $years = in_array((int) $this->newMemberArticleshipYears, [3, 4], true) ? (int) $this->newMemberArticleshipYears : 3;
             if ($this->newMemberRole === 'student' && Schema::hasColumn('users', 'articleship_start_date')) {
                 $user->articleship_start_date = $this->validDate($this->newMemberArticleshipStart) ? $this->newMemberArticleshipStart : now()->toDateString();
-                $user->articleship_end_date = $this->validDate($this->newMemberArticleshipEnd) ? $this->newMemberArticleshipEnd : now()->addYears(3)->subDay()->toDateString();
+                $user->articleship_end_date = $this->validDate($this->newMemberArticleshipEnd) ? $this->newMemberArticleshipEnd : now()->addYears($years)->subDay()->toDateString();
+            }
+            if (Schema::hasColumn('users', 'articleship_duration_years')) {
+                $user->articleship_duration_years = $this->newMemberRole === 'student' ? $years : null;
+            }
+            if (Schema::hasColumn('users', 'total_leave_cap')) {
+                $user->total_leave_cap = max(0, (int) $this->newMemberTotalLeaveCap);
+            }
+            if (Schema::hasColumn('users', 'leave_allocations')) {
+                $user->leave_allocations = $this->newMemberRole === 'student'
+                    ? [
+                        'annual'     => max(0, (int) $this->newMemberLeaveCasual),
+                        'sick'       => max(0, (int) $this->newMemberLeaveSick),
+                        'emergency'  => max(0, (int) $this->newMemberLeaveEmergency),
+                        'icab_study' => max(0, (int) $this->newMemberLeaveStudy),
+                    ]
+                    : [
+                        'annual'    => max(0, (int) $this->newMemberLeaveCasual),
+                        'sick'      => max(0, (int) $this->newMemberLeaveSick),
+                        'earned'    => max(0, (int) $this->newMemberLeaveEarned),
+                        'emergency' => max(0, (int) $this->newMemberLeaveEmergency),
+                    ];
             }
             $user->save();
 
@@ -885,6 +1073,23 @@ trait ManagesTeamAndNotifications
         $this->editMemberCanFinalApproveClaims = (bool) ($member['can_final_approve_claims'] ?? false);
         $this->editMemberArticleshipStart = $member['articleship_start_date'] ?? '2026-03-10';
         $this->editMemberArticleshipEnd = $member['articleship_end_date'] ?? '2029-03-09';
+        $alloc = is_array($member['leave_allocations'] ?? null) ? $member['leave_allocations'] : [];
+        if (($member['role'] ?? 'student') === 'student') {
+            $this->editMemberArticleshipYears = in_array((int) ($member['articleship_duration_years'] ?? 3), [3, 4], true)
+                ? (int) ($member['articleship_duration_years'] ?? 3)
+                : 3;
+            $this->editMemberTotalLeaveCap = (int) ($member['total_leave_cap'] ?? ($this->editMemberArticleshipYears === 4 ? 240 : 180));
+            $this->editMemberLeaveCasual = (int) ($alloc['annual'] ?? 14);
+            $this->editMemberLeaveSick = (int) ($alloc['sick'] ?? 14);
+            $this->editMemberLeaveEmergency = (int) ($alloc['emergency'] ?? 7);
+            $this->editMemberLeaveStudy = (int) ($alloc['icab_study'] ?? max(0, $this->editMemberTotalLeaveCap - ($this->editMemberLeaveCasual + $this->editMemberLeaveSick + $this->editMemberLeaveEmergency)));
+        } else {
+            $this->editMemberLeaveCasual = (int) ($alloc['annual'] ?? 10);
+            $this->editMemberLeaveSick = (int) ($alloc['sick'] ?? 14);
+            $this->editMemberLeaveEarned = (int) ($alloc['earned'] ?? 15);
+            $this->editMemberLeaveEmergency = (int) ($alloc['emergency'] ?? 5);
+            $this->editMemberTotalLeaveCap = $this->editMemberLeaveCasual + $this->editMemberLeaveSick + $this->editMemberLeaveEarned + $this->editMemberLeaveEmergency;
+        }
 
         $this->showEditMemberModal = true;
     }
@@ -1085,6 +1290,30 @@ trait ManagesTeamAndNotifications
                     $user->can_manage_payroll = (bool) $this->editMemberCanManagePayroll;
                     $user->can_final_approve_leave = (bool) $this->editMemberCanFinalApproveLeave;
                     $user->can_final_approve_claims = (bool) $this->editMemberCanFinalApproveClaims;
+                }
+                User::ensureRuntimeSchemaColumns();
+                $this->recalculateEditMemberLeaveBreakdown();
+                $editYears = in_array((int) $this->editMemberArticleshipYears, [3, 4], true) ? (int) $this->editMemberArticleshipYears : 3;
+                if (Schema::hasColumn('users', 'articleship_duration_years')) {
+                    $user->articleship_duration_years = $this->editMemberRole === 'student' ? $editYears : null;
+                }
+                if (Schema::hasColumn('users', 'total_leave_cap')) {
+                    $user->total_leave_cap = max(0, (int) $this->editMemberTotalLeaveCap);
+                }
+                if (Schema::hasColumn('users', 'leave_allocations')) {
+                    $user->leave_allocations = $this->editMemberRole === 'student'
+                        ? [
+                            'annual'     => max(0, (int) $this->editMemberLeaveCasual),
+                            'sick'       => max(0, (int) $this->editMemberLeaveSick),
+                            'emergency'  => max(0, (int) $this->editMemberLeaveEmergency),
+                            'icab_study' => max(0, (int) $this->editMemberLeaveStudy),
+                        ]
+                        : [
+                            'annual'    => max(0, (int) $this->editMemberLeaveCasual),
+                            'sick'      => max(0, (int) $this->editMemberLeaveSick),
+                            'earned'    => max(0, (int) $this->editMemberLeaveEarned),
+                            'emergency' => max(0, (int) $this->editMemberLeaveEmergency),
+                        ];
                 }
                 $user->save();
 

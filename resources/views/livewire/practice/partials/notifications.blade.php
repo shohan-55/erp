@@ -14,7 +14,7 @@
             <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
                 <div class="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
                     <div>
-                        <h3 class="text-sm font-extrabold text-slate-900">Send Popup Notification (নোটিফিকেশন পাঠান)</h3>
+                        <h3 class="text-sm font-extrabold text-slate-900">Send Popup Notification</h3>
                         <p class="mt-0.5 text-xs text-slate-500">Appears automatically as a popup modal when the recipient opens their dashboard.</p>
                     </div>
                     <span class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold text-amber-900">Popup Enabled</span>
@@ -22,9 +22,9 @@
 
                 <form wire:submit.prevent="sendPracticeNotification" class="mt-4 space-y-4 text-xs">
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1.5">Recipient Scope (কাদের কাছে পাঠাবেন)</label>
+                        <label class="block font-bold text-slate-700 mb-1.5">Recipient Scope</label>
                         <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                            @foreach(['all' => 'All Members (সকলের কাছে)', 'single' => 'Single Person (নির্দিষ্ট একজন)', 'multiple' => 'Selected People (নির্দিষ্ট কয়েকজন)'] as $modeKey => $modeLabel)
+                            @foreach(['all' => 'All Members', 'single' => 'Single Person', 'multiple' => 'Selected People'] as $modeKey => $modeLabel)
                                 <button type="button" wire:click="$set('notifTargetMode', '{{ $modeKey }}')"
                                         class="rounded-xl border p-2.5 text-center font-bold transition {{ $notifTargetMode === $modeKey ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-200' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}">
                                     {{ $modeLabel }}

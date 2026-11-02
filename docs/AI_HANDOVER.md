@@ -214,6 +214,12 @@ suite, no load test, PHP 8.3 not exercised (8.4 is).
 
 ## 7. Change log (most recent first)
 
+- **2026-11-02 — static security review (no PHP available, unexecuted).** Closed: anonymous
+  leak of staff e-mails via `FirmLogin::fillDemoCredentials`; student access to unit payroll rows
+  and bank/bKash numbers (public `$payrollRows` + unguarded exports); un-throttled wrong 2FA codes;
+  logo upload invisible on the split cPanel docroot (`ERP_WEB_ROOT`) and SVG upload removed;
+  `period` validated. Details and open items: [`docs/PRODUCTION_REVIEW_2026-11-02.md`](PRODUCTION_REVIEW_2026-11-02.md).
+  New tests: `tests/Feature/ReviewFixes20261102Test.php` — **run the suite before deploying.**
 - **2026-10-31 — landing page rebuilt, with a real Light / Dark switch.** `/` was
   rebuilt from scratch: token-driven palette (`.dw-landing` in `app.css`), a
   masthead theme switch persisted in `localStorage` and resolved before first

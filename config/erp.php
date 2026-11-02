@@ -27,4 +27,9 @@ return [
 
     'backup_disk' => env('ERP_BACKUP_DISK', 'local'),
 
+    // Absolute path of the real document root when it is NOT erp-app/public
+    // (cPanel split layout, e.g. /home/erpdhakawala/public_html). Uploaded firm
+    // logos are copied there as well so the browser can actually load them.
+    'web_root' => env('ERP_WEB_ROOT', ''),
+
 ];

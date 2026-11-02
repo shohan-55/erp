@@ -1,11 +1,76 @@
+<div x-data="{
+        activeSettingsTab: '{{ $previewRole === 'student' ? 'profile' : 'policy_unit' }}',
+        openProfileEdit: {{ $previewRole === 'student' ? 'true' : 'false' }},
+        openBrandEdit: false,
+        openUnitPolicyEdit: false,
+        openExceptionForm: {{ !empty($exceptionImpact) ? 'true' : 'false' }},
+        openHolidayForm: false
+    }"
+    @profile-focus.window="activeSettingsTab = 'profile'; openProfileEdit = true; $nextTick(() => document.getElementById('my-profile')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))"
+    class="space-y-5">
+
+    <!-- Top Executive Settings & Policy Navigation Bar -->
+    <section class="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-r from-[#11141C] via-[#171B26] to-[#0D1117] p-6 text-white shadow-xl">
+        <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+            <div>
+                <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[#FCDF02]">PRACTICE GOVERNANCE · POLICY &amp; PERMISSIONS</p>
+                <h2 class="mt-1 text-2xl font-black tracking-tight text-white">Workspace Settings &amp; Partner Policy</h2>
+                <p class="mt-1.5 max-w-2xl text-xs sm:text-sm leading-relaxed text-slate-300">Configure independent Partner Unit policies, late deduction rules, Manager delegation thresholds, holidays, and personal profile settings.</p>
+            </div>
+            @if($previewRole === 'partner')
+                <div class="flex items-center gap-2 shrink-0">
+                    <label class="text-xs font-bold text-slate-300">Active Partner Unit:</label>
+                    <select wire:change="setPartnerUnit($event.target.value)" class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-extrabold text-amber-950 outline-none">
+                        @foreach($availablePartnerUnits as $unitOpt)
+                            <option value="{{ $unitOpt }}" @selected($partnerUnit === $unitOpt)>{{ $unitOpt }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+        </div>
+
+        <div class="mt-5 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-4">
+            @if($previewRole !== 'student')
+                <button type="button" @click="activeSettingsTab = 'policy_unit'"
+                        :class="activeSettingsTab === 'policy_unit' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/5 text-slate-300 hover:bg-white/15 font-bold'"
+                        class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition cursor-pointer">
+                    <i data-lucide="sliders" class="h-3.5 w-3.5"></i>
+                    <span>1. Unit Policy &amp; Account</span>
+                </button>
+                <button type="button" @click="activeSettingsTab = 'permissions'"
+                        :class="activeSettingsTab === 'permissions' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/5 text-slate-300 hover:bg-white/15 font-bold'"
+                        class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition cursor-pointer">
+                    <i data-lucide="shield-check" class="h-3.5 w-3.5"></i>
+                    <span>2. Role Permissions &amp; Grids</span>
+                </button>
+                <button type="button" @click="activeSettingsTab = 'holidays'"
+                        :class="activeSettingsTab === 'holidays' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/5 text-slate-300 hover:bg-white/15 font-bold'"
+                        class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition cursor-pointer">
+                    <i data-lucide="calendar-days" class="h-3.5 w-3.5"></i>
+                    <span>3. Holidays &amp; Exceptions</span>
+                </button>
+                @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+                    <button type="button" @click="activeSettingsTab = 'branding'"
+                            :class="activeSettingsTab === 'branding' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/5 text-slate-300 hover:bg-white/15 font-bold'"
+                            class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition cursor-pointer">
+                        <i data-lucide="palette" class="h-3.5 w-3.5"></i>
+                        <span>4. Brand Theme &amp; Logo</span>
+                    </button>
+                @endif
+            @endif
+            <button type="button" @click="activeSettingsTab = 'profile'; openProfileEdit = true"
+                    :class="activeSettingsTab === 'profile' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/5 text-slate-300 hover:bg-white/15 font-bold'"
+                    class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition cursor-pointer">
+                <i data-lucide="user-cog" class="h-3.5 w-3.5"></i>
+                <span>My Profile &amp; Payment A/C</span>
+            </button>
+        </div>
+    </section>
 
 <!-- ===================================================================== -->
 <!-- SELF-SERVICE PROFILE, PASSWORD & bKash/BANK ACCOUNT UPDATE (#1)       -->
 <!-- ===================================================================== -->
-<section id="my-profile"
-         x-data
-         @profile-focus.window="$nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'start' }))"
-         class="scroll-mt-24 rounded-2xl border-2 border-emerald-200 bg-white p-5 shadow-sm sm:p-6">
+<section id="my-profile" x-show="activeSettingsTab === 'profile'" class="scroll-mt-24 rounded-2xl border-2 border-emerald-200 bg-white p-5 shadow-sm sm:p-6">
     <div class="flex items-start gap-3 border-b border-slate-100 pb-4">
         <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white">
             <i data-lucide="user-cog" class="h-5 w-5"></i>
@@ -29,7 +94,7 @@
                 @endif
             </div>
             <div class="flex-1 min-w-0">
-                <label class="block font-extrabold text-slate-900 text-xs">Profile Picture / Avatar Photo (ছবি আপলোড)</label>
+                <label class="block font-extrabold text-slate-900 text-xs">Profile Picture / Avatar Photo</label>
                 <p class="text-[11px] text-slate-500 mt-0.5">JPG, PNG, or WebP up to 2MB. Appears on your top header, sidebar, and team roster.</p>
                 <div class="mt-2 flex items-center gap-2">
                     <input type="file" wire:model="myAvatar" accept="image/*" class="text-[11px] text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-[#16181D] file:text-[#FCDF02] hover:file:bg-slate-800 cursor-pointer">
@@ -87,14 +152,14 @@
 <!-- ===================================================================== -->
 <!-- FIRM BRAND LOGO & COLOR PALETTE SELECTOR (PARTNER / DELEGATED MGR)    -->
 <!-- ===================================================================== -->
-<section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
+<section x-show="activeSettingsTab === 'branding'" x-cloak class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
     <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
         <div class="flex items-start gap-3">
             <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}">
                 <i data-lucide="palette" class="h-5 w-5"></i>
             </div>
             <div>
-                <h3 class="text-base font-extrabold text-slate-900">Firm Brand Color Palette (ফার্ম বা কোম্পানির কালার প্যালেট)</h3>
+                <h3 class="text-base font-extrabold text-slate-900">Firm Brand Color Palette</h3>
                 <p class="mt-0.5 text-xs text-slate-500">Select your firm's official brand color palette or custom color. Click any palette below to immediately update the entire workspace and login portal.</p>
             </div>
         </div>
@@ -126,7 +191,7 @@
         <div class="flex items-center gap-3">
             <input type="color" wire:model.live="firmCustomPrimaryColor" wire:change="$set('firmThemePalette', 'custom')" class="h-9 w-14 cursor-pointer rounded-lg border border-slate-300 bg-white p-0.5">
             <div>
-                <p class="font-extrabold text-slate-900">Custom Brand Hex Color (পছন্দের যেকোনো কালার কোড)</p>
+                <p class="font-extrabold text-slate-900">Custom Brand Hex Color</p>
                 <p class="text-[11px] text-slate-500">Selected Hex: <span class="font-mono font-bold text-slate-800">{{ $firmCustomPrimaryColor }}</span></p>
             </div>
         </div>
@@ -148,9 +213,9 @@
                 @endif
             </div>
             <div>
-                <p class="font-extrabold text-slate-900">Official Firm Logo (ফার্মের অফিসিয়াল লোগো আপলোড)</p>
-                <p class="text-[11px] text-slate-500 mt-0.5">PNG, JPG, SVG, or WebP (max 2MB). Appears on the workspace sidebar, login portal, and PDF vouchers.</p>
-                <input type="file" wire:model="firmLogoUpload" accept=".png,.jpg,.jpeg,.svg,.webp" class="mt-1.5 block text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-[#17191F] file:px-2.5 file:py-1 file:text-[11px] file:font-bold file:text-[#FCDF02] hover:file:bg-slate-800 cursor-pointer">
+                <p class="font-extrabold text-slate-900">Official Firm Logo</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">PNG, JPG, or WebP (max 2MB). Appears on the workspace sidebar, login portal, and PDF vouchers.</p>
+                <input type="file" wire:model="firmLogoUpload" accept=".png,.jpg,.jpeg,.webp" class="mt-1.5 block text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-[#17191F] file:px-2.5 file:py-1 file:text-[11px] file:font-bold file:text-[#FCDF02] hover:file:bg-slate-800 cursor-pointer">
             </div>
         </div>
         <button type="submit" class="inline-flex items-center gap-1.5 rounded-xl bg-[#17191F] px-4 py-2.5 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800 shadow-sm">
@@ -161,25 +226,7 @@
 @endif
 
 
-<section class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
-    <div>
-        <p class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-amber-800">PRACTICE GOVERNANCE · POLICY &amp; PERMISSIONS</p>
-        <h2 class="mt-1 text-2xl font-extrabold tracking-tight">Workspace Settings &amp; Partner Policy</h2>
-        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">Configure independent Partner Unit policies, late deduction rules, Manager delegation thresholds, and toggle active Student dashboard grids.</p>
-    </div>
-    @if($previewRole === 'partner')
-        <div class="flex items-center gap-2">
-            <label class="text-xs font-bold text-slate-600">Active Partner Unit:</label>
-            <select wire:change="setPartnerUnit($event.target.value)" class="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-extrabold text-amber-950 outline-none">
-                @foreach($availablePartnerUnits as $unitOpt)
-                    <option value="{{ $unitOpt }}" @selected($partnerUnit === $unitOpt)>{{ $unitOpt }}</option>
-                @endforeach
-            </select>
-        </div>
-    @endif
-</section>
-
-<div class="grid gap-5 lg:grid-cols-2">
+<div x-show="activeSettingsTab === 'policy_unit'" class="grid gap-5 lg:grid-cols-2">
     <!-- Partner Identity & Email Change -->
     <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
         <div class="flex items-start gap-3">
@@ -217,18 +264,36 @@
 
     <!-- Partner Policy Configuration: Office Hours, Grace, Late Deduction Rules & Conveyance Limits -->
     <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
-        <div class="flex items-start gap-3">
-            <div class="flex h-11 w-11 shrink-0 self-start items-center justify-center rounded-xl bg-amber-50 text-amber-800">
-                <i data-lucide="sliders" class="h-5 w-5"></i>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+                <div class="flex h-11 w-11 shrink-0 self-start items-center justify-center rounded-xl bg-amber-50 text-amber-800">
+                    <i data-lucide="sliders" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-extrabold">Unit Policy &amp; Late Deduction Rules ({{ $partnerUnit }})</h3>
+                    <p class="mt-1 text-xs text-slate-500">Summary of active office hours, grace minutes, late deduction rules, and conveyance windows.</p>
+                </div>
             </div>
-            <div>
-                <h3 class="text-sm font-extrabold">Unit Policy &amp; Late Deduction Rules ({{ $partnerUnit }})</h3>
-                <p class="mt-1 text-xs text-slate-500">Set office hours, grace minutes (no deduction), late deduction thresholds, and conveyance windows.</p>
-            </div>
+            @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+                <button type="button" @click="openUnitPolicyEdit = !openUnitPolicyEdit" class="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-extrabold text-amber-950 hover:bg-amber-100 cursor-pointer">
+                    <i data-lucide="pencil" class="h-3.5 w-3.5"></i>
+                    <span x-text="openUnitPolicyEdit ? 'Close Editor' : 'Edit Policy'">Edit Policy</span>
+                </button>
+            @endif
+        </div>
+
+        <!-- Clean Read Summary (Always visible when editor is collapsed) -->
+        <div x-show="!openUnitPolicyEdit" class="mt-4 grid grid-cols-2 gap-2.5 text-xs">
+            <div class="rounded-xl border border-slate-100 bg-slate-50 p-3"><span class="text-slate-500">Office Hours</span><p class="mt-1 font-extrabold text-slate-900">{{ $officeStart }} — {{ $officeEnd }}</p></div>
+            <div class="rounded-xl border border-slate-100 bg-slate-50 p-3"><span class="text-slate-500">Grace Window</span><p class="mt-1 font-extrabold text-slate-900">{{ $graceMinutes }} minutes</p></div>
+            <div class="rounded-xl border border-slate-100 bg-slate-50 p-3"><span class="text-slate-500">Late Deduction Rule</span><p class="mt-1 font-extrabold text-amber-900">{{ $latePenaltyEnabled ? ($lateDaysPerDeduction . ' Late = ' . $deductionDaysCount . 'd Cut') : 'No Financial Cut' }}</p></div>
+            <div class="rounded-xl border border-slate-100 bg-slate-50 p-3"><span class="text-slate-500">Mgr Claim Ceiling</span><p class="mt-1 font-extrabold text-emerald-800">৳ {{ number_format($managerConveyanceLimit, 0) }} ({{ $conveyanceLateDays }}d)</p></div>
+            <div class="rounded-xl border border-slate-100 bg-slate-50 p-3"><span class="text-slate-500">Geofence Radius</span><p class="mt-1 font-extrabold text-slate-900">{{ number_format((float) $geofenceRadiusKm, 2) }} KM</p></div>
+            <div class="rounded-xl border border-slate-100 bg-slate-50 p-3"><span class="text-slate-500">Policy Timezone</span><p class="mt-1 font-extrabold text-slate-900">{{ $policyTimezone }}</p></div>
         </div>
 
         @if($previewRole === 'partner' || ($canManagePolicies ?? false))
-            <form wire:submit.prevent="savePolicySettings" class="mt-5 space-y-4 text-xs">
+            <form x-show="openUnitPolicyEdit" x-cloak wire:submit.prevent="savePolicySettings" class="mt-5 border-t border-slate-100 pt-4 space-y-4 text-xs">
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <label class="block font-bold text-slate-700">Office Start
                         <input type="text" wire:model="officeStart" class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
@@ -250,10 +315,10 @@
                     <p class="text-[11px] text-slate-600">Arrivals after {{ $officeStart }} + {{ $graceMinutes }}m are marked Late. Configure how many Late days trigger an automatic stipend deduction:</p>
                     @if($latePenaltyEnabled)
                         <div class="grid grid-cols-2 gap-3 pt-1">
-                            <label class="block font-bold text-slate-700">Late Days Count (কয়দিন লেট করলে)
+                            <label class="block font-bold text-slate-700">Late Days Count
                                 <input type="number" wire:model="lateDaysPerDeduction" min="1" max="30" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2">
                             </label>
-                            <label class="block font-bold text-slate-700">Deduct Allowance Days (কয়দিনের ভাতা কাটবে)
+                            <label class="block font-bold text-slate-700">Deduct Allowance Days
                                 <input type="number" wire:model="deductionDaysCount" min="0.5" max="10" step="0.5" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2">
                             </label>
                         </div>
@@ -292,6 +357,9 @@
         @endif
     </section>
 
+</div>
+
+<div x-show="activeSettingsTab === 'permissions'" x-cloak class="grid gap-5 lg:grid-cols-2">
     <!-- Student Dashboard Grids: Active/Deactive Controls -->
     <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
         <div class="flex items-start gap-3">
@@ -388,6 +456,7 @@
     </section>
 </div>
 
+<div x-show="activeSettingsTab === 'holidays'" x-cloak class="space-y-5">
 <!-- ===================================================================== -->
 <!-- WEEKLY OFF DAYS (per firm) — Bangladesh firms do not all close Fri+Sat -->
 <!-- ===================================================================== -->
@@ -449,14 +518,21 @@
                 <p class="mt-0.5 text-xs text-slate-500">For a hartal, storm, flood or an Eid half-day: shift that one date's office hours, widen the grace period, or switch lateness off for the day. The standing policy is <strong>never edited</strong>, so past days and already-approved payroll stay exactly as they were.</p>
             </div>
         </div>
-        <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1.5 text-[11px] font-extrabold text-teal-800">
-            <i data-lucide="calendar-clock" class="h-3.5 w-3.5"></i>
-            Policy: {{ $officeStart }} &ndash; {{ $officeEnd }} &middot; grace {{ $graceMinutes }}m
-        </span>
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+            <span class="inline-flex items-center gap-1.5 rounded-full bg-teal-50 px-3 py-1.5 text-[11px] font-extrabold text-teal-800">
+                <i data-lucide="calendar-clock" class="h-3.5 w-3.5"></i>
+                Policy: {{ $officeStart }} &ndash; {{ $officeEnd }} &middot; grace {{ $graceMinutes }}m
+            </span>
+            @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+                <button type="button" @click="openExceptionForm = !openExceptionForm" class="inline-flex items-center gap-1.5 rounded-xl bg-teal-600 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-teal-700 cursor-pointer">
+                    <span x-text="openExceptionForm ? 'Hide Form' : '+ Declare Exception'">+ Declare Exception</span>
+                </button>
+            @endif
+        </div>
     </div>
 
     @if($previewRole === 'partner' || ($canManagePolicies ?? false))
-        <form wire:submit.prevent="saveWorkingDayException" class="mt-5 space-y-3.5 text-xs">
+        <form x-show="openExceptionForm" x-cloak wire:submit.prevent="saveWorkingDayException" class="mt-5 space-y-3.5 text-xs">
             <div class="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
                 <label class="block font-bold text-slate-700">Date *
                     <input type="date" wire:model="newExceptionDate" required class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs outline-none focus:border-teal-400">
@@ -480,7 +556,7 @@
                 <label class="flex items-start gap-2.5 cursor-pointer">
                     <input type="checkbox" wire:model.live="newExceptionLateExempt" class="mt-0.5 rounded border-teal-400 text-teal-600">
                     <div>
-                        <span class="font-extrabold text-teal-950">Lateness is not counted on this date (দেরি গণ্য হবে না)</span>
+                        <span class="font-extrabold text-teal-950">Lateness is not counted on this date</span>
                         <p class="text-[10px] text-teal-800 mt-0.5">Arrivals are still recorded honestly as <strong>Late (Excused)</strong>, but they never feed the late-day count and can never trigger a salary deduction.</p>
                     </div>
                 </label>
@@ -620,7 +696,7 @@
                     <label class="flex items-start gap-2.5 cursor-pointer">
                         <input type="checkbox" wire:model.live="newHolidayIsOfficeOpen" class="mt-0.5 rounded border-rose-300 text-rose-600">
                         <div>
-                            <span class="font-extrabold text-rose-950">Keep Office Open on this Holiday / Weekend (অফিস খোলা থাকবে)</span>
+                            <span class="font-extrabold text-rose-950">Keep Office Open on this Holiday / Weekend</span>
                             <p class="text-[10px] text-rose-800 mt-0.5">If checked, attendance is mandatory on this date. Anyone who does not attend (without approved leave) will be marked <strong>Absent</strong> and have salary deducted.</p>
                         </div>
                     </label>
@@ -683,3 +759,6 @@
         </div>
     </div>
 </section>
+
+</div>
+</div>

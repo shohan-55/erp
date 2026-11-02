@@ -37,9 +37,20 @@ trait ManagesAttendanceCalendarAndRadar
                     ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
                     ->with('manager');
 
-                // Partner Unit Isolation unless Cross-Partner Combined Attendance is toggled on
-                if (! ($this->viewAllPartnersAttendance && $this->canViewAllPartnersAttendance) && Auth::check()) {
-                    $studentsQuery->where('partner_unit', $this->partnerUnit);
+                // SECURITY: A Student must only ever receive their own attendance row in
+                // the public $studentRows Livewire property so colleagues' GPS locations
+                // and check-in times are never leaked in the browser's network payload.
+                if (Auth::check() && Auth::user()->isStudent()) {
+                    $studentsQuery->where('id', Auth::id());
+                } elseif (! ($this->viewAllPartnersAttendance && $this->canViewAllPartnersAttendance) && Auth::check()) {
+                    $studentsQuery->where(function ($q) {
+                        $q->where('partner_unit', $this->partnerUnit)
+                            ->orWhereNull('partner_unit')
+                            ->orWhere('id', Auth::id());
+                        if (Auth::user()?->isManager()) {
+                            $q->orWhere('manager_id', Auth::id());
+                        }
+                    });
                 } elseif ($this->viewAllPartnersAttendance && $this->canViewAllPartnersAttendance && Schema::hasTable('partner_policies')) {
                     // Exclude any Partner Units explicitly set to Isolated Branch Mode (shared_attendance_pool = false)
                     $isolatedUnits = PartnerPolicy::where('firm_id', $firmModel->id)
@@ -59,8 +70,10 @@ trait ManagesAttendanceCalendarAndRadar
                 $students = $studentsQuery->get();
 
                 if ($students->isNotEmpty()) {
+                    $tz = $this->policyTimezone ?: 'Asia/Dhaka';
+                    $todayDate = now()->timezone($tz)->toDateString();
                     $todayAttendances = Attendance::where('firm_id', $firmModel->id)
-                        ->whereDate('date', now()->toDateString())
+                        ->whereDate('date', $todayDate)
                         ->with(['editor', 'proxyUser'])
                         ->get()
                         ->keyBy('user_id');
@@ -83,18 +96,20 @@ trait ManagesAttendanceCalendarAndRadar
                         }
                     }
 
-                    $this->studentRows = $students->map(function (User $s) use ($todayAttendances) {
+                    $this->studentRows = $students->map(function (User $s) use ($todayAttendances, $tz) {
                         /** @var Attendance|null $att */
                         $att = $todayAttendances->get($s->id);
+                        $inHi = $att?->in_time?->copy()->timezone($tz)->format('H:i');
+                        $outHi = $att?->out_time?->copy()->timezone($tz)->format('H:i');
                         $movements = ($att && ! empty($att->movement_logs) && is_array($att->movement_logs))
                             ? $att->movement_logs
-                            : ($att && $att->in_time ? [[
+                            : ($att && $inHi ? [[
                                 'seq'          => 1,
                                 'mode'         => ucfirst($att->work_mode),
                                 'site'         => $att->client_site ?: 'Principal Office HQ',
-                                'in_time'      => $att->in_time->format('H:i'),
+                                'in_time'      => $inHi,
                                 'in_location'  => $att->in_location_name ?? 'Office',
-                                'out_time'     => $att->out_time?->format('H:i') ?? '—',
+                                'out_time'     => $outHi ?? '—',
                                 'out_location' => $att->out_location_name ?? '—',
                                 'out_action'   => $att->session_state ?? ($att->out_time ? 'closed' : 'active'),
                             ]] : []);
@@ -109,9 +124,9 @@ trait ManagesAttendanceCalendarAndRadar
                             'session_state'  => $att?->session_state ?? ($att?->out_time ? 'closed' : ($att?->in_time ? 'active' : 'inactive')),
                             'mode'           => $att ? ucfirst($att->work_mode) : 'Office',
                             'client_site'    => $att?->client_site,
-                            'day'            => now()->format('D'),
-                            'checkin'        => $att?->in_time?->format('H:i') ?? '—',
-                            'checkout'       => $att?->out_time?->format('H:i') ?? '—',
+                            'day'            => now()->timezone($tz)->format('D'),
+                            'checkin'        => $inHi ?? '—',
+                            'checkout'       => $outHi ?? '—',
                             'in_lat'            => $att?->in_lat,
                             'in_lng'            => $att?->in_lng,
                             'in_location'       => $att?->in_location_name ?? '—',
@@ -953,7 +968,7 @@ trait ManagesAttendanceCalendarAndRadar
     }
 
     /**
-     * Proposal 1: Live Team Radar ("কে কোথায় আছে" — At Office vs At Client Site vs On Duty Transit).
+     * Proposal 1: Live Team Radar (At Office vs At Client Site vs On Duty Transit).
      */
     public function getTeamRadarProperty(): array
     {
@@ -1074,6 +1089,11 @@ trait ManagesAttendanceCalendarAndRadar
      */
     public function exportStudentCertificate(int $memberId, string $docType = 'noc')
     {
+        $this->enforceAuthenticatedRoleLock();
+        if ($this->previewRole === 'student' && Auth::check() && (int) $memberId !== (int) Auth::id()) {
+            $this->error = 'Students may only download their own ICAB certificate.';
+            return null;
+        }
         $member = collect($this->teamMembers)->firstWhere('id', $memberId);
         if (! $member) {
             return null;
@@ -1153,6 +1173,11 @@ trait ManagesAttendanceCalendarAndRadar
 
     public function exportPrintableAttendanceSheet()
     {
+        $this->enforceAuthenticatedRoleLock();
+        if ($this->previewRole === 'student') {
+            $this->error = 'Only a Manager or Partner can download the printable attendance register.';
+            return null;
+        }
         $firmName = $this->firm['name'] ?? 'Chartered Accountants Practice';
         $scopeLabel = $this->viewAllPartnersAttendance ? 'All Partner Units (Combined Firm Register)' : $this->partnerUnit;
         $start = $this->attendanceReportStart ?: now()->startOfMonth()->toDateString();
@@ -1499,7 +1524,7 @@ trait ManagesAttendanceCalendarAndRadar
                 if ($this->previewSessionActive) {
                     $row['mode'] = ucfirst($this->workMode);
                     $row['client_site'] = $this->workMode === 'client' ? $this->clientSite : null;
-                    if ($row['checkin'] === '—' || empty($logs)) {
+                    if ($row['checkin'] === '—' || empty($row['checkin'])) {
                         $row['checkin'] = $nowTime;
                         $row['status'] = $arrivalStatus;
                     }
@@ -1572,8 +1597,11 @@ trait ManagesAttendanceCalendarAndRadar
                         $att->out_location_name = null;
 
                         if (! $att->in_time) {
-                            $att->in_time = now();
+                            $att->in_time = now()->timezone($this->policyTimezone ?: 'Asia/Dhaka');
                             $att->status = $arrivalStatus;
+                        } elseif (empty($att->status) || $att->status === 'Incomplete') {
+                            $firstInHi = $att->in_time->copy()->timezone($this->policyTimezone ?: 'Asia/Dhaka')->format('H:i');
+                            $att->status = $this->classifyArrivalStatus($firstInHi);
                         }
                         $att->in_lat = $lat;
                         $att->in_lng = $lng;
@@ -1697,7 +1725,16 @@ trait ManagesAttendanceCalendarAndRadar
             'Remarks',
         ];
 
-        $rowsToExport = $this->studentRows;
+        $this->enforceAuthenticatedRoleLock();
+        $rowsToExport = ($this->previewRole === 'student')
+            ? array_values(array_filter($this->studentRows, function ($r) {
+                if (Auth::check() && Auth::user()->isStudent()) {
+                    return (int) ($r['db_id'] ?? 0) === (int) Auth::id()
+                        || ($r['id'] ?? '') === (Auth::user()->student_code ?? 'S-101');
+                }
+                return ($r['id'] ?? '') === 'S-101';
+            }))
+            : $this->studentRows;
 
         return response()->streamDownload(function () use ($columns, $rowsToExport) {
             $handle = fopen('php://output', 'w');

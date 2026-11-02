@@ -584,7 +584,7 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
             var off = document.createElement('div');
             off.id = 'dw-offline-banner';
             off.setAttribute('role', 'status');
-            off.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#F43F5E;"></span><span>ইন্টানেট সংযোগ বিচ্ছিন্ন (Offline) — অনুগ্রহ করে কানেকশন চেক করুন</span>';
+            off.innerHTML = '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#F43F5E;"></span><span>Internet connection offline — please check your network connection</span>';
             document.body.appendChild(off);
         }
     }

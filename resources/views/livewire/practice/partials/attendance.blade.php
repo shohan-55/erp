@@ -124,7 +124,7 @@
             @if($workMode === 'client')
                 <div class="mt-4 space-y-1.5">
                     <div class="flex items-center justify-between">
-                        <label class="text-xs font-bold text-slate-700">Client / Company Name (ক্লায়েন্টের নাম লিখুন বা সিলেক্ট করুন) <span class="text-rose-500">*</span></label>
+                        <label class="text-xs font-bold text-slate-700">Client / Company Name <span class="text-rose-500">*</span></label>
                     </div>
                     <input type="text"
                            wire:model="clientSite"
@@ -182,7 +182,7 @@
 
             <!-- Student Missed Check-out Correction Request Form (#3) -->
             <form wire:submit.prevent="submitMissedCheckoutRequest" class="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 p-4 space-y-2.5 text-xs">
-                <p class="font-extrabold text-amber-950">Forgot to Click Close / Check-out? (চেক-আউট দিতে ভুলে গেলে রিকোয়েস্ট পাঠান)</p>
+                <p class="font-extrabold text-amber-950">Forgot to Click Close / Check-out?</p>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <label class="block font-bold text-slate-700">Actual Out Time
                         <input type="text" wire:model="missedOutTime" placeholder="18:15" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
@@ -346,7 +346,7 @@
     <div class="divide-y divide-slate-100 md:hidden">
         @forelse($rows as $item)
             <div wire:key="mobile-att-{{ $item['id'] }}" class="p-4">
-                <div class="flex items-center justify-between gap-3"><p class="text-sm font-bold">{{ $item['name'] }}</p><span class="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">{{ $item['status'] }}</span></div>
+                <div class="flex items-center justify-between gap-3"><p class="text-sm font-bold">{{ $item['name'] }}</p><span class="rounded-full px-2 py-1 text-[10px] font-bold {{ in_array($item['status'], ['Right Time', 'On time'], true) ? 'bg-emerald-50 text-emerald-700' : ($item['status'] === 'Late' ? 'bg-amber-50 text-amber-800' : ($item['status'] === 'Late Present' ? 'bg-rose-100 text-rose-800' : ($item['status'] === 'Late (Excused)' ? 'bg-teal-50 text-teal-800' : 'bg-slate-100 text-slate-600'))) }}">{{ $item['status'] }}</span></div>
                 <p class="mt-2 text-xs text-slate-500">
                     {{ $item['id'] }} · {{ $item['mode'] }}
                     @if(!empty($item['client_site']))

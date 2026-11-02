@@ -187,6 +187,27 @@
                                     @if(!empty($member['payment_account_no']) && $member['payment_account_no'] !== '—')
                                         <p class="text-[10px] text-amber-800 font-semibold mt-0.5">{{ $member['payment_account_mode'] ?? 'bKash' }}: {{ $member['payment_account_no'] }}</p>
                                     @endif
+                                    @if(in_array($member['role'] ?? '', ['student', 'manager'], true))
+                                        <div class="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+                                            <span class="inline-flex items-center gap-1 rounded-md border border-teal-200 bg-teal-50 px-1.5 py-0.5 font-extrabold text-teal-900">
+                                                Available Leave: {{ $member['leave_available_days'] ?? ($member['role'] === 'student' ? 180 : 44) }}d / {{ $member['total_leave_cap'] ?? ($member['role'] === 'student' ? 180 : 44) }}d
+                                            </span>
+                                            @if(($member['role'] ?? '') === 'student')
+                                                <span class="rounded bg-indigo-50 px-1.5 py-0.5 font-bold text-indigo-800">
+                                                    {{ $member['articleship_duration_years'] ?? 3 }}-Yr Max · Study: {{ $member['leave_allocations']['icab_study'] ?? 145 }}d
+                                                </span>
+                                            @else
+                                                <span class="rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-600">
+                                                    BD Corporate Quota
+                                                </span>
+                                            @endif
+                                            @if(($member['leave_used_days'] ?? 0) > 0 || ($member['leave_pending_days'] ?? 0) > 0)
+                                                <span class="rounded bg-amber-50 px-1.5 py-0.5 font-bold text-amber-900">
+                                                    Used: {{ $member['leave_used_days'] ?? 0 }}d{{ ($member['leave_pending_days'] ?? 0) > 0 ? ' · Pending: ' . $member['leave_pending_days'] . 'd' : '' }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         </td>
@@ -381,24 +402,98 @@
                     </div>
 
                     @if($newMemberRole === 'student')
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">
-                            <label class="block font-bold text-slate-700">Student ICAB Code
-                                <input type="text" wire:model="newMemberStudentCode" placeholder="e.g. S-105" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
-                            </label>
-                            <label class="block font-bold text-slate-700">Supervising Manager
-                                <select wire:model="newMemberManagerId" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
-                                    <option value="">— Direct Partner Report —</option>
-                                    @foreach($availableManagers as $mgr)
-                                        <option value="{{ $mgr['id'] }}">{{ $mgr['name'] }}</option>
-                                    @endforeach
-                                </select>
-                            </label>
-                            <label class="block font-bold text-slate-700">Articleship Joining Date
-                                <input type="date" wire:model.live="newMemberArticleshipStart" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
-                            </label>
-                            <label class="block font-bold text-slate-700">Articleship Completion (3-Yr)
-                                <input type="date" wire:model="newMemberArticleshipEnd" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
-                            </label>
+                        <div class="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <p class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-950">ICAB Articleship Period &amp; Total Leave Entitlement</p>
+                                    <p class="text-[10px] text-emerald-800">3-Year Articleship = Max 180 Days Leave · 4-Year Articleship = Max 240 Days Leave (Study Leave = Remaining Days after Regular Leaves)</p>
+                                </div>
+                                <div class="inline-flex rounded-xl border border-emerald-300 bg-white p-0.5">
+                                    <button type="button" wire:click="selectNewMemberArticleshipYears(3)"
+                                            class="rounded-lg px-2.5 py-1 text-[11px] font-extrabold transition {{ (int) $newMemberArticleshipYears === 3 ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-50' }}">
+                                        3 Years (180 Days)
+                                    </button>
+                                    <button type="button" wire:click="selectNewMemberArticleshipYears(4)"
+                                            class="rounded-lg px-2.5 py-1 text-[11px] font-extrabold transition {{ (int) $newMemberArticleshipYears === 4 ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-50' }}">
+                                        4 Years (240 Days)
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <label class="block font-bold text-slate-700">Student ICAB Code
+                                    <input type="text" wire:model="newMemberStudentCode" placeholder="e.g. S-105" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
+                                </label>
+                                <label class="block font-bold text-slate-700">Supervising Manager
+                                    <select wire:model="newMemberManagerId" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
+                                        <option value="">— Direct Partner Report —</option>
+                                        @foreach($availableManagers as $mgr)
+                                            <option value="{{ $mgr['id'] }}">{{ $mgr['name'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                                <label class="block font-bold text-slate-700">Articleship Joining Date
+                                    <input type="date" wire:model.live="newMemberArticleshipStart" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
+                                </label>
+                                <label class="block font-bold text-slate-700">Articleship Completion ({{ $newMemberArticleshipYears }}-Yr)
+                                    <input type="date" wire:model="newMemberArticleshipEnd" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
+                                </label>
+                            </div>
+
+                            <div class="rounded-xl border border-emerald-200 bg-white p-3 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-extrabold text-slate-800">Configure Student Leave Allocation (Editable)</span>
+                                    <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black text-emerald-900">
+                                        Max Cap: {{ $newMemberTotalLeaveCap }} Days ({{ $newMemberArticleshipYears }} Yrs)
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                                    <label class="block text-[10px] font-bold text-slate-600">Total Cap (Days)
+                                        <input type="number" wire:model.live="newMemberTotalLeaveCap" min="30" max="365" class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-xs font-extrabold text-slate-900">
+                                    </label>
+                                    <label class="block text-[10px] font-bold text-slate-600">Casual Leave
+                                        <input type="number" wire:model.live="newMemberLeaveCasual" min="0" max="120" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                    </label>
+                                    <label class="block text-[10px] font-bold text-slate-600">Sick Leave
+                                        <input type="number" wire:model.live="newMemberLeaveSick" min="0" max="120" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                    </label>
+                                    <label class="block text-[10px] font-bold text-slate-600">Emergency Leave
+                                        <input type="number" wire:model.live="newMemberLeaveEmergency" min="0" max="120" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                    </label>
+                                    <label class="block text-[10px] font-extrabold text-indigo-800">Study Leave (Auto)
+                                        <input type="number" wire:model="newMemberLeaveStudy" min="0" max="240" class="mt-1 w-full rounded-lg border border-indigo-300 bg-indigo-50/70 p-1.5 text-xs font-black text-indigo-900">
+                                    </label>
+                                </div>
+                                <p class="text-[10px] text-slate-500">
+                                    Formula: <strong>{{ $newMemberTotalLeaveCap }} Total Days</strong> &minus; ({{ $newMemberLeaveCasual }} Casual + {{ $newMemberLeaveSick }} Sick + {{ $newMemberLeaveEmergency }} Emergency) = <strong class="text-indigo-700">{{ $newMemberLeaveStudy }} Days ICAB Study / Exam Leave</strong>.
+                                </p>
+                            </div>
+                        </div>
+                    @elseif($newMemberRole === 'manager')
+                        <div class="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-3.5 space-y-2.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <p class="text-[11px] font-extrabold uppercase tracking-wider text-indigo-950">Bangladesh Corporate Leave Entitlement (Manager / Regular Staff)</p>
+                                    <p class="text-[10px] text-indigo-800">Pre-filled with standard corporate annual leave quotas. You can customize any category below.</p>
+                                </div>
+                                <span class="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-black text-indigo-900">
+                                    Total: {{ $newMemberTotalLeaveCap }} Days / Year
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                                <label class="block text-[10px] font-bold text-slate-700">Casual Leave (BD Std)
+                                    <input type="number" wire:model.live="newMemberLeaveCasual" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
+                                </label>
+                                <label class="block text-[10px] font-bold text-slate-700">Sick / Medical Leave
+                                    <input type="number" wire:model.live="newMemberLeaveSick" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
+                                </label>
+                                <label class="block text-[10px] font-bold text-slate-700">Earned / Privilege Leave
+                                    <input type="number" wire:model.live="newMemberLeaveEarned" min="0" max="90" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
+                                </label>
+                                <label class="block text-[10px] font-bold text-slate-700">Emergency / Festival
+                                    <input type="number" wire:model.live="newMemberLeaveEmergency" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
+                                </label>
+                            </div>
                         </div>
                     @endif
 
@@ -451,7 +546,7 @@
                         </label>
 
                         <div class="border-t border-amber-200/80 pt-2.5 mt-2 space-y-2.5">
-                            <p class="font-extrabold text-teal-900 uppercase tracking-wider text-[10px]">⚡ Partner-Level Executive Delegation (পলিসি ও ফাইনাল অ্যাপ্রুভাল পাওয়ার)</p>
+                            <p class="font-extrabold text-teal-900 uppercase tracking-wider text-[10px]">⚡ Partner-Level Executive Delegation</p>
                             <label class="flex items-start gap-2.5 cursor-pointer">
                                 <input type="checkbox" wire:model="newMemberCanManagePolicies" class="mt-0.5 rounded border-teal-400 text-teal-600 focus:ring-teal-400">
                                 <div>
@@ -534,14 +629,14 @@
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">
-                            New Password (নতুন পাসওয়ার্ড দিন অথবা অটো-জেনারেট করতে খালি রাখুন)
+                            New Password (Enter custom password or leave blank to send one-time reset link)
                         </label>
                         <input type="text"
                                wire:model="resetPasswordInput"
                                placeholder="Type new password (min 6 chars) or leave blank"
                                class="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-mono text-xs outline-none focus:border-amber-400 focus:bg-white">
                         <p class="mt-1.5 text-[11px] text-slate-500 leading-relaxed">
-                            রিসেট করার সাথে সাথেই <strong>{{ $resetPasswordMemberEmail }}</strong> মেইলে লগইন লিংক, ইউজারনেম এবং নতুন পাসওয়ার্ড চলে যাবে।
+                            A one-time password reset and account activation link will be sent immediately to <strong>{{ $resetPasswordMemberEmail }}</strong>.
                         </p>
                     </div>
 
@@ -630,24 +725,98 @@
                     </div>
 
                     @if($editMemberRole === 'student')
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3">
-                            <label class="block font-bold text-slate-700">Student ICAB Code
-                                <input type="text" wire:model="editMemberStudentCode" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
-                            </label>
-                            <label class="block font-bold text-slate-700">Supervising Manager
-                                <select wire:model="editMemberManagerId" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
-                                    <option value="">— Direct Partner Report —</option>
-                                    @foreach($availableManagers as $mgr)
-                                        <option value="{{ $mgr['id'] }}">{{ $mgr['name'] }}</option>
-                                    @endforeach
-                                </select>
-                            </label>
-                            <label class="block font-bold text-slate-700">Articleship Joining Date
-                                <input type="date" wire:model="editMemberArticleshipStart" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
-                            </label>
-                            <label class="block font-bold text-slate-700">Articleship Completion Date
-                                <input type="date" wire:model="editMemberArticleshipEnd" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
-                            </label>
+                        <div class="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <p class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-950">ICAB Articleship Period &amp; Leave Allocation Editor</p>
+                                    <p class="text-[10px] text-emerald-800">Switch between 3-Year (180d) or 4-Year (240d) articleship or customize leave categories anytime.</p>
+                                </div>
+                                <div class="inline-flex rounded-xl border border-emerald-300 bg-white p-0.5">
+                                    <button type="button" wire:click="selectEditMemberArticleshipYears(3)"
+                                            class="rounded-lg px-2.5 py-1 text-[11px] font-extrabold transition {{ (int) $editMemberArticleshipYears === 3 ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-50' }}">
+                                        3 Years (180 Days)
+                                    </button>
+                                    <button type="button" wire:click="selectEditMemberArticleshipYears(4)"
+                                            class="rounded-lg px-2.5 py-1 text-[11px] font-extrabold transition {{ (int) $editMemberArticleshipYears === 4 ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:bg-slate-50' }}">
+                                        4 Years (240 Days)
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <label class="block font-bold text-slate-700">Student ICAB Code
+                                    <input type="text" wire:model="editMemberStudentCode" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
+                                </label>
+                                <label class="block font-bold text-slate-700">Supervising Manager
+                                    <select wire:model="editMemberManagerId" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
+                                        <option value="">— Direct Partner Report —</option>
+                                        @foreach($availableManagers as $mgr)
+                                            <option value="{{ $mgr['id'] }}">{{ $mgr['name'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                                <label class="block font-bold text-slate-700">Articleship Joining Date
+                                    <input type="date" wire:model="editMemberArticleshipStart" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
+                                </label>
+                                <label class="block font-bold text-slate-700">Articleship Completion Date ({{ $editMemberArticleshipYears }}-Yr)
+                                    <input type="date" wire:model="editMemberArticleshipEnd" class="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-amber-400">
+                                </label>
+                            </div>
+
+                            <div class="rounded-xl border border-emerald-200 bg-white p-3 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-extrabold text-slate-800">Profile Leave Entitlements (Editable)</span>
+                                    <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black text-emerald-900">
+                                        Total Cap: {{ $editMemberTotalLeaveCap }} Days
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                                    <label class="block text-[10px] font-bold text-slate-600">Total Cap (Days)
+                                        <input type="number" wire:model.live="editMemberTotalLeaveCap" min="30" max="365" class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-xs font-extrabold text-slate-900">
+                                    </label>
+                                    <label class="block text-[10px] font-bold text-slate-600">Casual Leave
+                                        <input type="number" wire:model.live="editMemberLeaveCasual" min="0" max="120" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                    </label>
+                                    <label class="block text-[10px] font-bold text-slate-600">Sick Leave
+                                        <input type="number" wire:model.live="editMemberLeaveSick" min="0" max="120" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                    </label>
+                                    <label class="block text-[10px] font-bold text-slate-600">Emergency Leave
+                                        <input type="number" wire:model.live="editMemberLeaveEmergency" min="0" max="120" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                    </label>
+                                    <label class="block text-[10px] font-extrabold text-indigo-800">Study Leave (Auto)
+                                        <input type="number" wire:model="editMemberLeaveStudy" min="0" max="240" class="mt-1 w-full rounded-lg border border-indigo-300 bg-indigo-50/70 p-1.5 text-xs font-black text-indigo-900">
+                                    </label>
+                                </div>
+                                <p class="text-[10px] text-slate-500">
+                                    Remaining after Regular Leaves ({{ $editMemberLeaveCasual }} + {{ $editMemberLeaveSick }} + {{ $editMemberLeaveEmergency }}) = <strong class="text-indigo-700">{{ $editMemberLeaveStudy }} Days ICAB Study / Exam Leave</strong>.
+                                </p>
+                            </div>
+                        </div>
+                    @elseif($editMemberRole === 'manager')
+                        <div class="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-3.5 space-y-2.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <p class="text-[11px] font-extrabold uppercase tracking-wider text-indigo-950">Bangladesh Corporate Leave Entitlement (Manager / Regular Staff)</p>
+                                    <p class="text-[10px] text-indigo-800">Edit annual corporate leave days for this Manager / Staff profile.</p>
+                                </div>
+                                <span class="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-black text-indigo-900">
+                                    Total: {{ $editMemberTotalLeaveCap }} Days / Year
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                                <label class="block text-[10px] font-bold text-slate-700">Casual Leave
+                                    <input type="number" wire:model.live="editMemberLeaveCasual" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
+                                </label>
+                                <label class="block text-[10px] font-bold text-slate-700">Sick / Medical Leave
+                                    <input type="number" wire:model.live="editMemberLeaveSick" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
+                                </label>
+                                <label class="block text-[10px] font-bold text-slate-700">Earned / Privilege Leave
+                                    <input type="number" wire:model.live="editMemberLeaveEarned" min="0" max="90" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
+                                </label>
+                                <label class="block text-[10px] font-bold text-slate-700">Emergency / Festival
+                                    <input type="number" wire:model.live="editMemberLeaveEmergency" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
+                                </label>
+                            </div>
                         </div>
                     @endif
 
@@ -700,7 +869,7 @@
                         </label>
 
                         <div class="border-t border-amber-200/80 pt-2.5 mt-2 space-y-2.5">
-                            <p class="font-extrabold text-teal-900 uppercase tracking-wider text-[10px]">⚡ Partner-Level Executive Delegation (পলিসি ও ফাইনাল অ্যাপ্রুভাল পাওয়ার)</p>
+                            <p class="font-extrabold text-teal-900 uppercase tracking-wider text-[10px]">⚡ Partner-Level Executive Delegation</p>
                             <label class="flex items-start gap-2.5 cursor-pointer">
                                 <input type="checkbox" wire:model="editMemberCanManagePolicies" class="mt-0.5 rounded border-teal-400 text-teal-600 focus:ring-teal-400">
                                 <div>
@@ -832,9 +1001,9 @@
                     @endif
 
                     <div>
-                        <label class="block font-bold text-slate-700 mb-1.5">Action Type (পদোন্নতি / ডিমোশন / পদবী পরিবর্তন)</label>
+                        <label class="block font-bold text-slate-700 mb-1.5">Action Type (Promote / Demote / Reassign Title)</label>
                         <div class="grid grid-cols-3 gap-2">
-                            @foreach(['promote' => '⬆️ Promote (পদোন্নতি)', 'demote' => '⬇️ Demote (ডিমোশন)', 'transfer' => '🔄 Reassign Title'] as $actKey => $actLabel)
+                            @foreach(['promote' => '⬆️ Promote', 'demote' => '⬇️ Demote', 'transfer' => '🔄 Reassign Title'] as $actKey => $actLabel)
                                 <button type="button" wire:click="$set('promoteActionType', '{{ $actKey }}')"
                                         class="rounded-xl border p-2.5 text-center font-extrabold transition {{ $promoteActionType === $actKey ? ($actKey === 'demote' ? 'border-rose-400 bg-rose-50 text-rose-900 ring-2 ring-rose-200' : 'border-emerald-400 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-200') : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}">
                                     {{ $actLabel }}

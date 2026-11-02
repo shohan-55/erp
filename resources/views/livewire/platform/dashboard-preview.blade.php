@@ -363,7 +363,7 @@
                 <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                         <div>
-                            <h3 class="text-[15px] font-extrabold text-slate-900">Global Platform Broadcast (সব ফার্মে পপআপ নোটিশ পাঠান)</h3>
+                            <h3 class="text-[15px] font-extrabold text-slate-900">Global Platform Broadcast</h3>
                             <p class="mt-0.5 text-xs text-slate-500">Send a popup announcement (maintenance, policy update, or billing alert) to all active firms or a specific firm.</p>
                         </div>
                         <span class="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-bold text-amber-900">Popup Broadcast</span>
@@ -372,7 +372,7 @@
                         <div>
                             <label class="block font-bold text-slate-700 mb-1">Target Organization</label>
                             <select wire:model="broadcastTargetSlug" class="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs font-semibold">
-                                <option value="all">All Active Organizations (সব ফার্ম)</option>
+                                <option value="all">All Active Organizations</option>
                                 @foreach($demoFirms as $bf)
                                     <option value="{{ $bf['slug'] }}">{{ $bf['name'] }} (/c/{{ $bf['slug'] }})</option>
                                 @endforeach
@@ -455,7 +455,7 @@
                     <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
                         <div class="border-b border-slate-100 pb-3">
                             <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#B08400]">SUPER ADMIN SECURITY</p>
-                            <h3 class="mt-0.5 text-sm font-extrabold text-slate-900">My Profile &amp; Root Password (নিজের পাসওয়ার্ড ও ইমেইল পরিবর্তন)</h3>
+                            <h3 class="mt-0.5 text-sm font-extrabold text-slate-900">My Profile &amp; Root Password</h3>
                         </div>
                         <form wire:submit.prevent="updatePlatformAdminProfile" class="mt-4 space-y-3 text-xs">
                             <div class="grid gap-3 sm:grid-cols-2">
@@ -483,7 +483,7 @@
                     <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm">
                         <div class="border-b border-slate-100 pb-3">
                             <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#B08400]">DHAKAWALA OPERATORS</p>
-                            <h3 class="mt-0.5 text-sm font-extrabold text-slate-900">Platform Super Admin Accounts (নতুন সুপার অ্যাডমিন যোগ করুন)</h3>
+                            <h3 class="mt-0.5 text-sm font-extrabold text-slate-900">Platform Super Admin Accounts</h3>
                         </div>
                         <form wire:submit.prevent="createPlatformOperator" class="mt-3 grid gap-2 sm:grid-cols-3 text-xs">
                             <input type="text" wire:model="newOperatorName" placeholder="Operator Name" required class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
@@ -598,7 +598,7 @@
                                     <input type="text" wire:model="editFirmName" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800">
                                 </div>
                                 <div>
-                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Company Main / Support Email (কোম্পানি ইমেইল)</label>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Company Main / Support Email</label>
                                     <input type="email" wire:model="editFirmEmail" placeholder="info@firm.com" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800">
                                 </div>
                                 <div>
@@ -629,7 +629,7 @@
                             <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5 text-xs">
                                 <div class="flex items-center justify-between">
                                     <div>
-                                        <p class="font-extrabold text-slate-900">Firm Brand Color Palette (ফার্মের কালার প্যালেট)</p>
+                                        <p class="font-extrabold text-slate-900">Firm Brand Color Palette</p>
                                         <p class="text-[10px] text-slate-500">Select a preset palette or custom brand color for this firm's workspace &amp; login portal.</p>
                                     </div>
                                     <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[10px] font-bold text-slate-700">
@@ -665,7 +665,7 @@
                         <div class="border-t border-slate-100 bg-amber-50/40 px-6 py-4 space-y-3 text-xs">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Firm Partners &amp; Partner Units (পার্টনার লিস্ট ও পাসওয়ার্ড রিসেট)</h3>
+                                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-900">Firm Partners &amp; Partner Units</h3>
                                     <p class="text-[11px] text-slate-500">Add new Partners (isolated Partner Units) or reset an existing Partner's password.</p>
                                 </div>
                             </div>
@@ -690,7 +690,7 @@
                                                 <input type="text" wire:model="editPartnerNames.{{ $fp['id'] }}" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-800">
                                             </div>
                                             <div>
-                                                <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Partner Login Email (ইমেইল পরিবর্তন)</label>
+                                                <label class="block text-[10px] font-bold text-slate-500 mb-0.5">Partner Login Email</label>
                                                 <input type="email" wire:model="editPartnerEmails.{{ $fp['id'] }}" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-800">
                                             </div>
                                             <div>
@@ -727,7 +727,7 @@
                                     </div>
                                     <label class="sm:col-span-2 inline-flex items-center gap-2 text-[11px] font-semibold text-slate-700 cursor-pointer pt-1">
                                         <input type="checkbox" wire:model="newAddPartnerSharedAttendance" class="rounded border-amber-400 text-amber-600">
-                                        <span>Include in Main Branch Shared Attendance (আনচেক করলে এই পার্টনার ইউনিটের অ্যাটেনডেন্স, পেরোল ও লিভ সম্পূর্ণ আলাদা/ব্রাঞ্চ হিসেবে থাকবে)</span>
+                                        <span>Include in Main Branch Shared Attendance (uncheck to isolate attendance, payroll & leave for this unit)</span>
                                     </label>
                                 </div>
                             </div>
@@ -836,7 +836,7 @@
                                 {{-- Per-Firm Granular Module Switcher (#Proposal5) --}}
                                 <div class="rounded-xl bg-white p-3 border border-slate-200 space-y-2">
                                     <div class="flex items-center justify-between">
-                                        <p class="font-extrabold text-slate-800">Granular Module Access Control (মডিউল অন/অফ কন্ট্রোল)</p>
+                                        <p class="font-extrabold text-slate-800">Granular Module Access Control</p>
                                         <span class="text-[10px] font-semibold text-slate-400">Click to Toggle</span>
                                     </div>
                                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
@@ -862,7 +862,7 @@
                             <div class="mt-4 rounded-xl border border-slate-200 bg-white p-3.5 space-y-3 text-xs">
                                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                                     <div>
-                                        <p class="font-extrabold text-slate-900">Subscription &amp; Seat Billing Engine (ট্রায়াল ও সিট-ভিত্তিক পেইড সাবস্ক্রিপশন)</p>
+                                        <p class="font-extrabold text-slate-900">Subscription &amp; Seat Billing Engine</p>
                                         <p class="text-[10px] text-slate-500">Grant a Free Trial or calculate subscription fee automatically by Allocated Seats × Per-Seat Rate.</p>
                                     </div>
                                     <div class="flex flex-wrap items-center gap-1">
@@ -1197,7 +1197,7 @@
                         {{-- Initial Subscription Mode: Free Trial vs Seat-Based Paid (#Issue03) --}}
                         <div class="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5 text-xs">
                             <label class="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                                Subscription Mode (ট্রায়াল নাকি সিট-ভিত্তিক পেইড সাবস্ক্রিপশন)
+                                Subscription Mode (Trial vs Seat-Based Paid Subscription)
                             </label>
                             <div class="grid grid-cols-2 gap-2">
                                 <button type="button" wire:click="$set('newSubscriptionType', 'trial')"
@@ -1233,7 +1233,7 @@
                         <div class="sm:col-span-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-2.5">
                             <div class="flex items-center justify-between">
                                 <label class="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                                    Firm Brand Color Palette (ফার্মের কালার প্যালেট নির্বাচন করুন)
+                                    Firm Brand Color Palette
                                 </label>
                                 <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[10px] font-bold text-slate-700">
                                     <span class="h-2.5 w-2.5 rounded-full" style="background-color: {{ $newFirmPrimaryColor }}"></span>

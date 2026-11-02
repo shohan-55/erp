@@ -54,6 +54,14 @@ class FirmLogin extends Component
 
     public function fillDemoCredentials(string $role): void
     {
+        // SECURITY: this is a public Livewire action, so any anonymous visitor
+        // can call it (and even repoint $firmSlug). Without this guard it
+        // returned the real e-mail address of a firm's partner / manager /
+        // student from the database. Design-preview helper only.
+        if (! (config('erp.allow_test_logins') || config('app.demo_mode', false))) {
+            return;
+        }
+
         $targetEmail = null;
 
         if (Schema::hasTable('users') && Schema::hasTable('firms')) {
@@ -217,6 +225,11 @@ class FirmLogin extends Component
             // Keep the password: the follow-up submit re-runs Auth::attempt
             // together with the code, and forcing a retype here only trains
             // people to paste passwords around.
+            // A wrong / missing code counts as a failed attempt, otherwise the
+            // 6-digit code can be guessed without limit once the password is known.
+            if ($this->twoFactorCodeWasWrong) {
+                RateLimiter::hit('firm-login:' . $throttleKey, 60);
+            }
             $this->validationError = $this->twoFactorError;
             return;
         }

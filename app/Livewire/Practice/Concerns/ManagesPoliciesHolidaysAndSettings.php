@@ -299,27 +299,50 @@ trait ManagesPoliciesHolidaysAndSettings
         }
 
         if (! $this->firmLogoUpload) {
-            $this->error = 'Please choose a logo image file (PNG, JPG, SVG, or WebP) first.';
+            $this->error = 'Please choose a logo image file (PNG, JPG, or WebP) first.';
             return;
         }
 
         $this->validate([
-            'firmLogoUpload' => 'file|mimes:png,jpg,jpeg,svg,webp|max:2048',
+            // SVG is deliberately not accepted: an SVG opened directly on our
+            // own origin can run script (the CSP still allows inline script),
+            // which would be stored XSS planted by any firm Partner.
+            'firmLogoUpload' => 'file|mimes:png,jpg,jpeg,webp|max:2048',
         ]);
 
         try {
             $ext = strtolower($this->firmLogoUpload->getClientOriginalExtension() ?: 'png');
-            if (! in_array($ext, ['png', 'jpg', 'jpeg', 'svg', 'webp'], true)) {
+            if (! in_array($ext, ['png', 'jpg', 'jpeg', 'webp'], true)) {
                 $ext = 'png';
             }
             $cleanSlug = preg_replace('/[^a-z0-9\-_]/', '', strtolower($this->firmSlug)) ?: 'firm';
-            $targetDir = public_path('images');
-            if (! is_dir($targetDir)) {
-                @mkdir($targetDir, 0755, true);
-            }
             $fileName = $cleanSlug . '_logo.' . $ext;
-            $destPath = $targetDir . DIRECTORY_SEPARATOR . $fileName;
-            @copy($this->firmLogoUpload->getRealPath(), $destPath);
+
+            // cPanel split layout: the app lives in ~/erp-app but the web root is
+            // a separate ~/public_html. public_path() points at the app copy, so
+            // the browser would never see the new logo. ERP_WEB_ROOT (config
+            // erp.web_root) names the real document root and gets a copy too.
+            $targetDirs = [public_path('images')];
+            $webRoot = (string) config('erp.web_root', '');
+            if ($webRoot !== '') {
+                $targetDirs[] = rtrim($webRoot, '/\\') . DIRECTORY_SEPARATOR . 'images';
+            }
+
+            $copied = 0;
+            foreach (array_unique($targetDirs) as $targetDir) {
+                if (! is_dir($targetDir)) {
+                    @mkdir($targetDir, 0755, true);
+                }
+                if (@copy($this->firmLogoUpload->getRealPath(), $targetDir . DIRECTORY_SEPARATOR . $fileName)) {
+                    $copied++;
+                }
+            }
+
+            if ($copied === 0) {
+                Log::warning('uploadFirmLogo: could not write ' . $fileName . ' to any images directory.');
+                $this->error = 'The logo could not be saved on the server (folder is not writable). Please contact DhakaWala support.';
+                return;
+            }
 
             $relativeLogoUrl = 'images/' . $fileName;
 
@@ -1104,8 +1127,9 @@ trait ManagesPoliciesHolidaysAndSettings
                 }
 
                 $result['scanned']++;
+                $tz = $this->policyTimezone ?: 'Asia/Dhaka';
                 $inHi = $att->in_time instanceof \DateTimeInterface
-                    ? $att->in_time->format('H:i')
+                    ? \Illuminate\Support\Carbon::instance($att->in_time)->timezone($tz)->format('H:i')
                     : substr((string) $att->in_time, 11, 5);
 
                 $newStatus = $this->classifyWithHours($inHi, $startHi, $graceMinutes, $lateExempt);

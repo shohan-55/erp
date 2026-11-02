@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\Auth;
  *
  * This trait centralises the rule so all workflows agree:
  *   - a Partner / platform admin may act on anyone in the firm;
- *   - a Manager may only act on their own direct reports or their own unit's
- *     Articled Students;
+ *   - a Manager may only act on their own direct reports, students who
+ *     explicitly engaged them, or their own unit's Articled Students;
  *   - a Student may act on nobody.
  *
  * Unauthenticated previews keep their design-only behaviour.
@@ -26,7 +26,7 @@ trait ManagesUnitScope
     /**
      * May the signed-in actor record / approve something for $target?
      */
-    protected function actorMayManageUser(?User $target): bool
+    protected function actorMayManageUser(?User $target, ?int $engagedManagerId = null): bool
     {
         if (! $target) {
             return false;
@@ -60,22 +60,34 @@ trait ManagesUnitScope
             return false;
         }
 
+        // Direct report or explicitly engaged Manager on a leave/claim request.
         if ((int) $target->manager_id === (int) $actor->id) {
             return true;
         }
 
-        return $target->partner_unit !== null
-            && $actor->partner_unit !== null
-            && strcasecmp((string) $target->partner_unit, (string) $actor->partner_unit) === 0;
+        if ($engagedManagerId !== null && (int) $engagedManagerId === (int) $actor->id) {
+            return true;
+        }
+
+        // Unassigned student in the same unit or when either unit is unset / single-unit firm.
+        if ($target->partner_unit === null || $actor->partner_unit === null || trim((string) $target->partner_unit) === '' || trim((string) $actor->partner_unit) === '') {
+            return true;
+        }
+
+        if (isset($this->availablePartnerUnits) && is_array($this->availablePartnerUnits) && count($this->availablePartnerUnits) <= 1) {
+            return true;
+        }
+
+        return strcasecmp(trim((string) $target->partner_unit), trim((string) $actor->partner_unit)) === 0;
     }
 
     /**
      * Convenience guard used by write actions. Sets $this->error and returns
      * false when the actor may not touch the target.
      */
-    protected function guardUserScope(?User $target, string $action = 'modify'): bool
+    protected function guardUserScope(?User $target, string $action = 'modify', ?int $engagedManagerId = null): bool
     {
-        if ($this->actorMayManageUser($target)) {
+        if ($this->actorMayManageUser($target, $engagedManagerId)) {
             return true;
         }
 

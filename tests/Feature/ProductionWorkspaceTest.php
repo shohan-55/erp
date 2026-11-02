@@ -990,4 +990,166 @@ class ProductionWorkspaceTest extends TestCase
         $this->assertNotEmpty($promoted->promotion_history);
         $this->assertSame('Promoted', $promoted->promotion_history[0]['action_label']);
     }
+
+    public function test_unassigned_or_cross_unit_student_test_leave_shows_up_for_engaged_manager_and_can_be_recommended(): void
+    {
+        $testStudent = User::create([
+            'firm_id'      => $this->firm->id,
+            'name'         => 'Test',
+            'email'        => 'test.student@rac.dhakawala.com',
+            'password'     => bcrypt('Secret123!'),
+            'role'         => 'student',
+            'student_code' => 'S-999',
+            'partner_unit' => 'Partner Unit 01',
+            'manager_id'   => null,
+            'is_active'    => true,
+        ]);
+
+        $this->actingAs($testStudent);
+
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'student',
+            'section'     => 'leave',
+        ])
+            ->set('leaveType', 'annual')
+            ->set('leaveEngagedManagerId', $this->manager->id)
+            ->set('leaveStart', '2026-11-18')
+            ->set('leaveEnd', '2026-11-19')
+            ->set('leaveReason', 'Personal medical checkup outside Dhaka')
+            ->call('requestLeaveSubmissionConfirm')
+            ->assertSet('showLeaveSubmitConfirmModal', true)
+            ->call('confirmAndSubmitLeaveApplication')
+            ->assertSet('error', null);
+
+        $lr = LeaveRequest::where('user_id', $testStudent->id)->latest('id')->first();
+        $this->assertNotNull($lr);
+        $this->assertSame($this->manager->id, (int) $lr->engaged_manager_id);
+
+        // Manager logs in and must see Test's leave application in queue & recommend it
+        $this->actingAs($this->manager->fresh());
+        $mgrComponent = Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'manager',
+            'section'     => 'leave',
+        ]);
+
+        $mgrComponent->assertSee('Test')
+            ->assertSee('Personal medical checkup outside Dhaka')
+            ->call('managerRecommendLeave', 'LR-' . $lr->id, 'Verified and recommended by engaged Manager.')
+            ->assertSet('error', null);
+
+        $this->assertSame('pending_partner', $lr->fresh()->status);
+    }
+
+    public function test_right_time_checkin_locks_attendance_grid_to_green_even_later_in_the_day(): void
+    {
+        Attendance::create([
+            'firm_id'          => $this->firm->id,
+            'user_id'          => $this->student->id,
+            'date'             => now()->timezone('Asia/Dhaka')->toDateString(),
+            'work_mode'        => 'office',
+            'in_time'          => now()->timezone('Asia/Dhaka')->setTime(9, 25),
+            'in_location_name' => 'Karwan Bazar Office, Dhaka',
+            'status'           => 'Right Time',
+            'session_state'    => 'active',
+        ]);
+
+        $this->actingAs($this->student);
+
+        Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'student',
+            'section'     => 'dashboard',
+        ])
+            ->assertSee('hasCheckedIn: true', false)
+            ->assertSee('Right Time', false);
+    }
+
+    public function test_three_year_180_day_and_four_year_240_day_articleship_and_corporate_leave_entitlements_and_live_deduction(): void
+    {
+        $this->actingAs($this->partner);
+
+        // 1. Partner creates a 4-Year Articled Student (Max 240 Days) with Casual=20, Sick=20, Emergency=10 -> Study Leave auto-calculates to 190
+        $comp = Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'partner',
+            'section'     => 'team',
+        ])
+            ->call('openAddMemberModal')
+            ->set('newMemberRole', 'student')
+            ->call('selectNewMemberArticleshipYears', 4)
+            ->assertSet('newMemberTotalLeaveCap', 240)
+            ->set('newMemberLeaveCasual', 20)
+            ->set('newMemberLeaveSick', 20)
+            ->set('newMemberLeaveEmergency', 10)
+            ->assertSet('newMemberLeaveStudy', 190)
+            ->set('newMemberName', 'Four Year Student')
+            ->set('newMemberEmail', 'fouryear@rac.dhakawala.com')
+            ->set('newMemberStudentCode', 'S-400')
+            ->call('createMember')
+            ->assertSet('error', null);
+
+        $fourYrStudent = User::where('email', 'fouryear@rac.dhakawala.com')->first();
+        $this->assertNotNull($fourYrStudent);
+        $this->assertSame(4, (int) $fourYrStudent->articleship_duration_years);
+        $this->assertSame(240, (int) $fourYrStudent->total_leave_cap);
+        $this->assertSame(190, (int) ($fourYrStudent->leave_allocations['icab_study'] ?? 0));
+
+        // 2. Partner edits the student profile to 3-Year (180 Days) with Casual=15, Sick=15, Emergency=10 -> Study Leave = 140
+        $comp->call('openEditMemberModal', $fourYrStudent->id)
+            ->call('selectEditMemberArticleshipYears', 3)
+            ->assertSet('editMemberTotalLeaveCap', 180)
+            ->set('editMemberLeaveCasual', 15)
+            ->set('editMemberLeaveSick', 15)
+            ->set('editMemberLeaveEmergency', 10)
+            ->assertSet('editMemberLeaveStudy', 140)
+            ->call('updateMember')
+            ->assertSet('error', null);
+
+        $fourYrStudent->refresh();
+        $this->assertSame(3, (int) $fourYrStudent->articleship_duration_years);
+        $this->assertSame(180, (int) $fourYrStudent->total_leave_cap);
+        $this->assertSame(140, (int) ($fourYrStudent->leave_allocations['icab_study'] ?? 0));
+
+        // 3. Student applies for 5 days of Casual Leave -> Available balance immediately drops from 180 to 175 (and Casual from 15 to 10)
+        $this->actingAs($fourYrStudent);
+        $studentComp = Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'student',
+            'section'     => 'leave',
+        ])
+            ->set('leaveType', 'annual')
+            ->set('leaveStart', '2026-11-15')
+            ->set('leaveEnd', '2026-11-19')
+            ->set('leaveReason', 'Family visit to Sylhet')
+            ->call('submitLeaveApplication')
+            ->assertSet('error', null);
+
+        $summary = $studentComp->get('myLeaveBalanceSummary');
+        $this->assertSame(180, $summary['total_cap']);
+        $this->assertSame(5, $summary['total_pending']);
+        $this->assertSame(175, $summary['total_available']);
+
+        // 4. Manager submits a personal Corporate Leave (Earned Leave) -> routes to Partner and deducts from Manager's corporate balance
+        $this->actingAs($this->manager->fresh());
+        $mgrComp = Livewire::test(PracticePreview::class, [
+            'firmSlug'    => 'rac',
+            'previewRole' => 'manager',
+            'section'     => 'leave',
+        ])
+            ->set('leaveType', 'earned')
+            ->set('leaveStart', '2026-11-22')
+            ->set('leaveEnd', '2026-11-24')
+            ->set('leaveReason', 'Annual corporate privilege leave')
+            ->call('submitLeaveApplication')
+            ->assertSet('error', null);
+
+        $mgrLeave = LeaveRequest::where('user_id', $this->manager->id)->latest('id')->first();
+        $this->assertNotNull($mgrLeave);
+        $this->assertSame('pending_partner', $mgrLeave->status);
+        $mgrSummary = $mgrComp->get('myLeaveBalanceSummary');
+        $this->assertSame(44, $mgrSummary['total_cap']);
+        $this->assertSame(41, $mgrSummary['total_available']);
+    }
 }

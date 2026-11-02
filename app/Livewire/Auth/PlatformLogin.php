@@ -128,6 +128,9 @@ class PlatformLogin extends Component
             // Keep the password: the follow-up submit re-runs Auth::attempt
             // together with the code, and forcing a retype here only trains
             // people to paste passwords around.
+            if ($this->twoFactorCodeWasWrong) {
+                RateLimiter::hit('platform-login:' . $throttleKey, 60);
+            }
             $this->validationError = $this->twoFactorError;
             return;
         }

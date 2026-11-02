@@ -86,7 +86,7 @@ trait ManagesPayrollAndVouchers
                 }
             }
 
-            $dailyRate = $baseStipend / 30.0;
+            $dailyRate = $baseStipend / $this->daysInPayrollPeriod();
             return [
                 'absent_days' => $absentCount,
                 'deduction'   => round($totalCutDays * $dailyRate, 2),
@@ -96,7 +96,57 @@ trait ManagesPayrollAndVouchers
         }
     }
 
+    /**
+     * Loads the payroll rows for the viewer.
+     *
+     * SECURITY: `$payrollRows` is a public Livewire property, so everything in
+     * it is serialised into the page and readable in the browser's network
+     * tab, whatever the Blade view chooses to show. A student therefore must
+     * only ever receive their own row — never the unit's bKash / bank account
+     * numbers, phones and allowances.
+     */
     public function loadPayrollRows(): void
+    {
+        $this->loadPayrollRowsUnscoped();
+
+        if (Auth::check() && Auth::user()->isStudent()) {
+            $this->payrollRows = $this->payrollRowsOwnedByViewer($this->payrollRows);
+        }
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    protected function payrollRowsOwnedByViewer(array $rows): array
+    {
+        return array_values(array_filter($rows, function ($r) {
+            if (Auth::check() && Auth::user()->isStudent()) {
+                return (int) ($r['db_id'] ?? 0) === (int) Auth::id()
+                    || ($r['id'] ?? '') === (Auth::user()->student_code ?? 'S-101');
+            }
+
+            return ($r['id'] ?? '') === 'S-101';
+        }));
+    }
+
+    /**
+     * Rows the signed-in viewer may export. Students get their own row only.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function payrollRowsVisibleToViewer(): array
+    {
+        $this->enforceAuthenticatedRoleLock();
+
+        if ($this->previewRole === 'student') {
+            return $this->payrollRowsOwnedByViewer($this->payrollRows);
+        }
+
+        return $this->payrollRows;
+    }
+
+    protected function loadPayrollRowsUnscoped(): void
     {
         if (Schema::hasTable('users') && Schema::hasTable('firms')) {
             $firmModel = $this->resolveFirmModel();
@@ -410,7 +460,7 @@ trait ManagesPayrollAndVouchers
         ];
 
         $this->loadPayrollRows();
-        $rowsToExport = $this->payrollRows;
+        $rowsToExport = $this->payrollRowsVisibleToViewer();
         $period = $this->period;
 
         return response()->streamDownload(function () use ($columns, $rowsToExport, $period) {
@@ -444,6 +494,14 @@ trait ManagesPayrollAndVouchers
      */
     public function exportDisbursementSheetCsv()
     {
+        $this->enforceAuthenticatedRoleLock();
+
+        // The sheet carries every beneficiary's bank / bKash account number.
+        if ($this->previewRole === 'student') {
+            $this->error = 'Only a Manager or Partner can download the disbursement sheet.';
+            return;
+        }
+
         $this->loadPayrollRows();
         $filename = 'bKash_Bank_Disbursement_Sheet_' . $this->firmSlug . '_' . $this->period . '.csv';
         $columns = [
@@ -463,7 +521,7 @@ trait ManagesPayrollAndVouchers
             'Remarks / Narration',
         ];
 
-        $rowsToExport = $this->payrollRows;
+        $rowsToExport = $this->payrollRowsVisibleToViewer();
         $period = $this->period;
         $firmShort = $this->firm['short_code'] ?? strtoupper($this->firmSlug);
 
@@ -539,12 +597,13 @@ trait ManagesPayrollAndVouchers
         $period = $this->period;
         $paymentMode = $this->selectedPaymentMethod ?: 'bKash / Bank';
 
+        $visibleRows = $this->payrollRowsVisibleToViewer();
         $vouchers = $studentCode
-            ? array_values(array_filter($this->payrollRows, fn ($r) => ($r['id'] ?? '') === $studentCode))
-            : $this->payrollRows;
+            ? array_values(array_filter($visibleRows, fn ($r) => ($r['id'] ?? '') === $studentCode))
+            : $visibleRows;
 
-        if (empty($vouchers) && ! empty($this->payrollRows)) {
-            $vouchers = [$this->payrollRows[0]];
+        if (empty($vouchers) && ! empty($visibleRows)) {
+            $vouchers = [$visibleRows[0]];
         }
 
         $baseName = ($studentCode ? "Payment_Voucher_{$studentCode}_" : "All_Payment_Vouchers_") . $this->firmSlug . "_{$period}";

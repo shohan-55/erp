@@ -52,7 +52,10 @@ trait ManagesConveyanceWorkflow
                                 ->where(function ($q) use ($actor, $unit) {
                                     $q->where('id', $actor->id)
                                         ->orWhere('manager_id', $actor->id)
-                                        ->orWhere('partner_unit', $unit);
+                                        ->orWhereNull('partner_unit');
+                                    if (! empty($unit)) {
+                                        $q->orWhere('partner_unit', $unit);
+                                    }
                                 })
                                 ->pluck('id')
                                 ->all();
@@ -893,7 +896,16 @@ trait ManagesConveyanceWorkflow
             'Partner Remarks',
         ];
 
-        $claimsToExport = $this->claimQueue;
+        $this->enforceAuthenticatedRoleLock();
+        $claimsToExport = ($this->previewRole === 'student')
+            ? array_values(array_filter($this->claimQueue, function ($q) {
+                if (Auth::check() && Auth::user()->isStudent()) {
+                    return (int) ($q['user_id'] ?? 0) === (int) Auth::id()
+                        || ($q['student_code'] ?? '') === (Auth::user()->student_code ?? 'S-101');
+                }
+                return ($q['student_code'] ?? '') === 'S-101';
+            }))
+            : $this->claimQueue;
 
         return response()->streamDownload(function () use ($columns, $claimsToExport) {
             $handle = fopen('php://output', 'w');

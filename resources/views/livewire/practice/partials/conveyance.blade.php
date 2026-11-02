@@ -116,12 +116,12 @@
                         <div class="pt-2 border-t border-slate-200">
                             <label class="inline-flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
                                 <input type="checkbox" wire:model.live="hasOtherExpense" class="rounded border-slate-300 text-amber-600">
-                                <span>+ Add Other Expense (অন্যান্য খরচ — যেমন ফটোকপি, প্রিন্টিং ইত্যাদি)</span>
+                                <span>+ Add Other Expense (Photocopy, Printing, Stationery, etc.)</span>
                             </label>
                             @if($hasOtherExpense)
                                 <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3 bg-white p-2.5 rounded-xl border border-amber-200">
                                     <div class="sm:col-span-2">
-                                        <input type="text" wire:model="otherExpenseDesc" placeholder="Other expense details (বিবরণ)" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs">
+                                        <input type="text" wire:model="otherExpenseDesc" placeholder="Other expense details" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs">
                                     </div>
                                     <div>
                                         <input type="number" wire:model.live="otherExpenseAmount" placeholder="৳ Amount" min="1" step="1" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-bold">
@@ -148,8 +148,8 @@
                         <div class="flex items-start gap-3">
                             <i data-lucide="paperclip" class="mt-0.5 h-5 w-5 shrink-0 text-slate-500"></i>
                             <div class="flex-1">
-                                <p class="text-xs font-bold text-slate-700">Receipt / Supporting Voucher <span class="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-900">OPTIONAL (ঐচ্ছিক)</span></p>
-                                <p class="mt-1 text-[11px] leading-relaxed text-slate-500">ভাউচার বা টিকিট থাকলে সংযুক্ত করুন; রিকশা বা লোকাল বাসে টিকিট না থাকলে আপলোড করার প্রয়োজন নেই (JPG, PNG, PDF up to 5MB).</p>
+                                <p class="text-xs font-bold text-slate-700">Receipt / Supporting Voucher <span class="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-900">OPTIONAL</span></p>
+                                <p class="mt-1 text-[11px] leading-relaxed text-slate-500">Attach supporting receipt or ticket if available; not required for local bus or rickshaw fare (JPG, PNG, PDF up to 5MB).</p>
                                 <input type="file" wire:model="claimAttachment" accept=".jpg,.jpeg,.png,.pdf" class="mt-2 block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-amber-100 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-amber-900 hover:file:bg-amber-200">
                             </div>
                         </div>

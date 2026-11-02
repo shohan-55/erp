@@ -30,6 +30,13 @@ trait ConfirmsTwoFactor
     public ?string $twoFactorError = null;
 
     /**
+     * Set (for this request only) when a submitted code was wrong, so the
+     * sign-in component can count it against its login throttle. Protected,
+     * therefore never sent to or accepted from the browser.
+     */
+    protected bool $twoFactorCodeWasWrong = false;
+
+    /**
      * Called right after a successful Auth::attempt().
      *
      * @return bool true when the session may be kept.
@@ -70,6 +77,7 @@ trait ConfirmsTwoFactor
         }
 
         $this->logoutPending();
+        $this->twoFactorCodeWasWrong = true;
         $this->twoFactorCode = '';
         $this->twoFactorError = 'That authentication code is not valid. Codes rotate every 30 seconds — try the current one.';
 

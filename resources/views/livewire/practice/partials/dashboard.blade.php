@@ -11,18 +11,37 @@
     $latestUnreadNote = collect($notificationsList ?? [])->first(fn($n) => !in_array($n['id'] ?? '', $readNotificationIds ?? [], true));
     $nextHolidayItem = collect($holidaysList ?? [])->first(fn($h) => ($h['holiday_date'] ?? '') >= now()->toDateString());
     $myPunctuality = $punctualityLeaderboard[0] ?? ['score' => 100, 'streak' => 0];
+    $myAttendanceRow = collect($allRows ?? $rows)->first(function ($r) {
+        if (auth()->check()) {
+            return (int) ($r['db_id'] ?? 0) === (int) auth()->id()
+                || (auth()->user()->student_code && ($r['id'] ?? '') === auth()->user()->student_code);
+        }
+        return ($r['id'] ?? '') === 'S-101';
+    });
+    if (! $myAttendanceRow && ! auth()->check()) {
+        $myAttendanceRow = $rows[0] ?? null;
+    }
+    $myCheckinTime = $myAttendanceRow['checkin'] ?? '—';
+    $myCheckoutTime = $myAttendanceRow['checkout'] ?? '—';
+    $myRecordedStatus = $myAttendanceRow['status'] ?? 'Incomplete';
+    $hasCheckedInToday = ($myCheckinTime !== '—' && $myCheckinTime !== '');
 @endphp
 
 {{-- ===================================================================== --}}
 {{-- 1A. TOPMOST SECTION FOR MANAGER / STUDENT / STAFF ONLY (#Issue04)     --}}
 {{--     Live Policy-Driven Color-Shifting Attendance Command Dock         --}}
-{{--     (Hidden on Partner Dashboard; Shifts Green -> Yellow -> Soft/Dark Red) --}}
+{{--     (Locks to user's recorded arrival color once checked in!)         --}}
 {{-- ===================================================================== --}}
 @if($previewRole !== 'partner' && ($previewRole !== 'student' || ($studentGrids['attendance_clock'] ?? true)))
-<section x-data="{
+<section wire:key="attendance-dock-{{ $hasCheckedInToday ? 'in' : 'out' }}-{{ \Illuminate\Support\Str::slug($myRecordedStatus) }}-{{ $previewSessionActive ? 'active' : 'idle' }}"
+    x-data="{
         officeStartStr: '{{ $officeStart ?: '09:30' }}',
         graceMins: {{ (int) ($graceMinutes ?? 10) }},
         nowStr: '{{ now()->timezone('Asia/Dhaka')->format('H:i:s') }}',
+        hasCheckedIn: {{ $hasCheckedInToday ? 'true' : 'false' }},
+        recordedStatus: @js($myRecordedStatus),
+        checkinTime: @js($myCheckinTime),
+        checkoutTime: @js($myCheckoutTime),
         gettingGps: false,
         init() {
             const updateDhakaClock = () => {
@@ -48,6 +67,17 @@
             return (parseInt(pts[0] || 9, 10) * 60) + parseInt(pts[1] || 30, 10);
         },
         phase() {
+            if (this.hasCheckedIn) {
+                if (this.recordedStatus === 'Right Time' || this.recordedStatus === 'On time') {
+                    return 'green';
+                }
+                if (this.recordedStatus === 'Late' || this.recordedStatus === 'Late (Excused)') {
+                    return 'yellow';
+                }
+                if (this.recordedStatus === 'Late Present') {
+                    return 'light_red';
+                }
+            }
             const cur = this.toMins(this.nowStr);
             const start = this.toMins(this.officeStartStr);
             const graceEnd = start + this.graceMins;
@@ -64,6 +94,17 @@
             return 'background: radial-gradient(circle at top right, rgba(248,113,113,0.22), transparent 55%), linear-gradient(135deg, #7F1D1D 0%, #4C0519 55%, #2A040D 100%); color: #FFFFFF; border-color: rgba(248,113,113,0.5);';
         },
         statusLabel() {
+            if (this.hasCheckedIn) {
+                if (this.recordedStatus === 'Right Time' || this.recordedStatus === 'On time') {
+                    return '✓ RIGHT TIME RECORDED (Checked in at ' + this.checkinTime + ')';
+                }
+                if (this.recordedStatus === 'Late' || this.recordedStatus === 'Late (Excused)') {
+                    return 'LATE · GRACE WINDOW RECORDED (Checked in at ' + this.checkinTime + ')';
+                }
+                if (this.recordedStatus === 'Late Present') {
+                    return 'LATE PRESENT RECORDED (Checked in at ' + this.checkinTime + ')';
+                }
+            }
             const p = this.phase();
             if (p === 'green') return 'RIGHT TIME WINDOW (Up to ' + this.officeStartStr + ')';
             if (p === 'yellow') return 'LATE · GRACE WINDOW (' + this.officeStartStr + ' – {{ $graceEndFormatted ?? '09:40' }})';
@@ -71,6 +112,17 @@
             return 'LATE PRESENT · EXTENDED DELAY (Past {{ $graceEndFormatted ?? '09:40' }})';
         },
         statusSubtext() {
+            if (this.hasCheckedIn) {
+                if (this.recordedStatus === 'Right Time' || this.recordedStatus === 'On time') {
+                    return 'You checked in on Right Time at ' + this.checkinTime + '. Your 100% on-time attendance credit is locked for today.';
+                }
+                if (this.recordedStatus === 'Late' || this.recordedStatus === 'Late (Excused)') {
+                    return 'You checked in at ' + this.checkinTime + ' (' + this.recordedStatus + '). Your arrival status is locked for today.';
+                }
+                if (this.recordedStatus === 'Late Present') {
+                    return 'You checked in at ' + this.checkinTime + ' after the grace cutoff ({{ $graceEndFormatted ?? '09:40' }}). Recorded as Late Present.';
+                }
+            }
             const p = this.phase();
             if (p === 'green') return 'You are within the Right Time window. Checking in now records 100% on-time credit.';
             if (p === 'yellow') return 'Grace period active (' + this.graceMins + ' mins). Checking in now records as Late.';
@@ -192,7 +244,7 @@
                 @if($workMode === 'client')
                     <div class="space-y-1.5">
                         <label class="block text-[11px] font-extrabold uppercase tracking-wider text-white/90">
-                            Client / Company Name (ক্লায়েন্টের নাম লিখুন) <span class="text-amber-300">*</span>
+                            Client / Company Name <span class="text-amber-300">*</span>
                         </label>
                         <div class="relative">
                             <input type="text"
@@ -370,7 +422,7 @@
                                 <div class="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-rose-200/60 pt-2">
                                     <span class="text-[10px] font-semibold text-slate-500">Engaged Mgr: {{ $ul['manager'] ?? 'Direct' }} · {{ $ul['created_at_human'] ?? 'Unread' }}</span>
                                     <div class="flex flex-wrap items-center gap-1.5">
-                                        @if($previewRole === 'manager' && $ul['status'] === 'pending_manager')
+                                        @if($previewRole === 'manager' && in_array($ul['status'], ['pending_manager', 'Awaiting Manager'], true))
                                             <button type="button" wire:click="managerRecommendLeave('{{ $ul['id'] }}', 'Recommended by Manager from Dashboard Inbox.')" class="rounded-lg bg-[#FCDF02] px-2.5 py-1 text-[11px] font-extrabold text-[#17191F] hover:bg-[#F3D604] cursor-pointer">
                                                 Recommend &amp; Forward →
                                             </button>
@@ -680,7 +732,7 @@
                         <div class="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3 text-xs">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="font-bold text-slate-900">{{ $dayAtt['name'] }} <span class="text-[10px] font-mono text-slate-400">({{ $dayAtt['code'] }})</span></span>
-                                <span class="rounded-full px-2 py-0.5 text-[10px] font-extrabold {{ in_array($dayAtt['status'], ['Right Time', 'On time'], true) ? 'bg-emerald-100 text-emerald-800' : ($dayAtt['status'] === 'Late' ? 'bg-amber-100 text-amber-900' : ($dayAtt['status'] === 'Late (Excused)' ? 'bg-teal-100 text-teal-800' : 'bg-rose-100 text-rose-800')) }}">
+                                <span class="rounded-full px-2 py-0.5 text-[10px] font-extrabold {{ in_array($dayAtt['status'], ['Right Time', 'On time'], true) ? 'bg-emerald-100 text-emerald-800' : ($dayAtt['status'] === 'Late' ? 'bg-amber-100 text-amber-900' : ($dayAtt['status'] === 'Late (Excused)' ? 'bg-teal-100 text-teal-800' : ($dayAtt['status'] === 'Late Present' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'))) }}">
                                     {{ $dayAtt['status'] }}
                                 </span>
                             </div>
@@ -745,7 +797,7 @@
     <!-- Main Left Column -->
     <div class="space-y-5">
         @if($previewRole !== 'student')
-            {{-- Live Team Radar ("কে কোথায় আছে" — Office vs Client Site vs On Duty Transit) --}}
+            {{-- Live Team Radar (Office vs Client Site vs On Duty Transit) --}}
             <section class="rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-sm">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
                     <div>

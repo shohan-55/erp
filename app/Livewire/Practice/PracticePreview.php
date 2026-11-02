@@ -193,8 +193,23 @@ class PracticePreview extends Component
     // ICAB Articleship Start & Completion Dates (#4)
     public string $newMemberArticleshipStart = '';
     public string $newMemberArticleshipEnd = '';
+    public int $newMemberArticleshipYears = 3;
+    public int $newMemberTotalLeaveCap = 180;
+    public int $newMemberLeaveCasual = 14;
+    public int $newMemberLeaveSick = 14;
+    public int $newMemberLeaveEmergency = 7;
+    public int $newMemberLeaveStudy = 145;
+    public int $newMemberLeaveEarned = 15;
+
     public string $editMemberArticleshipStart = '';
     public string $editMemberArticleshipEnd = '';
+    public int $editMemberArticleshipYears = 3;
+    public int $editMemberTotalLeaveCap = 180;
+    public int $editMemberLeaveCasual = 14;
+    public int $editMemberLeaveSick = 14;
+    public int $editMemberLeaveEmergency = 7;
+    public int $editMemberLeaveStudy = 145;
+    public int $editMemberLeaveEarned = 15;
 
     // Configurable Student Dashboard Grids (Active/Deactive toggles)
     public array $studentGrids = [
@@ -232,7 +247,7 @@ class PracticePreview extends Component
     public string $leaveStart = '';
     public string $leaveEnd = '';
     public string $leaveReason = '';
-    public ?int $leaveEngagedManagerId = null;
+    public $leaveEngagedManagerId = null;
     public array $leaveQueue = [];
     public string $selectedLeaveId = 'LR-101';
     public string $leaveReviewRemarks = '';
@@ -390,6 +405,8 @@ class PracticePreview extends Component
     public function mount(string $firmSlug, string $previewRole = 'partner', string $section = 'dashboard'): void
     {
         Firm::ensureRuntimeSchemaColumns();
+        User::ensureRuntimeSchemaColumns();
+        LeaveRequest::ensureRuntimeSchemaColumns();
         $this->firmSlug = strtolower(trim($firmSlug));
         $this->assertWorkspaceAccess();
         $this->firm = FirmRegistry::get($this->firmSlug);
@@ -526,6 +543,9 @@ class PracticePreview extends Component
         $this->loadHolidays();
         $this->refreshTodayWorkException();
         $this->loadTeamMembers();
+        if (Auth::check() && Auth::user()->isStudent() && empty($this->leaveEngagedManagerId)) {
+            $this->leaveEngagedManagerId = Auth::user()->manager_id ?: ($this->availableManagers[0]['id'] ?? null);
+        }
         $this->loadAttendanceRows();
         $this->loadLeaveQueue();
         $this->loadClaimQueue();
@@ -589,6 +609,12 @@ class PracticePreview extends Component
 
     public function updatedPeriod(): void
     {
+        // `period` is client-writable and is echoed into CSV/HTML file names
+        // and voucher markup, so only a plain YYYY-MM is accepted.
+        if (! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $this->period)) {
+            $this->period = now()->format('Y-m');
+        }
+
         $this->loadPayrollRows();
     }
 
@@ -812,6 +838,21 @@ class PracticePreview extends Component
         $this->closeDialogs();
         $this->error = null;
         $this->notice = null;
+
+        if (Auth::check() && ! app()->runningUnitTests()) {
+            if (in_array($section, ['dashboard', 'leave'], true)) {
+                $this->loadLeaveQueue();
+            }
+            if (in_array($section, ['dashboard', 'conveyance'], true)) {
+                $this->loadClaimQueue();
+            }
+            if (in_array($section, ['dashboard', 'attendance'], true)) {
+                $this->loadAttendanceRows();
+            }
+            if ($section === 'team') {
+                $this->loadTeamMembers();
+            }
+        }
     }
 
     public function setPreviewRole(string $role): void
@@ -1011,10 +1052,16 @@ class PracticePreview extends Component
                             return true;
                         }
                         if (Auth::user()->isManager()) {
-                            return ($q['manager'] ?? '') === Auth::user()->name
-                                || (int) ($q['engaged_manager_id'] ?? 0) === (int) Auth::id()
-                                || ($q['manager'] ?? '') === 'Direct Report'
-                                || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit;
+                            $myId = (int) Auth::id();
+                            $myName = trim((string) Auth::user()->name);
+                            $qMgrId = (int) ($q['engaged_manager_id'] ?? 0);
+                            $qMgrName = trim((string) ($q['manager'] ?? ''));
+                            $sameUnit = empty($q['partner_unit']) || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit;
+
+                            if ($qMgrId === $myId || ($myName !== '' && strcasecmp($qMgrName, $myName) === 0)) {
+                                return true;
+                            }
+                            return $sameUnit;
                         }
                     }
                     return ($q['manager'] ?? '') === 'Sample Manager A';
@@ -1040,10 +1087,15 @@ class PracticePreview extends Component
                             return true;
                         }
                         if (Auth::user()->isManager()) {
-                            return (int) ($q['user_id'] ?? 0) === (int) Auth::id()
-                                || ($q['manager'] ?? '') === Auth::user()->name
-                                || ($q['manager'] ?? '') === 'Direct Report'
-                                || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit;
+                            $myId = (int) Auth::id();
+                            $myName = trim((string) Auth::user()->name);
+                            $qMgrName = trim((string) ($q['manager'] ?? ''));
+                            $sameUnit = empty($q['partner_unit']) || ($q['partner_unit'] ?? $this->partnerUnit) === $this->partnerUnit;
+
+                            if ((int) ($q['user_id'] ?? 0) === $myId || ($myName !== '' && strcasecmp($qMgrName, $myName) === 0)) {
+                                return true;
+                            }
+                            return $sameUnit;
                         }
                     }
                     return ($q['manager'] ?? '') === 'Sample Manager A';
@@ -1052,9 +1104,9 @@ class PracticePreview extends Component
 
         // Compute actionable unread/pending items for Manager & Partner notification badges & Dashboard Inbox
         $pendingLeaveItems = ($this->previewRole === 'partner' || $this->userCanFinalApproveLeave())
-            ? array_values(array_filter($scopedLeaveQueue, fn ($q) => in_array($q['status'] ?? '', ['pending_partner', 'pending_manager'], true)))
+            ? array_values(array_filter($scopedLeaveQueue, fn ($q) => in_array($q['status'] ?? '', ['pending_partner', 'pending_manager', 'Awaiting Manager', 'Awaiting Partner'], true)))
             : ($this->previewRole === 'manager'
-                ? array_values(array_filter($scopedLeaveQueue, fn ($q) => ($q['status'] ?? '') === 'pending_manager'))
+                ? array_values(array_filter($scopedLeaveQueue, fn ($q) => in_array($q['status'] ?? '', ['pending_manager', 'Awaiting Manager'], true)))
                 : []);
 
         $pendingClaimItems = ($this->previewRole === 'partner' || $this->userCanFinalApproveClaims())
@@ -1143,6 +1195,7 @@ class PracticePreview extends Component
             'allTeamMembers'     => $unitScopedTeamMembers,
             'customDesignations' => $this->customDesignations,
             'availableManagers'  => $this->availableManagers,
+            'myLeaveBalanceSummary' => $this->myLeaveBalanceSummary,
             'canManageTeam'     => $this->userCanManageTeam(),
             'canResetPasswords' => $this->userCanResetPasswords(),
             'studentGrids'      => $this->studentGrids,

@@ -240,7 +240,7 @@ class Firm extends Model
             'sea_green' => [
                 'key'          => 'sea_green',
                 'light_accent' => '#2DD4BF',
-                'label'       => 'Sea Green (সি গ্রিন)',
+                'label'       => 'Sea Green',
                 'primary'     => '#0D9488',
                 'hover'       => '#0F766E',
                 'accent'      => '#14B8A6',
@@ -252,7 +252,7 @@ class Firm extends Model
             'emerald_forest' => [
                 'key'          => 'emerald_forest',
                 'light_accent' => '#34D399',
-                'label'       => 'Emerald Forest (এমেরাল্ড গ্রিন)',
+                'label'       => 'Emerald Forest',
                 'primary'     => '#059669',
                 'hover'       => '#047857',
                 'accent'      => '#10B981',
@@ -264,7 +264,7 @@ class Firm extends Model
             'royal_blue' => [
                 'key'          => 'royal_blue',
                 'light_accent' => '#60A5FA',
-                'label'       => 'Royal Blue (রয়্যাল ব্লু)',
+                'label'       => 'Royal Blue',
                 'primary'     => '#2563EB',
                 'hover'       => '#1D4ED8',
                 'accent'      => '#3B82F6',
@@ -276,7 +276,7 @@ class Firm extends Model
             'ocean_cyan' => [
                 'key'          => 'ocean_cyan',
                 'light_accent' => '#22D3EE',
-                'label'       => 'Ocean Cyan (ওশান সায়ান)',
+                'label'       => 'Ocean Cyan',
                 'primary'     => '#0891B2',
                 'hover'       => '#0E7490',
                 'accent'      => '#06B6D4',
@@ -288,7 +288,7 @@ class Firm extends Model
             'indigo_violet' => [
                 'key'          => 'indigo_violet',
                 'light_accent' => '#818CF8',
-                'label'       => 'Executive Indigo (ইন্ডিগো ভায়োলেট)',
+                'label'       => 'Executive Indigo',
                 'primary'     => '#4F46E5',
                 'hover'       => '#4338CA',
                 'accent'      => '#6366F1',
@@ -300,7 +300,7 @@ class Firm extends Model
             'purple_plum' => [
                 'key'          => 'purple_plum',
                 'light_accent' => '#C084FC',
-                'label'       => 'Imperial Purple (রয়্যাল পার্পল)',
+                'label'       => 'Imperial Purple',
                 'primary'     => '#7C3AED',
                 'hover'       => '#6D28D9',
                 'accent'      => '#8B5CF6',
@@ -312,7 +312,7 @@ class Firm extends Model
             'crimson_rose' => [
                 'key'          => 'crimson_rose',
                 'light_accent' => '#FB7185',
-                'label'       => 'Corporate Crimson (ক্রিমসন রোজ)',
+                'label'       => 'Corporate Crimson',
                 'primary'     => '#E11D48',
                 'hover'       => '#BE123C',
                 'accent'      => '#F43F5E',
@@ -324,7 +324,7 @@ class Firm extends Model
             'amber_gold' => [
                 'key'          => 'amber_gold',
                 'light_accent' => '#FCDF02',
-                'label'       => 'Classic Gold (ক্লাসিক গোল্ড)',
+                'label'       => 'Classic Gold',
                 'primary'     => '#FCDF02',
                 'hover'       => '#E5C700',
                 'accent'      => '#F5AD16',
