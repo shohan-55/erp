@@ -447,12 +447,13 @@ trait ManagesTeamAndNotifications
             $this->newMemberLeaveCasual = 14;
             $this->newMemberLeaveSick = 14;
             $this->newMemberLeaveEmergency = 7;
-            $this->newMemberLeaveStudy = 145;
+            $this->newMemberLeaveStudy = 75;
         } elseif ($role === 'manager') {
             $this->newMemberTotalLeaveCap = 44;
             $this->newMemberLeaveCasual = 10;
             $this->newMemberLeaveSick = 14;
             $this->newMemberLeaveEarned = 15;
+            $this->newMemberLeaveCarryForward = 0;
             $this->newMemberLeaveEmergency = 5;
         }
     }
@@ -476,15 +477,18 @@ trait ManagesTeamAndNotifications
     public function recalculateNewMemberLeaveBreakdown(): void
     {
         if ($this->newMemberRole === 'student') {
+            $years = ($this->newMemberArticleshipYears === 4) ? 4 : 3;
             $cap = max(1, (int) $this->newMemberTotalLeaveCap);
-            $reg = max(0, (int) $this->newMemberLeaveCasual)
+            $regPerYear = max(0, (int) $this->newMemberLeaveCasual)
                 + max(0, (int) $this->newMemberLeaveSick)
                 + max(0, (int) $this->newMemberLeaveEmergency);
-            $this->newMemberLeaveStudy = max(0, $cap - $reg);
+            $regTotal = $regPerYear * $years;
+            $this->newMemberLeaveStudy = max(0, $cap - $regTotal);
         } else {
             $this->newMemberTotalLeaveCap = max(0, (int) $this->newMemberLeaveCasual)
                 + max(0, (int) $this->newMemberLeaveSick)
                 + max(0, (int) $this->newMemberLeaveEarned)
+                + max(0, (int) $this->newMemberLeaveCarryForward)
                 + max(0, (int) $this->newMemberLeaveEmergency);
         }
     }
@@ -494,6 +498,7 @@ trait ManagesTeamAndNotifications
     public function updatedNewMemberLeaveSick(): void { $this->recalculateNewMemberLeaveBreakdown(); }
     public function updatedNewMemberLeaveEmergency(): void { $this->recalculateNewMemberLeaveBreakdown(); }
     public function updatedNewMemberLeaveEarned(): void { $this->recalculateNewMemberLeaveBreakdown(); }
+    public function updatedNewMemberLeaveCarryForward(): void { $this->recalculateNewMemberLeaveBreakdown(); }
 
     public function updatedEditMemberRole(string $role): void
     {
@@ -508,6 +513,7 @@ trait ManagesTeamAndNotifications
             $this->editMemberLeaveCasual = 10;
             $this->editMemberLeaveSick = 14;
             $this->editMemberLeaveEarned = 15;
+            $this->editMemberLeaveCarryForward = 0;
             $this->editMemberLeaveEmergency = 5;
             $this->recalculateEditMemberLeaveBreakdown();
         }
@@ -532,15 +538,18 @@ trait ManagesTeamAndNotifications
     public function recalculateEditMemberLeaveBreakdown(): void
     {
         if ($this->editMemberRole === 'student') {
+            $years = ($this->editMemberArticleshipYears === 4) ? 4 : 3;
             $cap = max(1, (int) $this->editMemberTotalLeaveCap);
-            $reg = max(0, (int) $this->editMemberLeaveCasual)
+            $regPerYear = max(0, (int) $this->editMemberLeaveCasual)
                 + max(0, (int) $this->editMemberLeaveSick)
                 + max(0, (int) $this->editMemberLeaveEmergency);
-            $this->editMemberLeaveStudy = max(0, $cap - $reg);
+            $regTotal = $regPerYear * $years;
+            $this->editMemberLeaveStudy = max(0, $cap - $regTotal);
         } else {
             $this->editMemberTotalLeaveCap = max(0, (int) $this->editMemberLeaveCasual)
                 + max(0, (int) $this->editMemberLeaveSick)
                 + max(0, (int) $this->editMemberLeaveEarned)
+                + max(0, (int) $this->editMemberLeaveCarryForward)
                 + max(0, (int) $this->editMemberLeaveEmergency);
         }
     }
@@ -550,6 +559,7 @@ trait ManagesTeamAndNotifications
     public function updatedEditMemberLeaveSick(): void { $this->recalculateEditMemberLeaveBreakdown(); }
     public function updatedEditMemberLeaveEmergency(): void { $this->recalculateEditMemberLeaveBreakdown(); }
     public function updatedEditMemberLeaveEarned(): void { $this->recalculateEditMemberLeaveBreakdown(); }
+    public function updatedEditMemberLeaveCarryForward(): void { $this->recalculateEditMemberLeaveBreakdown(); }
 
     public function getAvailableManagersProperty(): array
     {
@@ -645,6 +655,7 @@ trait ManagesTeamAndNotifications
                                 'leave_used_days'            => $redactSensitive ? 0 : $usedDays,
                                 'leave_pending_days'         => $redactSensitive ? 0 : $pendingDays,
                                 'leave_available_days'       => $redactSensitive ? 0 : $availDays,
+                                'active_articleship_window'  => ($u->role === 'student' && ! $redactSensitive) ? ($u->articleshipYearWindowForDate()['short_label'] ?? null) : null,
                                 'articleship_start_date' => $u->articleship_start_date?->format('Y-m-d') ?? ($u->role === 'student' ? '2026-03-10' : null),
                                 'articleship_end_date'   => $u->articleship_end_date?->format('Y-m-d') ?? ($u->role === 'student' ? $defaultEnd : null),
                                 'articleship_period'     => $u->role === 'student'
@@ -839,8 +850,9 @@ trait ManagesTeamAndNotifications
         $this->newMemberLeaveCasual = 14;
         $this->newMemberLeaveSick = 14;
         $this->newMemberLeaveEmergency = 7;
-        $this->newMemberLeaveStudy = 145;
+        $this->newMemberLeaveStudy = 75;
         $this->newMemberLeaveEarned = 15;
+        $this->newMemberLeaveCarryForward = 0;
     }
 
     public function updatedNewMemberArticleshipStart(string $value): void
@@ -955,16 +967,21 @@ trait ManagesTeamAndNotifications
             if (Schema::hasColumn('users', 'leave_allocations')) {
                 $user->leave_allocations = $this->newMemberRole === 'student'
                     ? [
-                        'annual'     => max(0, (int) $this->newMemberLeaveCasual),
-                        'sick'       => max(0, (int) $this->newMemberLeaveSick),
-                        'emergency'  => max(0, (int) $this->newMemberLeaveEmergency),
-                        'icab_study' => max(0, (int) $this->newMemberLeaveStudy),
+                        'annual_per_year'    => max(0, (int) $this->newMemberLeaveCasual),
+                        'sick_per_year'      => max(0, (int) $this->newMemberLeaveSick),
+                        'emergency_per_year' => max(0, (int) $this->newMemberLeaveEmergency),
+                        'study_per_year'     => (int) round(max(0, (int) $this->newMemberLeaveStudy) / $years),
+                        'annual'             => max(0, (int) $this->newMemberLeaveCasual) * $years,
+                        'sick'               => max(0, (int) $this->newMemberLeaveSick) * $years,
+                        'emergency'          => max(0, (int) $this->newMemberLeaveEmergency) * $years,
+                        'icab_study'         => max(0, (int) $this->newMemberLeaveStudy),
                     ]
                     : [
-                        'annual'    => max(0, (int) $this->newMemberLeaveCasual),
-                        'sick'      => max(0, (int) $this->newMemberLeaveSick),
-                        'earned'    => max(0, (int) $this->newMemberLeaveEarned),
-                        'emergency' => max(0, (int) $this->newMemberLeaveEmergency),
+                        'annual'               => max(0, (int) $this->newMemberLeaveCasual),
+                        'sick'                 => max(0, (int) $this->newMemberLeaveSick),
+                        'earned'               => max(0, (int) $this->newMemberLeaveEarned),
+                        'carry_forward_earned' => max(0, (int) $this->newMemberLeaveCarryForward),
+                        'emergency'            => max(0, (int) $this->newMemberLeaveEmergency),
                     ];
             }
             $user->save();
@@ -1079,16 +1096,17 @@ trait ManagesTeamAndNotifications
                 ? (int) ($member['articleship_duration_years'] ?? 3)
                 : 3;
             $this->editMemberTotalLeaveCap = (int) ($member['total_leave_cap'] ?? ($this->editMemberArticleshipYears === 4 ? 240 : 180));
-            $this->editMemberLeaveCasual = (int) ($alloc['annual'] ?? 14);
-            $this->editMemberLeaveSick = (int) ($alloc['sick'] ?? 14);
-            $this->editMemberLeaveEmergency = (int) ($alloc['emergency'] ?? 7);
-            $this->editMemberLeaveStudy = (int) ($alloc['icab_study'] ?? max(0, $this->editMemberTotalLeaveCap - ($this->editMemberLeaveCasual + $this->editMemberLeaveSick + $this->editMemberLeaveEmergency)));
+            $this->editMemberLeaveCasual = (int) ($alloc['annual_per_year'] ?? 14);
+            $this->editMemberLeaveSick = (int) ($alloc['sick_per_year'] ?? 14);
+            $this->editMemberLeaveEmergency = (int) ($alloc['emergency_per_year'] ?? 7);
+            $this->recalculateEditMemberLeaveBreakdown();
         } else {
             $this->editMemberLeaveCasual = (int) ($alloc['annual'] ?? 10);
             $this->editMemberLeaveSick = (int) ($alloc['sick'] ?? 14);
             $this->editMemberLeaveEarned = (int) ($alloc['earned'] ?? 15);
+            $this->editMemberLeaveCarryForward = (int) ($alloc['carry_forward_earned'] ?? 0);
             $this->editMemberLeaveEmergency = (int) ($alloc['emergency'] ?? 5);
-            $this->editMemberTotalLeaveCap = $this->editMemberLeaveCasual + $this->editMemberLeaveSick + $this->editMemberLeaveEarned + $this->editMemberLeaveEmergency;
+            $this->recalculateEditMemberLeaveBreakdown();
         }
 
         $this->showEditMemberModal = true;
@@ -1303,16 +1321,21 @@ trait ManagesTeamAndNotifications
                 if (Schema::hasColumn('users', 'leave_allocations')) {
                     $user->leave_allocations = $this->editMemberRole === 'student'
                         ? [
-                            'annual'     => max(0, (int) $this->editMemberLeaveCasual),
-                            'sick'       => max(0, (int) $this->editMemberLeaveSick),
-                            'emergency'  => max(0, (int) $this->editMemberLeaveEmergency),
-                            'icab_study' => max(0, (int) $this->editMemberLeaveStudy),
+                            'annual_per_year'    => max(0, (int) $this->editMemberLeaveCasual),
+                            'sick_per_year'      => max(0, (int) $this->editMemberLeaveSick),
+                            'emergency_per_year' => max(0, (int) $this->editMemberLeaveEmergency),
+                            'study_per_year'     => (int) round(max(0, (int) $this->editMemberLeaveStudy) / $editYears),
+                            'annual'             => max(0, (int) $this->editMemberLeaveCasual) * $editYears,
+                            'sick'               => max(0, (int) $this->editMemberLeaveSick) * $editYears,
+                            'emergency'          => max(0, (int) $this->editMemberLeaveEmergency) * $editYears,
+                            'icab_study'         => max(0, (int) $this->editMemberLeaveStudy),
                         ]
                         : [
-                            'annual'    => max(0, (int) $this->editMemberLeaveCasual),
-                            'sick'      => max(0, (int) $this->editMemberLeaveSick),
-                            'earned'    => max(0, (int) $this->editMemberLeaveEarned),
-                            'emergency' => max(0, (int) $this->editMemberLeaveEmergency),
+                            'annual'               => max(0, (int) $this->editMemberLeaveCasual),
+                            'sick'                 => max(0, (int) $this->editMemberLeaveSick),
+                            'earned'               => max(0, (int) $this->editMemberLeaveEarned),
+                            'carry_forward_earned' => max(0, (int) $this->editMemberLeaveCarryForward),
+                            'emergency'            => max(0, (int) $this->editMemberLeaveEmergency),
                         ];
                 }
                 $user->save();

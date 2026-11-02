@@ -109,8 +109,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Self-healing runtime schema check for cPanel deployments so leave_allocations,
-     * total_leave_cap, and articleship_duration_years exist even before CLI migrate.
+     * Self-healing runtime schema check for local/testing environments.
      */
     public static function ensureRuntimeSchemaColumns(): void
     {
@@ -145,13 +144,23 @@ class User extends Authenticatable
     }
 
     /**
-     * Build standard ICAB Articleship (3-Year = 180d max / 4-Year = 240d max)
-     * or Bangladesh Corporate Staff leave entitlement structure.
+     * Build Year-Wise ICAB Articleship (3-Year = 180d [60d/yr × 3] / 4-Year = 240d [60d/yr × 4])
+     * or Bangladesh Corporate Staff (Jan–Dec yearly reset + Earned Leave carry-forward) structure.
      *
      * For Articled Students:
-     *   Study Leave = Total Articleship Leave Cap (180 or 240) - (Casual + Sick + Emergency)
+     *   - Equal annual cap: Total Cap / Years (e.g. 180 / 3 = 60 days/year, 240 / 4 = 60 days/year)
+     *   - Per-year regular leaves: Casual (default 14d/yr), Sick (default 14d/yr), Emergency (default 7d/yr)
+     *   - Multi-year regular totals:
+     *       Casual Total    = Casual/Yr × Years (e.g. 14 × 3 = 42d, 14 × 4 = 56d)
+     *       Sick Total      = Sick/Yr × Years   (e.g. 14 × 3 = 42d, 14 × 4 = 56d)
+     *       Emergency Total = Emergency/Yr × Years (e.g. 7 × 3 = 21d, 7 × 4 = 28d)
+     *   - ICAB Study & Exam Prep Leave:
+     *       Study Total     = Total Cap - (Casual Total + Sick Total + Emergency Total)
+     *                         (e.g. 180 - 105 = 75d [25d/yr] for 3-Yr; 240 - 140 = 100d [25d/yr] for 4-Yr)
+     *
      * For Managers / Regular Corporate Staff:
-     *   Bangladesh corporate standard: Casual (10d), Sick (14d), Earned (15d), Emergency (5d) = 44d
+     *   - Resets every Calendar Year (01 Jan – 31 Dec)
+     *   - Unused regular leaves from the previous year carry forward into Earned Leave.
      */
     public static function buildLeaveEntitlement(string $role, int $articleshipYears = 3, ?int $customCap = null, array $customDays = []): array
     {
@@ -159,66 +168,165 @@ class User extends Authenticatable
             $years = ($articleshipYears === 4) ? 4 : 3;
             $defaultCap = ($years === 4) ? 240 : 180;
             $cap = ($customCap !== null && $customCap > 0) ? (int) $customCap : $defaultCap;
+            $perYearCap = (int) round($cap / $years);
 
-            $casual    = isset($customDays['annual']) ? max(0, (int) $customDays['annual']) : 14;
-            $sick      = isset($customDays['sick']) ? max(0, (int) $customDays['sick']) : 14;
-            $emergency = isset($customDays['emergency']) ? max(0, (int) $customDays['emergency']) : 7;
-            $regularSum = $casual + $sick + $emergency;
+            // Resolve per-year regular quotas (supporting both explicit *_per_year keys and legacy keys)
+            $casualPerYear = isset($customDays['annual_per_year'])
+                ? max(0, (int) $customDays['annual_per_year'])
+                : (isset($customDays['annual'])
+                    ? ((int) $customDays['annual'] > 30 ? (int) round((int) $customDays['annual'] / $years) : max(0, (int) $customDays['annual']))
+                    : 14);
 
-            // Everything remaining out of the 180-day (3-yr) or 240-day (4-yr) cap is ICAB Study / Exam Leave
-            $study = max(0, $cap - $regularSum);
-            $effectiveTotal = $regularSum + $study;
+            $sickPerYear = isset($customDays['sick_per_year'])
+                ? max(0, (int) $customDays['sick_per_year'])
+                : (isset($customDays['sick'])
+                    ? ((int) $customDays['sick'] > 30 ? (int) round((int) $customDays['sick'] / $years) : max(0, (int) $customDays['sick']))
+                    : 14);
+
+            $emergencyPerYear = isset($customDays['emergency_per_year'])
+                ? max(0, (int) $customDays['emergency_per_year'])
+                : (isset($customDays['emergency'])
+                    ? ((int) $customDays['emergency'] > 20 ? (int) round((int) $customDays['emergency'] / $years) : max(0, (int) $customDays['emergency']))
+                    : 7);
+
+            $casualTotal    = $casualPerYear * $years;
+            $sickTotal      = $sickPerYear * $years;
+            $emergencyTotal = $emergencyPerYear * $years;
+            $regularTotal   = $casualTotal + $sickTotal + $emergencyTotal;
+
+            // Remaining days out of 180 (3-Yr) or 240 (4-Yr) become ICAB Study / Exam Preparation Leave
+            $studyTotal   = max(0, $cap - $regularTotal);
+            $studyPerYear = (int) round($studyTotal / $years);
+            $effectiveCap = $regularTotal + $studyTotal;
 
             return [
                 'regime'                     => 'icab_articleship',
-                'regime_label'               => "{$years}-Year ICAB Articleship (Max {$effectiveTotal} Days)",
+                'regime_label'               => "{$years}-Year ICAB Articleship ({$perYearCap}d/Yr × {$years} = {$effectiveCap} Days)",
                 'articleship_duration_years' => $years,
-                'total_leave_cap'            => $effectiveTotal,
+                'per_year_cap'               => $perYearCap,
+                'total_leave_cap'            => $effectiveCap,
+                'per_year_allocations'       => [
+                    'annual'     => $casualPerYear,
+                    'sick'       => $sickPerYear,
+                    'emergency'  => $emergencyPerYear,
+                    'icab_study' => $studyPerYear,
+                ],
                 'allocations'                => [
-                    'annual'     => $casual,
-                    'sick'       => $sick,
-                    'emergency'  => $emergency,
-                    'icab_study' => $study,
+                    'annual_per_year'    => $casualPerYear,
+                    'sick_per_year'      => $sickPerYear,
+                    'emergency_per_year' => $emergencyPerYear,
+                    'study_per_year'     => $studyPerYear,
+                    'annual'             => $casualTotal,
+                    'sick'               => $sickTotal,
+                    'emergency'          => $emergencyTotal,
+                    'icab_study'         => $studyTotal,
                 ],
                 'categories'                 => [
-                    ['key' => 'annual',     'label' => 'Casual / Annual Leave',          'days' => $casual,    'is_study' => false],
-                    ['key' => 'sick',       'label' => 'Medical / Sick Leave',           'days' => $sick,      'is_study' => false],
-                    ['key' => 'emergency',  'label' => 'Emergency Family Leave',         'days' => $emergency, 'is_study' => false],
-                    ['key' => 'icab_study', 'label' => 'ICAB Study & Exam Prep Leave',   'days' => $study,     'is_study' => true],
+                    [
+                        'key'            => 'annual',
+                        'label'          => 'Casual / Annual Leave',
+                        'per_year_days'  => $casualPerYear,
+                        'days'           => $casualTotal,
+                        'formula_label'  => "{$casualPerYear}d/yr × {$years} yrs = {$casualTotal}d",
+                        'is_study'       => false,
+                    ],
+                    [
+                        'key'            => 'sick',
+                        'label'          => 'Medical / Sick Leave',
+                        'per_year_days'  => $sickPerYear,
+                        'days'           => $sickTotal,
+                        'formula_label'  => "{$sickPerYear}d/yr × {$years} yrs = {$sickTotal}d",
+                        'is_study'       => false,
+                    ],
+                    [
+                        'key'            => 'emergency',
+                        'label'          => 'Emergency Family Leave',
+                        'per_year_days'  => $emergencyPerYear,
+                        'days'           => $emergencyTotal,
+                        'formula_label'  => "{$emergencyPerYear}d/yr × {$years} yrs = {$emergencyTotal}d",
+                        'is_study'       => false,
+                    ],
+                    [
+                        'key'            => 'icab_study',
+                        'label'          => 'ICAB Study & Exam Prep Leave',
+                        'per_year_days'  => $studyPerYear,
+                        'days'           => $studyTotal,
+                        'formula_label'  => "{$studyPerYear}d/yr × {$years} yrs = {$studyTotal}d (Pool)",
+                        'is_study'       => true,
+                    ],
                 ],
             ];
         }
 
-        // Manager / Regular Corporate Staff (Bangladesh Corporate / Labour Law Standard)
-        $casual    = isset($customDays['annual']) ? max(0, (int) $customDays['annual']) : 10;
-        $sick      = isset($customDays['sick']) ? max(0, (int) $customDays['sick']) : 14;
-        $earned    = isset($customDays['earned']) ? max(0, (int) $customDays['earned']) : 15;
-        $emergency = isset($customDays['emergency']) ? max(0, (int) $customDays['emergency']) : 5;
-        $totalCorp = $casual + $sick + $earned + $emergency;
+        // Manager / Regular Corporate Staff (Jan–Dec Calendar Year Reset + Earned Leave Carry-Forward)
+        $casual       = isset($customDays['annual']) ? max(0, (int) $customDays['annual']) : 10;
+        $sick         = isset($customDays['sick']) ? max(0, (int) $customDays['sick']) : 14;
+        $baseEarned   = isset($customDays['earned']) ? max(0, (int) $customDays['earned']) : 15;
+        $carryForward = isset($customDays['carry_forward_earned']) ? max(0, (int) $customDays['carry_forward_earned']) : 0;
+        $emergency    = isset($customDays['emergency']) ? max(0, (int) $customDays['emergency']) : 5;
+        $totalEarned  = $baseEarned + $carryForward;
+        $totalCorp    = $casual + $sick + $totalEarned + $emergency;
 
         return [
             'regime'                     => 'bd_corporate',
-            'regime_label'               => "BD Corporate Leave Policy ({$totalCorp} Days/Yr)",
+            'regime_label'               => "BD Corporate Leave (Jan–Dec Reset · {$totalCorp} Days)",
             'articleship_duration_years' => null,
+            'per_year_cap'               => $totalCorp,
             'total_leave_cap'            => $totalCorp,
-            'allocations'                => [
+            'base_earned_days'           => $baseEarned,
+            'carry_forward_earned'       => $carryForward,
+            'per_year_allocations'       => [
                 'annual'    => $casual,
                 'sick'      => $sick,
-                'earned'    => $earned,
+                'earned'    => $totalEarned,
                 'emergency' => $emergency,
             ],
+            'allocations'                => [
+                'annual'               => $casual,
+                'sick'                 => $sick,
+                'earned'               => $baseEarned,
+                'carry_forward_earned' => $carryForward,
+                'emergency'            => $emergency,
+            ],
             'categories'                 => [
-                ['key' => 'annual',    'label' => 'Casual Leave (BD Corporate)',     'days' => $casual,    'is_study' => false],
-                ['key' => 'sick',      'label' => 'Medical / Sick Leave',            'days' => $sick,      'is_study' => false],
-                ['key' => 'earned',    'label' => 'Earned / Annual Privilege Leave', 'days' => $earned,    'is_study' => false],
-                ['key' => 'emergency', 'label' => 'Emergency / Festival Leave',      'days' => $emergency, 'is_study' => false],
+                [
+                    'key'            => 'annual',
+                    'label'          => 'Casual Leave (Jan–Dec Reset)',
+                    'per_year_days'  => $casual,
+                    'days'           => $casual,
+                    'formula_label'  => "{$casual}d / Calendar Year",
+                    'is_study'       => false,
+                ],
+                [
+                    'key'            => 'sick',
+                    'label'          => 'Medical / Sick Leave (Jan–Dec Reset)',
+                    'per_year_days'  => $sick,
+                    'days'           => $sick,
+                    'formula_label'  => "{$sick}d / Calendar Year",
+                    'is_study'       => false,
+                ],
+                [
+                    'key'            => 'earned',
+                    'label'          => 'Earned / Privilege Leave (Carry-Forward)',
+                    'per_year_days'  => $totalEarned,
+                    'days'           => $totalEarned,
+                    'formula_label'  => $carryForward > 0 ? "{$baseEarned}d Base + {$carryForward}d Carry-Forward" : "{$baseEarned}d Base + Unused Carry-Forward",
+                    'is_study'       => false,
+                ],
+                [
+                    'key'            => 'emergency',
+                    'label'          => 'Emergency / Festival Leave',
+                    'per_year_days'  => $emergency,
+                    'days'           => $emergency,
+                    'formula_label'  => "{$emergency}d / Calendar Year",
+                    'is_study'       => false,
+                ],
             ],
         ];
     }
 
     /**
-     * Resolve this user's configured leave entitlement (falling back to role &
-     * articleship duration defaults if not explicitly customized yet).
+     * Resolve this user's configured leave entitlement.
      */
     public function resolvedLeaveEntitlement(): array
     {
@@ -233,6 +341,58 @@ class User extends Authenticatable
         $cap = $this->total_leave_cap ? (int) $this->total_leave_cap : null;
 
         return self::buildLeaveEntitlement((string) ($this->role ?: self::ROLE_STUDENT), $years, $cap, $savedAlloc);
+    }
+
+    /**
+     * Compute the 12-month Anniversary Year window (Year 1, Year 2, Year 3, [Year 4])
+     * from the student's `articleship_start_date` (e.g. 2026-11-20 ->
+     *   Year 1: 2026-11-20 to 2027-11-19
+     *   Year 2: 2027-11-20 to 2028-11-19
+     *   Year 3: 2028-11-20 to 2029-11-19
+     * ).
+     */
+    public function articleshipYearWindowForDate(?string $targetDateYmd = null): array
+    {
+        $ent = $this->resolvedLeaveEntitlement();
+        $totalYears = (int) ($ent['articleship_duration_years'] ?: 3);
+
+        $joinStr = $this->articleship_start_date
+            ? $this->articleship_start_date->format('Y-m-d')
+            : (now()->timezone('Asia/Dhaka')->format('Y') . '-01-01');
+
+        $joinDt = \DateTimeImmutable::createFromFormat('!Y-m-d', $joinStr)
+            ?: new \DateTimeImmutable(now()->timezone('Asia/Dhaka')->format('Y-01-01'));
+
+        $refStr = ($targetDateYmd && preg_match('/^\d{4}-\d{2}-\d{2}$/', $targetDateYmd))
+            ? $targetDateYmd
+            : now()->timezone('Asia/Dhaka')->toDateString();
+        $refDt = \DateTimeImmutable::createFromFormat('!Y-m-d', $refStr) ?: $joinDt;
+
+        $allWindows = [];
+        $activeWindow = null;
+
+        for ($y = 1; $y <= $totalYears; $y++) {
+            $wStart = $joinDt->modify('+' . ($y - 1) . ' years');
+            $wEnd   = $joinDt->modify('+' . $y . ' years -1 day');
+            $win = [
+                'year_number'  => $y,
+                'total_years'  => $totalYears,
+                'start_date'   => $wStart->format('Y-m-d'),
+                'end_date'     => $wEnd->format('Y-m-d'),
+                'period_label' => $wStart->format('d M Y') . ' – ' . $wEnd->format('d M Y'),
+                'short_label'  => "Year {$y} of {$totalYears} (" . $wStart->format('d M Y') . ' – ' . $wEnd->format('d M Y') . ')',
+            ];
+            $allWindows[] = $win;
+
+            if ($activeWindow === null && ($refDt <= $wEnd || $y === $totalYears)) {
+                $activeWindow = $win;
+            }
+        }
+
+        $activeWindow['all_windows'] = $allWindows;
+        $activeWindow['joining_date'] = $joinDt->format('Y-m-d');
+
+        return $activeWindow;
     }
 
     // ─── Relationships ────────────────────────────────────────────────────────
@@ -281,9 +441,6 @@ class User extends Authenticatable
 
     public function isPlatformAdmin(): bool
     {
-        // SECURITY: platform authority is granted by the role column only.
-        // Matching on hard-coded email addresses allowed anyone who could set
-        // their own email to become a platform super admin.
         return $this->role === self::ROLE_PLATFORM_ADMIN;
     }
 
@@ -320,12 +477,6 @@ class User extends Authenticatable
         };
     }
 
-    /**
-     * Has this account completed TOTP enrolment?
-     *
-     * Deliberately strict: a secret without a confirmation timestamp is an
-     * abandoned enrolment and must not lock the user out.
-     */
     public function hasTwoFactorEnabled(): bool
     {
         return ! empty($this->two_factor_secret) && $this->two_factor_confirmed_at !== null;
@@ -333,7 +484,6 @@ class User extends Authenticatable
 
     public function isActive(): bool
     {
-        // Rows created before the is_active column existed must keep working.
         return $this->is_active === null ? true : (bool) $this->is_active;
     }
 

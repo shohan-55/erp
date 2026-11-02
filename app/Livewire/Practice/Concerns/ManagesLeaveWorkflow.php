@@ -845,6 +845,16 @@ trait ManagesLeaveWorkflow
 
     /**
      * Policy quota (in days) for a leave type, or null when unset.
+     * - For Students:
+     *   * Regular leaves (annual, sick, emergency) enforce the per-anniversary-year quota
+     *     (e.g. 14d/yr Casual, 14d/yr Sick, 7d/yr Emergency) within the active 12-month
+     *     articleship year window from joining date.
+     *   * Study / Exam leaves (icab_study, icab_exam) when custom profile allocations are set
+     *     use the full multi-year Study Leave pool plus any unused regular leave rolled over
+     *     from completed prior anniversary years.
+     * - For Managers / Staff:
+     *   * Enforces the annual calendar-year (Jan-Dec) quota, including any unused prior-year
+     *     regular leave carried forward into Earned Leave.
      */
     protected function quotaDaysForLeaveType(string $type): ?int
     {
@@ -855,9 +865,27 @@ trait ManagesLeaveWorkflow
             if ($hasCustomProfileAlloc || $u->isManager() || $type === 'earned') {
                 $ent = $u->resolvedLeaveEntitlement();
                 $allocs = $ent['allocations'] ?? [];
-                if ($u->isStudent() && in_array($type, ['icab_study', 'icab_exam'], true) && isset($allocs['icab_study'])) {
-                    return max(0, (int) $allocs['icab_study']);
+                $perYear = $ent['per_year_allocations'] ?? [];
+
+                if ($u->isStudent()) {
+                    if (in_array($type, ['annual', 'sick', 'emergency'], true) && isset($perYear[$type])) {
+                        return max(0, (int) $perYear[$type]);
+                    }
+                    if (in_array($type, ['icab_study', 'icab_exam'], true) && isset($allocs['icab_study'])) {
+                        $rollover = $this->unusedPriorYearsRegularLeaveForStudent($u, $this->leaveStart ?: now()->format('Y-m-d'));
+                        return max(0, (int) $allocs['icab_study'] + $rollover);
+                    }
+                } elseif ($u->isManager()) {
+                    $targetYear = (int) substr($this->leaveStart ?: now()->format('Y-m-d'), 0, 4);
+                    if ($type === 'earned') {
+                        $autoCarry = $this->computeAutoCarryForwardFromPriorYear($u, $targetYear);
+                        return max(0, (int) ($allocs['earned'] ?? 15) + $autoCarry);
+                    }
+                    if (isset($allocs[$type])) {
+                        return max(0, (int) $allocs[$type]);
+                    }
                 }
+
                 if (isset($allocs[$type])) {
                     return max(0, (int) $allocs[$type]);
                 }
@@ -875,8 +903,14 @@ trait ManagesLeaveWorkflow
 
     /**
      * Days already consumed (approved or still in flight) for a leave type.
-     * For students with custom profile leave_allocations, study leave pools
-     * icab_study + icab_exam across their articleship; otherwise checks calendar year.
+     * - For Students:
+     *   * Regular leaves (annual, sick, emergency) are counted within the student's active
+     *     12-month Anniversary Year window (based on articleship_start_date) if set,
+     *     or calendar year if articleship_start_date is not set.
+     *   * Study/Exam leaves (when profile leave_allocations are configured) pool across
+     *     the 3/4-year articleship.
+     * - For Managers / Staff:
+     *   * Counted strictly within the Jan 1 - Dec 31 calendar year (yearly reset).
      */
     protected function usedLeaveDaysForYear(string $date, string $type): int
     {
@@ -890,7 +924,8 @@ trait ManagesLeaveWorkflow
             /** @var User $u */
             $u = Auth::user();
             $hasCustomProfileAlloc = is_array($u->leave_allocations) && ! empty($u->leave_allocations);
-            $typesToMatch = ($hasCustomProfileAlloc && $u->isStudent() && in_array($type, ['icab_study', 'icab_exam'], true))
+            $isStudentMultiYearStudy = $hasCustomProfileAlloc && $u->isStudent() && in_array($type, ['icab_study', 'icab_exam'], true);
+            $typesToMatch = $isStudentMultiYearStudy
                 ? ['icab_study', 'icab_exam']
                 : [$type];
 
@@ -898,9 +933,15 @@ trait ManagesLeaveWorkflow
                 ->whereIn('leave_type', $typesToMatch)
                 ->whereIn('status', ['pending_manager', 'pending_partner', 'approved', 'Awaiting Manager', 'Awaiting Partner']);
 
-            if (! ($hasCustomProfileAlloc && $u->isStudent())) {
-                $query->where('start_date', '>=', $year . '-01-01')
-                    ->where('start_date', '<=', $year . '-12-31');
+            if (! $isStudentMultiYearStudy) {
+                if ($u->isStudent() && ! empty($u->articleship_start_date) && in_array($type, ['annual', 'sick', 'emergency'], true)) {
+                    $win = $u->articleshipYearWindowForDate($date);
+                    $query->where('start_date', '>=', $win['start_date'])
+                        ->where('start_date', '<=', $win['end_date']);
+                } else {
+                    $query->where('start_date', '>=', $year . '-01-01')
+                        ->where('start_date', '<=', $year . '-12-31');
+                }
             }
 
             return (int) $query->get()->sum(function ($row) {
@@ -915,31 +956,138 @@ trait ManagesLeaveWorkflow
     }
 
     /**
+     * Calculates unused regular leave days from completed prior Anniversary Years for an Articled Student,
+     * which remain available in their overall 180/240-day Study Leave pool.
+     */
+    protected function unusedPriorYearsRegularLeaveForStudent(User $u, ?string $refDateYmd = null): int
+    {
+        if (! $u->isStudent() || empty($u->articleship_start_date) || ! Schema::hasTable('leave_requests')) {
+            return 0;
+        }
+
+        try {
+            $ent = $u->resolvedLeaveEntitlement();
+            $perYearRegular = (int) (($ent['per_year_allocations']['annual'] ?? 14)
+                + ($ent['per_year_allocations']['sick'] ?? 14)
+                + ($ent['per_year_allocations']['emergency'] ?? 7));
+
+            $winInfo = $u->articleshipYearWindowForDate($refDateYmd);
+            $activeYr = (int) ($winInfo['year_number'] ?? 1);
+            if ($activeYr <= 1) {
+                return 0;
+            }
+
+            $priorWindows = array_filter($winInfo['all_windows'] ?? [], fn ($w) => (int) ($w['year_number'] ?? 1) < $activeYr);
+            $rollover = 0;
+
+            foreach ($priorWindows as $pw) {
+                $usedInWindow = (int) LeaveRequest::where('user_id', $u->id)
+                    ->whereIn('leave_type', ['annual', 'sick', 'emergency'])
+                    ->whereIn('status', ['pending_manager', 'pending_partner', 'approved', 'Awaiting Manager', 'Awaiting Partner'])
+                    ->where('start_date', '>=', $pw['start_date'])
+                    ->where('start_date', '<=', $pw['end_date'])
+                    ->get()
+                    ->sum(fn ($row) => (int) ($row->approved_days ?: ($row->requested_days ?: 1)));
+
+                $rollover += max(0, $perYearRegular - $usedInWindow);
+            }
+
+            return $rollover;
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Calculates automatic prior-calendar-year unused regular leave carry-forward into Earned Leave
+     * for a Manager / Regular Staff member when they had prior-year leave activity.
+     */
+    protected function computeAutoCarryForwardFromPriorYear(User $u, int $targetYear): int
+    {
+        if (! $u->isManager() || ! Schema::hasTable('leave_requests')) {
+            return 0;
+        }
+
+        // If partner/admin already manually set a non-zero carry_forward_earned on the profile,
+        // resolvedLeaveEntitlement() already includes it in $ent['allocations']['earned'].
+        $rawCustom = is_array($u->leave_allocations) ? $u->leave_allocations : [];
+        if ((int) ($rawCustom['carry_forward_earned'] ?? 0) > 0) {
+            return 0;
+        }
+
+        try {
+            $prevYear = $targetYear - 1;
+            $prevRows = LeaveRequest::where('user_id', $u->id)
+                ->whereIn('status', ['pending_manager', 'pending_partner', 'approved', 'Awaiting Manager', 'Awaiting Partner'])
+                ->where('start_date', '>=', $prevYear . '-01-01')
+                ->where('start_date', '<=', $prevYear . '-12-31')
+                ->get();
+
+            if ($prevRows->isEmpty()) {
+                return 0;
+            }
+
+            $ent = $u->resolvedLeaveEntitlement();
+            $regularQuota = (int) (($ent['allocations']['annual'] ?? 10)
+                + ($ent['allocations']['sick'] ?? 14)
+                + ($ent['allocations']['emergency'] ?? 5));
+
+            $regularUsedPrevYear = (int) $prevRows
+                ->filter(fn ($r) => in_array((string) $r->leave_type, ['annual', 'sick', 'emergency'], true))
+                ->sum(fn ($r) => (int) ($r->approved_days ?: ($r->requested_days ?: 1)));
+
+            return max(0, $regularQuota - $regularUsedPrevYear);
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    /**
      * Live Personal Leave Balance Passbook for the current Student or Manager/Staff.
-     * Automatically deducts approved and pending leave applications from each
-     * category and from the user's overall 180-day (3-Yr) / 240-day (4-Yr) / Corporate cap.
+     * - Students: Tracks both Active Anniversary Year Window (Joining Date 12-Month cycle)
+     *   and Total 3-Yr (180d) / 4-Yr (240d) Articleship Entitlement.
+     * - Managers/Staff: Resets annually every Jan 1 - Dec 31 and carries forward unused
+     *   prior-year regular leaves into Earned Leave.
      */
     public function getMyLeaveBalanceSummaryProperty(): array
     {
         $role = $this->previewRole === 'manager' ? 'manager' : 'student';
-        $ent = Auth::check()
-            ? Auth::user()->resolvedLeaveEntitlement()
+        /** @var User|null $authUser */
+        $authUser = Auth::user();
+        $ent = $authUser
+            ? $authUser->resolvedLeaveEntitlement()
             : User::buildLeaveEntitlement($role, 3);
 
+        $currentYearStr = now()->format('Y');
+        $activeWindow = $authUser && $authUser->isStudent()
+            ? $authUser->articleshipYearWindowForDate()
+            : User::buildLeaveEntitlement('student', 3) && (new User(['articleship_duration_years' => 3]))->articleshipYearWindowForDate();
+
+        if (! is_array($activeWindow)) {
+            $activeWindow = (new User(['articleship_duration_years' => 3]))->articleshipYearWindowForDate();
+        }
+
+        $autoCarryForwardEarned = ($authUser && $authUser->isManager())
+            ? $this->computeAutoCarryForwardFromPriorYear($authUser, (int) $currentYearStr)
+            : 0;
+        $totalCarryForwardEarned = (int) ($ent['carry_forward_earned'] ?? 0) + $autoCarryForwardEarned;
+
         $rawLeaves = [];
-        if (Auth::check() && Schema::hasTable('leave_requests')) {
+        if ($authUser && Schema::hasTable('leave_requests')) {
             try {
-                $dbRows = LeaveRequest::where('user_id', Auth::id())
+                $dbRows = LeaveRequest::where('user_id', $authUser->id)
                     ->whereIn('status', ['pending_manager', 'pending_partner', 'approved', 'Awaiting Manager', 'Awaiting Partner'])
                     ->get();
                 foreach ($dbRows as $r) {
                     $reqD = (int) ($r->requested_days ?: (($r->start_date && $r->end_date) ? ($r->start_date->diffInDays($r->end_date) + 1) : 1));
                     $appD = (int) ($r->approved_days ?: $reqD);
+                    $startYmd = $r->start_date ? $r->start_date->format('Y-m-d') : ($currentYearStr . '-01-01');
                     $rawLeaves[] = [
-                        'type'   => (string) $r->leave_type,
-                        'status' => (string) $r->status,
-                        'req'    => max(1, $reqD),
-                        'app'    => max(1, $appD),
+                        'type'       => (string) $r->leave_type,
+                        'status'     => (string) $r->status,
+                        'req'        => max(1, $reqD),
+                        'app'        => max(1, $appD),
+                        'start_date' => $startYmd,
                     ];
                 }
             } catch (\Throwable $e) {
@@ -966,9 +1114,23 @@ trait ManagesLeaveWorkflow
                     }
                     $reqD = max(1, (int) ($q['requested_days'] ?? 1));
                     $appD = max(1, (int) ($q['approved_days'] ?? $reqD));
-                    $rawLeaves[] = ['type' => $tSlug, 'status' => $st, 'req' => $reqD, 'app' => $appD];
+                    $rawLeaves[] = [
+                        'type'       => $tSlug,
+                        'status'     => $st,
+                        'req'        => $reqD,
+                        'app'        => $appD,
+                        'start_date' => (string) ($q['start_date_raw'] ?? ($currentYearStr . '-06-01')),
+                    ];
                 }
             }
+        }
+
+        // For Managers/Staff, filter rawLeaves to the current calendar year (Jan 1 - Dec 31 reset)
+        if ($ent['regime'] === 'corporate_staff') {
+            $rawLeaves = array_values(array_filter($rawLeaves, function ($rl) use ($currentYearStr) {
+                $sd = $rl['start_date'] ?? '';
+                return $sd >= ($currentYearStr . '-01-01') && $sd <= ($currentYearStr . '-12-31');
+            }));
         }
 
         $categories = [];
@@ -978,8 +1140,14 @@ trait ManagesLeaveWorkflow
         foreach ($ent['categories'] as $cat) {
             $cKey = $cat['key'];
             $allocated = max(0, (int) $cat['days']);
+            if ($ent['regime'] === 'corporate_staff' && $cKey === 'earned' && $autoCarryForwardEarned > 0) {
+                $allocated += $autoCarryForwardEarned;
+            }
+            $perYearAlloc = max(0, (int) ($cat['per_year_days'] ?? $allocated));
             $used = 0;
             $pending = 0;
+            $yearUsed = 0;
+            $yearPending = 0;
 
             foreach ($rawLeaves as $rl) {
                 $lType = $rl['type'];
@@ -989,39 +1157,64 @@ trait ManagesLeaveWorkflow
                 if (! $matches) {
                     continue;
                 }
+                $sd = $rl['start_date'] ?? '';
+                $inActiveWindow = ($ent['regime'] === 'icab_articleship')
+                    ? ($sd >= ($activeWindow['start_date'] ?? '0000-01-01') && $sd <= ($activeWindow['end_date'] ?? '9999-12-31'))
+                    : true;
+
                 if ($rl['status'] === 'approved') {
                     $used += $rl['app'];
+                    if ($inActiveWindow) {
+                        $yearUsed += $rl['app'];
+                    }
                 } else {
                     $pending += $rl['req'];
+                    if ($inActiveWindow) {
+                        $yearPending += $rl['req'];
+                    }
                 }
             }
 
             $committed = $used + $pending;
             $available = max(0, $allocated - $committed);
+            $yearCommitted = $yearUsed + $yearPending;
+            $yearAvailable = max(0, $perYearAlloc - $yearCommitted);
+
             $totalUsed += $used;
             $totalPending += $pending;
 
             $categories[] = [
-                'key'       => $cKey,
-                'label'     => $cat['label'],
-                'is_study'  => ! empty($cat['is_study']),
-                'allocated' => $allocated,
-                'used'      => $used,
-                'pending'   => $pending,
-                'committed' => $committed,
-                'available' => $available,
+                'key'                => $cKey,
+                'label'              => $cat['label'],
+                'is_study'           => ! empty($cat['is_study']),
+                'allocated'          => $allocated,
+                'used'               => $used,
+                'pending'            => $pending,
+                'committed'          => $committed,
+                'available'          => $available,
+                'per_year_allocated' => $perYearAlloc,
+                'year_used'          => $yearUsed,
+                'year_pending'       => $yearPending,
+                'year_committed'     => $yearCommitted,
+                'year_available'     => $yearAvailable,
+                'carry_forward'      => ($cKey === 'earned') ? $totalCarryForwardEarned : 0,
             ];
         }
 
-        $totalCap = max(1, (int) $ent['total_leave_cap']);
+        $totalCap = max(1, (int) $ent['total_leave_cap'] + $autoCarryForwardEarned);
         $totalCommitted = $totalUsed + $totalPending;
         $totalAvailable = max(0, $totalCap - $totalCommitted);
 
         return [
             'regime'                     => $ent['regime'],
             'regime_label'               => $ent['regime_label'],
+            'cycle_type'                 => $ent['cycle_type'] ?? ($ent['regime'] === 'icab_articleship' ? 'anniversary_year' : 'calendar_year_jan_dec'),
             'articleship_duration_years' => $ent['articleship_duration_years'],
+            'active_window'              => $activeWindow,
+            'calendar_year_label'        => "Jan 1, {$currentYearStr} – Dec 31, {$currentYearStr}",
+            'carry_forward_earned'       => $totalCarryForwardEarned,
             'total_cap'                  => $totalCap,
+            'per_year_cap'               => (int) ($ent['per_year_cap'] ?? ($ent['regime'] === 'icab_articleship' ? 60 : $totalCap)),
             'total_used'                 => $totalUsed,
             'total_pending'              => $totalPending,
             'total_committed'            => $totalCommitted,

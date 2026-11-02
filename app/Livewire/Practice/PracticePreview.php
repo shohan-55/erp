@@ -198,8 +198,9 @@ class PracticePreview extends Component
     public int $newMemberLeaveCasual = 14;
     public int $newMemberLeaveSick = 14;
     public int $newMemberLeaveEmergency = 7;
-    public int $newMemberLeaveStudy = 145;
+    public int $newMemberLeaveStudy = 75;
     public int $newMemberLeaveEarned = 15;
+    public int $newMemberLeaveCarryForward = 0;
 
     public string $editMemberArticleshipStart = '';
     public string $editMemberArticleshipEnd = '';
@@ -208,8 +209,9 @@ class PracticePreview extends Component
     public int $editMemberLeaveCasual = 14;
     public int $editMemberLeaveSick = 14;
     public int $editMemberLeaveEmergency = 7;
-    public int $editMemberLeaveStudy = 145;
+    public int $editMemberLeaveStudy = 75;
     public int $editMemberLeaveEarned = 15;
+    public int $editMemberLeaveCarryForward = 0;
 
     // Configurable Student Dashboard Grids (Active/Deactive toggles)
     public array $studentGrids = [

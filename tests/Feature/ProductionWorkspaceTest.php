@@ -1070,7 +1070,7 @@ class ProductionWorkspaceTest extends TestCase
     {
         $this->actingAs($this->partner);
 
-        // 1. Partner creates a 4-Year Articled Student (Max 240 Days) with Casual=20, Sick=20, Emergency=10 -> Study Leave auto-calculates to 190
+        // 1. Partner creates a 4-Year Articled Student (Max 240 Days) with default per-year Casual=14, Sick=14, Emergency=7 -> multiplied by 4 yrs = 56+56+28=140, Study Leave = 100
         $comp = Livewire::test(PracticePreview::class, [
             'firmSlug'    => 'rac',
             'previewRole' => 'partner',
@@ -1080,10 +1080,11 @@ class ProductionWorkspaceTest extends TestCase
             ->set('newMemberRole', 'student')
             ->call('selectNewMemberArticleshipYears', 4)
             ->assertSet('newMemberTotalLeaveCap', 240)
-            ->set('newMemberLeaveCasual', 20)
-            ->set('newMemberLeaveSick', 20)
-            ->set('newMemberLeaveEmergency', 10)
-            ->assertSet('newMemberLeaveStudy', 190)
+            ->assertSet('newMemberLeaveCasual', 14)
+            ->assertSet('newMemberLeaveSick', 14)
+            ->assertSet('newMemberLeaveEmergency', 7)
+            ->assertSet('newMemberLeaveStudy', 100)
+            ->set('newMemberArticleshipStart', '2026-11-20')
             ->set('newMemberName', 'Four Year Student')
             ->set('newMemberEmail', 'fouryear@rac.dhakawala.com')
             ->set('newMemberStudentCode', 'S-400')
@@ -1094,25 +1095,43 @@ class ProductionWorkspaceTest extends TestCase
         $this->assertNotNull($fourYrStudent);
         $this->assertSame(4, (int) $fourYrStudent->articleship_duration_years);
         $this->assertSame(240, (int) $fourYrStudent->total_leave_cap);
-        $this->assertSame(190, (int) ($fourYrStudent->leave_allocations['icab_study'] ?? 0));
+        $this->assertSame(56, (int) ($fourYrStudent->leave_allocations['annual'] ?? 0));
+        $this->assertSame(56, (int) ($fourYrStudent->leave_allocations['sick'] ?? 0));
+        $this->assertSame(28, (int) ($fourYrStudent->leave_allocations['emergency'] ?? 0));
+        $this->assertSame(100, (int) ($fourYrStudent->leave_allocations['icab_study'] ?? 0));
 
-        // 2. Partner edits the student profile to 3-Year (180 Days) with Casual=15, Sick=15, Emergency=10 -> Study Leave = 140
+        // 2. Partner edits the student profile to 3-Year (180 Days) with default 14/14/7 per year -> multiplied by 3 yrs = 42+42+21=105, Study Leave = 75
         $comp->call('openEditMemberModal', $fourYrStudent->id)
             ->call('selectEditMemberArticleshipYears', 3)
             ->assertSet('editMemberTotalLeaveCap', 180)
-            ->set('editMemberLeaveCasual', 15)
-            ->set('editMemberLeaveSick', 15)
-            ->set('editMemberLeaveEmergency', 10)
-            ->assertSet('editMemberLeaveStudy', 140)
+            ->set('editMemberLeaveCasual', 14)
+            ->set('editMemberLeaveSick', 14)
+            ->set('editMemberLeaveEmergency', 7)
+            ->assertSet('editMemberLeaveStudy', 75)
             ->call('updateMember')
             ->assertSet('error', null);
 
         $fourYrStudent->refresh();
         $this->assertSame(3, (int) $fourYrStudent->articleship_duration_years);
         $this->assertSame(180, (int) $fourYrStudent->total_leave_cap);
-        $this->assertSame(140, (int) ($fourYrStudent->leave_allocations['icab_study'] ?? 0));
+        $this->assertSame(42, (int) ($fourYrStudent->leave_allocations['annual'] ?? 0));
+        $this->assertSame(42, (int) ($fourYrStudent->leave_allocations['sick'] ?? 0));
+        $this->assertSame(21, (int) ($fourYrStudent->leave_allocations['emergency'] ?? 0));
+        $this->assertSame(75, (int) ($fourYrStudent->leave_allocations['icab_study'] ?? 0));
 
-        // 3. Student applies for 5 days of Casual Leave -> Available balance immediately drops from 180 to 175 (and Casual from 15 to 10)
+        // Verify Anniversary Year Windows from joining date 2026-11-20:
+        // Year 1: 2026-11-20 to 2027-11-19 | Year 2: 2027-11-20 to 2028-11-19 | Year 3: 2028-11-20 to 2029-11-19
+        $winYr1 = $fourYrStudent->articleshipYearWindowForDate('2027-02-10');
+        $this->assertSame(1, $winYr1['year_number']);
+        $this->assertSame('2026-11-20', $winYr1['start_date']);
+        $this->assertSame('2027-11-19', $winYr1['end_date']);
+
+        $winYr2 = $fourYrStudent->articleshipYearWindowForDate('2027-11-25');
+        $this->assertSame(2, $winYr2['year_number']);
+        $this->assertSame('2027-11-20', $winYr2['start_date']);
+        $this->assertSame('2028-11-19', $winYr2['end_date']);
+
+        // 3. Student applies for 5 days of Casual Leave in Year 1 -> Available balance drops from 180 to 175 (and Year 1 Casual from 14 to 9)
         $this->actingAs($fourYrStudent);
         $studentComp = Livewire::test(PracticePreview::class, [
             'firmSlug'    => 'rac',
@@ -1120,8 +1139,8 @@ class ProductionWorkspaceTest extends TestCase
             'section'     => 'leave',
         ])
             ->set('leaveType', 'annual')
-            ->set('leaveStart', '2026-11-15')
-            ->set('leaveEnd', '2026-11-19')
+            ->set('leaveStart', '2026-11-25')
+            ->set('leaveEnd', '2026-11-29')
             ->set('leaveReason', 'Family visit to Sylhet')
             ->call('submitLeaveApplication')
             ->assertSet('error', null);
@@ -1131,7 +1150,7 @@ class ProductionWorkspaceTest extends TestCase
         $this->assertSame(5, $summary['total_pending']);
         $this->assertSame(175, $summary['total_available']);
 
-        // 4. Manager submits a personal Corporate Leave (Earned Leave) -> routes to Partner and deducts from Manager's corporate balance
+        // 4. Manager Jan-Dec yearly reset & unused prior-year regular leave carry-forward into Earned Leave
         $this->actingAs($this->manager->fresh());
         $mgrComp = Livewire::test(PracticePreview::class, [
             'firmSlug'    => 'rac',

@@ -194,11 +194,16 @@
                                             </span>
                                             @if(($member['role'] ?? '') === 'student')
                                                 <span class="rounded bg-indigo-50 px-1.5 py-0.5 font-bold text-indigo-800">
-                                                    {{ $member['articleship_duration_years'] ?? 3 }}-Yr Max · Study: {{ $member['leave_allocations']['icab_study'] ?? 145 }}d
+                                                    {{ $member['articleship_duration_years'] ?? 3 }}-Yr Max ({{ $member['per_year_leave_cap'] ?? 60 }}d/yr) · Study: {{ $member['leave_allocations']['icab_study'] ?? 75 }}d
                                                 </span>
+                                                @if(!empty($member['active_articleship_window']['label']))
+                                                    <span class="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-800" title="Joining-Date Anniversary Year Window: {{ $member['active_articleship_window']['period_label'] ?? '' }}">
+                                                        {{ $member['active_articleship_window']['label'] }}: {{ $member['active_articleship_window']['period_label'] ?? '' }}
+                                                    </span>
+                                                @endif
                                             @else
                                                 <span class="rounded bg-slate-100 px-1.5 py-0.5 font-semibold text-slate-600">
-                                                    BD Corporate Quota
+                                                    Jan–Dec Yearly Reset{{ ($member['carry_forward_earned'] ?? 0) > 0 ? ' · +' . $member['carry_forward_earned'] . 'd Earned Carry-Fwd' : ' · Auto Earned Carry-Fwd' }}
                                                 </span>
                                             @endif
                                             @if(($member['leave_used_days'] ?? 0) > 0 || ($member['leave_pending_days'] ?? 0) > 0)
@@ -441,31 +446,36 @@
                             </div>
 
                             <div class="rounded-xl border border-emerald-200 bg-white p-3 space-y-2.5">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-[11px] font-extrabold text-slate-800">Configure Student Leave Allocation (Editable)</span>
+                                <div class="flex flex-wrap items-center justify-between gap-1.5">
+                                    <span class="text-[11px] font-extrabold text-slate-800">Year-Wise Leave Allocation (Anniversary Cycle from Joining Date)</span>
                                     <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black text-emerald-900">
-                                        Max Cap: {{ $newMemberTotalLeaveCap }} Days ({{ $newMemberArticleshipYears }} Yrs)
+                                        Max Cap: {{ $newMemberTotalLeaveCap }} Days ({{ (int) round($newMemberTotalLeaveCap / max(1, (int) $newMemberArticleshipYears)) }}d/yr × {{ $newMemberArticleshipYears }} Yrs)
                                     </span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
                                     <label class="block text-[10px] font-bold text-slate-600">Total Cap (Days)
                                         <input type="number" wire:model.live="newMemberTotalLeaveCap" min="30" max="365" class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-xs font-extrabold text-slate-900">
+                                        <span class="mt-0.5 block text-[9px] font-semibold text-slate-400">{{ (int) round($newMemberTotalLeaveCap / max(1, (int) $newMemberArticleshipYears)) }}d / year</span>
                                     </label>
-                                    <label class="block text-[10px] font-bold text-slate-600">Casual Leave
-                                        <input type="number" wire:model.live="newMemberLeaveCasual" min="0" max="120" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                    <label class="block text-[10px] font-bold text-slate-600">Casual / Yr (d)
+                                        <input type="number" wire:model.live="newMemberLeaveCasual" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                        <span class="mt-0.5 block text-[9px] font-bold text-emerald-700">× {{ $newMemberArticleshipYears }} yrs = {{ (int) $newMemberLeaveCasual * (int) $newMemberArticleshipYears }}d</span>
                                     </label>
-                                    <label class="block text-[10px] font-bold text-slate-600">Sick Leave
-                                        <input type="number" wire:model.live="newMemberLeaveSick" min="0" max="120" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                    <label class="block text-[10px] font-bold text-slate-600">Sick / Yr (d)
+                                        <input type="number" wire:model.live="newMemberLeaveSick" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                        <span class="mt-0.5 block text-[9px] font-bold text-emerald-700">× {{ $newMemberArticleshipYears }} yrs = {{ (int) $newMemberLeaveSick * (int) $newMemberArticleshipYears }}d</span>
                                     </label>
-                                    <label class="block text-[10px] font-bold text-slate-600">Emergency Leave
-                                        <input type="number" wire:model.live="newMemberLeaveEmergency" min="0" max="120" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                    <label class="block text-[10px] font-bold text-slate-600">Emergency / Yr (d)
+                                        <input type="number" wire:model.live="newMemberLeaveEmergency" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                        <span class="mt-0.5 block text-[9px] font-bold text-emerald-700">× {{ $newMemberArticleshipYears }} yrs = {{ (int) $newMemberLeaveEmergency * (int) $newMemberArticleshipYears }}d</span>
                                     </label>
-                                    <label class="block text-[10px] font-extrabold text-indigo-800">Study Leave (Auto)
+                                    <label class="block text-[10px] font-extrabold text-indigo-800">Study Pool ({{ $newMemberArticleshipYears }}-Yr)
                                         <input type="number" wire:model="newMemberLeaveStudy" min="0" max="240" class="mt-1 w-full rounded-lg border border-indigo-300 bg-indigo-50/70 p-1.5 text-xs font-black text-indigo-900">
+                                        <span class="mt-0.5 block text-[9px] font-bold text-indigo-700">{{ (int) round($newMemberLeaveStudy / max(1, (int) $newMemberArticleshipYears)) }}d / year</span>
                                     </label>
                                 </div>
-                                <p class="text-[10px] text-slate-500">
-                                    Formula: <strong>{{ $newMemberTotalLeaveCap }} Total Days</strong> &minus; ({{ $newMemberLeaveCasual }} Casual + {{ $newMemberLeaveSick }} Sick + {{ $newMemberLeaveEmergency }} Emergency) = <strong class="text-indigo-700">{{ $newMemberLeaveStudy }} Days ICAB Study / Exam Leave</strong>.
+                                <p class="text-[10px] text-slate-500 leading-relaxed">
+                                    <strong>{{ $newMemberArticleshipYears }}-Year Split:</strong> {{ $newMemberTotalLeaveCap }} Total Days &minus; (({{ $newMemberLeaveCasual }} + {{ $newMemberLeaveSick }} + {{ $newMemberLeaveEmergency }}) × {{ $newMemberArticleshipYears }} yrs = {{ ((int)$newMemberLeaveCasual + (int)$newMemberLeaveSick + (int)$newMemberLeaveEmergency) * (int)$newMemberArticleshipYears }}d Regular) = <strong class="text-indigo-700">{{ $newMemberLeaveStudy }} Days ICAB Study Leave</strong>. Each year counts as a 12-month cycle from the Joining Date.
                                 </p>
                             </div>
                         </div>
@@ -473,25 +483,28 @@
                         <div class="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-3.5 space-y-2.5">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <div>
-                                    <p class="text-[11px] font-extrabold uppercase tracking-wider text-indigo-950">Bangladesh Corporate Leave Entitlement (Manager / Regular Staff)</p>
-                                    <p class="text-[10px] text-indigo-800">Pre-filled with standard corporate annual leave quotas. You can customize any category below.</p>
+                                    <p class="text-[11px] font-extrabold uppercase tracking-wider text-indigo-950">Bangladesh Corporate Leave Entitlement (Jan–Dec Yearly Reset + Earned Carry-Forward)</p>
+                                    <p class="text-[10px] text-indigo-800">Resets every Jan 1 – Dec 31. Unused regular leave from the previous year automatically carries forward into Earned Leave.</p>
                                 </div>
                                 <span class="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-black text-indigo-900">
                                     Total: {{ $newMemberTotalLeaveCap }} Days / Year
                                 </span>
                             </div>
-                            <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                                <label class="block text-[10px] font-bold text-slate-700">Casual Leave (BD Std)
+                            <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+                                <label class="block text-[10px] font-bold text-slate-700">Casual / Yr (d)
                                     <input type="number" wire:model.live="newMemberLeaveCasual" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
                                 </label>
-                                <label class="block text-[10px] font-bold text-slate-700">Sick / Medical Leave
+                                <label class="block text-[10px] font-bold text-slate-700">Sick / Yr (d)
                                     <input type="number" wire:model.live="newMemberLeaveSick" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
                                 </label>
-                                <label class="block text-[10px] font-bold text-slate-700">Earned / Privilege Leave
+                                <label class="block text-[10px] font-bold text-slate-700">Earned Base / Yr
                                     <input type="number" wire:model.live="newMemberLeaveEarned" min="0" max="90" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
                                 </label>
-                                <label class="block text-[10px] font-bold text-slate-700">Emergency / Festival
+                                <label class="block text-[10px] font-bold text-slate-700">Emergency / Yr
                                     <input type="number" wire:model.live="newMemberLeaveEmergency" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
+                                </label>
+                                <label class="block text-[10px] font-extrabold text-emerald-800">Carry-Fwd Earned
+                                    <input type="number" wire:model.live="newMemberLeaveCarryForward" min="0" max="120" class="mt-1 w-full rounded-lg border border-emerald-300 bg-emerald-50/70 p-2 text-xs font-black text-emerald-900">
                                 </label>
                             </div>
                         </div>
@@ -764,31 +777,36 @@
                             </div>
 
                             <div class="rounded-xl border border-emerald-200 bg-white p-3 space-y-2.5">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-[11px] font-extrabold text-slate-800">Profile Leave Entitlements (Editable)</span>
+                                <div class="flex flex-wrap items-center justify-between gap-1.5">
+                                    <span class="text-[11px] font-extrabold text-slate-800">Year-Wise Leave Entitlements (Anniversary Cycle from Joining Date)</span>
                                     <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black text-emerald-900">
-                                        Total Cap: {{ $editMemberTotalLeaveCap }} Days
+                                        Total Cap: {{ $editMemberTotalLeaveCap }} Days ({{ (int) round($editMemberTotalLeaveCap / max(1, (int) $editMemberArticleshipYears)) }}d/yr × {{ $editMemberArticleshipYears }} Yrs)
                                     </span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
                                     <label class="block text-[10px] font-bold text-slate-600">Total Cap (Days)
                                         <input type="number" wire:model.live="editMemberTotalLeaveCap" min="30" max="365" class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 p-1.5 text-xs font-extrabold text-slate-900">
+                                        <span class="mt-0.5 block text-[9px] font-semibold text-slate-400">{{ (int) round($editMemberTotalLeaveCap / max(1, (int) $editMemberArticleshipYears)) }}d / year</span>
                                     </label>
-                                    <label class="block text-[10px] font-bold text-slate-600">Casual Leave
-                                        <input type="number" wire:model.live="editMemberLeaveCasual" min="0" max="120" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                    <label class="block text-[10px] font-bold text-slate-600">Casual / Yr (d)
+                                        <input type="number" wire:model.live="editMemberLeaveCasual" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                        <span class="mt-0.5 block text-[9px] font-bold text-emerald-700">× {{ $editMemberArticleshipYears }} yrs = {{ (int) $editMemberLeaveCasual * (int) $editMemberArticleshipYears }}d</span>
                                     </label>
-                                    <label class="block text-[10px] font-bold text-slate-600">Sick Leave
-                                        <input type="number" wire:model.live="editMemberLeaveSick" min="0" max="120" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                    <label class="block text-[10px] font-bold text-slate-600">Sick / Yr (d)
+                                        <input type="number" wire:model.live="editMemberLeaveSick" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                        <span class="mt-0.5 block text-[9px] font-bold text-emerald-700">× {{ $editMemberArticleshipYears }} yrs = {{ (int) $editMemberLeaveSick * (int) $editMemberArticleshipYears }}d</span>
                                     </label>
-                                    <label class="block text-[10px] font-bold text-slate-600">Emergency Leave
-                                        <input type="number" wire:model.live="editMemberLeaveEmergency" min="0" max="120" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                    <label class="block text-[10px] font-bold text-slate-600">Emergency / Yr (d)
+                                        <input type="number" wire:model.live="editMemberLeaveEmergency" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-1.5 text-xs font-bold">
+                                        <span class="mt-0.5 block text-[9px] font-bold text-emerald-700">× {{ $editMemberArticleshipYears }} yrs = {{ (int) $editMemberLeaveEmergency * (int) $editMemberArticleshipYears }}d</span>
                                     </label>
-                                    <label class="block text-[10px] font-extrabold text-indigo-800">Study Leave (Auto)
+                                    <label class="block text-[10px] font-extrabold text-indigo-800">Study Pool ({{ $editMemberArticleshipYears }}-Yr)
                                         <input type="number" wire:model="editMemberLeaveStudy" min="0" max="240" class="mt-1 w-full rounded-lg border border-indigo-300 bg-indigo-50/70 p-1.5 text-xs font-black text-indigo-900">
+                                        <span class="mt-0.5 block text-[9px] font-bold text-indigo-700">{{ (int) round($editMemberLeaveStudy / max(1, (int) $editMemberArticleshipYears)) }}d / year</span>
                                     </label>
                                 </div>
-                                <p class="text-[10px] text-slate-500">
-                                    Remaining after Regular Leaves ({{ $editMemberLeaveCasual }} + {{ $editMemberLeaveSick }} + {{ $editMemberLeaveEmergency }}) = <strong class="text-indigo-700">{{ $editMemberLeaveStudy }} Days ICAB Study / Exam Leave</strong>.
+                                <p class="text-[10px] text-slate-500 leading-relaxed">
+                                    <strong>{{ $editMemberArticleshipYears }}-Year Split:</strong> {{ $editMemberTotalLeaveCap }} Total Days &minus; (({{ $editMemberLeaveCasual }} + {{ $editMemberLeaveSick }} + {{ $editMemberLeaveEmergency }}) × {{ $editMemberArticleshipYears }} yrs = {{ ((int)$editMemberLeaveCasual + (int)$editMemberLeaveSick + (int)$editMemberLeaveEmergency) * (int)$editMemberArticleshipYears }}d Regular) = <strong class="text-indigo-700">{{ $editMemberLeaveStudy }} Days ICAB Study Leave</strong>.
                                 </p>
                             </div>
                         </div>
@@ -796,25 +814,28 @@
                         <div class="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-3.5 space-y-2.5">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <div>
-                                    <p class="text-[11px] font-extrabold uppercase tracking-wider text-indigo-950">Bangladesh Corporate Leave Entitlement (Manager / Regular Staff)</p>
-                                    <p class="text-[10px] text-indigo-800">Edit annual corporate leave days for this Manager / Staff profile.</p>
+                                    <p class="text-[11px] font-extrabold uppercase tracking-wider text-indigo-950">Bangladesh Corporate Leave Entitlement (Jan–Dec Reset + Earned Carry-Forward)</p>
+                                    <p class="text-[10px] text-indigo-800">Annual quota resets every Jan 1 – Dec 31. Unused regular leave carries forward into Earned Leave.</p>
                                 </div>
                                 <span class="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-black text-indigo-900">
                                     Total: {{ $editMemberTotalLeaveCap }} Days / Year
                                 </span>
                             </div>
-                            <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                                <label class="block text-[10px] font-bold text-slate-700">Casual Leave
+                            <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+                                <label class="block text-[10px] font-bold text-slate-700">Casual / Yr (d)
                                     <input type="number" wire:model.live="editMemberLeaveCasual" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
                                 </label>
-                                <label class="block text-[10px] font-bold text-slate-700">Sick / Medical Leave
+                                <label class="block text-[10px] font-bold text-slate-700">Sick / Yr (d)
                                     <input type="number" wire:model.live="editMemberLeaveSick" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
                                 </label>
-                                <label class="block text-[10px] font-bold text-slate-700">Earned / Privilege Leave
+                                <label class="block text-[10px] font-bold text-slate-700">Earned Base / Yr
                                     <input type="number" wire:model.live="editMemberLeaveEarned" min="0" max="90" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
                                 </label>
-                                <label class="block text-[10px] font-bold text-slate-700">Emergency / Festival
+                                <label class="block text-[10px] font-bold text-slate-700">Emergency / Yr
                                     <input type="number" wire:model.live="editMemberLeaveEmergency" min="0" max="60" class="mt-1 w-full rounded-lg border border-slate-200 bg-white p-2 text-xs font-bold">
+                                </label>
+                                <label class="block text-[10px] font-extrabold text-emerald-800">Carry-Fwd Earned
+                                    <input type="number" wire:model.live="editMemberLeaveCarryForward" min="0" max="120" class="mt-1 w-full rounded-lg border border-emerald-300 bg-emerald-50/70 p-2 text-xs font-black text-emerald-900">
                                 </label>
                             </div>
                         </div>
