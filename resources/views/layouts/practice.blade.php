@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="min-h-full bg-[#F6F7F9]">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="min-h-full overflow-x-hidden bg-[#F6F7F9]">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
+    <link rel="manifest" href="{{ !empty($firm['slug']) ? url('/c/' . $firm['slug'] . '/manifest.webmanifest') : url('/manifest.webmanifest') }}">
     <meta name="theme-color" content="#0D9488">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="robots" content="noindex,nofollow">
@@ -17,7 +17,7 @@
     <x-brand-theme-style :firm="$firm ?? null" />
     <style>[x-cloak] { display: none !important; }</style>
 </head>
-<body class="min-h-screen bg-[#F6F7F9] font-sans text-[#20232A] antialiased">
+<body class="min-h-screen overflow-x-hidden bg-[#F6F7F9] font-sans text-[#20232A] antialiased">
     {{ $slot }}
     <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
     @livewireScripts

@@ -161,7 +161,7 @@
         </section>
 
         <!-- Right Quick Summary Card -->
-        <aside class="space-y-4">
+        <aside class="min-w-0 space-y-4">
             <section class="rounded-2xl border border-[#E8EAF0] bg-[#17191F] p-5 text-white shadow-sm">
                 <h3 class="text-sm font-extrabold">Partner Workspace Override</h3>
                 <p class="mt-2 text-xs leading-relaxed text-slate-300">Each Partner/Principal may change their own permitted workspace rules without affecting other Partners or Company defaults.</p>

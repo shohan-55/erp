@@ -299,3 +299,19 @@
 .to-\[\#17191F\] { --tw-gradient-to: #17191F; }
 .file\:bg-\[\#16181D\]::file-selector-button { background-color: #16181D; }
 .file\:text-\[\#FCDF02\]::file-selector-button { color: #FCDF02; }
+
+
+.bg-amber-50\/90 { background-color: rgb(255 251 235 / 0.9); }
+.hover\:bg-\[\#FCDF02\]\/25:hover { background-color: rgb(252 223 2 / 0.25); }
+.min-h-\[68px\] { min-height: 68px; }
+@media (width >= 40rem) {
+    .sm\:flex-wrap { flex-wrap: wrap; }
+    .sm\:h-10 { height: 2.5rem; }
+    .sm\:w-10 { width: 2.5rem; }
+    .sm\:mb-3 { margin-bottom: 0.75rem; }
+    .sm\:min-h-\[76px\] { min-height: 76px; }
+    .sm\:px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+}
+@media (width >= 64rem) {
+    .lg\:text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+}

@@ -1,4 +1,4 @@
-<div x-data="{ menuOpen: false }" class="min-h-screen bg-[#F6F7F9]">
+<div x-data="{ menuOpen: false }" class="min-h-screen overflow-x-hidden bg-[#F6F7F9]">
     @if(!$firm)
         <x-auth-unknown-firm :firm-slug="$firmSlug" />
     @else
@@ -101,6 +101,13 @@
                 @endforeach
             </nav>
 
+            <div class="px-3 pb-2">
+                <button type="button" data-dw-pwa-install data-dw-pwa-display="flex" data-no-loading onclick="window.triggerDwPwaInstall && window.triggerDwPwaInstall()" class="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-[#FCDF02]/15 px-3.5 py-2.5 text-xs font-extrabold text-[#FCDF02] hover:bg-[#FCDF02]/25 transition cursor-pointer">
+                    <i data-lucide="smartphone" class="h-4 w-4 shrink-0"></i>
+                    <span>Install Mobile App Shortcut</span>
+                </button>
+            </div>
+
             <div wire:key="sidebar-active-user-card" class="border-t border-white/10 p-3">
                 <div class="flex items-center gap-3 rounded-2xl bg-white/5 p-3 hover:bg-white/10 transition">
                     <button type="button" wire:click="openMyProfile" @click="menuOpen = false" title="My profile — photo, phone & password"
@@ -136,7 +143,7 @@
         </aside>
 
         <div class="min-w-0 lg:pl-[270px]">
-            <header class="sticky top-0 z-30 flex min-h-[76px] items-center gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-7 lg:px-9">
+            <header class="sticky top-0 z-30 flex min-h-[68px] sm:min-h-[76px] items-center gap-2 sm:gap-3 border-b border-slate-200 bg-white/95 px-3 backdrop-blur sm:px-7 lg:px-9">
                 <button type="button" @click="menuOpen = true" class="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden" aria-label="Open navigation"><i data-lucide="menu" class="h-5 w-5"></i></button>
                 <div class="min-w-0 flex-1">
                     <div class="truncate text-[11px] font-medium text-slate-400">{{ $firm ? $firm['name'] : 'Practice' }} <span class="mx-1">/</span> {{ $partnerUnit }} <span class="mx-1">/</span> <span class="text-amber-800">{{ $sectionLabel }}</span></div>
@@ -158,9 +165,10 @@
                         @endif
                     </div>
                 @endif
-                <button type="button" data-dw-pwa-install data-no-loading onclick="window.triggerDwPwaInstall && window.triggerDwPwaInstall()" style="display:none" class="items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-extrabold text-amber-950 hover:bg-amber-100 transition cursor-pointer" title="Install DhakaWala ERP on your phone or desktop">
-                    <i data-lucide="smartphone" class="h-3.5 w-3.5"></i>
-                    <span>Install App</span>
+                <button type="button" data-dw-pwa-install data-dw-pwa-display="inline-flex" data-no-loading onclick="window.triggerDwPwaInstall && window.triggerDwPwaInstall()" class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1.5 sm:px-3 text-[11px] font-extrabold text-amber-950 hover:bg-amber-100 transition cursor-pointer shadow-2xs" title="Create 1-Tap Mobile App Shortcut on Home Screen">
+                    <i data-lucide="smartphone" class="h-3.5 w-3.5 shrink-0"></i>
+                    <span class="sm:hidden">App</span>
+                    <span class="hidden sm:inline">Install App</span>
                 </button>
                 <div class="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-bold text-emerald-900 sm:inline-flex">
                     <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>

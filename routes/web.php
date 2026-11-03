@@ -28,6 +28,83 @@ Route::get('/login', function (\Illuminate\Http\Request $request) {
     return redirect()->route('home');
 })->name('login');
 
+// Smart PWA / Home Screen Shortcut entry route (/dashboard)
+Route::get('/dashboard', function (\Illuminate\Http\Request $request) {
+    if (Auth::check()) {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        if ($user->isPlatformAdmin()) {
+            return redirect()->route('platform.dashboard');
+        }
+        $firmSlug = $user->firm?->slug;
+        if ($firmSlug) {
+            return redirect()->route('firm.practice.dashboard', ['firmSlug' => $firmSlug]);
+        }
+    }
+    $customFirm = \App\Services\FirmRegistry::getByHost($request->getHost());
+    if ($customFirm) {
+        return redirect()->route('firm.login', ['firmSlug' => $customFirm['slug']]);
+    }
+    $defaultFirm = \App\Services\FirmRegistry::defaultFirm();
+    if (! empty($defaultFirm['slug'])) {
+        return redirect()->route('firm.login', ['firmSlug' => $defaultFirm['slug']]);
+    }
+    return redirect()->route('home');
+})->name('pwa.dashboard');
+
+// Dynamic Firm-Aware PWA Web Manifest & Service Worker Fallback Routes (cPanel-safe)
+$renderPwaManifest = function (?string $firmSlug = null) {
+    $firm = $firmSlug ? \App\Services\FirmRegistry::get(strtolower(trim($firmSlug))) : null;
+    if (! $firm) {
+        $firm = \App\Services\FirmRegistry::defaultFirm();
+    }
+    $slug = $firm['slug'] ?? 'rac';
+    $shortName = $firm['short_code'] ?? ($firm['name'] ?? 'Practice ERP');
+    $fullName = ($firm['name'] ?? 'DhakaWala ERP') . ' — Practice App';
+    $startUrl = $firmSlug ? url("/c/{$slug}?pwa=1") : url('/dashboard?pwa=1');
+
+    return response()->json([
+        'id'               => $firmSlug ? "/c/{$slug}?pwa=1" : '/?pwa=1',
+        'name'             => $fullName,
+        'short_name'       => mb_substr($shortName, 0, 15) . ' ERP',
+        'description'      => 'GPS Attendance, Conveyance Claims, Leave Passbook & Monthly Stipend App.',
+        'start_url'        => $startUrl,
+        'scope'            => '/',
+        'display'          => 'standalone',
+        'orientation'      => 'portrait-primary',
+        'background_color' => '#17191F',
+        'theme_color'      => '#17191F',
+        'icons'            => [
+            [
+                'src'     => asset('images/pwa-icon-192.png'),
+                'sizes'   => '192x192',
+                'type'    => 'image/png',
+                'purpose' => 'any maskable',
+            ],
+            [
+                'src'     => asset('images/pwa-icon-512.png'),
+                'sizes'   => '512x512',
+                'type'    => 'image/png',
+                'purpose' => 'any maskable',
+            ],
+        ],
+    ], 200, ['Content-Type' => 'application/manifest+json']);
+};
+
+Route::get('/manifest.webmanifest', fn () => $renderPwaManifest(null))->name('pwa.manifest');
+Route::get('/c/{firmSlug}/manifest.webmanifest', fn (string $firmSlug) => $renderPwaManifest($firmSlug))->name('firm.pwa.manifest');
+Route::get('/sw.js', function () {
+    $js = "// DhakaWala ERP PWA Service Worker (Network-first, safe for Livewire CSRF)\n"
+        . "self.addEventListener('install', function () { self.skipWaiting(); });\n"
+        . "self.addEventListener('activate', function (event) { event.waitUntil(self.clients.claim()); });\n"
+        . "self.addEventListener('fetch', function () { return; });\n";
+    return response($js, 200, [
+        'Content-Type'           => 'application/javascript; charset=utf-8',
+        'Service-Worker-Allowed' => '/',
+        'Cache-Control'          => 'no-cache',
+    ]);
+})->name('pwa.sw');
+
 // Health / readiness probe (audit P2-19).
 // `/up` only proves PHP booted; this also proves the database answers and the
 // storage disk is writable — the two things that actually break on cPanel.

@@ -4,6 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="manifest" href="{{ !empty($firm['slug']) ? url('/c/' . $firm['slug'] . '/manifest.webmanifest') : url('/manifest.webmanifest') }}">
+    <meta name="theme-color" content="#17191F">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="{{ asset('images/pwa-icon-192.png') }}">
 
     <title>{{ $title ?? 'DhakaWala ERP — Enterprise Practice Authentication' }}</title>
 

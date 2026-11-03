@@ -1,24 +1,26 @@
 {
+  "id": "/?pwa=1",
   "name": "DhakaWala ERP — Chartered Accountancy Practice Cloud",
   "short_name": "DhakaWala ERP",
   "description": "GPS Attendance, Conveyance Claims, Leave Workflow & Monthly Stipend Ledger for CA Firms.",
-  "start_url": "/dashboard",
+  "start_url": "/dashboard?pwa=1",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#17191F",
-  "theme_color": "#0D9488",
+  "theme_color": "#17191F",
   "icons": [
     {
-      "src": "/images/dhakawala_logo.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/images/pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/images/rac_logo.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "/images/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

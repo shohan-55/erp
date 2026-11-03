@@ -629,6 +629,22 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
 .file\:bg-\[\#16181D\]::file-selector-button { background-color: #16181D; }
 .file\:text-\[\#FCDF02\]::file-selector-button { color: #FCDF02; }
 
+
+.bg-amber-50\/90 { background-color: rgb(255 251 235 / 0.9); }
+.hover\:bg-\[\#FCDF02\]\/25:hover { background-color: rgb(252 223 2 / 0.25); }
+.min-h-\[68px\] { min-height: 68px; }
+@media (width >= 40rem) {
+    .sm\:flex-wrap { flex-wrap: wrap; }
+    .sm\:h-10 { height: 2.5rem; }
+    .sm\:w-10 { width: 2.5rem; }
+    .sm\:mb-3 { margin-bottom: 0.75rem; }
+    .sm\:min-h-\[76px\] { min-height: 76px; }
+    .sm\:px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+}
+@media (width >= 64rem) {
+    .lg\:text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+}
+
 </style>
 
 <script data-dw-global-feedback>
@@ -911,30 +927,112 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
 
 
 
-    // 6. PWA Service Worker & Install App Prompt Handler
+    // 6. PWA Service Worker & Smart 1-Click Mobile Shortcut App Installer
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
             navigator.serviceWorker.register('/sw.js').catch(function () {});
         });
     }
     window.__dwDeferredPwaPrompt = null;
+    function isStandaloneApp() {
+        return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+            || window.navigator.standalone === true;
+    }
+    function syncPwaButtons() {
+        var installed = isStandaloneApp();
+        document.querySelectorAll('[data-dw-pwa-install]').forEach(function (btn) {
+            if (installed) {
+                btn.style.display = 'none';
+            } else {
+                btn.classList.remove('hidden');
+                btn.style.display = btn.getAttribute('data-dw-pwa-display') || 'inline-flex';
+            }
+        });
+    }
     window.addEventListener('beforeinstallprompt', function (e) {
         e.preventDefault();
         window.__dwDeferredPwaPrompt = e;
-        document.querySelectorAll('[data-dw-pwa-install]').forEach(function (btn) {
-            btn.classList.remove('hidden');
-            btn.style.display = 'inline-flex';
-        });
+        syncPwaButtons();
     });
-    window.triggerDwPwaInstall = function () {
-        if (!window.__dwDeferredPwaPrompt) return;
-        window.__dwDeferredPwaPrompt.prompt();
-        window.__dwDeferredPwaPrompt.userChoice.then(function () {
-            window.__dwDeferredPwaPrompt = null;
-            document.querySelectorAll('[data-dw-pwa-install]').forEach(function (btn) {
-                btn.style.display = 'none';
-            });
+    window.addEventListener('appinstalled', function () {
+        window.__dwDeferredPwaPrompt = null;
+        window.closeDwPwaModal && window.closeDwPwaModal();
+        document.querySelectorAll('[data-dw-pwa-install]').forEach(function (btn) {
+            btn.style.display = 'none';
         });
+        if (window.showToast) {
+            window.showToast('Mobile App Installed', 'Shortcut app added to your home screen!', 'success');
+        }
+    });
+    document.addEventListener('livewire:navigated', syncPwaButtons);
+    document.addEventListener('DOMContentLoaded', syncPwaButtons);
+
+    window.closeDwPwaModal = function () {
+        var m = document.getElementById('dw-pwa-install-modal');
+        if (m) m.remove();
+    };
+
+    window.showDwPwaGuideModal = function () {
+        window.closeDwPwaModal();
+        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        var modal = document.createElement('div');
+        modal.id = 'dw-pwa-install-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,0.72);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;font-family:Inter,system-ui,sans-serif;';
+        modal.onclick = function (ev) { if (ev.target === modal) window.closeDwPwaModal(); };
+
+        var stepsHtml = isIOS
+            ? '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:14px;padding:14px;margin-top:12px;font-size:12px;color:#1E293B;line-height:1.6;">'
+              + '<div style="font-weight:800;color:#0F172A;margin-bottom:6px;">📱 For iPhone / iPad (Safari):</div>'
+              + '<div><strong>Step 1:</strong> Tap the <strong>Share (⬆️)</strong> button at the bottom of Safari.</div>'
+              + '<div style="margin-top:4px;"><strong>Step 2:</strong> Scroll down and tap <strong>"Add to Home Screen"</strong>, then tap <strong>Add</strong>.</div>'
+              + '</div>'
+            : '<div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:14px;padding:14px;margin-top:12px;font-size:12px;color:#1E293B;line-height:1.6;">'
+              + '<div style="font-weight:800;color:#0F172A;margin-bottom:6px;">📲 For Android Mobile (Redmi / Samsung / Chrome):</div>'
+              + '<div><strong>Step 1:</strong> Tap the <strong>3-dot menu (⋮)</strong> at the top-right corner of Chrome.</div>'
+              + '<div style="margin-top:4px;"><strong>Step 2:</strong> Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong> and confirm.</div>'
+              + '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #CBD5E1;font-size:11px;color:#475569;">💡 Once added, an app icon will appear on your phone screen. Tap it anytime to open the ERP directly like a native mobile app!</div>'
+              + '</div>';
+
+        modal.innerHTML = '<div style="width:100%;max-width:410px;background:#FFFFFF;border-radius:22px;border:1px solid #E2E8F0;padding:22px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.45);">'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #F1F5F9;padding-bottom:14px;">'
+            + '<div style="display:flex;align-items:center;gap:12px;">'
+            + '<img src="/images/pwa-icon-192.png" alt="App Icon" style="width:46px;height:46px;border-radius:12px;border:1px solid #E2E8F0;background:#17191F;object-fit:contain;">'
+            + '<div>'
+            + '<span style="display:inline-block;background:#FEF3C7;color:#92400E;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:0.06em;">Mobile Shortcut App</span>'
+            + '<h3 style="margin:3px 0 0;font-size:16px;font-weight:900;color:#0F172A;">Install ERP on Your Phone</h3>'
+            + '</div>'
+            + '</div>'
+            + '<button type="button" data-no-loading onclick="window.closeDwPwaModal()" style="background:#F1F5F9;border:none;border-radius:10px;width:32px;height:32px;font-weight:800;color:#475569;cursor:pointer;">✕</button>'
+            + '</div>'
+            + '<p style="margin:12px 0 0;font-size:12px;color:#475569;line-height:1.5;">Create a 1-tap shortcut app on your mobile home screen so you can open and sign in to your workspace directly without typing the website address.</p>'
+            + stepsHtml
+            + '<div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px;">'
+            + '<button type="button" data-no-loading onclick="window.closeDwPwaModal()" style="width:100%;background:#17191F;color:#FCDF02;border:none;border-radius:12px;padding:11px 16px;font-size:12px;font-weight:800;cursor:pointer;">Got It, Close</button>'
+            + '</div>'
+            + '</div>';
+        document.body.appendChild(modal);
+    };
+
+    window.triggerDwPwaInstall = function () {
+        if (isStandaloneApp()) {
+            if (window.showToast) {
+                window.showToast('App Active', 'You are already running the installed ERP app.', 'info');
+            }
+            return;
+        }
+        if (window.__dwDeferredPwaPrompt) {
+            window.__dwDeferredPwaPrompt.prompt();
+            window.__dwDeferredPwaPrompt.userChoice.then(function (choice) {
+                window.__dwDeferredPwaPrompt = null;
+                if (choice && choice.outcome === 'accepted') {
+                    document.querySelectorAll('[data-dw-pwa-install]').forEach(function (btn) {
+                        btn.style.display = 'none';
+                    });
+                }
+            });
+            return;
+        }
+        window.showDwPwaGuideModal();
     };
 
     if (document.readyState === 'loading') {

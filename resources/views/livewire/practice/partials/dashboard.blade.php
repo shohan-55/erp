@@ -169,7 +169,7 @@
         }
     }"
     :style="cardStyle()"
-    class="relative overflow-hidden rounded-3xl border-2 p-6 sm:p-8 shadow-2xl transition-all duration-700">
+    class="relative overflow-hidden rounded-3xl border-2 p-4 sm:p-8 shadow-2xl transition-all duration-700">
 
     {{-- Decorative Ambient Glass Orbs --}}
     <div class="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
@@ -177,7 +177,7 @@
 
     <div class="relative z-10 grid gap-6 lg:grid-cols-12 lg:items-center">
         {{-- Left Column: Live Digital Clock, Policy Window & Status --}}
-        <div class="lg:col-span-6 space-y-3">
+        <div class="lg:col-span-6 min-w-0 space-y-3">
             <div class="flex flex-wrap items-center gap-2">
                 <span class="inline-flex items-center gap-2 rounded-full bg-black/30 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white backdrop-blur-md border border-white/15">
                     <span class="h-2 w-2 rounded-full bg-white animate-ping"></span>
@@ -211,7 +211,7 @@
         </div>
 
         {{-- Right Column: Interactive Office / Client Selector + Client Name Input + Check-In / Out Action --}}
-        <div class="lg:col-span-6">
+        <div class="lg:col-span-6 min-w-0">
             <div class="rounded-2xl border border-white/20 bg-black/25 p-4 sm:p-5 backdrop-blur-xl shadow-inner space-y-4">
                 <div class="flex items-center justify-between">
                     <span class="text-xs font-extrabold uppercase tracking-wider text-white/90">
@@ -377,19 +377,19 @@
                         </p>
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button type="button" wire:click="setSection('leave')" class="inline-flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 text-xs font-extrabold text-white hover:bg-white/20 transition cursor-pointer">
-                        <span>📩 Leave Queue ({{ count($uLeaves) }})</span>
+                <div class="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
+                    <button type="button" wire:click="setSection('leave')" class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 text-[11px] sm:text-xs font-extrabold text-white hover:bg-white/20 transition cursor-pointer">
+                        <span>📩 Leave ({{ count($uLeaves) }})</span>
                     </button>
-                    <button type="button" wire:click="setSection('conveyance')" class="inline-flex items-center gap-1.5 rounded-xl bg-[#FCDF02] px-3 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition cursor-pointer">
-                        <span>🧾 Conveyance Queue ({{ count($uClaims) }})</span>
+                    <button type="button" wire:click="setSection('conveyance')" class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#FCDF02] px-3 py-2 text-[11px] sm:text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition cursor-pointer">
+                        <span>🧾 Claims ({{ count($uClaims) }})</span>
                     </button>
                 </div>
             </div>
 
             <div class="grid divide-y lg:grid-cols-2 lg:divide-x lg:divide-y-0 divide-slate-200">
                 {{-- Left Column: Unread Leave Applications --}}
-                <div class="p-4 sm:p-5 space-y-3">
+                <div class="min-w-0 p-3.5 sm:p-5 space-y-3">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <span class="h-2.5 w-2.5 rounded-full {{ count($uLeaves) > 0 ? 'bg-rose-500 animate-ping' : 'bg-emerald-500' }}"></span>
@@ -452,7 +452,7 @@
                 </div>
 
                 {{-- Right Column: Unread Conveyance Claims --}}
-                <div class="p-4 sm:p-5 space-y-3">
+                <div class="min-w-0 p-3.5 sm:p-5 space-y-3">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
                             <span class="h-2.5 w-2.5 rounded-full {{ count($uClaims) > 0 ? 'bg-amber-500 animate-ping' : 'bg-emerald-500' }}"></span>
@@ -548,16 +548,16 @@
         };
     @endphp
     @foreach($metricCards as $metric)
-        <div wire:key="metric-{{ $metric['label'] }}" class="group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition hover:shadow-md">
+        <div wire:key="metric-{{ $metric['label'] }}" class="min-w-0 group relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-3.5 sm:p-5 shadow-sm transition hover:shadow-md">
             <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r {{ $metric['accent'] }}"></div>
-            <div class="mb-3 flex items-start justify-between gap-2">
-                <p class="text-xs font-extrabold uppercase tracking-wider text-slate-500">{{ $metric['label'] }}</p>
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-800 shadow-inner transition group-hover:scale-105">
-                    <i data-lucide="{{ $metric['icon'] }}" class="h-5 w-5"></i>
+            <div class="mb-2 sm:mb-3 flex items-start justify-between gap-1.5 sm:gap-2">
+                <p class="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider text-slate-500 leading-tight">{{ $metric['label'] }}</p>
+                <div class="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-800 shadow-inner transition group-hover:scale-105">
+                    <i data-lucide="{{ $metric['icon'] }}" class="h-4 w-4 sm:h-5 sm:w-5"></i>
                 </div>
             </div>
-            <div class="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">{{ $metric['value'] }}</div>
-            <p class="mt-1.5 text-[11px] font-medium text-slate-400">{{ $metric['note'] }}</p>
+            <div class="truncate text-lg font-black tracking-tight text-slate-900 sm:text-2xl lg:text-3xl">{{ $metric['value'] }}</div>
+            <p class="mt-1 truncate text-[10px] sm:text-[11px] font-medium text-slate-400">{{ $metric['note'] }}</p>
         </div>
     @endforeach
 </section>
@@ -567,7 +567,7 @@
 {{-- ===================================================================== --}}
 <section class="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,1fr)]">
     {{-- Left: Current Month Interactive Calendar --}}
-    <div class="rounded-3xl border border-slate-200/90 bg-white p-5 shadow-sm sm:p-6">
+    <div class="min-w-0 rounded-3xl border border-slate-200/90 bg-white p-3.5 shadow-sm sm:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div>
                 <div class="flex items-center gap-2">
@@ -682,7 +682,7 @@
     </div>
 
     {{-- Right: Selected Date Daily Activity Inspector --}}
-    <div class="rounded-3xl border border-slate-200/90 bg-white p-5 shadow-sm sm:p-6 flex flex-col justify-between">
+    <div class="min-w-0 rounded-3xl border border-slate-200/90 bg-white p-4 shadow-sm sm:p-6 flex flex-col justify-between">
         <div>
             <div class="flex items-start justify-between gap-2 border-b border-slate-100 pb-3.5">
                 <div>
@@ -795,7 +795,7 @@
 {{-- ===================================================================== --}}
 <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,1fr)]">
     <!-- Main Left Column -->
-    <div class="space-y-5">
+    <div class="min-w-0 space-y-5">
         @if($previewRole !== 'student')
             {{-- Live Team Radar (Office vs Client Site vs On Duty Transit) --}}
             <section class="rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-sm">
@@ -864,15 +864,15 @@
             </section>
 
             {{-- Client Audit Costing & Man-Hour Analytics --}}
-            <section class="overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-sm">
-                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-6 py-4">
-                    <div>
+            <section class="min-w-0 overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-4 sm:px-6">
+                    <div class="min-w-0">
                         <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-800">AUDIT ENGAGEMENT ANALYTICS</p>
                         <h3 class="text-sm font-black text-slate-900">Client-Wise Man-Hours &amp; Conveyance Costing ({{ $period }})</h3>
                     </div>
                     <button type="button" wire:click="setSection('conveyance')" class="text-xs font-bold text-amber-800 hover:underline cursor-pointer">Audit Claims →</button>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="hidden overflow-x-auto sm:block">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-slate-50 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                             <tr>
@@ -897,6 +897,23 @@
                             @endforelse
                         </tbody>
                     </table>
+                </div>
+                <!-- Mobile Card List (< 640px) -->
+                <div class="divide-y divide-slate-100 sm:hidden">
+                    @forelse(($clientCostingSummary ?? []) as $cStat)
+                        <div class="p-4 space-y-1.5 text-xs">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="font-extrabold text-slate-900 truncate">{{ $cStat['client'] }}</span>
+                                <span class="shrink-0 font-black text-emerald-800">৳ {{ number_format($cStat['conveyance'], 0) }}</span>
+                            </div>
+                            <div class="flex items-center justify-between text-[11px] text-slate-500">
+                                <span>Visits: <strong class="text-slate-700">{{ $cStat['visits'] }}</strong></span>
+                                <span>Est. Hours: <strong class="text-slate-700">{{ number_format($cStat['hours'], 1) }} hrs</strong></span>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="p-5 text-center text-xs text-slate-400">Client audit hours and conveyance costs populate automatically as team members check in and submit claims.</div>
+                    @endforelse
                 </div>
             </section>
         @endif
@@ -933,7 +950,7 @@
     </div>
 
     <!-- Right Sidebar Column -->
-    <div class="space-y-5">
+    <div class="min-w-0 space-y-5">
         {{-- Punctuality Score & On-Time Streak Leaderboard --}}
         <section class="rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-sm">
             <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-3.5">
@@ -998,6 +1015,10 @@
                     </button>
                 @endforeach
             </div>
+            <button type="button" data-dw-pwa-install data-dw-pwa-display="flex" data-no-loading onclick="window.triggerDwPwaInstall && window.triggerDwPwaInstall()" class="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300 bg-amber-50/90 px-4 py-3 text-xs font-extrabold text-amber-950 hover:bg-amber-100 transition cursor-pointer shadow-2xs">
+                <i data-lucide="smartphone" class="h-4 w-4 shrink-0 text-amber-800"></i>
+                <span>Install Mobile Shortcut App</span>
+            </button>
         </section>
     </div>
 </div>

@@ -278,8 +278,16 @@
                     </div>
                 </form>
 
+                <!-- 1-Click Mobile Shortcut App Installer Button -->
+                <div class="mt-4">
+                    <button type="button" data-dw-pwa-install data-dw-pwa-display="inline-flex" data-no-loading onclick="window.triggerDwPwaInstall && window.triggerDwPwaInstall()" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50/80 hover:bg-amber-100 text-xs font-extrabold text-amber-950 transition cursor-pointer shadow-2xs">
+                        <i data-lucide="smartphone" class="w-4 h-4 shrink-0"></i>
+                        <span>Add Mobile App Shortcut to Home Screen</span>
+                    </button>
+                </div>
+
                 <!-- Invitation Link Callout -->
-                <div class="mt-6 p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                <div class="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
                     <p class="text-xs text-slate-600">
                         First time at {{ $firm['name'] }}?
                         <a href="{{ url('/c/' . $firmSlug . '/activate') }}" class="font-bold text-amber-700 hover:text-amber-800 hover:underline">

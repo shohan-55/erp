@@ -40,7 +40,7 @@
 </section>
 
 <div class="grid gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(260px,1fr)]">
-    <div class="space-y-5">
+    <div class="min-w-0 space-y-5">
         @if(in_array($previewRole, ['student', 'manager'], true))
             <!-- Student & Manager Multi-Transport Claim Submission Form -->
             <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-7">

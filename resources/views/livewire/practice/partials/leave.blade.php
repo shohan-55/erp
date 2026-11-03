@@ -100,7 +100,7 @@
 @endif
 
 <div class="grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,1fr)]">
-    <div class="space-y-5">
+    <div class="min-w-0 space-y-5">
         @if($previewRole === 'student')
             <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-7">
                 <div class="flex items-center justify-between gap-3">
