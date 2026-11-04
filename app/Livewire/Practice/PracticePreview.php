@@ -1217,9 +1217,10 @@ class PracticePreview extends Component
                 'policies'      => 'Policy & Governance',
                 'settings'      => 'Workspace Settings',
                 'team'          => 'Team & Members',
-            ][$this->section],
+            ][$this->section] ?? 'Overview',
         ])->layout('layouts.practice', [
-            'title' => ($this->firm ? $this->firm['name'] : 'Practice Workspace') . ' — ' . ucfirst($this->section) . ' | DhakaWala ERP'
+            'title' => ($this->firm ? $this->firm['name'] : 'Practice Workspace') . ' — ' . ucfirst($this->section) . ' | DhakaWala ERP',
+            'firm'  => $this->firm,
         ]);
     }
 
