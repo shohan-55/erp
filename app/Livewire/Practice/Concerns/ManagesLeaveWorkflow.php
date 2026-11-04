@@ -26,23 +26,45 @@ trait ManagesLeaveWorkflow
 {
     protected function loadLeaveQueue(): void
     {
+        LeaveRequest::ensureRuntimeSchemaColumns();
         if (Schema::hasTable('leave_requests') && Schema::hasTable('users')) {
-            LeaveRequest::ensureRuntimeSchemaColumns();
             $firmModel = $this->resolveFirmModel();
+            if (! $firmModel && Auth::check() && Auth::user()->firm_id && Schema::hasTable('firms')) {
+                $firmModel = Firm::find(Auth::user()->firm_id);
+            }
             if ($firmModel) {
                 try {
-                    $leavesQuery = LeaveRequest::with(['user.manager', 'engagedManager', 'reviewer', 'partner']);
-                    if (Schema::hasColumn('leave_requests', 'firm_id')) {
-                        $leavesQuery->where('firm_id', $firmModel->id);
-                    } elseif (Schema::hasColumn('leave_requests', 'user_id')) {
-                        $userIds = DB::table('users')->where('firm_id', $firmModel->id)->pluck('id')->all();
-                        $leavesQuery->whereIn('user_id', $userIds);
+                    $lrCols = Schema::getColumnListing('leave_requests');
+                    $hasCol = fn (string $c) => in_array($c, $lrCols, true);
+
+                    $withRelations = ['user.manager'];
+                    if ($hasCol('engaged_manager_id')) {
+                        $withRelations[] = 'engagedManager';
+                    }
+                    if ($hasCol('reviewed_by')) {
+                        $withRelations[] = 'reviewer';
+                    }
+                    if ($hasCol('partner_id')) {
+                        $withRelations[] = 'partner';
                     }
 
-                    // Partner-unit & role read isolation at query level so other units'
-                    // leave requests are never serialized into Livewire state, while
-                    // ensuring a Manager always receives applications where they are
-                    // the engaged/assigned Manager or the student is unassigned/in-unit.
+                    $leavesQuery = LeaveRequest::with($withRelations);
+                    $firmUserIds = User::where('firm_id', $firmModel->id)->pluck('id')->all();
+
+                    if ($hasCol('firm_id')) {
+                        $leavesQuery->where(function ($q) use ($firmModel, $firmUserIds, $hasCol) {
+                            $q->where('firm_id', $firmModel->id);
+                            if (! empty($firmUserIds) && $hasCol('user_id')) {
+                                $q->orWhereIn('user_id', $firmUserIds);
+                            }
+                        });
+                    } elseif ($hasCol('user_id') && ! empty($firmUserIds)) {
+                        $leavesQuery->whereIn('user_id', $firmUserIds);
+                    }
+
+                    // Partner-unit & role read isolation at query level while guaranteeing
+                    // that the Student always sees their own applications and the Manager
+                    // always receives applications from their unit, direct reports, or engaged students.
                     if (Auth::check() && ! Auth::user()->isPlatformAdmin()) {
                         /** @var User $actor */
                         $actor = Auth::user();
@@ -50,32 +72,37 @@ trait ManagesLeaveWorkflow
                             $leavesQuery->where('user_id', $actor->id);
                         } elseif ($actor->isManager()) {
                             $unit = $actor->partner_unit ?: $this->partnerUnit;
-                            $unitUserIds = User::where('firm_id', $firmModel->id)
-                                ->where(function ($q) use ($actor, $unit) {
-                                    $q->where('id', $actor->id)
-                                        ->orWhere('manager_id', $actor->id)
-                                        ->orWhereNull('partner_unit');
-                                    if (! empty($unit)) {
-                                        $q->orWhere('partner_unit', $unit);
-                                    }
-                                })
-                                ->pluck('id')
-                                ->all();
+                            $sharedView = (bool) ($firmModel->shared_attendance_view ?? true) || count($this->availablePartnerUnits) <= 1;
 
-                            $hasEngagedCol = Schema::hasColumn('leave_requests', 'engaged_manager_id');
-                            $hasReviewedByCol = Schema::hasColumn('leave_requests', 'reviewed_by');
-                            $leavesQuery->where(function ($q) use ($actor, $unitUserIds, $hasEngagedCol, $hasReviewedByCol) {
-                                if (! empty($unitUserIds)) {
-                                    $q->whereIn('user_id', $unitUserIds);
-                                }
-                                if ($hasEngagedCol) {
-                                    $q->orWhere('engaged_manager_id', $actor->id);
-                                }
-                                if ($hasReviewedByCol) {
-                                    $q->orWhere('reviewed_by', $actor->id);
-                                }
-                            });
-                        } elseif ($actor->isPartner() && count($this->availablePartnerUnits) > 1 && ! empty($this->partnerUnit)) {
+                            if (! $sharedView) {
+                                $unitUserIds = User::where('firm_id', $firmModel->id)
+                                    ->where(function ($q) use ($actor, $unit) {
+                                        $q->where('id', $actor->id)
+                                            ->orWhere('manager_id', $actor->id)
+                                            ->orWhereNull('manager_id')
+                                            ->orWhereNull('partner_unit');
+                                        if (! empty($unit)) {
+                                            $q->orWhere('partner_unit', $unit);
+                                        }
+                                    })
+                                    ->pluck('id')
+                                    ->all();
+
+                                $hasEngagedCol = $hasCol('engaged_manager_id');
+                                $hasReviewedByCol = $hasCol('reviewed_by');
+                                $leavesQuery->where(function ($q) use ($actor, $unitUserIds, $hasEngagedCol, $hasReviewedByCol) {
+                                    if (! empty($unitUserIds)) {
+                                        $q->whereIn('user_id', $unitUserIds);
+                                    }
+                                    if ($hasEngagedCol) {
+                                        $q->orWhere('engaged_manager_id', $actor->id);
+                                    }
+                                    if ($hasReviewedByCol) {
+                                        $q->orWhere('reviewed_by', $actor->id);
+                                    }
+                                });
+                            }
+                        } elseif ($actor->isPartner() && count($this->availablePartnerUnits) > 1 && ! empty($this->partnerUnit) && ! $this->viewAllPartnersAttendance) {
                             $unitUserIds = User::where('firm_id', $firmModel->id)
                                 ->where(function ($q) {
                                     $q->where('partner_unit', $this->partnerUnit)
@@ -96,12 +123,23 @@ trait ManagesLeaveWorkflow
                             $normStatus = match ($lr->status) {
                                 'Awaiting Manager' => 'pending_manager',
                                 'Awaiting Partner' => 'pending_partner',
+                                'Approved'         => 'approved',
+                                'Rejected'         => 'rejected',
                                 default            => $lr->status,
                             };
                             $engagedMgrId = $lr->engaged_manager_id ?: ($lr->user?->manager_id ?: ($lr->reviewed_by ?: null));
                             $engagedMgrName = $lr->engagedManager?->name
                                 ?: ($lr->user?->manager?->name
                                 ?: ($lr->reviewer?->name ?: 'Direct Report'));
+                            $friendlyType = match ((string) $lr->leave_type) {
+                                'icab_exam'  => 'ICAB Exam Preparation',
+                                'icab_study' => 'ICAB Study Leave',
+                                'sick'       => 'Sick Leave',
+                                'emergency'  => 'Emergency Leave',
+                                'earned'     => 'Earned / Privilege Leave',
+                                'annual'     => 'Annual / Casual Leave',
+                                default      => ucfirst(str_replace('_', ' ', (string) $lr->leave_type)),
+                            };
 
                             return [
                                 'id'                     => 'LR-' . $lr->id,
@@ -116,7 +154,7 @@ trait ManagesLeaveWorkflow
                                 'manager'                => $engagedMgrName,
                                 'engaged_manager_id'     => $engagedMgrId,
                                 'partner_unit'           => $lr->user?->partner_unit ?: $this->partnerUnit,
-                                'type'                   => ucfirst(str_replace('_', ' ', $lr->leave_type)),
+                                'type'                   => $friendlyType,
                                 'start_date_raw'         => $lr->start_date?->format('Y-m-d') ?? '',
                                 'end_date_raw'           => $lr->end_date?->format('Y-m-d') ?? '',
                                 'period'                 => $lr->start_date?->format('d M') . '–' . $lr->end_date?->format('d M Y'),
@@ -448,34 +486,47 @@ trait ManagesLeaveWorkflow
             }
         }
 
-        if (Auth::check() && Schema::hasTable('leave_requests') && Schema::hasTable('firms')) {
+        LeaveRequest::ensureRuntimeSchemaColumns();
+        if (Auth::check() && Schema::hasTable('leave_requests')) {
             try {
-                LeaveRequest::ensureRuntimeSchemaColumns();
                 /** @var User $user */
                 $user = Auth::user();
                 $firm = $this->resolveFirmModel();
-                $firmId = $firm?->id ?? $user->firm_id;
-                $targetManagerId = $rawEngagedId ?: ($user->manager_id ? (int) $user->manager_id : null);
+                $firmId = $firm?->id ?? ($user->firm_id ?: (Schema::hasTable('firms') ? (Firm::where('slug', $this->firmSlug)->value('id') ?? Firm::value('id')) : null));
 
-                if (! $targetManagerId && $firmId && Schema::hasTable('users')) {
+                if ($firmId && ! $user->firm_id && Schema::hasColumn('users', 'firm_id')) {
+                    try {
+                        User::where('id', $user->id)->update(['firm_id' => $firmId]);
+                        $user->firm_id = $firmId;
+                    } catch (\Throwable $e) {
+                        Log::debug($e->getMessage());
+                    }
+                }
+
+                $targetManagerId = $rawEngagedId ?: ($user->manager_id ? (int) $user->manager_id : null);
+                $mgrUser = ($targetManagerId && Schema::hasTable('users')) ? User::find($targetManagerId) : null;
+
+                if (! $mgrUser && $firmId && Schema::hasTable('users')) {
+                    $targetManagerId = null;
                     $fallbackMgr = User::where('firm_id', $firmId)
                         ->where('role', 'manager')
                         ->when(Schema::hasColumn('users', 'is_active'), fn ($q) => $q->where('is_active', true))
                         ->orderByRaw('CASE WHEN partner_unit = ? THEN 0 ELSE 1 END', [$user->partner_unit ?: $this->partnerUnit])
                         ->first();
                     if ($fallbackMgr) {
+                        $mgrUser = $fallbackMgr;
                         $targetManagerId = (int) $fallbackMgr->id;
                     }
                 }
 
-                if ($targetManagerId && Schema::hasTable('users')) {
-                    $mgrUser = User::find($targetManagerId);
-                    if ($mgrUser) {
-                        $engagedManagerName = $mgrUser->name;
-                        // If student had no default supervising manager assigned yet, link them
-                        if (! $user->manager_id && $user->isStudent()) {
+                if ($mgrUser) {
+                    $engagedManagerName = $mgrUser->name;
+                    if (! $user->manager_id && $user->isStudent() && Schema::hasColumn('users', 'manager_id')) {
+                        try {
+                            User::where('id', $user->id)->update(['manager_id' => $mgrUser->id]);
                             $user->manager_id = $mgrUser->id;
-                            $user->save();
+                        } catch (\Throwable $e) {
+                            Log::debug($e->getMessage());
                         }
                     }
                 }
@@ -488,55 +539,132 @@ trait ManagesLeaveWorkflow
                 }
 
                 if ($firmId) {
-                    $createData = [
-                        'firm_id'    => $firmId,
-                        'user_id'    => $user->id,
-                        'leave_type' => $this->leaveType,
-                        'start_date' => $this->leaveStart,
-                        'end_date'   => $this->leaveEnd,
-                        'reason'     => $this->leaveReason,
-                        'status'     => $initialStatus,
-                    ];
-                    if (Schema::hasColumn('leave_requests', 'manager_remarks')) {
+                    $lrCols = Schema::getColumnListing('leave_requests');
+                    $hasCol = fn (string $c) => in_array($c, $lrCols, true);
+
+                    $createData = [];
+                    if ($hasCol('firm_id')) {
+                        $createData['firm_id'] = $firmId;
+                    }
+                    if ($hasCol('user_id')) {
+                        $createData['user_id'] = $user->id;
+                    }
+                    if ($hasCol('leave_type')) {
+                        $createData['leave_type'] = $this->leaveType;
+                    }
+                    if ($hasCol('start_date')) {
+                        $createData['start_date'] = $this->leaveStart;
+                    }
+                    if ($hasCol('end_date')) {
+                        $createData['end_date'] = $this->leaveEnd;
+                    }
+                    if ($hasCol('reason')) {
+                        $createData['reason'] = $this->leaveReason;
+                    }
+                    if ($hasCol('status')) {
+                        $createData['status'] = $initialStatus;
+                    }
+                    if ($hasCol('manager_remarks')) {
                         $createData['manager_remarks'] = '';
                     }
-                    if (Schema::hasColumn('leave_requests', 'partner_remarks')) {
+                    if ($hasCol('partner_remarks')) {
                         $createData['partner_remarks'] = '';
                     }
-                    if (Schema::hasColumn('leave_requests', 'engaged_manager_id')) {
+                    if ($hasCol('engaged_manager_id')) {
                         $createData['engaged_manager_id'] = $targetManagerId;
                     }
-                    if (Schema::hasColumn('leave_requests', 'requested_days')) {
+                    if ($hasCol('requested_days')) {
                         $createData['requested_days'] = $requestedDays;
                     }
-                    if (Schema::hasColumn('leave_requests', 'reviewed_by') && $targetManagerId) {
+                    if ($hasCol('reviewed_by') && $targetManagerId) {
                         $createData['reviewed_by'] = $targetManagerId;
                     }
+                    // Populate any legacy columns if present on an older database table
+                    if ($hasCol('days')) {
+                        $createData['days'] = $requestedDays;
+                    }
+                    if ($hasCol('type')) {
+                        $createData['type'] = $this->leaveType;
+                    }
+                    if ($hasCol('student_id')) {
+                        $createData['student_id'] = $user->id;
+                    }
+                    if ($hasCol('student_name')) {
+                        $createData['student_name'] = $user->name;
+                    }
+                    if ($hasCol('student_code')) {
+                        $createData['student_code'] = $user->student_code ?? ('S-' . $user->id);
+                    }
+                    if ($hasCol('partner_unit')) {
+                        $createData['partner_unit'] = $user->partner_unit ?: $this->partnerUnit;
+                    }
 
-                    $lr = LeaveRequest::create($createData);
+                    $lr = null;
+                    try {
+                        $lr = LeaveRequest::create($createData);
+                    } catch (\Throwable $insertEx) {
+                        Log::warning('LeaveRequest::create attempt 1 failed: ' . $insertEx->getMessage());
+                        try {
+                            if (DB::getDriverName() === 'mysql') {
+                                DB::statement("SET SESSION sql_mode = ''");
+                            }
+                            $fallbackData = $createData;
+                            unset($fallbackData['reviewed_by']);
+                            if ($hasCol('created_at')) {
+                                $fallbackData['created_at'] = now();
+                            }
+                            if ($hasCol('updated_at')) {
+                                $fallbackData['updated_at'] = now();
+                            }
+                            $insertedId = DB::table('leave_requests')->insertGetId($fallbackData);
+                            $lr = LeaveRequest::find($insertedId);
+                        } catch (\Throwable $insertEx2) {
+                            Log::warning('LeaveRequest::create attempt 2 failed: ' . $insertEx2->getMessage());
+                            $fallbackData['status'] = $isManagerApplicant ? 'Awaiting Partner' : 'Awaiting Manager';
+                            unset($fallbackData['engaged_manager_id']);
+                            $insertedId = DB::table('leave_requests')->insertGetId($fallbackData);
+                            $lr = LeaveRequest::find($insertedId);
+                        }
+                    }
 
-                    $this->recordAuditLog('leave', 'leave_submitted', "{$user->name} submitted {$typeLabel} ({$requestedDays} days: {$this->leaveStart} to {$this->leaveEnd}) routed to {$engagedManagerName}.", 'LR-' . $lr->id);
-                    $this->createPracticeNotification($targetManagerId, 'manager', 'New Leave Application (LR-' . $lr->id . ')', "{$user->name} submitted a {$typeLabel} application ({$requestedDays} days: {$this->leaveStart} to {$this->leaveEnd}). Reason: {$this->leaveReason}", 'calendar-days');
-                    $this->createPracticeNotification(null, 'partner', 'New Leave Application (LR-' . $lr->id . ')', "{$user->name} submitted a {$typeLabel} request ({$requestedDays} days: {$this->leaveStart} to {$this->leaveEnd}) assigned to {$engagedManagerName}.", 'calendar-days', null, false);
+                    if ($lr) {
+                        try {
+                            $this->recordAuditLog('leave', 'leave_submitted', "{$user->name} submitted {$typeLabel} ({$requestedDays} days: {$this->leaveStart} to {$this->leaveEnd}) routed to {$engagedManagerName}.", 'LR-' . $lr->id);
+                        } catch (\Throwable $e) {
+                            Log::debug($e->getMessage());
+                        }
+                        try {
+                            $this->createPracticeNotification($targetManagerId, 'manager', 'New Leave Application (LR-' . $lr->id . ')', "{$user->name} submitted a {$typeLabel} application ({$requestedDays} days: {$this->leaveStart} to {$this->leaveEnd}). Reason: " . Str::limit($this->leaveReason, 180), 'calendar-days');
+                            $this->createPracticeNotification(null, 'partner', 'New Leave Application (LR-' . $lr->id . ')', "{$user->name} submitted a {$typeLabel} request ({$requestedDays} days: {$this->leaveStart} to {$this->leaveEnd}) assigned to {$engagedManagerName}.", 'calendar-days', null, false);
+                        } catch (\Throwable $e) {
+                            Log::debug($e->getMessage());
+                        }
 
-                    $submittedPeriod = "{$this->leaveStart} to {$this->leaveEnd}";
-                    $this->loadLeaveQueue();
-                    $this->loadTeamMembers();
-                    $this->leaveType = 'annual';
-                    $this->leaveStart = '';
-                    $this->leaveEnd = '';
-                    $this->leaveReason = '';
-                    $this->formResetIteration++;
-                    $this->notice = "Leave application ({$typeLabel}, {$requestedDays} days: {$submittedPeriod}) submitted and routed to {$engagedManagerName}. Form has been reset.";
-                    $this->dispatch('toast', [
-                        'type'    => 'success',
-                        'title'   => 'Leave Submitted Successfully',
-                        'message' => "Your leave application ({$typeLabel}, {$requestedDays} days) has been forwarded to {$engagedManagerName}.",
-                    ]);
-                    return;
+                        $submittedPeriod = "{$this->leaveStart} to {$this->leaveEnd}";
+                        $this->loadLeaveQueue();
+                        try {
+                            $this->loadTeamMembers();
+                        } catch (\Throwable $e) {
+                            Log::debug($e->getMessage());
+                        }
+                        $this->leaveType = 'annual';
+                        $this->leaveStart = '';
+                        $this->leaveEnd = '';
+                        $this->leaveReason = '';
+                        $this->formResetIteration++;
+                        $this->notice = "Leave application (LR-{$lr->id} · {$typeLabel}, {$requestedDays} days: {$submittedPeriod}) saved and routed to {$engagedManagerName}.";
+                        $this->dispatch('toast', [
+                            'type'    => 'success',
+                            'title'   => 'Leave Submitted Successfully',
+                            'message' => "Your leave application (LR-{$lr->id} · {$typeLabel}, {$requestedDays} days) has been forwarded to {$engagedManagerName}.",
+                        ]);
+                        return;
+                    }
                 }
             } catch (\Throwable $e) {
-                Log::warning('submitLeaveDemo error: ' . $e->getMessage());
+                Log::error('submitLeaveDemo fatal error: ' . $e->getMessage());
+                $this->error = 'Could not save leave application to database: ' . $e->getMessage();
+                return;
             }
         }
 

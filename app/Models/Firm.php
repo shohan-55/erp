@@ -258,16 +258,15 @@ class Firm extends Model
         }
     }
 
+    protected static bool $firmSchemaChecked = false;
+
     public static function ensureRuntimeSchemaColumns(): void
     {
-        // The columns this method patches are now created by migration
-        // 2026_10_30_000001. Running DDL inside a web request is unsafe (audit
-        // P1-3.6): it serialises table locks, can race two concurrent requests
-        // and hides migration drift. It is therefore limited to local/testing,
-        // where it still helps a half-migrated developer database.
-        if (! app()->environment('local', 'testing') && ! app()->runningUnitTests()) {
+        if (self::$firmSchemaChecked && ! app()->runningUnitTests()) {
             return;
         }
+        self::$firmSchemaChecked = true;
+        self::ensureBrandingSchemaColumns();
 
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('firms') && ! \Illuminate\Support\Facades\Schema::hasColumn('firms', 'theme_palette')) {

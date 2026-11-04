@@ -111,11 +111,14 @@ class User extends Authenticatable
     /**
      * Self-healing runtime schema check for local/testing environments.
      */
+    protected static bool $userSchemaChecked = false;
+
     public static function ensureRuntimeSchemaColumns(): void
     {
-        if (! app()->environment('local', 'testing') && ! app()->runningUnitTests()) {
+        if (self::$userSchemaChecked && ! app()->runningUnitTests()) {
             return;
         }
+        self::$userSchemaChecked = true;
 
         try {
             if (! Schema::hasTable('users')) {

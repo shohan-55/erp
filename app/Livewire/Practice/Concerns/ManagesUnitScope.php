@@ -69,6 +69,11 @@ trait ManagesUnitScope
             return true;
         }
 
+        // If the student has no assigned manager or firm-wide shared view is active, allow any Manager in the same firm.
+        if ($target->manager_id === null || ! empty($this->sharedView)) {
+            return true;
+        }
+
         // Unassigned student in the same unit or when either unit is unset / single-unit firm.
         if ($target->partner_unit === null || $actor->partner_unit === null || trim((string) $target->partner_unit) === '' || trim((string) $actor->partner_unit) === '') {
             return true;

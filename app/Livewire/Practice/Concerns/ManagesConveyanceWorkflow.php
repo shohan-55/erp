@@ -27,6 +27,7 @@ trait ManagesConveyanceWorkflow
 {
     protected function loadClaimQueue(): void
     {
+        ConveyanceClaim::ensureRuntimeSchemaColumns();
         if (Schema::hasTable('conveyance_claims') && Schema::hasTable('users')) {
             $firmModel = $this->resolveFirmModel();
             if ($firmModel) {
@@ -48,18 +49,22 @@ trait ManagesConveyanceWorkflow
                             $claimsQuery->where('user_id', $actor->id);
                         } elseif ($actor->isManager()) {
                             $unit = $actor->partner_unit ?: $this->partnerUnit;
-                            $unitUserIds = User::where('firm_id', $firmModel->id)
-                                ->where(function ($q) use ($actor, $unit) {
-                                    $q->where('id', $actor->id)
-                                        ->orWhere('manager_id', $actor->id)
-                                        ->orWhereNull('partner_unit');
-                                    if (! empty($unit)) {
-                                        $q->orWhere('partner_unit', $unit);
-                                    }
-                                })
-                                ->pluck('id')
-                                ->all();
-                            $claimsQuery->whereIn('user_id', $unitUserIds);
+                            $sharedView = (bool) ($firmModel->shared_attendance_view ?? true) || count($this->availablePartnerUnits) <= 1;
+                            if (! $sharedView) {
+                                $unitUserIds = User::where('firm_id', $firmModel->id)
+                                    ->where(function ($q) use ($actor, $unit) {
+                                        $q->where('id', $actor->id)
+                                            ->orWhere('manager_id', $actor->id)
+                                            ->orWhereNull('manager_id')
+                                            ->orWhereNull('partner_unit');
+                                        if (! empty($unit)) {
+                                            $q->orWhere('partner_unit', $unit);
+                                        }
+                                    })
+                                    ->pluck('id')
+                                    ->all();
+                                $claimsQuery->whereIn('user_id', $unitUserIds);
+                            }
                         } elseif ($actor->isPartner() && count($this->availablePartnerUnits) > 1 && ! empty($this->partnerUnit)) {
                             $unitUserIds = User::where('firm_id', $firmModel->id)
                                 ->where(function ($q) {
@@ -255,6 +260,7 @@ trait ManagesConveyanceWorkflow
 
     protected function findDuplicateActiveClaim(string $claimDate, string $clientName, float $amount, string $route): ?array
     {
+        ConveyanceClaim::ensureRuntimeSchemaColumns();
         if (Auth::check() && Schema::hasTable('conveyance_claims') && Schema::hasTable('firms')) {
             try {
                 $user = Auth::user();
@@ -397,6 +403,7 @@ trait ManagesConveyanceWorkflow
             ? 'Manager personal conveyance claim — routed directly to Partner for sanction.'
             : ($isLate ? "Submitted {$daysAgo} days late (> {$this->conveyanceLateDays} working days policy)." : '');
 
+        ConveyanceClaim::ensureRuntimeSchemaColumns();
         if (Auth::check() && Schema::hasTable('conveyance_claims') && Schema::hasTable('firms')) {
             try {
                 $user = Auth::user();
