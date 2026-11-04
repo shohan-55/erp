@@ -20,7 +20,10 @@ class Firm extends Model
         'plan',
         'region',
         'initials',
+        'short_code',
+        'app_name',
         'logo_url',
+        'app_icon_url',
         'custom_domain',
         'custom_subdomain',
         'shared_attendance_view',
@@ -188,6 +191,73 @@ class Firm extends Model
      * Self-healing runtime schema guard: ensures theme_palette, primary_color, and subscription columns exist
      * even if migrations were already run prior to this update.
      */
+
+    /**
+     * Compute smart 2-4 letter monogram initials from a multi-word organization name
+     * (e.g. "Karim Ahmed & Co." -> "KAC", "Apex Chartered Accountants" -> "ACA").
+     */
+    public static function computeSmartInitials(string $name): string
+    {
+        $words = preg_split('/[\s\-&,\._]+/', trim($name)) ?: [];
+        $letters = '';
+        foreach ($words as $w) {
+            $clean = preg_replace('/[^a-zA-Z]/', '', $w);
+            if ($clean !== '') {
+                $letters .= strtoupper($clean[0]);
+            }
+            if (strlen($letters) >= 3) {
+                break;
+            }
+        }
+        if (strlen($letters) >= 2) {
+            return $letters;
+        }
+        $fallback = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $name) ?: 'CA', 0, 2));
+        return $fallback !== '' ? $fallback : 'CA';
+    }
+
+    /**
+     * Safe on-demand column check when a Partner saves workspace branding settings.
+     */
+    public static function ensureBrandingSchemaColumns(): void
+    {
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('firms')) {
+                return;
+            }
+            $missing = [];
+            foreach (['short_code', 'app_name', 'app_icon_url', 'logo_url', 'theme_palette', 'primary_color'] as $col) {
+                if (! \Illuminate\Support\Facades\Schema::hasColumn('firms', $col)) {
+                    $missing[] = $col;
+                }
+            }
+            if (! empty($missing)) {
+                \Illuminate\Support\Facades\Schema::table('firms', function (\Illuminate\Database\Schema\Blueprint $table) use ($missing) {
+                    if (in_array('short_code', $missing, true)) {
+                        $table->string('short_code', 60)->nullable();
+                    }
+                    if (in_array('app_name', $missing, true)) {
+                        $table->string('app_name', 60)->nullable();
+                    }
+                    if (in_array('logo_url', $missing, true)) {
+                        $table->string('logo_url', 255)->nullable();
+                    }
+                    if (in_array('app_icon_url', $missing, true)) {
+                        $table->string('app_icon_url', 255)->nullable();
+                    }
+                    if (in_array('theme_palette', $missing, true)) {
+                        $table->string('theme_palette', 40)->default('sea_green');
+                    }
+                    if (in_array('primary_color', $missing, true)) {
+                        $table->string('primary_color', 20)->default('#0D9488');
+                    }
+                });
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::debug($e->getMessage());
+        }
+    }
+
     public static function ensureRuntimeSchemaColumns(): void
     {
         // The columns this method patches are now created by migration

@@ -129,6 +129,20 @@ Route::get('/images/pwa-icon-512.png', function () {
     ]);
 });
 
+// Firm-Specific Dynamic PWA App Icons (192x192 & 512x512 PNG from uploaded firm logo or brand monogram)
+Route::get('/c/{firmSlug}/pwa-icon-192.png', function (string $firmSlug) {
+    return \App\Support\PwaAssets::renderFirmIconResponse($firmSlug, 192);
+})->name('firm.pwa.icon.192');
+
+Route::get('/c/{firmSlug}/pwa-icon-512.png', function (string $firmSlug) {
+    return \App\Support\PwaAssets::renderFirmIconResponse($firmSlug, 512);
+})->name('firm.pwa.icon.512');
+
+// cPanel-Safe Uploaded Firm Logo & Public Images Fallback Route
+Route::get('/images/{filename}', function (string $filename) {
+    return \App\Support\PwaAssets::servePublicImage($filename);
+})->where('filename', '[A-Za-z0-9_\-\.]+')->name('public.image.fallback');
+
 Route::get('/health', function () {
     $checks = [
         'database' => false,

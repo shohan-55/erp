@@ -72,6 +72,11 @@ class PracticePreview extends Component
     public string $newPartnerEmail = '';
     public string $firmThemePalette = 'sea_green';
     public string $firmCustomPrimaryColor = '#0D9488';
+    public string $firmBrandName = '';
+    public string $firmBrandShortCode = '';
+    public string $firmBrandKind = 'Chartered Accountants';
+    public string $firmBrandInitials = 'CA';
+    public string $firmBrandAppName = '';
 
     // Attendance & Multi-Segment Close vs On-Duty State
     public string $workMode = 'office';
@@ -102,6 +107,7 @@ class PracticePreview extends Component
     public bool $managerCanFinalApproveLeave = false;
     public bool $managerCanFinalApproveClaims = false;
     public $firmLogoUpload = null;
+    public $firmAppIconUpload = null;
 
     // Configurable Partner Policies (Independent per Partner)
     public string $officeStart = '10:00';
@@ -415,6 +421,11 @@ class PracticePreview extends Component
         if ($this->firm) {
             $this->firmThemePalette = $this->firm['theme_palette'] ?? 'sea_green';
             $this->firmCustomPrimaryColor = $this->firm['primary_color'] ?? '#0D9488';
+            $this->firmBrandName = (string) ($this->firm['name'] ?? '');
+            $this->firmBrandShortCode = (string) ($this->firm['short_code'] ?? '');
+            $this->firmBrandKind = (string) ($this->firm['designation'] ?? 'Chartered Accountants');
+            $this->firmBrandInitials = (string) ($this->firm['initials'] ?? 'CA');
+            $this->firmBrandAppName = (string) ($this->firm['app_name'] ?? (($this->firm['short_code'] ?? 'Practice') . ' ERP'));
         }
         $this->previewRole = in_array($previewRole, self::ROLES, true) ? $previewRole : 'partner';
         $this->section = in_array($section, self::SECTIONS, true) ? $section : 'dashboard';

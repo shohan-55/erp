@@ -311,7 +311,7 @@ class DashboardPreview extends Component
                             'payment_status' => $f->payment_status ?: 'paid',
                             'subscription_expires_at' => $f->subscription_expires_at?->format('Y-m-d') ?? now()->addYear()->toDateString(),
                             'workspace_url' => $f->workspace_url,
-                            'initials' => $f->initials ?: strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $f->name) ?: 'DW', 0, 2)),
+                            'initials' => $f->initials ?: Firm::computeSmartInitials((string) $f->name),
                         ];
                     })->toArray();
                 } else {
@@ -660,7 +660,7 @@ class DashboardPreview extends Component
                 $partnerAdopted = false;
 
                 DB::transaction(function () use ($slug, $cleanEmail, $partnerPass, $customDomain, $customSubdomain, &$createdFirm, &$createdPartner, &$partnerAdopted) {
-                    $initials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $this->newFirmName) ?: 'DW', 0, 2));
+                    $initials = Firm::computeSmartInitials($this->newFirmName);
 
                     $firmData = [
                         'name'             => trim($this->newFirmName),

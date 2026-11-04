@@ -16,8 +16,8 @@
             <div class="relative z-10">
                 <div class="flex items-center gap-4">
                     <div class="w-12 h-12 rounded-xl bg-white/5 border border-white/10 p-2 shadow-inner flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        @if(!empty($firm['logo_url']) && file_exists(public_path($firm['logo_url'])))
-                            <img src="{{ asset($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="w-full h-full object-contain">
+                        @if(!empty($firm['logo_url']) && \App\Support\PwaAssets::imageExists($firm['logo_url']))
+                            <img src="{{ asset($firm['logo_url']) }}?v={{ \App\Support\PwaAssets::imageVersion($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="w-full h-full object-contain">
                         @else
                             <span class="text-[#FCDF02] font-extrabold text-sm">{{ strtoupper($firm['initials'] ?? 'CA') }}</span>
                         @endif
@@ -89,8 +89,8 @@
                 <!-- Mobile Only Firm Brand Header -->
                 <div class="flex items-center gap-2.5 lg:hidden min-w-0">
                     <div class="w-9 h-9 rounded-xl bg-slate-900 p-1.5 flex items-center justify-center shadow-md shrink-0 overflow-hidden">
-                        @if(!empty($firm['logo_url']) && file_exists(public_path($firm['logo_url'])))
-                            <img src="{{ asset($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="w-full h-full object-contain">
+                        @if(!empty($firm['logo_url']) && \App\Support\PwaAssets::imageExists($firm['logo_url']))
+                            <img src="{{ asset($firm['logo_url']) }}?v={{ \App\Support\PwaAssets::imageVersion($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="w-full h-full object-contain">
                         @else
                             <span class="text-[#FCDF02] font-extrabold text-xs">{{ strtoupper($firm['initials'] ?? 'CA') }}</span>
                         @endif

@@ -9,11 +9,11 @@
                class="fixed inset-y-0 left-0 z-50 flex w-[270px] flex-col bg-[#17191F] text-white shadow-xl transition-transform duration-200 lg:translate-x-0"
                aria-label="Practice navigation">
             <div class="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white p-1.5 overflow-hidden">
-                    @if(!empty($firm['logo_url']) && file_exists(public_path($firm['logo_url'])))
-                        <img src="{{ asset($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="h-full w-full object-contain">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white p-1 overflow-hidden shadow-sm">
+                    @if(!empty($firm['logo_url']) && \App\Support\PwaAssets::imageExists($firm['logo_url']))
+                        <img src="{{ asset($firm['logo_url']) }}?v={{ \App\Support\PwaAssets::imageVersion($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="h-full w-full object-contain">
                     @else
-                        <span class="text-amber-500 font-extrabold text-sm">{{ strtoupper($firm['initials'] ?? 'CA') }}</span>
+                        <span class="flex h-full w-full items-center justify-center rounded-lg font-black text-xs text-white" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}">{{ strtoupper($firm['initials'] ?? 'CA') }}</span>
                     @endif
                 </div>
                 <div class="min-w-0 flex-1">

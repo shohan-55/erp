@@ -318,14 +318,14 @@ trait ManagesPoliciesHolidaysAndSettings
             $cleanSlug = preg_replace('/[^a-z0-9\-_]/', '', strtolower($this->firmSlug)) ?: 'firm';
             $fileName = $cleanSlug . '_logo.' . $ext;
 
-            // cPanel split layout: the app lives in ~/erp-app but the web root is
-            // a separate ~/public_html. public_path() points at the app copy, so
-            // the browser would never see the new logo. ERP_WEB_ROOT (config
-            // erp.web_root) names the real document root and gets a copy too.
             $targetDirs = [public_path('images')];
             $webRoot = (string) config('erp.web_root', '');
             if ($webRoot !== '') {
                 $targetDirs[] = rtrim($webRoot, '/\\') . DIRECTORY_SEPARATOR . 'images';
+            }
+            $siblingPubHtml = base_path('../public_html');
+            if (is_dir($siblingPubHtml)) {
+                $targetDirs[] = $siblingPubHtml . DIRECTORY_SEPARATOR . 'images';
             }
 
             $copied = 0;
@@ -346,32 +346,260 @@ trait ManagesPoliciesHolidaysAndSettings
 
             $relativeLogoUrl = 'images/' . $fileName;
 
+            Firm::ensureBrandingSchemaColumns();
             if (Schema::hasTable('firms')) {
                 $firmModel = $this->resolveFirmModel();
                 if ($firmModel) {
                     if (Schema::hasColumn('firms', 'logo_url')) {
                         $firmModel->logo_url = $relativeLogoUrl;
-                        $firmModel->save();
                     }
-                    $this->recordAuditLog('settings', 'firm_logo_updated', "Updated official firm logo ({$fileName}).", $firmModel->slug);
+                    if (Schema::hasColumn('firms', 'app_icon_url') && empty($firmModel->app_icon_url)) {
+                        $firmModel->app_icon_url = $relativeLogoUrl;
+                    }
+                    $firmModel->save();
+                    $this->recordAuditLog('settings', 'firm_logo_updated', "Updated official firm & mobile app logo ({$fileName}).", $firmModel->slug);
                 }
             }
 
             if (is_array($this->firm)) {
                 $this->firm['logo_url'] = $relativeLogoUrl;
+                if (empty($this->firm['app_icon_url'])) {
+                    $this->firm['app_icon_url'] = $relativeLogoUrl;
+                }
             }
             $this->firmLogoUpload = null;
 
-            $this->notice = 'Official firm logo uploaded and applied across the workspace, login portal, and PDF letterhead.';
+            $this->notice = 'Official firm logo uploaded and applied across the workspace sidebar, login portal, mobile app icon, and PDF letterhead.';
             $this->dispatch('toast', [
                 'type'    => 'success',
-                'title'   => 'Firm Logo Updated',
-                'message' => 'Your new logo is now live across the workspace and vouchers.',
+                'title'   => 'Firm & App Logo Updated',
+                'message' => 'Your new logo is now live across the workspace, mobile app, and vouchers.',
             ]);
         } catch (\Throwable $e) {
             Log::warning('uploadFirmLogo failed: ' . $e->getMessage());
             $this->error = 'Could not save the logo file: ' . $e->getMessage();
         }
+    }
+
+    /**
+     * Upload a dedicated Mobile App Icon (PWA Home Screen Icon) for this firm.
+     */
+    public function uploadFirmAppIcon(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        $this->notice = null;
+
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or an authorized Manager can update the mobile app icon.';
+            return;
+        }
+
+        if (! $this->firmAppIconUpload) {
+            $this->error = 'Please choose an app icon image file (PNG, JPG, or WebP) first.';
+            return;
+        }
+
+        $this->validate([
+            'firmAppIconUpload' => 'file|mimes:png,jpg,jpeg,webp|max:2048',
+        ]);
+
+        try {
+            $ext = strtolower($this->firmAppIconUpload->getClientOriginalExtension() ?: 'png');
+            if (! in_array($ext, ['png', 'jpg', 'jpeg', 'webp'], true)) {
+                $ext = 'png';
+            }
+            $cleanSlug = preg_replace('/[^a-z0-9\-_]/', '', strtolower($this->firmSlug)) ?: 'firm';
+            $fileName = $cleanSlug . '_app_icon.' . $ext;
+
+            $targetDirs = [public_path('images')];
+            $webRoot = (string) config('erp.web_root', '');
+            if ($webRoot !== '') {
+                $targetDirs[] = rtrim($webRoot, '/\\') . DIRECTORY_SEPARATOR . 'images';
+            }
+            $siblingPubHtml = base_path('../public_html');
+            if (is_dir($siblingPubHtml)) {
+                $targetDirs[] = $siblingPubHtml . DIRECTORY_SEPARATOR . 'images';
+            }
+
+            $copied = 0;
+            foreach (array_unique($targetDirs) as $targetDir) {
+                if (! is_dir($targetDir)) {
+                    @mkdir($targetDir, 0755, true);
+                }
+                if (@copy($this->firmAppIconUpload->getRealPath(), $targetDir . DIRECTORY_SEPARATOR . $fileName)) {
+                    $copied++;
+                }
+            }
+
+            if ($copied === 0) {
+                $this->error = 'The app icon could not be saved on the server.';
+                return;
+            }
+
+            $relativeIconUrl = 'images/' . $fileName;
+
+            Firm::ensureBrandingSchemaColumns();
+            if (Schema::hasTable('firms')) {
+                $firmModel = $this->resolveFirmModel();
+                if ($firmModel && Schema::hasColumn('firms', 'app_icon_url')) {
+                    $firmModel->app_icon_url = $relativeIconUrl;
+                    $firmModel->save();
+                    $this->recordAuditLog('settings', 'firm_app_icon_updated', "Updated mobile PWA app icon ({$fileName}).", $firmModel->slug);
+                }
+            }
+
+            if (is_array($this->firm)) {
+                $this->firm['app_icon_url'] = $relativeIconUrl;
+            }
+            $this->firmAppIconUpload = null;
+
+            $this->notice = 'Mobile App Icon uploaded! Any phone installing the app from this firm dashboard will now use this icon.';
+            $this->dispatch('toast', [
+                'type'    => 'success',
+                'title'   => 'Mobile App Icon Updated',
+                'message' => 'Your firm mobile app icon is now active.',
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('uploadFirmAppIcon failed: ' . $e->getMessage());
+            $this->error = 'Could not save the app icon: ' . $e->getMessage();
+        }
+    }
+
+    /**
+     * Remove uploaded logo and switch to the Firm's clean Initials Monogram Badge.
+     */
+    public function removeFirmLogo(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        $this->notice = null;
+
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or an authorized Manager can remove the firm logo.';
+            return;
+        }
+
+        Firm::ensureBrandingSchemaColumns();
+        if (Schema::hasTable('firms')) {
+            try {
+                $firmModel = $this->resolveFirmModel();
+                if ($firmModel) {
+                    if (Schema::hasColumn('firms', 'logo_url')) {
+                        $firmModel->logo_url = 'none';
+                    }
+                    if (Schema::hasColumn('firms', 'app_icon_url')) {
+                        $firmModel->app_icon_url = 'none';
+                    }
+                    $firmModel->save();
+                    $this->recordAuditLog('settings', 'firm_logo_removed', 'Removed image logo and switched to firm monogram badge.', $firmModel->slug);
+                }
+            } catch (\Throwable $e) {
+                Log::debug($e->getMessage());
+            }
+        }
+
+        if (is_array($this->firm)) {
+            $this->firm['logo_url'] = null;
+            $this->firm['app_icon_url'] = null;
+        }
+
+        $this->notice = 'Logo removed. Your workspace and mobile app now display your firm monogram badge (' . ($this->firm['initials'] ?? 'CA') . ').';
+        $this->dispatch('toast', [
+            'type'    => 'info',
+            'title'   => 'Switched to Monogram Badge',
+            'message' => 'Logo cleared; showing your firm initials badge.',
+        ]);
+    }
+
+    /**
+     * Save Firm Full Name, Workspace Display Title (e.g. replacing "RA&C" in "RA&C Workspace"),
+     * Firm Designation, Monogram Initials, and Mobile App Name.
+     */
+    public function saveFirmIdentityBranding(): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
+        $this->notice = null;
+
+        if (! $this->userCanManagePolicies()) {
+            $this->error = 'Only a Partner or an authorized Manager can update the firm workspace name and branding.';
+            return;
+        }
+
+        $cleanName = trim($this->firmBrandName);
+        $cleanShort = trim($this->firmBrandShortCode);
+        $cleanKind = trim($this->firmBrandKind) ?: 'Chartered Accountants';
+        $cleanInitials = strtoupper(preg_replace('/[^A-Za-z0-9&]/', '', trim($this->firmBrandInitials)));
+        $cleanAppName = trim($this->firmBrandAppName);
+
+        if (mb_strlen($cleanName) < 2) {
+            $this->error = 'Please enter a valid Firm Name (at least 2 characters).';
+            return;
+        }
+        if (mb_strlen($cleanShort) < 2) {
+            $this->error = 'Please enter a Workspace Display Name / Short Title (at least 2 characters).';
+            return;
+        }
+        if ($cleanInitials === '') {
+            $cleanInitials = Firm::computeSmartInitials($cleanName);
+        }
+        $cleanInitials = substr($cleanInitials, 0, 4);
+        if ($cleanAppName === '') {
+            $cleanAppName = $cleanShort . ' ERP';
+        }
+
+        Firm::ensureBrandingSchemaColumns();
+        if (Schema::hasTable('firms')) {
+            try {
+                $firmModel = $this->resolveFirmModel();
+                if ($firmModel) {
+                    $firmModel->name = $cleanName;
+                    $firmModel->kind = $cleanKind;
+                    $firmModel->initials = $cleanInitials;
+                    if (Schema::hasColumn('firms', 'short_code')) {
+                        $firmModel->short_code = $cleanShort;
+                    }
+                    if (Schema::hasColumn('firms', 'app_name')) {
+                        $firmModel->app_name = $cleanAppName;
+                    }
+                    $firmModel->save();
+
+                    $this->recordAuditLog(
+                        'settings',
+                        'firm_identity_updated',
+                        "Updated workspace branding: Firm '{$cleanName}', Workspace Title '{$cleanShort} Workspace', App Name '{$cleanAppName}'.",
+                        $firmModel->slug
+                    );
+                }
+            } catch (\Throwable $e) {
+                Log::warning('saveFirmIdentityBranding failed: ' . $e->getMessage());
+                $this->error = 'Could not save workspace identity: ' . $e->getMessage();
+                return;
+            }
+        }
+
+        $this->firmBrandName = $cleanName;
+        $this->firmBrandShortCode = $cleanShort;
+        $this->firmBrandKind = $cleanKind;
+        $this->firmBrandInitials = $cleanInitials;
+        $this->firmBrandAppName = $cleanAppName;
+
+        if (is_array($this->firm)) {
+            $this->firm['name']        = $cleanName;
+            $this->firm['short_code']  = $cleanShort;
+            $this->firm['designation'] = $cleanKind;
+            $this->firm['legal_name']  = $cleanName . ', ' . $cleanKind;
+            $this->firm['initials']    = $cleanInitials;
+            $this->firm['app_name']    = $cleanAppName;
+        }
+
+        $this->notice = "Workspace identity updated! Sidebar now displays '{$cleanShort} Workspace' and mobile app name is set to '{$cleanAppName}'.";
+        $this->dispatch('toast', [
+            'type'    => 'success',
+            'title'   => 'Workspace Identity Saved',
+            'message' => "Updated to '{$cleanShort} Workspace' ({$cleanName}).",
+        ]);
     }
 
 

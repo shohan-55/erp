@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="manifest" href="{{ !empty($firm['slug']) ? url('/c/' . $firm['slug'] . '/manifest.webmanifest') : url('/manifest.webmanifest') }}">
-    <meta name="theme-color" content="#0D9488">
+    <link rel="icon" type="image/png" href="{{ !empty($firm['slug']) ? url('/c/' . $firm['slug'] . '/pwa-icon-192.png') : url('/pwa-icon-192.png') }}">
+    <link rel="apple-touch-icon" href="{{ !empty($firm['slug']) ? url('/c/' . $firm['slug'] . '/pwa-icon-192.png') : url('/pwa-icon-192.png') }}">
+    <meta name="theme-color" content="{{ $firm['primary_color'] ?? '#0D9488' }}">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="robots" content="noindex,nofollow">
     <title>{{ $title ?? 'DhakaWala ERP — Practice Management' }}</title>

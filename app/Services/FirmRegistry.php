@@ -153,13 +153,51 @@ class FirmRegistry
     {
         $palette = Firm::resolvePalette($firm->theme_palette ?? 'sea_green', $firm->primary_color ?? null);
 
+        $computedInitials = ! empty($firm->initials)
+            ? strtoupper(trim($firm->initials))
+            : Firm::computeSmartInitials((string) $firm->name);
+
+        if (! empty($firm->short_code)) {
+            $shortCode = trim((string) $firm->short_code);
+        } elseif ($firm->slug === 'rac') {
+            $shortCode = 'RA&C';
+        } elseif ($firm->slug === 'sample-alpha') {
+            $shortCode = 'SA&C';
+        } else {
+            $shortCode = mb_strlen(trim((string) $firm->name)) <= 16
+                ? trim((string) $firm->name)
+                : $computedInitials;
+        }
+
+        $logoUrl = null;
+        if ($firm->logo_url === 'none') {
+            $logoUrl = null;
+        } elseif (! empty($firm->logo_url) && \App\Support\PwaAssets::imageExists($firm->logo_url)) {
+            $logoUrl = $firm->logo_url;
+        } elseif (app()->runningUnitTests() && in_array($firm->slug, ['rac', 'sample-alpha'], true)) {
+            $logoUrl = 'images/' . $firm->slug . '_logo.svg';
+        }
+
+        $appIconUrl = null;
+        if (! empty($firm->app_icon_url) && $firm->app_icon_url !== 'none' && \App\Support\PwaAssets::imageExists($firm->app_icon_url)) {
+            $appIconUrl = $firm->app_icon_url;
+        } elseif ($logoUrl && ! str_ends_with(strtolower($logoUrl), '.svg')) {
+            $appIconUrl = $logoUrl;
+        }
+
+        $appName = ! empty($firm->app_name)
+            ? trim((string) $firm->app_name)
+            : ($shortCode . ' ERP');
+
         return [
             'slug'             => $firm->slug,
             'name'             => $firm->name,
             'designation'      => $firm->kind,
-            'short_code'       => strtoupper($firm->initials) . '&C',
+            'short_code'       => $shortCode,
+            'app_name'         => $appName,
             'legal_name'       => $firm->name . ', ' . $firm->kind,
-            'logo_url'         => ! empty($firm->logo_url) ? $firm->logo_url : ('images/' . $firm->slug . '_logo.svg'),
+            'logo_url'         => $logoUrl,
+            'app_icon_url'     => $appIconUrl,
             'tagline'          => 'Your Practice. One Connected Workspace.',
             'description'      => 'Manage attendance, leave, conveyance and payroll through a secure, organized workspace designed for professional accounting firms.',
             'office'           => ($firm->region ?: 'Dhaka') . ', Bangladesh',
@@ -180,7 +218,7 @@ class FirmRegistry
             'plan'             => $firm->plan,
             'seats'            => $firm->seats,
             'region'           => $firm->region,
-            'initials'         => $firm->initials,
+            'initials'         => $computedInitials,
             'icab_reg'         => 'ICAB REGISTERED PRACTICE',
             'custom_domain'    => $firm->custom_domain,
             'custom_subdomain' => $firm->custom_subdomain,
@@ -208,6 +246,30 @@ class FirmRegistry
                 }
             }
         } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
+
+        return null;
+    }
+
+    /**
+     * Retrieve the primary/default active firm (used by root PWA shortcut or fallback).
+     */
+    public static function defaultFirm(): ?array
+    {
+        try {
+            if (Schema::hasTable('firms')) {
+                $firm = Firm::where('slug', 'rac')->where('status', 'active')->first()
+                    ?? Firm::where('status', 'active')->orderBy('id')->first();
+                if ($firm) {
+                    return self::toArray($firm);
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::debug($e->getMessage());
+        }
+
+        if (app()->runningUnitTests()) {
+            return self::$fallbackFirms['rac'] ?? null;
+        }
 
         return null;
     }

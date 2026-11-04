@@ -54,7 +54,7 @@
                             :class="activeSettingsTab === 'branding' ? 'bg-[#FCDF02] text-[#17191F] font-black shadow-sm' : 'bg-white/10 text-white hover:bg-white/20 border border-white/15 font-bold'"
                             class="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs transition cursor-pointer">
                         <i data-lucide="palette" class="h-3.5 w-3.5"></i>
-                        <span>4. Brand Theme &amp; Logo</span>
+                        <span>4. Workspace Name, Logo &amp; App</span>
                     </button>
                 @endif
             @endif
@@ -150,79 +150,188 @@
 
 @if($previewRole === 'partner' || ($canManagePolicies ?? false))
 <!-- ===================================================================== -->
-<!-- FIRM BRAND LOGO & COLOR PALETTE SELECTOR (PARTNER / DELEGATED MGR)    -->
+<!-- FIRM WORKSPACE NAME, BRAND LOGO, MOBILE APP ICON & COLOR PALETTE      -->
 <!-- ===================================================================== -->
-<section x-show="activeSettingsTab === 'branding'" x-cloak class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
-    <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
-        <div class="flex items-start gap-3">
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}">
-                <i data-lucide="palette" class="h-5 w-5"></i>
-            </div>
-            <div>
-                <h3 class="text-base font-extrabold text-slate-900">Firm Brand Color Palette</h3>
-                <p class="mt-0.5 text-xs text-slate-500">Select your firm's official brand color palette or custom color. Click any palette below to immediately update the entire workspace and login portal.</p>
-            </div>
-        </div>
-        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-extrabold text-slate-800">
-            <span class="h-3 w-3 rounded-full" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}"></span>
-            <span>{{ $firm['palette_label'] ?? 'Sea Green' }}</span>
-        </span>
-    </div>
+<div x-show="activeSettingsTab === 'branding'" x-cloak class="space-y-5">
 
-    <div class="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
-        @foreach(($colorPalettes ?? \App\Models\Firm::colorPalettes()) as $pKey => $pal)
-            <button type="button"
-                    wire:click="selectFirmThemePalette('{{ $pKey }}')"
-                    class="group flex items-center gap-3 rounded-2xl border p-3 text-left transition {{ $firmThemePalette === $pKey ? 'border-slate-900 bg-slate-50 shadow-sm ring-2 ring-slate-900/10' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60' }}">
-                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-inner border border-black/10 text-white" style="background-color: {{ $pal['primary'] }}">
-                    @if($firmThemePalette === $pKey)
-                        <i data-lucide="check" class="h-4 w-4"></i>
-                    @endif
-                </span>
-                <div class="min-w-0 flex-1">
-                    <p class="truncate text-xs font-extrabold text-slate-900">{{ $pal['label'] }}</p>
-                    <p class="font-mono text-[10px] text-slate-400">{{ $pal['primary'] }}</p>
+    <!-- 1. Workspace Title ("XYZ Workspace"), Firm Full Name & Mobile App Name Editor -->
+    <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+            <div class="flex items-start gap-3">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#17191F] text-[#FCDF02] shadow-sm">
+                    <i data-lucide="building-2" class="h-5 w-5"></i>
                 </div>
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-900">Workspace Name, Firm Title &amp; Mobile App Name</h3>
+                    <p class="mt-0.5 text-xs text-slate-500">Customize your sidebar workspace title (e.g. replacing &ldquo;RA&amp;C Workspace&rdquo;), full firm name, monogram initials, and installed mobile app title.</p>
+                </div>
+            </div>
+            <div class="inline-flex items-center gap-2 rounded-xl bg-[#17191F] px-3.5 py-2 text-xs font-extrabold text-white shadow-sm">
+                <span class="text-slate-400 font-semibold">Live Sidebar Preview:</span>
+                <span>{{ $firmBrandShortCode ?: ($firm['short_code'] ?? 'Practice') }} <span class="text-[#FCDF02]">Workspace</span></span>
+            </div>
+        </div>
+
+        <form wire:submit.prevent="saveFirmIdentityBranding" class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-xs">
+            <label class="block font-bold text-slate-700">
+                Workspace Header Name (Before &ldquo;Workspace&rdquo;) *
+                <input type="text" wire:model.live="firmBrandShortCode" required maxlength="40" placeholder="e.g. K. Ahmed & Co. or Apex CA"
+                       class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-extrabold text-slate-900 outline-none focus:border-amber-400 focus:bg-white">
+                <span class="mt-1 block text-[10px] font-medium text-slate-400">Appears at top-left of sidebar as: <strong>{{ $firmBrandShortCode ?: 'Your Firm' }} Workspace</strong></span>
+            </label>
+
+            <label class="block font-bold text-slate-700">
+                Official Firm Full Name *
+                <input type="text" wire:model="firmBrandName" required maxlength="150" placeholder="e.g. K. Ahmed & Co., Chartered Accountants"
+                       class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-bold text-slate-900 outline-none focus:border-amber-400 focus:bg-white">
+                <span class="mt-1 block text-[10px] font-medium text-slate-400">Appears on login portal, reports, and official PDF vouchers</span>
+            </label>
+
+            <label class="block font-bold text-slate-700">
+                Firm Category / Designation
+                <input type="text" wire:model="firmBrandKind" maxlength="100" placeholder="e.g. Chartered Accountants"
+                       class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-semibold text-slate-800 outline-none focus:border-amber-400 focus:bg-white">
+                <span class="mt-1 block text-[10px] font-medium text-slate-400">Subtitle shown below firm name</span>
+            </label>
+
+            <label class="block font-bold text-slate-700">
+                Monogram Initials (2&ndash;4 Letters)
+                <input type="text" wire:model="firmBrandInitials" maxlength="4" placeholder="e.g. KAC"
+                       class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-mono font-extrabold uppercase text-slate-900 outline-none focus:border-amber-400 focus:bg-white">
+                <span class="mt-1 block text-[10px] font-medium text-slate-400">Used on badge &amp; app icon if no image logo is uploaded</span>
+            </label>
+
+            <label class="block font-bold text-slate-700">
+                Mobile App Name (Phone Home Screen)
+                <input type="text" wire:model="firmBrandAppName" maxlength="30" placeholder="e.g. KAC ERP"
+                       class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-bold text-slate-900 outline-none focus:border-amber-400 focus:bg-white">
+                <span class="mt-1 block text-[10px] font-medium text-slate-400">Name shown on student/manager phones when app is installed</span>
+            </label>
+
+            <div class="flex items-end">
+                <button type="submit" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-3 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] shadow-sm cursor-pointer">
+                    <i data-lucide="save" class="h-4 w-4"></i> Save Workspace Name &amp; App Title
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <!-- 2. Official Firm Logo & Mobile App Icon Uploader -->
+    <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+            <div class="flex items-start gap-3">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}">
+                    <i data-lucide="image" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-900">Firm Logo &amp; Mobile App Icon</h3>
+                    <p class="mt-0.5 text-xs text-slate-500">Upload your firm's logo once to apply it across the sidebar, login portal, PDF vouchers, and installed mobile app—or upload a separate square icon for phones.</p>
+                </div>
+            </div>
+            @if(!empty($firm['logo_url']) || !empty($firm['app_icon_url']))
+                <button type="button" wire:click="removeFirmLogo" class="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-100 transition cursor-pointer">
+                    <i data-lucide="trash-2" class="h-3.5 w-3.5"></i> Remove Logo (Use {{ strtoupper($firm['initials'] ?? 'CA') }} Badge)
+                </button>
+            @endif
+        </div>
+
+        <div class="mt-5 grid gap-4 lg:grid-cols-2">
+            <!-- Primary Firm Logo Upload -->
+            <form wire:submit.prevent="uploadFirmLogo" class="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-xs">
+                <div class="flex items-start gap-3.5">
+                    <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm overflow-hidden">
+                        @if($firmLogoUpload)
+                            <img src="{{ $firmLogoUpload->temporaryUrl() }}" alt="New Firm Logo Preview" class="h-full w-full object-contain">
+                        @elseif(!empty($firm['logo_url']) && \App\Support\PwaAssets::imageExists($firm['logo_url']))
+                            <img src="{{ asset($firm['logo_url']) }}?v={{ \App\Support\PwaAssets::imageVersion($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="h-full w-full object-contain">
+                        @else
+                            <span class="flex h-full w-full items-center justify-center rounded-xl font-black text-sm text-white" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}">{{ strtoupper($firm['initials'] ?? 'CA') }}</span>
+                        @endif
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="font-extrabold text-slate-900 text-xs">1. Official Firm Logo (Workspace, Login &amp; Vouchers)</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">PNG, JPG, or WebP (max 2MB). Also automatically used as your Mobile App Icon unless a separate app icon is uploaded.</p>
+                        <input type="file" wire:model="firmLogoUpload" accept=".png,.jpg,.jpeg,.webp" class="mt-2 block w-full text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-[#17191F] file:px-2.5 file:py-1.5 file:text-[11px] file:font-bold file:text-[#FCDF02] hover:file:bg-slate-800 cursor-pointer">
+                    </div>
+                </div>
+                <button type="submit" class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#17191F] px-4 py-2.5 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800 shadow-sm cursor-pointer">
+                    <i data-lucide="upload" class="h-4 w-4"></i> Upload &amp; Apply Firm Logo
+                </button>
+            </form>
+
+            <!-- Dedicated Mobile App Icon Upload -->
+            <form wire:submit.prevent="uploadFirmAppIcon" class="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-xs">
+                <div class="flex items-start gap-3.5">
+                    <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-[#17191F] p-1 shadow-sm overflow-hidden">
+                        @if($firmAppIconUpload)
+                            <img src="{{ $firmAppIconUpload->temporaryUrl() }}" alt="New App Icon Preview" class="h-full w-full object-contain rounded-xl bg-white">
+                        @else
+                            <img src="{{ url('/c/' . ($firm['slug'] ?? $firmSlug) . '/pwa-icon-192.png') }}?v={{ \App\Support\PwaAssets::imageVersion($firm['app_icon_url'] ?? ($firm['logo_url'] ?? null)) }}" alt="Mobile App Icon" class="h-full w-full object-contain rounded-xl">
+                        @endif
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="font-extrabold text-slate-900 text-xs">2. Mobile App Icon (Installed Phone Shortcut)</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Live preview of the 192&times;192 icon installed on Android/iOS phones from <strong>/c/{{ $firm['slug'] ?? $firmSlug }}/dashboard</strong>.</p>
+                        <input type="file" wire:model="firmAppIconUpload" accept=".png,.jpg,.jpeg,.webp" class="mt-2 block w-full text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-[#17191F] file:px-2.5 file:py-1.5 file:text-[11px] file:font-bold file:text-[#FCDF02] hover:file:bg-slate-800 cursor-pointer">
+                    </div>
+                </div>
+                <button type="submit" class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#17191F] px-4 py-2.5 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800 shadow-sm cursor-pointer">
+                    <i data-lucide="smartphone" class="h-4 w-4"></i> Upload Custom Mobile App Icon
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <!-- 3. Firm Brand Color Palette Selector -->
+    <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+            <div class="flex items-start gap-3">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}">
+                    <i data-lucide="palette" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-900">Firm Brand Color Palette</h3>
+                    <p class="mt-0.5 text-xs text-slate-500">Select your firm's official brand color palette or custom hex color. Click any palette below to immediately update the entire workspace, login portal, and mobile app theme.</p>
+                </div>
+            </div>
+            <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-extrabold text-slate-800">
+                <span class="h-3 w-3 rounded-full" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}"></span>
+                <span>{{ $firm['palette_label'] ?? 'Sea Green' }}</span>
+            </span>
+        </div>
+
+        <div class="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            @foreach(($colorPalettes ?? \App\Models\Firm::colorPalettes()) as $pKey => $pal)
+                <button type="button"
+                        wire:click="selectFirmThemePalette('{{ $pKey }}')"
+                        class="group flex items-center gap-3 rounded-2xl border p-3 text-left transition {{ $firmThemePalette === $pKey ? 'border-slate-900 bg-slate-50 shadow-sm ring-2 ring-slate-900/10' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60' }}">
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-inner border border-black/10 text-white" style="background-color: {{ $pal['primary'] }}">
+                        @if($firmThemePalette === $pKey)
+                            <i data-lucide="check" class="h-4 w-4"></i>
+                        @endif
+                    </span>
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate text-xs font-extrabold text-slate-900">{{ $pal['label'] }}</p>
+                        <p class="font-mono text-[10px] text-slate-400">{{ $pal['primary'] }}</p>
+                    </div>
+                </button>
+            @endforeach
+        </div>
+
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs">
+            <div class="flex items-center gap-3">
+                <input type="color" wire:model.live="firmCustomPrimaryColor" wire:change="$set('firmThemePalette', 'custom')" class="h-9 w-14 cursor-pointer rounded-lg border border-slate-300 bg-white p-0.5">
+                <div>
+                    <p class="font-extrabold text-slate-900">Custom Brand Hex Color</p>
+                    <p class="text-[11px] text-slate-500">Selected Hex: <span class="font-mono font-bold text-slate-800">{{ $firmCustomPrimaryColor }}</span></p>
+                </div>
+            </div>
+            <button type="button" wire:click="saveFirmThemePalette" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] shadow-sm">
+                <i data-lucide="check-circle-2" class="h-4 w-4"></i> Save Brand Color Palette
             </button>
-        @endforeach
-    </div>
-
-    <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs">
-        <div class="flex items-center gap-3">
-            <input type="color" wire:model.live="firmCustomPrimaryColor" wire:change="$set('firmThemePalette', 'custom')" class="h-9 w-14 cursor-pointer rounded-lg border border-slate-300 bg-white p-0.5">
-            <div>
-                <p class="font-extrabold text-slate-900">Custom Brand Hex Color</p>
-                <p class="text-[11px] text-slate-500">Selected Hex: <span class="font-mono font-bold text-slate-800">{{ $firmCustomPrimaryColor }}</span></p>
-            </div>
         </div>
-        <button type="button" wire:click="saveFirmThemePalette" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] shadow-sm">
-            <i data-lucide="check-circle-2" class="h-4 w-4"></i> Save Brand Color Palette
-        </button>
-    </div>
-
-    <!-- Official Firm Logo Uploader (Sidebar, Login Portal & PDF Letterhead) -->
-    <form wire:submit.prevent="uploadFirmLogo" class="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-xs">
-        <div class="flex items-center gap-3.5">
-            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xs overflow-hidden">
-                @if($firmLogoUpload)
-                    <img src="{{ $firmLogoUpload->temporaryUrl() }}" alt="New Firm Logo Preview" class="h-full w-full object-contain">
-                @elseif(!empty($firm['logo_url']) && file_exists(public_path($firm['logo_url'])))
-                    <img src="{{ asset($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="h-full w-full object-contain">
-                @else
-                    <span class="font-black text-sm text-amber-700">{{ strtoupper($firm['initials'] ?? 'CA') }}</span>
-                @endif
-            </div>
-            <div>
-                <p class="font-extrabold text-slate-900">Official Firm Logo</p>
-                <p class="text-[11px] text-slate-500 mt-0.5">PNG, JPG, or WebP (max 2MB). Appears on the workspace sidebar, login portal, and PDF vouchers.</p>
-                <input type="file" wire:model="firmLogoUpload" accept=".png,.jpg,.jpeg,.webp" class="mt-1.5 block text-[11px] text-slate-600 file:mr-2 file:rounded-lg file:border-0 file:bg-[#17191F] file:px-2.5 file:py-1 file:text-[11px] file:font-bold file:text-[#FCDF02] hover:file:bg-slate-800 cursor-pointer">
-            </div>
-        </div>
-        <button type="submit" class="inline-flex items-center gap-1.5 rounded-xl bg-[#17191F] px-4 py-2.5 text-xs font-extrabold text-[#FCDF02] hover:bg-slate-800 shadow-sm">
-            <i data-lucide="upload" class="h-4 w-4"></i> Upload &amp; Apply Logo
-        </button>
-    </form>
-</section>
+    </section>
+</div>
 @endif
 
 

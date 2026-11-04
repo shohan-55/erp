@@ -33,6 +33,230 @@ class PwaAssets
         return base64_decode(self::ICON_512_B64);
     }
 
+    /**
+     * Locate a relative public asset (e.g. "images/myfirm_logo.png") across standard
+     * public_path(), cPanel ERP_WEB_ROOT, and sibling ../public_html directories.
+     */
+    public static function locateImagePath(?string $relativePath): ?string
+    {
+        if (! $relativePath || $relativePath === 'none') {
+            return null;
+        }
+        $clean = ltrim(trim($relativePath), '/\\');
+        if ($clean === '' || str_contains($clean, '..')) {
+            return null;
+        }
+
+        $candidates = [
+            public_path($clean),
+        ];
+        $webRoot = (string) config('erp.web_root', '');
+        if ($webRoot !== '') {
+            $candidates[] = rtrim($webRoot, '/\\') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $clean);
+        }
+        $siblingPublicHtml = base_path('../public_html/' . $clean);
+        $candidates[] = $siblingPublicHtml;
+
+        foreach ($candidates as $path) {
+            if (is_file($path) && is_readable($path)) {
+                return $path;
+            }
+        }
+        return null;
+    }
+
+    public static function imageExists(?string $relativePath): bool
+    {
+        return self::locateImagePath($relativePath) !== null;
+    }
+
+    public static function imageVersion(?string $relativePath): string
+    {
+        $path = self::locateImagePath($relativePath);
+        if ($path) {
+            return (string) (@filemtime($path) ?: '1');
+        }
+        return '1';
+    }
+
+    /**
+     * Serve any image in public/images/{filename} via Laravel fallback when cPanel
+     * public_html does not yet have a static copy.
+     */
+    public static function servePublicImage(string $filename): \Symfony\Component\HttpFoundation\Response
+    {
+        $safe = basename(trim($filename));
+        if ($safe === 'pwa-icon-192.png') {
+            return response(self::getIcon192(), 200, [
+                'Content-Type'  => 'image/png',
+                'Cache-Control' => 'public, max-age=31536000',
+            ]);
+        }
+        if ($safe === 'pwa-icon-512.png') {
+            return response(self::getIcon512(), 200, [
+                'Content-Type'  => 'image/png',
+                'Cache-Control' => 'public, max-age=31536000',
+            ]);
+        }
+
+        $path = self::locateImagePath('images/' . $safe);
+        if (! $path) {
+            abort(404);
+        }
+
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mime = match ($ext) {
+            'svg'          => 'image/svg+xml',
+            'jpg', 'jpeg'  => 'image/jpeg',
+            'webp'         => 'image/webp',
+            'gif'          => 'image/gif',
+            default        => 'image/png',
+        };
+
+        return response(file_get_contents($path), 200, [
+            'Content-Type'  => $mime,
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
+    /**
+     * Dynamically generate or resize a 192x192 or 512x512 PNG icon for a specific Firm!
+     * - If the firm uploaded a custom App Icon or Firm Logo (PNG, JPG, WebP), scales and centers
+     *   it onto a crisp $size x $size PNG canvas so Chrome WebAPK always accepts it.
+     * - If the firm has no uploaded logo yet, generates a branded $size x $size PNG icon using
+     *   the firm's Brand Primary Color and Initials.
+     */
+    public static function generateFirmIconPng(?array $firm, int $size = 192): string
+    {
+        $size = in_array($size, [192, 512], true) ? $size : 192;
+        $iconRel = $firm['app_icon_url'] ?? ($firm['logo_url'] ?? null);
+        $logoPath = self::locateImagePath($iconRel);
+
+        $primaryHex = $firm['primary_color'] ?? '#0D9488';
+        if (! preg_match('/^#[0-9A-Fa-f]{6}$/', $primaryHex)) {
+            $primaryHex = '#0D9488';
+        }
+        $pr = hexdec(substr($primaryHex, 1, 2));
+        $pg = hexdec(substr($primaryHex, 3, 2));
+        $pb = hexdec(substr($primaryHex, 5, 2));
+
+        if (function_exists('imagecreatetruecolor')) {
+            $canvas = @imagecreatetruecolor($size, $size);
+            if ($canvas) {
+                imagesavealpha($canvas, true);
+                imagealphablending($canvas, true);
+
+                // Check if firm has a raster logo (PNG/JPG/WebP) we can composite onto the square icon
+                if ($logoPath && ! str_ends_with(strtolower($logoPath), '.svg')) {
+                    $rawBytes = @file_get_contents($logoPath);
+                    $srcImg = $rawBytes ? @imagecreatefromstring($rawBytes) : false;
+                    if ($srcImg) {
+                        $white = imagecolorallocate($canvas, 255, 255, 255);
+                        imagefilledrectangle($canvas, 0, 0, $size - 1, $size - 1, $white);
+
+                        // Subtle brand border frame (6px on 192, 14px on 512)
+                        $borderThickness = $size === 512 ? 12 : 5;
+                        $brandCol = imagecolorallocate($canvas, $pr, $pg, $pb);
+                        for ($b = 0; $b < $borderThickness; $b++) {
+                            imagerectangle($canvas, $b, $b, $size - 1 - $b, $size - 1 - $b, $brandCol);
+                        }
+
+                        $srcW = max(1, imagesx($srcImg));
+                        $srcH = max(1, imagesy($srcImg));
+                        $pad = (int) round($size * 0.10);
+                        $avail = $size - ($pad * 2);
+                        $scale = min($avail / $srcW, $avail / $srcH);
+                        $dstW = max(1, (int) round($srcW * $scale));
+                        $dstH = max(1, (int) round($srcH * $scale));
+                        $dstX = (int) round(($size - $dstW) / 2);
+                        $dstY = (int) round(($size - $dstH) / 2);
+
+                        imagecopyresampled($canvas, $srcImg, $dstX, $dstY, 0, 0, $dstW, $dstH, $srcW, $srcH);
+                        imagedestroy($srcImg);
+
+                        ob_start();
+                        imagepng($canvas, null, 6);
+                        $pngOut = (string) ob_get_clean();
+                        imagedestroy($canvas);
+                        if ($pngOut !== '') {
+                            return $pngOut;
+                        }
+                    }
+                }
+
+                // No uploaded logo yet: render a crisp Brand Color + Initials Monogram App Icon!
+                $darkBg = imagecolorallocate($canvas, 23, 25, 31); // #17191F
+                $brandBg = imagecolorallocate($canvas, $pr, $pg, $pb);
+                $goldCol = imagecolorallocate($canvas, 252, 223, 2); // #FCDF02
+                $white = imagecolorallocate($canvas, 255, 255, 255);
+
+                imagefilledrectangle($canvas, 0, 0, $size - 1, $size - 1, $darkBg);
+                $inset = (int) round($size * 0.08);
+                imagefilledrectangle($canvas, $inset, $inset, $size - 1 - $inset, $size - 1 - $inset, $brandBg);
+
+                // Top gold accent bar
+                $barH = max(4, (int) round($size * 0.04));
+                imagefilledrectangle($canvas, $inset, $inset, $size - 1 - $inset, $inset + $barH, $goldCol);
+
+                // Draw bold scaled initials in the center using built-in bitmap font scaled up crisply
+                $initials = strtoupper(substr(preg_replace('/[^A-Za-z0-9&]/', '', (string) ($firm['initials'] ?? ($firm['short_code'] ?? 'CA'))), 0, 3)) ?: 'CA';
+                $font = 5;
+                $fw = imagefontwidth($font) * strlen($initials);
+                $fh = imagefontheight($font);
+                $tmp = imagecreatetruecolor($fw + 4, $fh + 4);
+                $trans = imagecolorallocate($tmp, 0, 0, 0);
+                imagefilledrectangle($tmp, 0, 0, $fw + 3, $fh + 3, $trans);
+                imagecolortransparent($tmp, $trans);
+
+                $lum = (0.299 * $pr + 0.587 * $pg + 0.114 * $pb) / 255;
+                $txtCol = $lum > 0.65
+                    ? imagecolorallocate($tmp, 23, 25, 31)
+                    : imagecolorallocate($tmp, 255, 255, 255);
+                imagestring($tmp, $font, 2, 2, $initials, $txtCol);
+
+                $scaleFactor = $size === 512 ? (strlen($initials) >= 3 ? 11 : 14) : (strlen($initials) >= 3 ? 4 : 5);
+                $scaledW = ($fw + 4) * $scaleFactor;
+                $scaledH = ($fh + 4) * $scaleFactor;
+                $dx = (int) round(($size - $scaledW) / 2);
+                $dy = (int) round(($size - $scaledH) / 2);
+
+                imagecopyresized($canvas, $tmp, $dx, $dy, 0, 0, $scaledW, $scaledH, $fw + 4, $fh + 4);
+                imagedestroy($tmp);
+
+                ob_start();
+                imagepng($canvas, null, 6);
+                $pngOut = (string) ob_get_clean();
+                imagedestroy($canvas);
+                if ($pngOut !== '') {
+                    return $pngOut;
+                }
+            }
+        }
+
+        // Pure-PHP fallback if GD is disabled: generate a valid solid $size x $size PNG in the firm's primary color
+        if (function_exists('zlib_encode')) {
+            $row = "\x00" . str_repeat(chr($pr) . chr($pg) . chr($pb), $size);
+            $raw = str_repeat($row, $size);
+            $ihdr = pack('NNccccc', $size, $size, 8, 2, 0, 0, 0);
+            $idat = zlib_encode($raw, ZLIB_ENCODING_DEFLATE, 6);
+            $chunk = fn (string $t, string $d) => pack('N', strlen($d)) . $t . $d . pack('N', crc32($t . $d));
+            return "\x89PNG\r\n\x1a\n" . $chunk('IHDR', $ihdr) . $chunk('IDAT', (string) $idat) . $chunk('IEND', '');
+        }
+
+        return $size === 512 ? self::getIcon512() : self::getIcon192();
+    }
+
+    public static function renderFirmIconResponse(string $firmSlug, int $size = 192): \Symfony\Component\HttpFoundation\Response
+    {
+        $firm = \App\Services\FirmRegistry::get(strtolower(trim($firmSlug)));
+        $png = self::generateFirmIconPng($firm, $size);
+
+        return response($png, 200, [
+            'Content-Type'  => 'image/png',
+            'Cache-Control' => 'no-cache, must-revalidate',
+        ]);
+    }
+
     public static function renderManifest(?string $firmSlug = null): \Illuminate\Http\JsonResponse
     {
         $firm = $firmSlug ? \App\Services\FirmRegistry::get(strtolower(trim($firmSlug))) : null;
@@ -40,57 +264,55 @@ class PwaAssets
             $firm = \App\Services\FirmRegistry::defaultFirm();
         }
         $slug = $firm['slug'] ?? 'rac';
-        $shortName = $firm['short_code'] ?? ($firm['name'] ?? 'Practice ERP');
+        $shortCode = $firm['short_code'] ?? ($firm['name'] ?? 'Practice');
+        $appName = ! empty($firm['app_name']) ? $firm['app_name'] : ($shortCode . ' ERP');
         $fullName = ($firm['name'] ?? 'DhakaWala ERP') . ' — Practice Workspace';
+        $primaryColor = $firm['primary_color'] ?? '#17191F';
         $startUrl = $firmSlug ? url('/c/' . $slug . '/dashboard?pwa=1') : url('/dashboard?pwa=1');
+
+        $iconVer = substr(md5(($firm['app_icon_url'] ?? '') . '|' . ($firm['logo_url'] ?? '') . '|' . $primaryColor . '|' . ($firm['initials'] ?? '') . '|' . self::imageVersion($firm['app_icon_url'] ?? ($firm['logo_url'] ?? null))), 0, 8);
+        $icon192Url = $firmSlug
+            ? url('/c/' . $slug . '/pwa-icon-192.png?v=' . $iconVer)
+            : url('/pwa-icon-192.png');
+        $icon512Url = $firmSlug
+            ? url('/c/' . $slug . '/pwa-icon-512.png?v=' . $iconVer)
+            : url('/pwa-icon-512.png');
 
         return response()->json([
             'id'               => $firmSlug ? ('/c/' . $slug . '/dashboard?pwa=1') : '/dashboard?pwa=1',
             'name'             => $fullName,
-            'short_name'       => mb_substr($shortName, 0, 15) . ' ERP',
+            'short_name'       => mb_substr($appName, 0, 18),
             'description'      => 'GPS Attendance, Conveyance Claims, Leave Passbook & Monthly Stipend App.',
             'start_url'        => $startUrl,
             'scope'            => '/',
             'display'          => 'standalone',
             'orientation'      => 'portrait-primary',
             'background_color' => '#17191F',
-            'theme_color'      => '#17191F',
+            'theme_color'      => $primaryColor,
             'icons'            => [
                 [
-                    'src'     => url('/pwa-icon-192.png'),
+                    'src'     => $icon192Url,
                     'sizes'   => '192x192',
                     'type'    => 'image/png',
                     'purpose' => 'any',
                 ],
                 [
-                    'src'     => url('/pwa-icon-192.png'),
+                    'src'     => $icon192Url,
                     'sizes'   => '192x192',
                     'type'    => 'image/png',
                     'purpose' => 'maskable',
                 ],
                 [
-                    'src'     => url('/pwa-icon-512.png'),
+                    'src'     => $icon512Url,
                     'sizes'   => '512x512',
                     'type'    => 'image/png',
                     'purpose' => 'any',
                 ],
                 [
-                    'src'     => url('/pwa-icon-512.png'),
+                    'src'     => $icon512Url,
                     'sizes'   => '512x512',
                     'type'    => 'image/png',
                     'purpose' => 'maskable',
-                ],
-                [
-                    'src'     => url('/images/pwa-icon-192.png'),
-                    'sizes'   => '192x192',
-                    'type'    => 'image/png',
-                    'purpose' => 'any',
-                ],
-                [
-                    'src'     => url('/images/pwa-icon-512.png'),
-                    'sizes'   => '512x512',
-                    'type'    => 'image/png',
-                    'purpose' => 'any',
                 ],
             ],
         ], 200, [
