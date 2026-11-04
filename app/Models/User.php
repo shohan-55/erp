@@ -164,11 +164,14 @@ class User extends Authenticatable
      */
     public static function buildLeaveEntitlement(string $role, int $articleshipYears = 3, ?int $customCap = null, array $customDays = []): array
     {
+        $policyMode = (($customDays['leave_policy_mode'] ?? 'icab') === 'custom') ? 'custom' : 'icab';
+
         if ($role === self::ROLE_STUDENT) {
-            $years = ($articleshipYears === 4) ? 4 : 3;
-            $defaultCap = ($years === 4) ? 240 : 180;
-            $cap = ($customCap !== null && $customCap > 0) ? (int) $customCap : $defaultCap;
-            $perYearCap = (int) round($cap / $years);
+            $years = $policyMode === 'custom'
+                ? max(1, min(6, (int) ($articleshipYears ?: 3)))
+                : (($articleshipYears === 4) ? 4 : 3);
+            $defaultCap = ($years === 4) ? 240 : ($years * 60);
+            $cap = ($customCap !== null && $customCap >= 0) ? (int) $customCap : $defaultCap;
 
             // Resolve per-year regular quotas (supporting both explicit *_per_year keys and legacy keys)
             $casualPerYear = isset($customDays['annual_per_year'])
@@ -194,14 +197,25 @@ class User extends Authenticatable
             $emergencyTotal = $emergencyPerYear * $years;
             $regularTotal   = $casualTotal + $sickTotal + $emergencyTotal;
 
-            // Remaining days out of 180 (3-Yr) or 240 (4-Yr) become ICAB Study / Exam Preparation Leave
-            $studyTotal   = max(0, $cap - $regularTotal);
-            $studyPerYear = (int) round($studyTotal / $years);
-            $effectiveCap = $regularTotal + $studyTotal;
+            if ($policyMode === 'custom' && isset($customDays['icab_study'])) {
+                $studyTotal   = max(0, (int) $customDays['icab_study']);
+                $effectiveCap = ($customCap !== null && $customCap > 0) ? (int) $customCap : ($regularTotal + $studyTotal);
+            } else {
+                // Remaining days out of 180 (3-Yr) or 240 (4-Yr) become ICAB Study / Exam Preparation Leave
+                $studyTotal   = max(0, $cap - $regularTotal);
+                $effectiveCap = $regularTotal + $studyTotal;
+            }
+
+            $studyPerYear = (int) round($studyTotal / max(1, $years));
+            $perYearCap   = (int) round($effectiveCap / max(1, $years));
+            $regimeLabel  = $policyMode === 'custom'
+                ? "Custom Leave ({$years}-Yr · {$effectiveCap} Days)"
+                : "{$years}-Year ICAB Articleship ({$perYearCap}d/Yr × {$years} = {$effectiveCap} Days)";
 
             return [
                 'regime'                     => 'icab_articleship',
-                'regime_label'               => "{$years}-Year ICAB Articleship ({$perYearCap}d/Yr × {$years} = {$effectiveCap} Days)",
+                'leave_policy_mode'          => $policyMode,
+                'regime_label'               => $regimeLabel,
                 'articleship_duration_years' => $years,
                 'per_year_cap'               => $perYearCap,
                 'total_leave_cap'            => $effectiveCap,
@@ -212,6 +226,7 @@ class User extends Authenticatable
                     'icab_study' => $studyPerYear,
                 ],
                 'allocations'                => [
+                    'leave_policy_mode'  => $policyMode,
                     'annual_per_year'    => $casualPerYear,
                     'sick_per_year'      => $sickPerYear,
                     'emergency_per_year' => $emergencyPerYear,
@@ -267,9 +282,14 @@ class User extends Authenticatable
         $totalEarned  = $baseEarned + $carryForward;
         $totalCorp    = $casual + $sick + $totalEarned + $emergency;
 
+        $mgrRegimeLabel = $policyMode === 'custom'
+            ? "Custom Leave (Jan–Dec Reset · {$totalCorp} Days)"
+            : "As per ICAB / Standard Leave (Jan–Dec Reset · {$totalCorp} Days)";
+
         return [
             'regime'                     => 'bd_corporate',
-            'regime_label'               => "BD Corporate Leave (Jan–Dec Reset · {$totalCorp} Days)",
+            'leave_policy_mode'          => $policyMode,
+            'regime_label'               => $mgrRegimeLabel,
             'articleship_duration_years' => null,
             'per_year_cap'               => $totalCorp,
             'total_leave_cap'            => $totalCorp,
@@ -282,6 +302,7 @@ class User extends Authenticatable
                 'emergency' => $emergency,
             ],
             'allocations'                => [
+                'leave_policy_mode'    => $policyMode,
                 'annual'               => $casual,
                 'sick'                 => $sick,
                 'earned'               => $baseEarned,

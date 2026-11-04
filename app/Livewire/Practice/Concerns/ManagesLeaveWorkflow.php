@@ -1126,7 +1126,7 @@ trait ManagesLeaveWorkflow
         }
 
         // For Managers/Staff, filter rawLeaves to the current calendar year (Jan 1 - Dec 31 reset)
-        if ($ent['regime'] === 'corporate_staff') {
+        if (in_array($ent['regime'], ['bd_corporate', 'corporate_staff'], true)) {
             $rawLeaves = array_values(array_filter($rawLeaves, function ($rl) use ($currentYearStr) {
                 $sd = $rl['start_date'] ?? '';
                 return $sd >= ($currentYearStr . '-01-01') && $sd <= ($currentYearStr . '-12-31');
@@ -1140,7 +1140,7 @@ trait ManagesLeaveWorkflow
         foreach ($ent['categories'] as $cat) {
             $cKey = $cat['key'];
             $allocated = max(0, (int) $cat['days']);
-            if ($ent['regime'] === 'corporate_staff' && $cKey === 'earned' && $autoCarryForwardEarned > 0) {
+            if (in_array($ent['regime'], ['bd_corporate', 'corporate_staff'], true) && $cKey === 'earned' && $autoCarryForwardEarned > 0) {
                 $allocated += $autoCarryForwardEarned;
             }
             $perYearAlloc = max(0, (int) ($cat['per_year_days'] ?? $allocated));

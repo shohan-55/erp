@@ -199,6 +199,7 @@ class PracticePreview extends Component
     // ICAB Articleship Start & Completion Dates (#4)
     public string $newMemberArticleshipStart = '';
     public string $newMemberArticleshipEnd = '';
+    public string $newMemberLeavePolicyMode = 'icab'; // 'icab' | 'custom'
     public int $newMemberArticleshipYears = 3;
     public int $newMemberTotalLeaveCap = 180;
     public int $newMemberLeaveCasual = 14;
@@ -210,6 +211,7 @@ class PracticePreview extends Component
 
     public string $editMemberArticleshipStart = '';
     public string $editMemberArticleshipEnd = '';
+    public string $editMemberLeavePolicyMode = 'icab'; // 'icab' | 'custom'
     public int $editMemberArticleshipYears = 3;
     public int $editMemberTotalLeaveCap = 180;
     public int $editMemberLeaveCasual = 14;
