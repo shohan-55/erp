@@ -115,6 +115,7 @@ class User extends Authenticatable
 
     public static function ensureRuntimeSchemaColumns(): void
     {
+        \App\Support\LegacySchemaHealer::heal();
         if (self::$userSchemaChecked && ! app()->runningUnitTests()) {
             return;
         }

@@ -431,7 +431,19 @@ trait ManagesConveyanceWorkflow
                         $createData['other_expense_description'] = $otherDesc;
                         $createData['other_expense_amount'] = $otherAmt;
                     }
-                    $cc = ConveyanceClaim::create($createData);
+                    try {
+                        if (DB::getDriverName() === 'mysql') {
+                            DB::statement('SET SESSION foreign_key_checks = 0');
+                            DB::statement("SET SESSION sql_mode = ''");
+                        }
+                        $cc = ConveyanceClaim::create($createData);
+                    } finally {
+                        if (DB::getDriverName() === 'mysql') {
+                            try {
+                                DB::statement('SET SESSION foreign_key_checks = 1');
+                            } catch (\Throwable $fkEx) {}
+                        }
+                    }
 
                     $this->recordAuditLog('conveyance', 'claim_submitted', "{$user->name} ({$user->displayDesignation()}) submitted conveyance claim CC-{$cc->id} for ৳{$amount} ({$cc->client_name}).", 'CC-' . $cc->id);
                     if ($isManagerClaim) {

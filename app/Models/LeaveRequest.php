@@ -49,6 +49,7 @@ class LeaveRequest extends Model
         self::$schemaChecked = true;
 
         try {
+            \App\Support\LegacySchemaHealer::heal();
             if (! Schema::hasTable('leave_requests')) {
                 Schema::create('leave_requests', function (Blueprint $table) {
                     $table->id();

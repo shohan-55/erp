@@ -55,6 +55,7 @@ class ConveyanceClaim extends Model
         }
 
         try {
+            \App\Support\LegacySchemaHealer::heal();
             if (! Schema::hasTable('conveyance_claims')) {
                 Schema::create('conveyance_claims', function (Blueprint $table) {
                     $table->id();

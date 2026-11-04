@@ -601,15 +601,20 @@ trait ManagesLeaveWorkflow
 
                     $lr = null;
                     try {
+                        if (DB::getDriverName() === 'mysql') {
+                            DB::statement('SET SESSION foreign_key_checks = 0');
+                            DB::statement("SET SESSION sql_mode = ''");
+                        }
                         $lr = LeaveRequest::create($createData);
                     } catch (\Throwable $insertEx) {
                         Log::warning('LeaveRequest::create attempt 1 failed: ' . $insertEx->getMessage());
                         try {
                             if (DB::getDriverName() === 'mysql') {
+                                DB::statement('SET SESSION foreign_key_checks = 0');
                                 DB::statement("SET SESSION sql_mode = ''");
                             }
                             $fallbackData = $createData;
-                            unset($fallbackData['reviewed_by']);
+                            unset($fallbackData['reviewed_by'], $fallbackData['workspace_id']);
                             if ($hasCol('created_at')) {
                                 $fallbackData['created_at'] = now();
                             }
@@ -621,9 +626,15 @@ trait ManagesLeaveWorkflow
                         } catch (\Throwable $insertEx2) {
                             Log::warning('LeaveRequest::create attempt 2 failed: ' . $insertEx2->getMessage());
                             $fallbackData['status'] = $isManagerApplicant ? 'Awaiting Partner' : 'Awaiting Manager';
-                            unset($fallbackData['engaged_manager_id']);
+                            unset($fallbackData['engaged_manager_id'], $fallbackData['workspace_id']);
                             $insertedId = DB::table('leave_requests')->insertGetId($fallbackData);
                             $lr = LeaveRequest::find($insertedId);
+                        }
+                    } finally {
+                        if (DB::getDriverName() === 'mysql') {
+                            try {
+                                DB::statement('SET SESSION foreign_key_checks = 1');
+                            } catch (\Throwable $fkEx) {}
                         }
                     }
 

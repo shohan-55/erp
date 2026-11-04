@@ -262,6 +262,7 @@ class Firm extends Model
 
     public static function ensureRuntimeSchemaColumns(): void
     {
+        \App\Support\LegacySchemaHealer::heal();
         if (self::$firmSchemaChecked && ! app()->runningUnitTests()) {
             return;
         }

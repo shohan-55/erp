@@ -25,6 +25,10 @@ class AppServiceProvider extends ServiceProvider
 
         $this->registerMiddlewareAliases();
         $this->registerGates();
+
+        if (! $this->app->runningInConsole()) {
+            \App\Support\LegacySchemaHealer::heal();
+        }
     }
 
     /**
