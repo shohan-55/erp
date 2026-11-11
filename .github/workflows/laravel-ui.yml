@@ -91,7 +91,7 @@ jobs:
 
       - name: Upload Phase 04-10 screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: phase-04-10-practice-ui-screenshots
           path: screenshots/practice-phases/
@@ -100,7 +100,7 @@ jobs:
 
       - name: Upload Phase 03 screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: phase-03-platform-dashboard-screenshots
           path: screenshots/phase-03/
