@@ -239,6 +239,20 @@ trait ManagesTeamAndNotifications
     }
 
     /**
+     * Partners, Managers, and authorized Team Admins can edit member accounts
+     * (Student, Intern, Office Staff, and Manager profiles, leave quotas, allowances, etc.).
+     */
+    public function userCanEditMembers(): bool
+    {
+        if (Auth::check()) {
+            /** @var User $user */
+            $user = Auth::user();
+            return $user->isPlatformAdmin() || $user->isPartner() || $user->isManager() || (bool) $user->can_manage_team;
+        }
+        return in_array($this->previewRole, ['partner', 'manager'], true);
+    }
+
+    /**
      * Any Partner, Manager, or authorized team administrator can reset member passwords
      * and trigger the automated credentials email to the member's mailbox.
      */
@@ -275,14 +289,20 @@ trait ManagesTeamAndNotifications
     /**
      * Role hierarchy guard for role assignment.
      *
-     * A Partner (or Platform Super Admin) may assign any firm role. A delegated
-     * Manager may only ever assign the Articled Student role — otherwise they
-     * could mint themselves (or an accomplice) a Partner account.
+     * A Partner (or Platform Super Admin) may assign any firm role. A Manager or
+     * Team Admin may assign Student/Intern or Manager/Office Staff roles, but can
+     * never assign or promote anyone to the Partner role.
      */
     protected function canManageTargetRole(string $targetRole): bool
     {
         if (! Auth::check()) {
-            return $this->previewRole === 'partner';
+            if ($this->previewRole === 'partner') {
+                return in_array($targetRole, [User::ROLE_PARTNER, User::ROLE_MANAGER, User::ROLE_STUDENT], true);
+            }
+            if ($this->previewRole === 'manager') {
+                return in_array($targetRole, [User::ROLE_MANAGER, User::ROLE_STUDENT], true);
+            }
+            return false;
         }
 
         /** @var User $actor */
@@ -292,24 +312,30 @@ trait ManagesTeamAndNotifications
             return in_array($targetRole, [User::ROLE_PARTNER, User::ROLE_MANAGER, User::ROLE_STUDENT], true);
         }
 
-        if (! $actor->can_manage_team) {
-            return false;
+        if ($actor->isManager() || $actor->can_manage_team) {
+            return in_array($targetRole, [User::ROLE_MANAGER, User::ROLE_STUDENT], true);
         }
 
-        return $targetRole === User::ROLE_STUDENT;
+        return false;
     }
 
     /**
      * Role hierarchy guard for editing / deleting an existing account.
      *
-     * A delegated Manager may only touch Articled Students. Partners and other
-     * Managers are out of scope, so a Manager can never reset a Partner password,
-     * demote a Partner, or delete an account above their own level.
+     * Partners can manage any member. Managers / Team Admins can edit or manage
+     * Students, Interns, Office Staff, and Managers, but can never modify, reset,
+     * demote, or delete a Partner or Platform Admin account.
      */
     protected function canManageTargetUser(User $target): bool
     {
         if (! Auth::check()) {
-            return $this->previewRole === 'partner';
+            if ($this->previewRole === 'partner') {
+                return true;
+            }
+            if ($this->previewRole === 'manager') {
+                return ! in_array($target->role, [User::ROLE_PARTNER, User::ROLE_PLATFORM_ADMIN], true);
+            }
+            return false;
         }
 
         /** @var User $actor */
@@ -319,11 +345,11 @@ trait ManagesTeamAndNotifications
             return true;
         }
 
-        if (! $actor->can_manage_team) {
-            return false;
+        if ($actor->isManager() || $actor->can_manage_team) {
+            return ! in_array($target->role, [User::ROLE_PARTNER, User::ROLE_PLATFORM_ADMIN], true);
         }
 
-        return $target->role === User::ROLE_STUDENT;
+        return false;
     }
 
     public function loadCustomDesignations(): void
@@ -1011,6 +1037,9 @@ trait ManagesTeamAndNotifications
     {
         $this->newMemberName = '';
         $this->newMemberEmail = '';
+        $this->newMemberPhone = '';
+        $this->newMemberPaymentMode = 'bKash';
+        $this->newMemberPaymentAccountNo = '';
         $this->newMemberPassword = '';
         $this->newMemberRole = 'student';
         $this->newMemberDesignation = 'Articled Student';
@@ -1124,6 +1153,15 @@ trait ManagesTeamAndNotifications
             if (! $desigExists && $finalDesig !== '') {
                 $this->customDesignations[] = ['title' => $finalDesig, 'base_role' => $this->newMemberRole];
                 $this->persistCustomDesignations();
+            }
+            if (Schema::hasColumn('users', 'phone') && trim($this->newMemberPhone) !== '') {
+                $user->phone = trim($this->newMemberPhone);
+            }
+            if (Schema::hasColumn('users', 'payment_account_mode')) {
+                $user->payment_account_mode = trim($this->newMemberPaymentMode) ?: 'bKash';
+            }
+            if (Schema::hasColumn('users', 'payment_account_no') && trim($this->newMemberPaymentAccountNo) !== '') {
+                $user->payment_account_no = trim($this->newMemberPaymentAccountNo);
             }
             $user->partner_unit = $this->newMemberPartnerUnit ?: $this->partnerUnit;
             $user->monthly_allowance = (float) $this->newMemberMonthlyAllowance;
@@ -1255,8 +1293,8 @@ trait ManagesTeamAndNotifications
     public function openEditMemberModal($id): void
     {
         $this->enforceAuthenticatedRoleLock();
-        if (! $this->userCanManageTeam()) {
-            $this->error = 'Only Partners or authorized Managers can edit member profiles and permissions.';
+        if (! $this->userCanEditMembers()) {
+            $this->error = 'Only Partners or Managers can edit member accounts and profiles.';
             return;
         }
 
@@ -1266,12 +1304,19 @@ trait ManagesTeamAndNotifications
             return;
         }
 
+        if (($member['role'] ?? '') === 'partner' && $this->previewRole !== 'partner' && (! Auth::check() || (! Auth::user()->isPartner() && ! Auth::user()->isPlatformAdmin()))) {
+            $this->error = 'Security rule: Only a Partner can edit a Partner account.';
+            return;
+        }
+
         $this->error = null;
         $this->closeDialogs();
         $this->editMemberId = (int) $member['id'];
         $this->editMemberName = $member['name'];
         $this->editMemberEmail = $member['email'];
         $this->editMemberPhone = ($member['phone'] ?? '') !== '—' ? ($member['phone'] ?? '') : '';
+        $this->editMemberPaymentMode = (($member['payment_account_mode'] ?? 'bKash') !== '—' && !empty($member['payment_account_mode'])) ? $member['payment_account_mode'] : 'bKash';
+        $this->editMemberPaymentAccountNo = ($member['payment_account_no'] ?? '') !== '—' ? ($member['payment_account_no'] ?? '') : '';
         $this->editMemberNewPassword = '';
         $this->editMemberRole = $member['role'];
         $this->editMemberDesignation = $member['designation'] ?? ($member['role_label'] ?? 'Articled Student');
@@ -1423,8 +1468,8 @@ trait ManagesTeamAndNotifications
         $this->enforceAuthenticatedRoleLock();
         $this->error = null;
         $this->notice = null;
-        if (! $this->userCanManageTeam()) {
-            $this->error = 'Unauthorized action: Only Partners or authorized Managers can modify permissions.';
+        if (! $this->userCanEditMembers()) {
+            $this->error = 'Unauthorized action: Only Partners or Managers can modify member accounts.';
             return;
         }
 
@@ -1459,6 +1504,12 @@ trait ManagesTeamAndNotifications
                 }
                 if (Schema::hasColumn('users', 'phone')) {
                     $user->phone = trim($this->editMemberPhone) ?: null;
+                }
+                if (Schema::hasColumn('users', 'payment_account_mode')) {
+                    $user->payment_account_mode = trim($this->editMemberPaymentMode) ?: 'bKash';
+                }
+                if (Schema::hasColumn('users', 'payment_account_no')) {
+                    $user->payment_account_no = trim($this->editMemberPaymentAccountNo) ?: null;
                 }
                 $cleanEmail = strtolower(trim($this->editMemberEmail));
                 if (filter_var($cleanEmail, FILTER_VALIDATE_EMAIL) && $cleanEmail !== $user->email) {
@@ -1565,7 +1616,13 @@ trait ManagesTeamAndNotifications
         } else {
             foreach ($this->teamMembers as &$m) {
                 if ($m['id'] == $this->editMemberId) {
+                    $m['name'] = trim($this->editMemberName) ?: $m['name'];
+                    $m['email'] = strtolower(trim($this->editMemberEmail)) ?: $m['email'];
+                    $m['phone'] = trim($this->editMemberPhone) ?: '—';
+                    $m['payment_account_mode'] = trim($this->editMemberPaymentMode) ?: 'bKash';
+                    $m['payment_account_no'] = trim($this->editMemberPaymentAccountNo) ?: '—';
                     $m['role'] = $this->editMemberRole;
+                    $m['designation'] = trim($this->editMemberDesignation) ?: ($m['designation'] ?? 'Articled Student');
                     $m['role_label'] = match ($this->editMemberRole) {
                         'partner' => 'Partner / Principal',
                         'manager' => 'Audit Manager',

@@ -38,7 +38,7 @@
         $managerCount = count(array_filter($rosterPool, fn($m) => ($m['role'] ?? '') === 'manager'));
         $studentCount = count(array_filter($rosterPool, fn($m) => ($m['role'] ?? '') === 'student'));
         $totalCount   = count($rosterPool);
-        $showActionColumn = $canManageTeam || ($canResetPasswords ?? false);
+        $showActionColumn = $canManageTeam || ($canEditMembers ?? false) || ($canResetPasswords ?? false);
     @endphp
     <div class="rounded-2xl border border-[#E8EAF0] bg-white p-4 shadow-sm">
         <div class="flex items-center justify-between">
@@ -145,22 +145,23 @@
         <table class="w-full text-left text-xs">
             <thead class="border-b border-slate-100 bg-slate-50/75 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
                 <tr>
-                    <th class="py-3.5 pl-6 pr-3">Member Details</th>
-                    <th class="px-3 py-3.5">Role</th>
-                    <th class="px-3 py-3.5">Reporting Manager</th>
-                    <th class="px-3 py-3.5">Partner Unit</th>
-                    <th class="px-3 py-3.5">Delegated Permissions</th>
-                    <th class="px-3 py-3.5">Allowance</th>
+                    <th class="py-3.5 pl-5 pr-3">Member Details</th>
+                    <th class="px-2.5 py-3.5">Post, Unit &amp; Supervisor</th>
+                    <th class="px-2.5 py-3.5">Delegated Permissions</th>
+                    <th class="px-2.5 py-3.5">Allowance</th>
                     @if($showActionColumn)
-                        <th class="py-3.5 pl-3 pr-6 text-right">Actions</th>
+                        <th class="py-3.5 pl-2 pr-5 text-right">Account Actions</th>
                     @endif
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
                 @forelse($teamMembers as $member)
+                    @php
+                        $canEditThisMember = ($canEditMembers ?? $canManageTeam) && ($previewRole === 'partner' || ($member['role'] ?? '') !== 'partner');
+                    @endphp
                     <tr wire:key="member-{{ $member['id'] }}" class="hover:bg-slate-50/70 transition">
-                        <td class="py-4 pl-6 pr-3">
-                            <div class="flex items-center gap-3">
+                        <td class="py-4 pl-5 pr-3">
+                            <div class="flex items-start gap-3">
                                 <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-extrabold text-xs overflow-hidden {{ $member['role'] === 'partner' ? 'bg-[#FCDF02] text-[#17191F]' : ($member['role'] === 'manager' ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-100 text-slate-700') }}">
                                     @if(!empty($member['avatar_url']))
                                         <img src="{{ $member['avatar_url'] }}" alt="{{ $member['name'] }}" class="h-full w-full object-cover">
@@ -169,10 +170,17 @@
                                     @endif
                                 </div>
                                 <div class="min-w-0">
-                                    <div class="flex items-center gap-1.5">
+                                    <div class="flex flex-wrap items-center gap-1.5">
                                         <p class="truncate font-bold text-slate-900">{{ $member['name'] }}</p>
                                         @if(Auth::check() && Auth::id() === $member['id'])
                                             <span class="rounded bg-amber-100 px-1.5 py-0.2 text-[9px] font-bold text-amber-900">You</span>
+                                        @endif
+                                        @if($canEditThisMember)
+                                            <button type="button" wire:click="openEditMemberModal({{ $member['id'] }})"
+                                                    class="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-950 hover:bg-[#FCDF02] transition cursor-pointer"
+                                                    title="Edit {{ $member['name'] }}'s account details">
+                                                <i data-lucide="pencil" class="h-2.5 w-2.5"></i> Edit
+                                            </button>
                                         @endif
                                     </div>
                                     <p class="truncate text-[11px] text-slate-500">{{ $member['email'] }}</p>
@@ -216,7 +224,7 @@
                                 </div>
                             </div>
                         </td>
-                        <td class="px-3 py-4 whitespace-nowrap">
+                        <td class="px-2.5 py-4 align-top">
                             <div class="flex flex-col items-start gap-1">
                                 <span class="inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-bold {{ $member['role'] === 'partner' ? 'bg-amber-100 text-amber-900 border border-amber-300' : ($member['role'] === 'manager' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-emerald-50 text-emerald-800 border border-emerald-200') }}">
                                     {{ $member['designation'] ?? $member['role_label'] }}
@@ -227,16 +235,16 @@
                                         · <span class="text-emerald-700 font-bold">{{ $member['promotion_history'][0]['action_label'] ?? 'Updated' }} ({{ $member['promotion_history'][0]['date'] ?? '' }})</span>
                                     @endif
                                 </span>
+                                <div class="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-slate-600">
+                                    <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">{{ $member['partner_unit'] ?? 'Partner Unit 01' }}</span>
+                                    @if(!empty($member['manager_name']) && $member['manager_name'] !== '—')
+                                        <span class="text-slate-500">· Sup: <strong class="text-slate-700">{{ $member['manager_name'] }}</strong></span>
+                                    @endif
+                                </div>
                             </div>
                         </td>
-                        <td class="px-3 py-4 text-slate-600 whitespace-nowrap">
-                            {{ $member['manager_name'] ?? '—' }}
-                        </td>
-                        <td class="px-3 py-4 text-slate-600 whitespace-nowrap">
-                            <span class="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{{ $member['partner_unit'] ?? 'Partner Unit 01' }}</span>
-                        </td>
-                        <td class="px-3 py-4">
-                            <div class="flex flex-wrap gap-1 max-w-[240px]">
+                        <td class="px-2.5 py-4 align-top">
+                            <div class="flex flex-wrap gap-1 max-w-[180px]">
                                 @if(!empty($member['can_manage_team']))
                                     <span class="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-900 border border-amber-300" title="Can add and remove team members">Team Admin</span>
                                 @endif
@@ -269,7 +277,7 @@
                                 @endif
                             </div>
                         </td>
-                        <td class="px-3 py-4 font-semibold text-slate-800 whitespace-nowrap">
+                        <td class="px-2.5 py-4 font-semibold text-slate-800 whitespace-nowrap align-top">
                             @if(!empty($member['monthly_allowance']) && $member['monthly_allowance'] > 0)
                                 ৳ {{ number_format($member['monthly_allowance'], 2) }}
                             @else
@@ -277,35 +285,38 @@
                             @endif
                         </td>
                         @if($showActionColumn)
-                            <td class="py-4 pl-3 pr-6 text-right whitespace-nowrap">
-                                <div class="inline-flex items-center gap-1.5">
-                                    @if(($member['role'] ?? '') === 'student' && $canManageTeam)
-                                        <button type="button" wire:click="exportStudentCertificate({{ $member['id'] }}, 'noc')"
-                                                class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 transition" title="Print Official ICAB Articleship &amp; NOC Certificate">
-                                            <i data-lucide="award" class="h-3.5 w-3.5"></i> ICAB Cert
+                            <td class="py-4 pl-2 pr-5 text-right align-top">
+                                <div class="flex flex-wrap items-center justify-end gap-1.5 min-w-[200px] max-w-[280px] ml-auto">
+                                    @if($canEditThisMember)
+                                        <button type="button" wire:click="openEditMemberModal({{ $member['id'] }})"
+                                                class="inline-flex items-center gap-1 rounded-lg border border-amber-400 bg-[#FCDF02] px-2.5 py-1.5 text-[11px] font-extrabold text-[#17191F] hover:bg-[#F3D604] transition shadow-2xs cursor-pointer"
+                                                title="Edit member account details, post/designation, allowance, leave quotas, bKash/Bank &amp; permissions">
+                                            <i data-lucide="user-pen" class="h-3.5 w-3.5"></i> Edit Account
+                                        </button>
+                                    @endif
+                                    @if($canManageTeam && ($previewRole === 'partner' || ($member['role'] ?? '') !== 'partner'))
+                                        <button type="button" wire:click="openPromoteDemoteModal({{ $member['id'] }})"
+                                                class="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-bold text-indigo-800 hover:bg-indigo-100 transition cursor-pointer" title="Promote, demote, or change designation &amp; salary">
+                                            <i data-lucide="trending-up" class="h-3.5 w-3.5"></i> Promote / Demote
                                         </button>
                                     @endif
                                     @if(($canResetPasswords ?? false) && ($previewRole === 'partner' || ($member['role'] ?? '') !== 'partner'))
                                         <button type="button" wire:click="openResetPasswordModal({{ $member['id'] }})"
-                                                class="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold text-amber-950 hover:bg-amber-100 transition" title="Reset password and email new password to {{ $member['email'] }}">
+                                                class="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-bold text-amber-950 hover:bg-amber-100 transition cursor-pointer" title="Reset password and email new password to {{ $member['email'] }}">
                                             <i data-lucide="key-round" class="h-3.5 w-3.5"></i> Reset Pass
                                         </button>
                                     @endif
-                                    @if($canManageTeam)
-                                        <button type="button" wire:click="openPromoteDemoteModal({{ $member['id'] }})"
-                                                class="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-bold text-indigo-800 hover:bg-indigo-100 transition" title="Promote, demote, or change designation & salary">
-                                            <i data-lucide="trending-up" class="h-3.5 w-3.5"></i> Promote / Demote
+                                    @if(($member['role'] ?? '') === 'student' && $canManageTeam)
+                                        <button type="button" wire:click="exportStudentCertificate({{ $member['id'] }}, 'noc')"
+                                                class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer" title="Print Official ICAB Articleship &amp; NOC Certificate">
+                                            <i data-lucide="award" class="h-3.5 w-3.5"></i> ICAB Cert
                                         </button>
-                                        <button type="button" wire:click="openEditMemberModal({{ $member['id'] }})"
-                                                class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition" title="Modify role & delegated permissions">
-                                            Permissions
+                                    @endif
+                                    @if($canManageTeam && ($previewRole === 'partner' || ($member['role'] ?? '') !== 'partner') && (!Auth::check() || Auth::id() !== $member['id']))
+                                        <button type="button" wire:click="confirmDeleteMember({{ $member['id'] }})"
+                                                class="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition cursor-pointer" title="Remove member from practice">
+                                            <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
                                         </button>
-                                        @if(!Auth::check() || Auth::id() !== $member['id'])
-                                            <button type="button" wire:click="confirmDeleteMember({{ $member['id'] }})"
-                                                    class="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition" title="Remove member from practice">
-                                                <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
-                                            </button>
-                                        @endif
                                     @endif
                                 </div>
                             </td>
@@ -406,11 +417,20 @@
 
                 <!-- Action Buttons Bar (Full-Width Mobile Responsive) -->
                 @if($showActionColumn)
+                    @php
+                        $canEditThisMobileMember = ($canEditMembers ?? $canManageTeam) && ($previewRole === 'partner' || ($member['role'] ?? '') !== 'partner');
+                    @endphp
                     <div class="flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5">
-                        @if(($member['role'] ?? '') === 'student' && $canManageTeam)
-                            <button type="button" wire:click="exportStudentCertificate({{ $member['id'] }}, 'noc')"
-                                    class="inline-flex items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 transition">
-                                <i data-lucide="award" class="h-3.5 w-3.5"></i> ICAB Cert
+                        @if($canEditThisMobileMember)
+                            <button type="button" wire:click="openEditMemberModal({{ $member['id'] }})"
+                                    class="inline-flex items-center justify-center gap-1 rounded-lg border border-amber-400 bg-[#FCDF02] px-3 py-1.5 text-[11px] font-extrabold text-[#17191F] hover:bg-[#F3D604] transition shadow-2xs">
+                                <i data-lucide="user-pen" class="h-3.5 w-3.5"></i> Edit Account
+                            </button>
+                        @endif
+                        @if($canManageTeam && ($previewRole === 'partner' || ($member['role'] ?? '') !== 'partner'))
+                            <button type="button" wire:click="openPromoteDemoteModal({{ $member['id'] }})"
+                                    class="inline-flex items-center justify-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-bold text-indigo-800 hover:bg-indigo-100 transition">
+                                <i data-lucide="trending-up" class="h-3.5 w-3.5"></i> Promote / Demote
                             </button>
                         @endif
                         @if(($canResetPasswords ?? false) && ($previewRole === 'partner' || ($member['role'] ?? '') !== 'partner'))
@@ -419,21 +439,17 @@
                                 <i data-lucide="key-round" class="h-3.5 w-3.5"></i> Reset Pass
                             </button>
                         @endif
-                        @if($canManageTeam)
-                            <button type="button" wire:click="openPromoteDemoteModal({{ $member['id'] }})"
-                                    class="inline-flex items-center justify-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[11px] font-bold text-indigo-800 hover:bg-indigo-100 transition">
-                                <i data-lucide="trending-up" class="h-3.5 w-3.5"></i> Promote / Demote
+                        @if(($member['role'] ?? '') === 'student' && $canManageTeam)
+                            <button type="button" wire:click="exportStudentCertificate({{ $member['id'] }}, 'noc')"
+                                    class="inline-flex items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-bold text-emerald-800 hover:bg-emerald-100 transition">
+                                <i data-lucide="award" class="h-3.5 w-3.5"></i> ICAB Cert
                             </button>
-                            <button type="button" wire:click="openEditMemberModal({{ $member['id'] }})"
-                                    class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 transition">
-                                Permissions
+                        @endif
+                        @if($canManageTeam && ($previewRole === 'partner' || ($member['role'] ?? '') !== 'partner') && (!Auth::check() || Auth::id() !== $member['id']))
+                            <button type="button" wire:click="confirmDeleteMember({{ $member['id'] }})"
+                                    class="ml-auto inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition" title="Remove member">
+                                <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
                             </button>
-                            @if(!Auth::check() || Auth::id() !== $member['id'])
-                                <button type="button" wire:click="confirmDeleteMember({{ $member['id'] }})"
-                                        class="ml-auto inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition" title="Remove member">
-                                    <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
-                                </button>
-                            @endif
                         @endif
                     </div>
                 @endif
@@ -895,8 +911,8 @@
             <div class="w-full max-w-lg my-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
                 <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-4">
                     <div>
-                        <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-800">Authority Delegation</p>
-                        <h2 class="mt-1 text-lg font-black text-slate-900">Manage Permissions &amp; Profile</h2>
+                        <p class="text-[10px] font-extrabold uppercase tracking-widest text-amber-800">Account, Profile, Leave &amp; Authority Management</p>
+                        <h2 class="mt-1 text-lg font-black text-slate-900">Edit Member Account &amp; Profile</h2>
                         <p class="text-xs text-slate-500 font-semibold mt-0.5">{{ $editMemberName }} ({{ $editMemberEmail }})</p>
                     </div>
                     <button type="button" wire:click="closeDialogs" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition"><i data-lucide="x" class="h-5 w-5"></i></button>
@@ -1121,9 +1137,23 @@
                         </div>
                     @endif
 
-                    <label class="block font-bold text-slate-700">Monthly Stipend / Allowance (BDT)
-                        <input type="number" wire:model="editMemberMonthlyAllowance" step="100" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
-                    </label>
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <label class="block font-bold text-slate-700">Monthly Allowance / Salary (BDT)
+                            <input type="number" wire:model="editMemberMonthlyAllowance" step="100" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+                        </label>
+                        <label class="block font-bold text-slate-700">Disbursement Mode
+                            <select wire:model="editMemberPaymentMode" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-bold outline-none focus:border-amber-400">
+                                <option value="bKash">bKash</option>
+                                <option value="Nagad">Nagad</option>
+                                <option value="Rocket">Rocket</option>
+                                <option value="Bank A/C">Bank A/C</option>
+                                <option value="Cash">Cash</option>
+                            </select>
+                        </label>
+                        <label class="block font-bold text-slate-700">Wallet / Bank Account No.
+                            <input type="text" wire:model="editMemberPaymentAccountNo" placeholder="017XXXXXXXX / Bank A/C" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+                        </label>
+                    </div>
 
                     <!-- Delegated Permissions Box -->
                     <div class="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-2.5">
@@ -1206,7 +1236,7 @@
                         <button type="button" wire:click="closeDialogs" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition">Cancel</button>
                         <button type="submit" wire:loading.attr="disabled" wire:target="updateMember" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-5 py-2 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604] transition disabled:opacity-60">
                             <i data-lucide="save" class="h-4 w-4"></i>
-                            <span wire:loading.remove wire:target="updateMember">Save Permissions</span>
+                            <span wire:loading.remove wire:target="updateMember">Save Account Changes</span>
                             <span wire:loading wire:target="updateMember" style="display:none">Saving...</span>
                         </button>
                     </div>

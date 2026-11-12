@@ -395,10 +395,15 @@ class PracticePreview extends Component
     public bool $newMemberCanFinalApproveClaims = false;
 
     // Edit Member Form Fields
+    public string $newMemberPhone = '';
+    public string $newMemberPaymentMode = 'bKash';
+    public string $newMemberPaymentAccountNo = '';
     public ?int $editMemberId = null;
     public string $editMemberName = '';
     public string $editMemberEmail = '';
     public string $editMemberPhone = '';
+    public string $editMemberPaymentMode = 'bKash';
+    public string $editMemberPaymentAccountNo = '';
     public string $editMemberNewPassword = '';
     public string $editMemberRole = 'student';
     public string $editMemberDesignation = 'Articled Student';
@@ -1224,6 +1229,7 @@ class PracticePreview extends Component
             'availableManagers'  => $this->availableManagers,
             'myLeaveBalanceSummary' => $this->myLeaveBalanceSummary,
             'canManageTeam'     => $this->userCanManageTeam(),
+            'canEditMembers'    => $this->userCanEditMembers(),
             'canResetPasswords' => $this->userCanResetPasswords(),
             'studentGrids'      => $this->studentGrids,
             'partnerUnit'       => $this->partnerUnit,
