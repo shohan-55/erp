@@ -942,17 +942,28 @@ button.dw-btn-busy.dw-has-auto-spinner > i[data-lucide]:first-of-type {
             || window.navigator.standalone === true;
     }
 
+    function isMobileOrTabletDevice() {
+        var ua = navigator.userAgent || '';
+        var isTouchUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(ua)
+            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        var isSmallScreen = window.matchMedia && window.matchMedia('(max-width: 1023px)').matches;
+        return isTouchUa && isSmallScreen || isSmallScreen;
+    }
+
     function syncPwaButtons() {
         var installed = isStandaloneApp();
+        var showOnDevice = !installed && isMobileOrTabletDevice();
         document.querySelectorAll('[data-dw-pwa-install]').forEach(function (btn) {
-            if (installed) {
-                btn.style.display = 'none';
+            if (!showOnDevice) {
+                btn.style.setProperty('display', 'none', 'important');
+                btn.classList.add('hidden');
             } else {
                 btn.classList.remove('hidden');
                 btn.style.display = btn.getAttribute('data-dw-pwa-display') || 'inline-flex';
             }
         });
     }
+    window.addEventListener('resize', syncPwaButtons);
 
     window.addEventListener('beforeinstallprompt', function (e) {
         e.preventDefault();

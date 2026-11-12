@@ -335,7 +335,14 @@ trait ManagesTeamAndNotifications
                 if ($firmModel && Schema::hasColumn('firms', 'custom_designations')) {
                     $stored = $firmModel->custom_designations;
                     if (! empty($stored) && is_array($stored)) {
-                        $this->customDesignations = array_values($stored);
+                        $merged = array_values($stored);
+                        $existingTitles = array_map(fn ($d) => strtolower(trim((string) ($d['title'] ?? ''))), $merged);
+                        foreach ($defaults as $defItem) {
+                            if (! in_array(strtolower($defItem['title']), $existingTitles, true)) {
+                                $merged[] = $defItem;
+                            }
+                        }
+                        $this->customDesignations = $merged;
                         return;
                     }
                 }
@@ -345,6 +352,90 @@ trait ManagesTeamAndNotifications
         }
         if (empty($this->customDesignations)) {
             $this->customDesignations = $defaults;
+        }
+    }
+
+    public function selectNewMemberPresetPost(string $selectedTitle): void
+    {
+        if ($selectedTitle === '__CUSTOM__') {
+            $this->newMemberCustomPostMode = true;
+            $this->newMemberDesignation = '';
+            return;
+        }
+        $this->newMemberCustomPostMode = false;
+        $this->newMemberDesignation = trim($selectedTitle);
+        foreach ($this->customDesignations as $d) {
+            if (strcasecmp((string) ($d['title'] ?? ''), $this->newMemberDesignation) === 0) {
+                $baseRole = $d['base_role'] ?? 'student';
+                if ($this->canManageTargetRole($baseRole)) {
+                    $this->newMemberRole = $baseRole;
+                    $this->applyDefaultQuotasForRole($baseRole, $this->newMemberDesignation, false);
+                }
+                return;
+            }
+        }
+    }
+
+    public function selectEditMemberPresetPost(string $selectedTitle): void
+    {
+        if ($selectedTitle === '__CUSTOM__') {
+            $this->editMemberCustomPostMode = true;
+            $this->editMemberDesignation = '';
+            return;
+        }
+        $this->editMemberCustomPostMode = false;
+        $this->editMemberDesignation = trim($selectedTitle);
+        foreach ($this->customDesignations as $d) {
+            if (strcasecmp((string) ($d['title'] ?? ''), $this->editMemberDesignation) === 0) {
+                $baseRole = $d['base_role'] ?? 'student';
+                if ($this->canManageTargetRole($baseRole)) {
+                    $this->editMemberRole = $baseRole;
+                    $this->applyDefaultQuotasForRole($baseRole, $this->editMemberDesignation, true);
+                }
+                return;
+            }
+        }
+    }
+
+    protected function applyDefaultQuotasForRole(string $role, string $designation = '', bool $isEdit = false): void
+    {
+        $isInternship = stripos($designation, 'Intern') !== false;
+        if (! $isEdit) {
+            if ($role === 'student') {
+                if ($isInternship) {
+                    $this->newMemberLeavePolicyMode = 'custom';
+                    $this->newMemberArticleshipYears = 1;
+                    $this->newMemberTotalLeaveCap = 20;
+                    $this->newMemberLeaveCasual = 10;
+                    $this->newMemberLeaveSick = 7;
+                    $this->newMemberLeaveEmergency = 3;
+                    $this->newMemberLeaveStudy = 0;
+                    $this->newMemberMonthlyAllowance = 5000.00;
+                } else {
+                    $this->newMemberLeavePolicyMode = 'icab';
+                    $this->newMemberArticleshipYears = 3;
+                    $this->newMemberTotalLeaveCap = 180;
+                    $this->newMemberLeaveCasual = 14;
+                    $this->newMemberLeaveSick = 14;
+                    $this->newMemberLeaveEmergency = 7;
+                    $this->newMemberLeaveStudy = 75;
+                    $this->newMemberMonthlyAllowance = 6000.00;
+                }
+            } elseif ($role === 'manager') {
+                $this->newMemberTotalLeaveCap = 44;
+                $this->newMemberLeaveCasual = 10;
+                $this->newMemberLeaveSick = 14;
+                $this->newMemberLeaveEarned = 15;
+                $this->newMemberLeaveCarryForward = 0;
+                $this->newMemberLeaveEmergency = 5;
+                if (stripos($designation, 'Office Staff') !== false || stripos($designation, 'Support') !== false || stripos($designation, 'Reception') !== false) {
+                    $this->newMemberMonthlyAllowance = 15000.00;
+                } else {
+                    $this->newMemberMonthlyAllowance = 25000.00;
+                }
+            } else {
+                $this->newMemberMonthlyAllowance = 0.00;
+            }
         }
     }
 
@@ -744,7 +835,11 @@ trait ManagesTeamAndNotifications
                                 'leave_used_days'            => $redactSensitive ? 0 : $usedDays,
                                 'leave_pending_days'         => $redactSensitive ? 0 : $pendingDays,
                                 'leave_available_days'       => $redactSensitive ? 0 : $availDays,
-                                'active_articleship_window'  => ($u->role === 'student' && ! $redactSensitive) ? ($u->articleshipYearWindowForDate()['short_label'] ?? null) : null,
+                                'active_articleship_window'  => ($u->role === 'student' && ! $redactSensitive) ? (function () use ($u) {
+                                $win = $u->articleshipYearWindowForDate();
+                                $win['label'] = 'Year ' . ($win['year_number'] ?? 1) . ' of ' . ($win['total_years'] ?? 3);
+                                return $win;
+                            })() : null,
                                 'articleship_start_date' => $u->articleship_start_date?->format('Y-m-d') ?? ($u->role === 'student' ? '2026-03-10' : null),
                                 'articleship_end_date'   => $u->articleship_end_date?->format('Y-m-d') ?? ($u->role === 'student' ? $defaultEnd : null),
                                 'articleship_period'     => $u->role === 'student'
@@ -919,6 +1014,7 @@ trait ManagesTeamAndNotifications
         $this->newMemberPassword = '';
         $this->newMemberRole = 'student';
         $this->newMemberDesignation = 'Articled Student';
+        $this->newMemberCustomPostMode = false;
         $this->newMemberStudentCode = '';
         $this->newMemberManagerId = null;
         $this->newMemberPartnerUnit = $this->partnerUnit;
@@ -1014,8 +1110,20 @@ trait ManagesTeamAndNotifications
                 'manager' => 'Audit Manager',
                 default   => 'Articled Student',
             };
+            $finalDesig = trim($this->newMemberDesignation) ?: $defaultDesig;
             if (Schema::hasColumn('users', 'designation')) {
-                $user->designation = trim($this->newMemberDesignation) ?: $defaultDesig;
+                $user->designation = $finalDesig;
+            }
+            $desigExists = false;
+            foreach ($this->customDesignations as $cdItem) {
+                if (strcasecmp((string) ($cdItem['title'] ?? ''), $finalDesig) === 0) {
+                    $desigExists = true;
+                    break;
+                }
+            }
+            if (! $desigExists && $finalDesig !== '') {
+                $this->customDesignations[] = ['title' => $finalDesig, 'base_role' => $this->newMemberRole];
+                $this->persistCustomDesignations();
             }
             $user->partner_unit = $this->newMemberPartnerUnit ?: $this->partnerUnit;
             $user->monthly_allowance = (float) $this->newMemberMonthlyAllowance;

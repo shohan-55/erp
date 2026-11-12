@@ -101,7 +101,7 @@
                 @endforeach
             </nav>
 
-            <div class="px-3 pb-2">
+            <div class="px-3 pb-2 lg:hidden">
                 <button type="button" data-dw-pwa-install data-dw-pwa-display="flex" data-no-loading onclick="window.triggerDwPwaInstall && window.triggerDwPwaInstall()" class="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-400/30 bg-[#FCDF02]/15 px-3.5 py-2.5 text-xs font-extrabold text-[#FCDF02] hover:bg-[#FCDF02]/25 transition cursor-pointer">
                     <i data-lucide="smartphone" class="h-4 w-4 shrink-0"></i>
                     <span>Install Mobile App Shortcut</span>
@@ -165,7 +165,7 @@
                         @endif
                     </div>
                 @endif
-                <button type="button" data-dw-pwa-install data-dw-pwa-display="inline-flex" data-no-loading onclick="window.triggerDwPwaInstall && window.triggerDwPwaInstall()" class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1.5 sm:px-3 text-[11px] font-extrabold text-amber-950 hover:bg-amber-100 transition cursor-pointer shadow-2xs" title="Create 1-Tap Mobile App Shortcut on Home Screen">
+                <button type="button" data-dw-pwa-install data-dw-pwa-display="inline-flex" data-no-loading onclick="window.triggerDwPwaInstall && window.triggerDwPwaInstall()" class="inline-flex lg:hidden shrink-0 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1.5 sm:px-3 text-[11px] font-extrabold text-amber-950 hover:bg-amber-100 transition cursor-pointer shadow-2xs" title="Create 1-Tap Mobile App Shortcut on Home Screen">
                     <i data-lucide="smartphone" class="h-3.5 w-3.5 shrink-0"></i>
                     <span class="sm:hidden">App</span>
                     <span class="hidden sm:inline">Install App</span>

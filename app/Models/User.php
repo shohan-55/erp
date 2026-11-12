@@ -119,7 +119,7 @@ class User extends Authenticatable
         if (self::$userSchemaChecked && ! app()->runningUnitTests()) {
             return;
         }
-        $flagFile = storage_path('framework/cache/erp_user_schema_v8.flag');
+        $flagFile = storage_path('framework/cache/erp_user_schema_v9.flag');
         if (! app()->runningUnitTests() && is_file($flagFile)) {
             self::$userSchemaChecked = true;
             return;

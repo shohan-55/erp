@@ -183,7 +183,7 @@
                                 id="login-email"
                                 wire:model.defer="email"
                                 autocomplete="username"
-                                placeholder="name@{{ $firm['custom_domain'] ?? ($firm['domain'] ?? ($firmSlug . '.dhakawala.com')) }} or User ID"
+                                placeholder="{{ 'name@' . ($firm['custom_domain'] ?? ($firm['domain'] ?? ($firmSlug . '.dhakawala.com'))) . ' or User ID' }}"
                                 class="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#FCDF02] focus:ring-2 focus:ring-[#FCDF02]/40 transition-all font-sans"
                                 required
                             >

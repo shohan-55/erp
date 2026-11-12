@@ -115,9 +115,11 @@ trait ManagesAttendanceCalendarAndRadar
                             ]] : []);
 
                         return [
-                            'id'             => $s->student_code ?? ('U-' . $s->id),
+                            'id'             => $s->student_code ?? ($s->role === 'manager' ? ('MGR-' . $s->id) : ('U-' . $s->id)),
                             'db_id'          => $s->id,
                             'name'           => $s->name,
+                            'role'           => $s->role,
+                            'designation'    => $s->displayDesignation(),
                             'manager'        => $s->manager?->name ?? 'Direct Report',
                             'partner'        => $s->partner_unit ?? $this->partnerUnit,
                             'status'         => $att ? $att->status : 'Incomplete',
@@ -382,6 +384,420 @@ trait ManagesAttendanceCalendarAndRadar
                 return;
             }
         }
+    }
+
+    /**
+     * Open Full Monthly Attendance Inspector Modal for a specific student/member (#Issue04).
+     */
+    public function openMemberMonthlyAttendance(string $studentCode, ?string $month = null): void
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $this->closeDialogs();
+
+        $targetMonth = ($month && preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month))
+            ? $month
+            : (preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $this->period) ? $this->period : now()->timezone('Asia/Dhaka')->format('Y-m'));
+
+        $this->monthlyViewStudentCode = trim($studentCode);
+        $this->monthlyViewMonth = $targetMonth;
+        $this->memberMonthlyReport = $this->buildMemberMonthlyAttendanceReport($this->monthlyViewStudentCode, $this->monthlyViewMonth);
+        $this->showMemberMonthlyModal = true;
+    }
+
+    public function changeMemberMonthlyViewMonth(int $offsetMonths): void
+    {
+        try {
+            $base = \DateTimeImmutable::createFromFormat('!Y-m', $this->monthlyViewMonth ?: now()->timezone('Asia/Dhaka')->format('Y-m'));
+            if ($base && $this->monthlyViewStudentCode) {
+                $next = $base->modify(($offsetMonths >= 0 ? '+' : '') . $offsetMonths . ' months');
+                $this->monthlyViewMonth = $next->format('Y-m');
+                $this->memberMonthlyReport = $this->buildMemberMonthlyAttendanceReport($this->monthlyViewStudentCode, $this->monthlyViewMonth);
+            }
+        } catch (\Throwable $e) {
+            Log::debug($e->getMessage());
+        }
+    }
+
+    public function updatedMonthlyViewMonth(): void
+    {
+        if (! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $this->monthlyViewMonth)) {
+            $this->monthlyViewMonth = now()->timezone('Asia/Dhaka')->format('Y-m');
+        }
+        if ($this->monthlyViewStudentCode) {
+            $this->memberMonthlyReport = $this->buildMemberMonthlyAttendanceReport($this->monthlyViewStudentCode, $this->monthlyViewMonth);
+        }
+    }
+
+    public function buildMemberMonthlyAttendanceReport(string $studentCode, string $monthStr): array
+    {
+        $tz = $this->policyTimezone ?: 'Asia/Dhaka';
+        $monthStr = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $monthStr) ? $monthStr : now()->timezone($tz)->format('Y-m');
+        $firstDay = \DateTimeImmutable::createFromFormat('!Y-m-d', $monthStr . '-01') ?: new \DateTimeImmutable(now()->timezone($tz)->format('Y-m-01'));
+        $daysInMonth = (int) $firstDay->format('t');
+        $monthStart = $monthStr . '-01';
+        $monthEnd = sprintf('%s-%02d', $monthStr, $daysInMonth);
+        $todayStr = now()->timezone($tz)->toDateString();
+
+        $rowMeta = collect($this->studentRows)->firstWhere('id', $studentCode);
+        $memberName = $rowMeta['name'] ?? 'Practice Member';
+        $memberRole = $rowMeta['role'] ?? 'student';
+        $memberDesig = $rowMeta['designation'] ?? ($memberRole === 'manager' ? 'Audit Manager' : 'Articled Student');
+        $memberUnit = $rowMeta['partner'] ?? $this->partnerUnit;
+        $memberManager = $rowMeta['manager'] ?? 'Direct Report';
+        $targetUserId = $rowMeta['db_id'] ?? null;
+
+        $firmModel = $this->resolveFirmModel();
+        $dbUser = null;
+
+        if ($firmModel && Schema::hasTable('users')) {
+            try {
+                $uQuery = User::where('firm_id', $firmModel->id)->with('manager');
+                if ($targetUserId) {
+                    $dbUser = (clone $uQuery)->where('id', (int) $targetUserId)->first();
+                }
+                if (! $dbUser) {
+                    $dbUser = (clone $uQuery)->where(function ($q) use ($studentCode) {
+                        $q->where('student_code', $studentCode);
+                        if (str_starts_with($studentCode, 'U-')) {
+                            $q->orWhere('id', (int) substr($studentCode, 2));
+                        } elseif (str_starts_with($studentCode, 'MGR-')) {
+                            $q->orWhere('id', (int) substr($studentCode, 4));
+                        } elseif (ctype_digit($studentCode)) {
+                            $q->orWhere('id', (int) $studentCode);
+                        }
+                    })->first();
+                }
+
+                // Security: A Student may only inspect their own monthly record
+                if (Auth::check() && Auth::user()->isStudent() && $dbUser && (int) $dbUser->id !== (int) Auth::id()) {
+                    $dbUser = Auth::user();
+                }
+
+                if ($dbUser) {
+                    $targetUserId = $dbUser->id;
+                    $memberName = $dbUser->name;
+                    $memberRole = $dbUser->role;
+                    $memberDesig = $dbUser->displayDesignation();
+                    $memberUnit = $dbUser->partner_unit ?: $this->partnerUnit;
+                    $memberManager = $dbUser->manager?->name ?? 'Direct Report';
+                }
+            } catch (\Throwable $e) {
+                Log::debug($e->getMessage());
+            }
+        }
+
+        $attByDate = [];
+        $leavesList = [];
+        $claimsByDate = [];
+        $holidaysByDate = [];
+
+        foreach ($this->holidaysList as $h) {
+            if (! empty($h['holiday_date'])) {
+                $holidaysByDate[$h['holiday_date']] = $h;
+            }
+        }
+
+        if ($firmModel && $targetUserId) {
+            try {
+                if (Schema::hasTable('attendances')) {
+                    $atts = Attendance::where('firm_id', $firmModel->id)
+                        ->where('user_id', $targetUserId)
+                        ->whereBetween('date', [$monthStart, $monthEnd])
+                        ->get();
+                    foreach ($atts as $a) {
+                        $dKey = $a->date ? $a->date->format('Y-m-d') : null;
+                        if ($dKey) {
+                            $attByDate[$dKey] = $a;
+                        }
+                    }
+                }
+                if (Schema::hasTable('leave_requests')) {
+                    $leavesList = LeaveRequest::where('firm_id', $firmModel->id)
+                        ->where('user_id', $targetUserId)
+                        ->whereIn('status', ['pending_manager', 'pending_partner', 'approved', 'Awaiting Manager', 'Awaiting Partner'])
+                        ->whereDate('start_date', '<=', $monthEnd)
+                        ->whereDate('end_date', '>=', $monthStart)
+                        ->get()
+                        ->all();
+                }
+                if (Schema::hasTable('conveyance_claims')) {
+                    $claims = ConveyanceClaim::where('firm_id', $firmModel->id)
+                        ->where('user_id', $targetUserId)
+                        ->where('status', '!=', 'rejected')
+                        ->whereBetween('claim_date', [$monthStart, $monthEnd])
+                        ->get();
+                    foreach ($claims as $c) {
+                        $dKey = $c->claim_date ? $c->claim_date->format('Y-m-d') : null;
+                        if ($dKey) {
+                            $claimsByDate[$dKey] = ($claimsByDate[$dKey] ?? 0.0) + (float) $c->amount;
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::debug($e->getMessage());
+            }
+        }
+
+        $dailyRows = [];
+        $presentDays = 0;
+        $rightTimeDays = 0;
+        $lateDays = 0;
+        $latePresentDays = 0;
+        $excusedDays = 0;
+        $leaveDays = 0;
+        $absentDays = 0;
+        $holidayOffDays = 0;
+        $officeDays = 0;
+        $clientDays = 0;
+        $totalConveyance = 0.0;
+
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $dateStr = sprintf('%s-%02d', $monthStr, $d);
+            $dtObj = \DateTimeImmutable::createFromFormat('!Y-m-d', $dateStr);
+            $dow = (int) $dtObj->format('w');
+            $isWeekend = $this->isWeeklyOffDay($dow);
+            $holiday = $holidaysByDate[$dateStr] ?? null;
+            $isException = ! empty($holiday['is_working_day_exception']);
+            $isClosedHoliday = $holiday && ! $isException && empty($holiday['is_office_open_override']);
+            $isOpenOverride = $holiday && ! $isException && ! empty($holiday['is_office_open_override']);
+
+            /** @var Attendance|null $att */
+            $att = $attByDate[$dateStr] ?? null;
+
+            // Fallback to in-memory row for today in demo/preview mode
+            $inHi = '—';
+            $outHi = '—';
+            $modeLabel = '—';
+            $siteLabel = '—';
+            $inLoc = '—';
+            $outLoc = '—';
+            $inLat = null;
+            $inLng = null;
+            $movements = [];
+            $remarks = '';
+            $isProxy = false;
+            $attStatus = null;
+
+            if ($att) {
+                $inHi = $att->in_time ? $att->in_time->copy()->timezone($tz)->format('H:i') : '—';
+                $outHi = $att->out_time ? $att->out_time->copy()->timezone($tz)->format('H:i') : '—';
+                $modeLabel = $att->work_mode ? ucfirst($att->work_mode) : 'Office';
+                $siteLabel = $att->client_site ?: ($modeLabel === 'Client' ? 'Client Audit Site' : 'Principal Office HQ');
+                $inLoc = $att->in_location_name ?: 'Office';
+                $outLoc = $att->out_location_name ?: ($outHi !== '—' ? $inLoc : '—');
+                $inLat = $att->in_lat;
+                $inLng = $att->in_lng;
+                $movements = is_array($att->movement_logs) ? $att->movement_logs : [];
+                $remarks = (string) ($att->edit_remarks ?? '');
+                $isProxy = (bool) $att->is_proxy;
+                $attStatus = $att->status ?: 'Right Time';
+            } elseif ($dateStr === $todayStr && $rowMeta && ($rowMeta['checkin'] ?? '—') !== '—') {
+                $inHi = $rowMeta['checkin'];
+                $outHi = $rowMeta['checkout'] ?? '—';
+                $modeLabel = $rowMeta['mode'] ?? 'Office';
+                $siteLabel = $rowMeta['client_site'] ?: ($modeLabel === 'Client' ? 'Client Audit Site' : 'Principal Office HQ');
+                $inLoc = $rowMeta['in_location'] ?? 'Office';
+                $outLoc = $rowMeta['out_location'] ?? '—';
+                $inLat = $rowMeta['in_lat'] ?? null;
+                $inLng = $rowMeta['in_lng'] ?? null;
+                $movements = $rowMeta['movement_logs'] ?? [];
+                $remarks = $rowMeta['remarks'] ?? '';
+                $isProxy = ! empty($rowMeta['is_proxy']);
+                $attStatus = $rowMeta['status'] ?? 'Right Time';
+            }
+
+            // Compute elapsed duty duration if both inHi and outHi are present
+            $durationLabel = '—';
+            if ($inHi !== '—' && $outHi !== '—' && preg_match('/^\d{1,2}:\d{2}$/', $inHi) && preg_match('/^\d{1,2}:\d{2}$/', $outHi)) {
+                try {
+                    [$iH, $iM] = array_map('intval', explode(':', $inHi));
+                    [$oH, $oM] = array_map('intval', explode(':', $outHi));
+                    $diffMins = (($oH * 60) + $oM) - (($iH * 60) + $iM);
+                    if ($diffMins > 0) {
+                        $durationLabel = intdiv($diffMins, 60) . 'h ' . str_pad((string) ($diffMins % 60), 2, '0', STR_PAD_LEFT) . 'm';
+                    }
+                } catch (\Throwable) {}
+            }
+
+            // Check if on approved/pending leave
+            $matchedLeave = null;
+            foreach ($leavesList as $lrItem) {
+                $sD = $lrItem->start_date?->format('Y-m-d') ?? '';
+                $eD = $lrItem->end_date?->format('Y-m-d') ?? '';
+                if ($sD <= $dateStr && $eD >= $dateStr) {
+                    $matchedLeave = $lrItem;
+                    break;
+                }
+            }
+
+            $dayCategory = 'working';
+            $statusBadge = 'Upcoming';
+            $badgeTone = 'slate';
+
+            if ($inHi !== '—' || $attStatus !== null) {
+                $presentDays++;
+                if (strtolower($modeLabel) === 'client') {
+                    $clientDays++;
+                } else {
+                    $officeDays++;
+                }
+                $statusBadge = $attStatus ?: 'Right Time';
+                if (in_array($statusBadge, ['Right Time', 'On time'], true)) {
+                    $rightTimeDays++;
+                    $badgeTone = 'emerald';
+                } elseif ($statusBadge === 'Late') {
+                    $lateDays++;
+                    $badgeTone = 'amber';
+                } elseif ($statusBadge === 'Late Present') {
+                    $latePresentDays++;
+                    $badgeTone = 'rose';
+                } elseif ($statusBadge === 'Late (Excused)') {
+                    $excusedDays++;
+                    $badgeTone = 'teal';
+                } else {
+                    $badgeTone = 'slate';
+                }
+                $dayCategory = 'present';
+            } elseif ($matchedLeave) {
+                $leaveDays++;
+                $lType = ucfirst(str_replace('_', ' ', (string) $matchedLeave->leave_type));
+                $statusBadge = ($matchedLeave->status === 'approved' ? 'On Leave: ' : 'Leave Pending: ') . $lType;
+                $badgeTone = 'indigo';
+                $dayCategory = 'leave';
+                $remarks = $remarks ?: (string) $matchedLeave->reason;
+            } elseif ($isClosedHoliday) {
+                $holidayOffDays++;
+                $statusBadge = 'Holiday: ' . ($holiday['title'] ?? 'Govt. Holiday');
+                $badgeTone = 'purple';
+                $dayCategory = 'holiday';
+            } elseif ($isWeekend && ! $isOpenOverride) {
+                $holidayOffDays++;
+                $statusBadge = 'Weekly Off (' . $dtObj->format('D') . ')';
+                $badgeTone = 'slate';
+                $dayCategory = 'holiday';
+            } elseif ($dateStr <= $todayStr) {
+                $absentDays++;
+                $statusBadge = $isOpenOverride ? 'Absent (Mandatory Open Holiday)' : 'Absent';
+                $badgeTone = 'red';
+                $dayCategory = 'absent';
+            } else {
+                $statusBadge = 'Upcoming';
+                $badgeTone = 'upcoming';
+                $dayCategory = 'upcoming';
+            }
+
+            $dayConveyance = (float) ($claimsByDate[$dateStr] ?? 0.0);
+            $totalConveyance += $dayConveyance;
+
+            $dailyRows[] = [
+                'day_num'           => sprintf('%02d', $d),
+                'date'              => $dateStr,
+                'display_date'      => $dtObj->format('d M Y'),
+                'day_short'         => $dtObj->format('D'),
+                'is_today'          => $dateStr === $todayStr,
+                'category'          => $dayCategory,
+                'mode'              => $modeLabel,
+                'site'              => $siteLabel,
+                'in_time'           => $inHi,
+                'out_time'          => $outHi,
+                'duration'          => $durationLabel,
+                'in_location'       => $inLoc,
+                'out_location'      => $outLoc,
+                'in_lat'            => $inLat,
+                'in_lng'            => $inLng,
+                'movement_count'    => count($movements) ?: ($inHi !== '—' ? 1 : 0),
+                'movement_logs'     => $movements,
+                'status_label'      => $statusBadge,
+                'badge_tone'        => $badgeTone,
+                'is_proxy'          => $isProxy,
+                'conveyance_amount' => $dayConveyance,
+                'remarks'           => $remarks,
+            ];
+        }
+
+        $totalScored = $rightTimeDays + $excusedDays + $lateDays + $latePresentDays;
+        $punctualityScore = $totalScored > 0
+            ? (int) round((($rightTimeDays * 100) + ($excusedDays * 100) + ($lateDays * 65) + ($latePresentDays * 30)) / $totalScored)
+            : 100;
+
+        return [
+            'student_code'       => $studentCode,
+            'user_id'            => $targetUserId,
+            'name'               => $memberName,
+            'role'               => $memberRole,
+            'designation'        => $memberDesig,
+            'partner_unit'       => $memberUnit,
+            'manager'            => $memberManager,
+            'month_raw'          => $monthStr,
+            'month_label'        => $firstDay->format('F Y'),
+            'days_in_month'      => $daysInMonth,
+            'present_days'       => $presentDays,
+            'right_time_days'    => $rightTimeDays,
+            'late_days'          => $lateDays,
+            'late_present_days'  => $latePresentDays,
+            'excused_days'       => $excusedDays,
+            'leave_days'         => $leaveDays,
+            'absent_days'        => $absentDays,
+            'holiday_off_days'   => $holidayOffDays,
+            'office_days'        => $officeDays,
+            'client_days'        => $clientDays,
+            'total_conveyance'   => $totalConveyance,
+            'punctuality_score'  => $punctualityScore,
+            'days'               => $dailyRows,
+        ];
+    }
+
+    /**
+     * Download Printable / 1-Click PDF Individual Monthly Attendance Report for a specific member (#Issue04).
+     */
+    public function exportMemberMonthlyAttendanceSheet(?string $studentCode = null)
+    {
+        $this->enforceAuthenticatedRoleLock();
+        $code = $studentCode ?: ($this->monthlyViewStudentCode ?: 'S-101');
+        $month = $this->monthlyViewMonth ?: ($this->period ?: now()->timezone('Asia/Dhaka')->format('Y-m'));
+        $report = $this->buildMemberMonthlyAttendanceReport($code, $month);
+
+        $firmName = $this->firm['name'] ?? 'Chartered Accountants Practice';
+        $firmDesig = $this->firm['designation'] ?? 'Chartered Accountants';
+        $primaryHex = $this->firm['primary_color'] ?? '#0D9488';
+        $filename = 'Monthly_Attendance_' . $code . '_' . $month . '.html';
+        $pdfFile = 'Monthly_Attendance_' . $code . '_' . $month . '.pdf';
+
+        return response()->streamDownload(function () use ($firmName, $firmDesig, $primaryHex, $report, $pdfFile) {
+            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>" . htmlspecialchars($firmName, ENT_QUOTES) . " - Monthly Attendance Report</title>";
+            echo "<script src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'></script>";
+            echo "<style>body{font-family:Arial,sans-serif;margin:18px auto;max-width:960px;color:#0f172a;background:#f8fafc}.toolbar{display:flex;justify-content:space-between;align-items:center;background:#17191F;color:#fff;padding:12px 18px;border-radius:12px;margin-bottom:16px}.sheet{background:#fff;padding:24px;border-radius:12px;border:2px solid {$primaryHex}}.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid {$primaryHex};padding-bottom:12px;margin-bottom:14px}.hdr h1{margin:0;font-size:20px;color:{$primaryHex}}.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}.kpi{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px;text-align:center}.kpi span{display:block;font-size:10px;color:#64748b;font-weight:bold;text-transform:uppercase}.kpi strong{font-size:14px;color:#0f172a}table{width:100%;border-collapse:collapse;font-size:10.5px}th,td{border:1px solid #cbd5e1;padding:5px 7px;text-align:left}th{background:#f1f5f9;font-weight:bold}.sig{margin-top:36px;display:flex;justify-content:space-between;font-size:11px}@media print{.no-print{display:none!important}body{background:#fff;margin:0}}</style>";
+            echo "<script>function dlMemberPdf(){var el=document.getElementById('member-att-pdf');if(window.html2pdf){html2pdf().set({margin:7,filename:'" . addslashes($pdfFile) . "',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}}).from(el).save();}else{window.print();}}</script>";
+            echo "</head><body onload='setTimeout(dlMemberPdf, 350)'>";
+            echo "<div class='toolbar no-print'><span><strong>" . htmlspecialchars($report['name']) . " (" . htmlspecialchars($report['student_code']) . ")</strong> · " . htmlspecialchars($report['month_label']) . " Attendance Sheet</span><div><button onclick='dlMemberPdf()' style='padding:8px 16px;background:#FCDF02;color:#17191F;border:none;border-radius:8px;font-weight:bold;cursor:pointer;margin-right:8px'>⬇ Download Official PDF</button><button onclick='window.print()' style='padding:8px 16px;background:#fff;color:#111;border:none;border-radius:8px;font-weight:bold;cursor:pointer'>🖨 Print</button></div></div>";
+            echo "<div id='member-att-pdf' class='sheet'>";
+            echo "<div class='hdr'><div><h1>" . htmlspecialchars($firmName) . "</h1><p style='margin:3px 0 0;font-size:11px;color:#475569;font-weight:bold'>" . htmlspecialchars($firmDesig) . " • Individual Monthly Attendance &amp; Movement Register</p></div><div style='text-align:right;font-size:11px'><strong>Month:</strong> " . htmlspecialchars($report['month_label']) . "<br><strong>Unit:</strong> " . htmlspecialchars($report['partner_unit']) . "</div></div>";
+            echo "<p style='font-size:11.5px;margin:0 0 12px;background:#f8fafc;padding:8px 12px;border-radius:8px;border:1px solid #cbd5e1'><strong>Member Name:</strong> " . htmlspecialchars($report['name']) . " &nbsp;|&nbsp; <strong>ID Code:</strong> " . htmlspecialchars($report['student_code']) . " &nbsp;|&nbsp; <strong>Post / Designation:</strong> " . htmlspecialchars($report['designation']) . " &nbsp;|&nbsp; <strong>Supervisor:</strong> " . htmlspecialchars($report['manager']) . "</p>";
+            echo "<div class='kpis'>";
+            echo "<div class='kpi'><span>Present Days</span><strong>{$report['present_days']}d</strong></div>";
+            echo "<div class='kpi'><span>Right Time</span><strong style='color:#047857'>{$report['right_time_days']}d ({$report['punctuality_score']}%)</strong></div>";
+            echo "<div class='kpi'><span>Late / Late Pres.</span><strong style='color:#b45309'>" . ($report['late_days'] + $report['late_present_days']) . "d</strong></div>";
+            echo "<div class='kpi'><span>On Leave</span><strong style='color:#4338ca'>{$report['leave_days']}d</strong></div>";
+            echo "<div class='kpi'><span>Absent Days</span><strong style='color:#be123c'>{$report['absent_days']}d</strong></div>";
+            echo "<div class='kpi'><span>Conveyance</span><strong>৳" . number_format((float) $report['total_conveyance'], 0) . "</strong></div>";
+            echo "</div>";
+            echo "<table><thead><tr><th>Date</th><th>Day</th><th>Mode &amp; Site</th><th>First In &amp; Location</th><th>Last Out</th><th>Duration</th><th>Status</th><th>Conveyance / Remarks</th></tr></thead><tbody>";
+            foreach ($report['days'] as $dRow) {
+                echo "<tr>";
+                echo "<td><strong>" . htmlspecialchars($dRow['display_date']) . "</strong></td>";
+                echo "<td>" . htmlspecialchars($dRow['day_short']) . "</td>";
+                echo "<td>" . htmlspecialchars($dRow['mode'] !== '—' ? ($dRow['mode'] . ' · ' . $dRow['site']) : '—') . "</td>";
+                echo "<td>" . htmlspecialchars($dRow['in_time'] !== '—' ? ($dRow['in_time'] . ' (' . $dRow['in_location'] . ')') : '—') . "</td>";
+                echo "<td>" . htmlspecialchars($dRow['out_time']) . "</td>";
+                echo "<td>" . htmlspecialchars($dRow['duration']) . "</td>";
+                echo "<td><strong>" . htmlspecialchars($dRow['status_label']) . "</strong></td>";
+                echo "<td>" . ($dRow['conveyance_amount'] > 0 ? '৳' . number_format($dRow['conveyance_amount'], 0) . ' ' : '') . htmlspecialchars($dRow['remarks']) . "</td>";
+                echo "</tr>";
+            }
+            echo "</tbody></table>";
+            echo "<div class='sig'><div>___________________________<br>Member Signature</div><div>___________________________<br>Supervising Manager</div><div>___________________________<br>Partner / Principal Sign-off</div></div>";
+            echo "</div></body></html>";
+        }, $filename, ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 
     /**

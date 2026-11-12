@@ -47,7 +47,7 @@ class LeaveRequest extends Model
             return;
         }
         self::$schemaChecked = true;
-        $flagFile = storage_path('framework/cache/erp_lr_schema_v8.flag');
+        $flagFile = storage_path('framework/cache/erp_lr_schema_v9.flag');
         if (! app()->runningUnitTests() && is_file($flagFile)) {
             return;
         }

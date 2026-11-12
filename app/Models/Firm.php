@@ -54,23 +54,29 @@ class Firm extends Model
     public static function defaultDesignations(): array
     {
         return [
-            ['title' => 'Managing Partner', 'base_role' => 'partner'],
-            ['title' => 'Senior Partner', 'base_role' => 'partner'],
-            ['title' => 'Partner / Principal', 'base_role' => 'partner'],
-            ['title' => 'Director (Audit & Advisory)', 'base_role' => 'partner'],
-            ['title' => 'Senior Audit Manager', 'base_role' => 'manager'],
-            ['title' => 'Audit Manager', 'base_role' => 'manager'],
-            ['title' => 'Deputy Manager', 'base_role' => 'manager'],
-            ['title' => 'Assistant Manager', 'base_role' => 'manager'],
-            ['title' => 'Audit Supervisor', 'base_role' => 'manager'],
-            ['title' => 'Qualified Staff (ACA)', 'base_role' => 'manager'],
-            ['title' => 'Tax & RJSC Consultant', 'base_role' => 'manager'],
-            ['title' => 'Accounts & HR Officer', 'base_role' => 'manager'],
-            ['title' => 'Semi-Qualified / Course Complete', 'base_role' => 'student'],
-            ['title' => 'Senior Articled Student (Year 3)', 'base_role' => 'student'],
-            ['title' => 'Articled Student (Year 2)', 'base_role' => 'student'],
-            ['title' => 'Articled Student (Year 1)', 'base_role' => 'student'],
-            ['title' => 'Articled Student', 'base_role' => 'student'],
+            ['title' => 'Articled Student', 'base_role' => 'student', 'group' => 'Students & Interns'],
+            ['title' => 'Internship Student', 'base_role' => 'student', 'group' => 'Students & Interns'],
+            ['title' => 'Articled Student (Year 1)', 'base_role' => 'student', 'group' => 'Students & Interns'],
+            ['title' => 'Articled Student (Year 2)', 'base_role' => 'student', 'group' => 'Students & Interns'],
+            ['title' => 'Senior Articled Student (Year 3)', 'base_role' => 'student', 'group' => 'Students & Interns'],
+            ['title' => 'Semi-Qualified / Course Complete', 'base_role' => 'student', 'group' => 'Students & Interns'],
+            ['title' => 'Audit Trainee / Probationer', 'base_role' => 'student', 'group' => 'Students & Interns'],
+            ['title' => 'Office Staff', 'base_role' => 'manager', 'group' => 'Office Staff & Executives'],
+            ['title' => 'Office Assistant / Support Staff', 'base_role' => 'manager', 'group' => 'Office Staff & Executives'],
+            ['title' => 'Receptionist / Front Desk Executive', 'base_role' => 'manager', 'group' => 'Office Staff & Executives'],
+            ['title' => 'Accounts & HR Officer', 'base_role' => 'manager', 'group' => 'Office Staff & Executives'],
+            ['title' => 'IT & Support Executive', 'base_role' => 'manager', 'group' => 'Office Staff & Executives'],
+            ['title' => 'Tax & RJSC Consultant', 'base_role' => 'manager', 'group' => 'Managers & Consultants'],
+            ['title' => 'Audit Supervisor', 'base_role' => 'manager', 'group' => 'Managers & Consultants'],
+            ['title' => 'Qualified Staff (ACA)', 'base_role' => 'manager', 'group' => 'Managers & Consultants'],
+            ['title' => 'Assistant Manager', 'base_role' => 'manager', 'group' => 'Managers & Consultants'],
+            ['title' => 'Deputy Manager', 'base_role' => 'manager', 'group' => 'Managers & Consultants'],
+            ['title' => 'Audit Manager', 'base_role' => 'manager', 'group' => 'Managers & Consultants'],
+            ['title' => 'Senior Audit Manager', 'base_role' => 'manager', 'group' => 'Managers & Consultants'],
+            ['title' => 'Partner / Principal', 'base_role' => 'partner', 'group' => 'Partners & Principals'],
+            ['title' => 'Senior Partner', 'base_role' => 'partner', 'group' => 'Partners & Principals'],
+            ['title' => 'Managing Partner', 'base_role' => 'partner', 'group' => 'Partners & Principals'],
+            ['title' => 'Director (Audit & Advisory)', 'base_role' => 'partner', 'group' => 'Partners & Principals'],
         ];
     }
 
@@ -266,7 +272,7 @@ class Firm extends Model
         if (self::$firmSchemaChecked && ! app()->runningUnitTests()) {
             return;
         }
-        $flagFile = storage_path('framework/cache/erp_firm_schema_v8.flag');
+        $flagFile = storage_path('framework/cache/erp_firm_schema_v9.flag');
         if (! app()->runningUnitTests() && is_file($flagFile)) {
             self::$firmSchemaChecked = true;
             return;

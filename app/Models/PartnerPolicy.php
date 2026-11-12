@@ -55,13 +55,18 @@ class PartnerPolicy extends Model
     public static function defaultStudentGrids(): array
     {
         return [
-            'attendance_clock'   => true,
-            'live_gps_status'    => true,
-            'leave_balance'      => true,
-            'conveyance_tracker' => true,
-            'payroll_allowance'  => true,
-            'client_site_duty'   => true,
-            'firm_notices'       => true,
+            'attendance_clock'       => true,
+            'live_gps_status'        => true,
+            'leave_balance'          => true,
+            'conveyance_tracker'     => true,
+            'payroll_allowance'      => true,
+            'client_site_duty'       => true,
+            'firm_notices'           => true,
+            'att_card_watch'         => true,
+            'att_card_status_badge'  => true,
+            'att_card_gps_badge'     => false,
+            'att_card_cutoff_text'   => false,
+            'att_card_tier_chips'    => false,
         ];
     }
 

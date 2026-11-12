@@ -16,7 +16,7 @@ class LegacySchemaHealer
             return;
         }
 
-        $flagFile = storage_path('framework/cache/erp_schema_healed_v8.flag');
+        $flagFile = storage_path('framework/cache/erp_schema_healed_v9.flag');
         if (! app()->runningUnitTests() && is_file($flagFile)) {
             static::$healed = true;
             return;

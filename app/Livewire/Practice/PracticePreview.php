@@ -92,6 +92,10 @@ class PracticePreview extends Component
     public array $finalCheckoutSummary = [];
     public bool $showMovementTimelineModal = false;
     public ?array $selectedTimelineRow = null;
+    public bool $showMemberMonthlyModal = false;
+    public ?string $monthlyViewStudentCode = null;
+    public string $monthlyViewMonth = '';
+    public array $memberMonthlyReport = [];
     public string $clientSite = 'Client Audit Site';
     public ?float $currentLat = null;
     public ?float $currentLng = null;
@@ -223,13 +227,18 @@ class PracticePreview extends Component
 
     // Configurable Student Dashboard Grids (Active/Deactive toggles)
     public array $studentGrids = [
-        'attendance_clock'   => true,
-        'live_gps_status'    => true,
-        'leave_balance'      => true,
-        'conveyance_tracker' => true,
-        'payroll_allowance'  => true,
-        'client_site_duty'   => true,
-        'firm_notices'       => true,
+        'attendance_clock'       => true,
+        'live_gps_status'        => true,
+        'leave_balance'          => true,
+        'conveyance_tracker'     => true,
+        'payroll_allowance'      => true,
+        'client_site_duty'       => true,
+        'firm_notices'           => true,
+        'att_card_watch'         => true,
+        'att_card_status_badge'  => true,
+        'att_card_gps_badge'     => false,
+        'att_card_cutoff_text'   => false,
+        'att_card_tier_chips'    => false,
     ];
 
     // Configurable Manager Permissions
@@ -366,6 +375,8 @@ class PracticePreview extends Component
     // Add Member Form Fields
     public string $newMemberRole = 'student';
     public string $newMemberDesignation = 'Articled Student';
+    public bool $newMemberCustomPostMode = false;
+    public bool $editMemberCustomPostMode = false;
     public string $newMemberName = '';
     public string $newMemberEmail = '';
     public string $newMemberPassword = '';
@@ -942,6 +953,7 @@ class PracticePreview extends Component
         $this->finalCloseConfirmed = false;
         $this->finalCheckoutSummary = [];
         $this->showMovementTimelineModal = false;
+        $this->showMemberMonthlyModal = false;
         $this->showPartialLeaveModal = false;
         $this->showClaimAdjustModal = false;
         $this->showVoucherPreviewModal = false;

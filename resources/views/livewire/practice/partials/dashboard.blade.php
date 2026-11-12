@@ -42,6 +42,16 @@
         recordedStatus: @js($myRecordedStatus),
         checkinTime: @js($myCheckinTime),
         checkoutTime: @js($myCheckoutTime),
+        showWatch: {{ ($studentGrids['att_card_watch'] ?? true) ? 'true' : 'false' }},
+        showStatusBadge: {{ ($studentGrids['att_card_status_badge'] ?? true) ? 'true' : 'false' }},
+        showGpsBadge: {{ ($studentGrids['att_card_gps_badge'] ?? false) ? 'true' : 'false' }},
+        showCutoffText: {{ ($studentGrids['att_card_cutoff_text'] ?? false) ? 'true' : 'false' }},
+        showTierChips: {{ ($studentGrids['att_card_tier_chips'] ?? false) ? 'true' : 'false' }},
+        customizerOpen: false,
+        hourDeg: 0,
+        minDeg: 0,
+        secDeg: 0,
+        dateLabel: '{{ now()->timezone('Asia/Dhaka')->format('D, d M Y') }}',
         gettingGps: false,
         init() {
             const updateDhakaClock = () => {
@@ -58,6 +68,13 @@
                     const d = new Date();
                     this.nowStr = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
                 }
+                const pts = (this.nowStr || '00:00:00').split(':');
+                const hh = parseInt(pts[0] || 0, 10);
+                const mm = parseInt(pts[1] || 0, 10);
+                const ss = parseInt(pts[2] || 0, 10);
+                this.secDeg = ss * 6;
+                this.minDeg = (mm * 6) + (ss * 0.1);
+                this.hourDeg = ((hh % 12) * 30) + (mm * 0.5);
             };
             updateDhakaClock();
             setInterval(updateDhakaClock, 1000);
@@ -176,28 +193,118 @@
     <div class="pointer-events-none absolute -bottom-20 left-1/3 h-56 w-56 rounded-full bg-black/20 blur-3xl"></div>
 
     <div class="relative z-10 grid gap-6 lg:grid-cols-12 lg:items-center">
-        {{-- Left Column: Live Digital Clock, Policy Window & Status --}}
-        <div class="lg:col-span-6 min-w-0 space-y-3">
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="inline-flex items-center gap-2 rounded-full bg-black/30 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white backdrop-blur-md border border-white/15">
-                    <span class="h-2 w-2 rounded-full bg-white animate-ping"></span>
-                    <span x-text="statusLabel()"></span>
-                </span>
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white backdrop-blur-md border border-white/15">
-                    <i data-lucide="map-pin" class="h-3 w-3"></i>
-                    <span>GPS Auto-Capture Active</span>
-                </span>
+        {{-- Left Column: Executive Analog + Digital Live Watch & No-Code Card Customizer --}}
+        <div class="lg:col-span-6 min-w-0 space-y-3.5">
+            {{-- Top Row: Optional Status/GPS Badges + No-Code Customize Checkboxes Button --}}
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span x-show="showStatusBadge" class="inline-flex items-center gap-2 rounded-full bg-black/30 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white backdrop-blur-md border border-white/15">
+                        <span class="h-2 w-2 rounded-full bg-white animate-ping"></span>
+                        <span x-text="statusLabel()"></span>
+                    </span>
+                    <span x-show="showGpsBadge" x-cloak class="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white backdrop-blur-md border border-white/15">
+                        <i data-lucide="map-pin" class="h-3 w-3"></i>
+                        <span>GPS Auto-Capture Active</span>
+                    </span>
+                </div>
+
+                {{-- No-Code Attendance Card Customizer Toggle --}}
+                <div class="relative">
+                    <button type="button" @click="customizerOpen = !customizerOpen"
+                            class="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-black/25 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-white/90 hover:bg-black/40 transition cursor-pointer backdrop-blur-md"
+                            title="Show or hide watch and text items without code">
+                        <i data-lucide="sliders-horizontal" class="h-3 w-3 text-[#FCDF02]"></i>
+                        <span>Customize Card</span>
+                    </button>
+
+                    {{-- Checkboxes Popover --}}
+                    <div x-show="customizerOpen" x-cloak @click.outside="customizerOpen = false"
+                         class="absolute left-0 sm:left-auto sm:right-0 mt-2 w-72 rounded-2xl border border-white/25 bg-[#17191F]/95 p-4 text-xs text-white shadow-2xl backdrop-blur-xl z-30 space-y-2.5">
+                        <div class="flex items-center justify-between border-b border-white/10 pb-2">
+                            <span class="text-[10px] font-black uppercase tracking-wider text-[#FCDF02]">Customize Attendance Card</span>
+                            <button type="button" @click="customizerOpen = false" class="text-slate-400 hover:text-white">✕</button>
+                        </div>
+                        <p class="text-[10px] text-slate-300 leading-snug">Check or uncheck which items to display on this attendance card:</p>
+                        <label class="flex items-center gap-2.5 cursor-pointer py-0.5">
+                            <input type="checkbox" x-model="showWatch" wire:click="toggleStudentGrid('att_card_watch')" class="rounded border-white/30 text-[#FCDF02] focus:ring-0">
+                            <span class="font-bold text-white">Show Analog Watch Face</span>
+                        </label>
+                        <label class="flex items-center gap-2.5 cursor-pointer py-0.5">
+                            <input type="checkbox" x-model="showStatusBadge" wire:click="toggleStudentGrid('att_card_status_badge')" class="rounded border-white/30 text-[#FCDF02] focus:ring-0">
+                            <span class="font-bold text-white">Show Arrival Status Badge</span>
+                        </label>
+                        <label class="flex items-center gap-2.5 cursor-pointer py-0.5">
+                            <input type="checkbox" x-model="showGpsBadge" wire:click="toggleStudentGrid('att_card_gps_badge')" class="rounded border-white/30 text-[#FCDF02] focus:ring-0">
+                            <span class="font-bold text-white">Show GPS Auto-Capture Badge</span>
+                        </label>
+                        <label class="flex items-center gap-2.5 cursor-pointer py-0.5">
+                            <input type="checkbox" x-model="showCutoffText" wire:click="toggleStudentGrid('att_card_cutoff_text')" class="rounded border-white/30 text-[#FCDF02] focus:ring-0">
+                            <span class="font-bold text-white">Show Grace &amp; Penalty Text</span>
+                        </label>
+                        <label class="flex items-center gap-2.5 cursor-pointer py-0.5">
+                            <input type="checkbox" x-model="showTierChips" wire:click="toggleStudentGrid('att_card_tier_chips')" class="rounded border-white/30 text-[#FCDF02] focus:ring-0">
+                            <span class="font-bold text-white">Show 3-Tier Time Window Chips</span>
+                        </label>
+                    </div>
+                </div>
             </div>
 
-            <div class="flex items-baseline gap-3">
-                <h2 class="font-mono text-3xl sm:text-4xl font-black tracking-tight text-white drop-shadow-sm" x-text="nowStr"></h2>
-                <span class="text-xs font-extrabold uppercase tracking-widest text-white/80">Dhaka Standard Time</span>
+            {{-- Executive Analog Watch + Digital Clock Showcase --}}
+            <div class="flex items-center gap-4 sm:gap-5 rounded-2xl border border-white/15 bg-black/20 p-3.5 sm:p-4 backdrop-blur-md shadow-inner">
+                {{-- Live SVG Analog Watch --}}
+                <div x-show="showWatch" class="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-full border-2 border-white/35 bg-gradient-to-br from-slate-950/80 via-slate-900/70 to-black/85 shadow-xl flex items-center justify-center">
+                    <svg viewBox="0 0 100 100" class="h-full w-full p-1">
+                        {{-- Outer Minute Ring --}}
+                        <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="1.2" />
+                        {{-- 12 Hour Markers --}}
+                        @for($hTick = 0; $hTick < 12; $hTick++)
+                            <line x1="50" y1="{{ $hTick % 3 === 0 ? '7' : '9' }}" x2="50" y2="{{ $hTick % 3 === 0 ? '14' : '13' }}"
+                                  stroke="{{ $hTick % 3 === 0 ? '#FCDF02' : 'rgba(255,255,255,0.65)' }}"
+                                  stroke-width="{{ $hTick % 3 === 0 ? '2.4' : '1.4' }}"
+                                  stroke-linecap="round"
+                                  transform="rotate({{ $hTick * 30 }} 50 50)" />
+                        @endfor
+                        {{-- Brand Sub-dial Text --}}
+                        <text x="50" y="34" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="5.5" font-weight="800" letter-spacing="0.8">DHAKA</text>
+                        {{-- Hour Hand --}}
+                        <line x1="50" y1="53" x2="50" y2="25" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round"
+                              :transform="'rotate(' + hourDeg + ' 50 50)'" />
+                        {{-- Minute Hand --}}
+                        <line x1="50" y1="54" x2="50" y2="16" stroke="#E2E8F0" stroke-width="2.2" stroke-linecap="round"
+                              :transform="'rotate(' + minDeg + ' 50 50)'" />
+                        {{-- Sweeping Second Hand --}}
+                        <line x1="50" y1="58" x2="50" y2="13" stroke="#FCDF02" stroke-width="1.4" stroke-linecap="round"
+                              :transform="'rotate(' + secDeg + ' 50 50)'" />
+                        {{-- Center Pivot Jewel --}}
+                        <circle cx="50" cy="50" r="3.2" fill="#FCDF02" />
+                        <circle cx="50" cy="50" r="1.4" fill="#17191F" />
+                    </svg>
+                </div>
+
+                {{-- Crisp Digital Time, Date & Office Window Summary --}}
+                <div class="min-w-0 flex-1">
+                    <div class="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-widest text-[#FCDF02]">
+                        <i data-lucide="clock" class="h-3 w-3"></i>
+                        <span x-text="dateLabel"></span>
+                    </div>
+                    <div class="mt-1 flex flex-wrap items-baseline gap-2.5">
+                        <h2 class="font-mono text-3xl sm:text-4xl font-black tracking-tight text-white drop-shadow-sm" x-text="nowStr"></h2>
+                        <span class="text-[10px] font-extrabold uppercase tracking-widest text-white/75">BST (GMT+6)</span>
+                    </div>
+                    <p class="mt-1 text-[11px] font-semibold text-white/80">
+                        Office Hours: <strong>{{ $officeStart }} – {{ $officeEnd }}</strong>
+                        @if($hasCheckedInToday)
+                            · Checked in at <strong class="text-[#FCDF02]">{{ $myCheckinTime }}</strong>
+                        @endif
+                    </p>
+                </div>
             </div>
 
-            <p class="text-xs sm:text-sm text-white/90 leading-relaxed font-medium max-w-xl" x-text="statusSubtext()"></p>
+            {{-- Optional Grace Cutoff & Penalty Paragraph (Unchecked by default; toggled via Customize Card) --}}
+            <p x-show="showCutoffText" x-cloak class="text-xs sm:text-sm text-white/90 leading-relaxed font-medium max-w-xl" x-text="statusSubtext()"></p>
 
-            {{-- Policy Timeline Legend Strip --}}
-            <div class="pt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold text-white/90">
+            {{-- Optional Policy Timeline Legend Strip (Unchecked by default; toggled via Customize Card) --}}
+            <div x-show="showTierChips" x-cloak class="pt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold text-white/90">
                 <span class="inline-flex items-center gap-1.5 rounded-xl bg-black/25 px-2.5 py-1 backdrop-blur-sm border border-white/10">
                     <span class="h-2 w-2 rounded-full bg-emerald-400"></span> Right Time: &le; {{ $officeStart }}
                 </span>
@@ -1015,7 +1122,7 @@
                     </button>
                 @endforeach
             </div>
-            <button type="button" data-dw-pwa-install data-dw-pwa-display="flex" data-no-loading onclick="window.triggerDwPwaInstall && window.triggerDwPwaInstall()" class="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300 bg-amber-50/90 px-4 py-3 text-xs font-extrabold text-amber-950 hover:bg-amber-100 transition cursor-pointer shadow-2xs">
+            <button type="button" data-dw-pwa-install data-dw-pwa-display="flex" data-no-loading onclick="window.triggerDwPwaInstall && window.triggerDwPwaInstall()" class="mt-3 flex lg:hidden w-full items-center justify-center gap-2 rounded-2xl border border-amber-300 bg-amber-50/90 px-4 py-3 text-xs font-extrabold text-amber-950 hover:bg-amber-100 transition cursor-pointer shadow-2xs">
                 <i data-lucide="smartphone" class="h-4 w-4 shrink-0 text-amber-800"></i>
                 <span>Install Mobile Shortcut App</span>
             </button>

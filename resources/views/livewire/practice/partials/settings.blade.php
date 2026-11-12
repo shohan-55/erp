@@ -358,7 +358,7 @@
             @if($previewRole === 'partner')
                 <form wire:submit.prevent="updatePartnerEmail" class="space-y-3">
                     <label class="block text-xs font-bold text-slate-700">Change Partner Email Address
-                        <input type="email" wire:model="newPartnerEmail" placeholder="Enter new email (e.g. partner@{{ $firm['custom_domain'] ?? (($firm['slug'] ?? 'practice') . '.dhakawala.com') }})" required
+                        <input type="email" wire:model="newPartnerEmail" placeholder="{{ 'Enter new email (e.g. partner@' . ($firm['custom_domain'] ?? (($firm['slug'] ?? 'practice') . '.dhakawala.com')) . ')' }}" required
                                class="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs outline-none focus:border-amber-400">
                     </label>
                     <button type="submit" class="inline-flex items-center gap-2 rounded-xl bg-[#FCDF02] px-4 py-2.5 text-xs font-extrabold text-[#17191F] hover:bg-[#F3D604]">
@@ -484,13 +484,18 @@
         <div class="mt-5 space-y-2.5">
             @php
                 $gridLabels = [
-                    'attendance_clock'   => ['Attendance Clock-in Card', 'Allows GPS check-in/out and On-Duty button'],
-                    'live_gps_status'    => ['Live GPS Location Tag', 'Shows current GPS address & coordinates'],
-                    'leave_balance'      => ['Leave Balance & Quota Card', 'Displays annual, sick, and ICAB study days'],
-                    'conveyance_tracker' => ['Conveyance Expense Tracker', 'Displays monthly conveyance claim ledger'],
-                    'payroll_allowance'  => ['Monthly Allowance & Payroll Card', 'Shows automatic stipend & approved conveyance on student dashboard'],
-                    'client_site_duty'   => ['Client Site Assignment Tag', 'Displays assigned client audit site'],
-                    'firm_notices'       => ['Firm Notices & Policy Alert', 'Displays partner policy announcements'],
+                    'attendance_clock'       => ['Attendance Clock-in Card', 'Allows GPS check-in/out and On-Duty button'],
+                    'att_card_watch'         => ['⌚ Attendance Card: Analog Watch Face', 'Displays the live luxury analog watch dial on the check-in card'],
+                    'att_card_status_badge'  => ['🏷️ Attendance Card: Arrival Status Badge', 'Shows the Right Time / Late / Late Present status pill above the clock'],
+                    'att_card_gps_badge'     => ['📍 Attendance Card: GPS Auto-Capture Badge', 'Shows the "GPS Auto-Capture Active" pill on the check-in card'],
+                    'att_card_cutoff_text'   => ['📝 Attendance Card: Grace Cutoff & Penalty Text', 'Shows the detailed grace period and salary deduction explanation line'],
+                    'att_card_tier_chips'    => ['📊 Attendance Card: 3-Tier Time Window Chips', 'Shows the Right Time / Late / Late Present cutoff chips below the clock'],
+                    'live_gps_status'        => ['Live GPS Location Tag', 'Shows current GPS address & coordinates'],
+                    'leave_balance'          => ['Leave Balance & Quota Card', 'Displays annual, sick, and ICAB study days'],
+                    'conveyance_tracker'     => ['Conveyance Expense Tracker', 'Displays monthly conveyance claim ledger'],
+                    'payroll_allowance'      => ['Monthly Allowance & Payroll Card', 'Shows automatic stipend & approved conveyance on student dashboard'],
+                    'client_site_duty'       => ['Client Site Assignment Tag', 'Displays assigned client audit site'],
+                    'firm_notices'           => ['Firm Notices & Policy Alert', 'Displays partner policy announcements'],
                 ];
             @endphp
 

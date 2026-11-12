@@ -58,19 +58,19 @@
     </div>
     <div class="rounded-2xl border border-[#E8EAF0] bg-white p-4 shadow-sm">
         <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-slate-500">Audit Managers</span>
+            <span class="text-xs font-bold text-slate-500">Managers &amp; Staff</span>
             <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700"><i data-lucide="briefcase" class="h-4 w-4"></i></div>
         </div>
         <p class="mt-2 text-2xl font-black text-[#17191F]">{{ number_format($managerCount) }}</p>
-        <p class="text-[10px] text-slate-400">Supervisors</p>
+        <p class="text-[10px] text-slate-400">Managers, Officers &amp; Office Staff</p>
     </div>
     <div class="rounded-2xl border border-[#E8EAF0] bg-white p-4 shadow-sm">
         <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-slate-500">Articled Students</span>
+            <span class="text-xs font-bold text-slate-500">Students &amp; Interns</span>
             <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700"><i data-lucide="graduation-cap" class="h-4 w-4"></i></div>
         </div>
         <p class="mt-2 text-2xl font-black text-[#17191F]">{{ number_format($studentCount) }}</p>
-        <p class="text-[10px] text-slate-400">ICAB Trainees</p>
+        <p class="text-[10px] text-slate-400">ICAB Students &amp; Interns</p>
     </div>
 </section>
 
@@ -196,7 +196,7 @@
                                                 <span class="rounded bg-indigo-50 px-1.5 py-0.5 font-bold text-indigo-800">
                                                     {{ $member['articleship_duration_years'] ?? 3 }}-Yr Max ({{ $member['per_year_leave_cap'] ?? 60 }}d/yr) · Study: {{ $member['leave_allocations']['icab_study'] ?? 75 }}d
                                                 </span>
-                                                @if(!empty($member['active_articleship_window']['label']))
+                                                @if(is_array($member['active_articleship_window'] ?? null) && !empty($member['active_articleship_window']['label']))
                                                     <span class="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-800" title="Joining-Date Anniversary Year Window: {{ $member['active_articleship_window']['period_label'] ?? '' }}">
                                                         {{ $member['active_articleship_window']['label'] }}: {{ $member['active_articleship_window']['period_label'] ?? '' }}
                                                     </span>
@@ -391,7 +391,7 @@
                             <span class="rounded bg-indigo-50 px-2 py-0.5 font-bold text-indigo-800">
                                 {{ $member['articleship_duration_years'] ?? 3 }}-Yr · Study: {{ $member['leave_allocations']['icab_study'] ?? 75 }}d
                             </span>
-                            @if(!empty($member['active_articleship_window']['label']))
+                            @if(is_array($member['active_articleship_window'] ?? null) && !empty($member['active_articleship_window']['label']))
                                 <span class="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-800">
                                     {{ $member['active_articleship_window']['label'] }} ({{ $member['active_articleship_window']['period_label'] ?? '' }})
                                 </span>
@@ -481,22 +481,65 @@
                             </div>
                         </div>
                     @endif
+                    @php
+                        $groupedPosts = [
+                            'Students & Interns'        => [],
+                            'Office Staff & Executives' => [],
+                            'Managers & Consultants'    => [],
+                            'Partners & Principals'     => [],
+                        ];
+                        foreach (($customDesignations ?? \App\Models\Firm::defaultDesignations()) as $dOpt) {
+                            $bRole = $dOpt['base_role'] ?? 'student';
+                            if ($previewRole !== 'partner' && $bRole === 'partner') {
+                                continue;
+                            }
+                            $tStr = (string) ($dOpt['title'] ?? '');
+                            $grp = $dOpt['group'] ?? (
+                                $bRole === 'partner' ? 'Partners & Principals' : (
+                                    $bRole === 'student' ? 'Students & Interns' : (
+                                        (stripos($tStr, 'Staff') !== false || stripos($tStr, 'Officer') !== false || stripos($tStr, 'Reception') !== false || stripos($tStr, 'Executive') !== false)
+                                            ? 'Office Staff & Executives'
+                                            : 'Managers & Consultants'
+                                    )
+                                )
+                            );
+                            $groupedPosts[$grp][] = $dOpt;
+                        }
+                    @endphp
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1.5">Base Access Role</label>
-                            <div class="grid grid-cols-3 gap-1.5">
-                                @foreach(['manager' => 'Manager', 'student' => 'Student', 'partner' => 'Partner'] as $rVal => $rText)
-                                    <button type="button" wire:click="$set('newMemberRole', '{{ $rVal }}')"
-                                            class="rounded-xl border p-2 text-center font-bold transition {{ $newMemberRole === $rVal ? 'border-amber-400 bg-amber-50 text-amber-950 ring-2 ring-amber-300' : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100' }}">
-                                        {{ $rText }}
-                                    </button>
+                            <label class="block font-bold text-slate-700 mb-1.5">Select Post / Designation *</label>
+                            <select wire:change="selectNewMemberPresetPost($event.target.value)"
+                                    class="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs font-extrabold text-slate-900 outline-none focus:border-amber-400 focus:bg-white">
+                                @foreach($groupedPosts as $grpLabel => $grpItems)
+                                    @if(!empty($grpItems))
+                                        <optgroup label="{{ $grpLabel }}">
+                                            @foreach($grpItems as $gItem)
+                                                <option value="{{ $gItem['title'] }}" @selected(!$newMemberCustomPostMode && strcasecmp($newMemberDesignation, $gItem['title']) === 0)>
+                                                    {{ $gItem['title'] }}
+                                                </option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
                                 @endforeach
-                            </div>
+                                <option value="__CUSTOM__" @selected($newMemberCustomPostMode)>+ Type Custom Post / Designation...</option>
+                            </select>
+                            <span class="mt-1 block text-[10px] text-slate-400">Includes Articled Student, Internship Student, Office Staff, Officers, Managers &amp; Partners</span>
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 mb-1.5">Official Designation / Title *</label>
-                            <input type="text" wire:model="newMemberDesignation" list="firm-designations-datalist" placeholder="e.g. Senior Manager / Assistant Manager / Course Complete"
-                                   class="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs font-bold outline-none focus:border-amber-400">
+                            <label class="block font-bold text-slate-700 mb-1.5">Post Title &amp; Access / Leave Tier *</label>
+                            <div class="space-y-1.5">
+                                <input type="text" wire:model="newMemberDesignation" list="firm-designations-datalist" required
+                                       placeholder="e.g. Office Staff, Internship Student, Audit Manager..."
+                                       class="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs font-bold text-slate-900 outline-none focus:border-amber-400 focus:bg-white">
+                                <select wire:model.live="newMemberRole" class="w-full rounded-xl border border-slate-200 bg-slate-100/80 px-2.5 py-1.5 text-[11px] font-bold text-slate-700 outline-none focus:border-amber-400">
+                                    <option value="student">Tier: Student / Intern (ICAB or Custom Period Leave)</option>
+                                    <option value="manager">Tier: Manager / Office Staff (Jan–Dec Yearly Leave)</option>
+                                    @if($previewRole === 'partner')
+                                        <option value="partner">Tier: Partner / Principal (Executive Governance)</option>
+                                    @endif
+                                </select>
+                            </div>
                             <datalist id="firm-designations-datalist">
                                 @foreach(($customDesignations ?? []) as $dOpt)
                                     <option value="{{ $dOpt['title'] }}">{{ strtoupper($dOpt['base_role'] ?? '') }}</option>
@@ -510,7 +553,7 @@
                             <input type="text" wire:model="newMemberName" required placeholder="e.g. Farhana Rahman, ACA" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
                         </label>
                         <label class="block font-bold text-slate-700">Practice Email (Username) *
-                            <input type="email" wire:model="newMemberEmail" required placeholder="e.g. farhana@{{ $firm['custom_domain'] ?? ($firmSlug . '.dhakawala.com') }}" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
+                            <input type="email" wire:model="newMemberEmail" required placeholder="{{ 'e.g. farhana@' . ($firm['custom_domain'] ?? ($firmSlug . '.dhakawala.com')) }}" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
                         </label>
                     </div>
 
@@ -892,16 +935,24 @@
                         </label>
                     </div>
                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <label class="block font-bold text-slate-700">Base Access Tier
-                            <select wire:model="editMemberRole" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">
-                                <option value="partner">Partner / Principal Tier</option>
-                                <option value="manager">Manager / Officer Tier</option>
-                                <option value="student">Student / Trainee Tier</option>
+                        <label class="block font-bold text-slate-700">Select Post / Designation
+                            <select wire:change="selectEditMemberPresetPost($event.target.value)" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-bold outline-none focus:border-amber-400">
+                                @foreach(($customDesignations ?? \App\Models\Firm::defaultDesignations()) as $dOpt)
+                                    <option value="{{ $dOpt['title'] }}" @selected(strcasecmp($editMemberDesignation, $dOpt['title']) === 0)>{{ $dOpt['title'] }}</option>
+                                @endforeach
+                                <option value="__CUSTOM__">+ Custom Post Title...</option>
                             </select>
                         </label>
-                        <label class="block font-bold text-slate-700">Official Designation
-                            <input type="text" wire:model="editMemberDesignation" list="firm-designations-datalist" placeholder="e.g. Assistant Manager"
-                                   class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-bold outline-none focus:border-amber-400">
+                        <label class="block font-bold text-slate-700">Post Title &amp; Access Tier
+                            <input type="text" wire:model="editMemberDesignation" list="firm-designations-datalist" placeholder="e.g. Office Staff / Internship Student"
+                                   class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2 font-bold outline-none focus:border-amber-400">
+                            <select wire:model.live="editMemberRole" class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-700 outline-none">
+                                <option value="student">Tier: Student / Intern</option>
+                                <option value="manager">Tier: Manager / Office Staff</option>
+                                @if($previewRole === 'partner')
+                                    <option value="partner">Tier: Partner / Principal</option>
+                                @endif
+                            </select>
                         </label>
                         <label class="block font-bold text-slate-700">Partner Unit
                             <select wire:model="editMemberPartnerUnit" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 outline-none focus:border-amber-400">

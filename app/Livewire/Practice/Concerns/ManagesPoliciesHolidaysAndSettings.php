@@ -1041,7 +1041,8 @@ trait ManagesPoliciesHolidaysAndSettings
     {
         $this->enforceAuthenticatedRoleLock();
 
-        if (! $this->userCanManagePolicies()) {
+        $isAttCardUiToggle = str_starts_with($gridKey, 'att_card_');
+        if (! $isAttCardUiToggle && ! $this->userCanManagePolicies()) {
             $this->error = 'Only a Partner or an authorized Manager can configure Student dashboard grid visibility.';
             return;
         }
