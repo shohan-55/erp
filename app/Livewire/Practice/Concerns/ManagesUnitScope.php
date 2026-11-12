@@ -70,7 +70,7 @@ trait ManagesUnitScope
         }
 
         // If the student has no assigned manager or firm-wide shared view is active, allow any Manager in the same firm.
-        if ($target->manager_id === null || ! empty($this->sharedView)) {
+        if ($target->manager_id === null || ! empty($this->sharedView) || ! empty($this->canViewAllPartnersAttendance)) {
             return true;
         }
 

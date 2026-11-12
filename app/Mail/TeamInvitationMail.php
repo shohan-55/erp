@@ -11,10 +11,10 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 /**
- * One-time invitation & password-setup notification email for team members.
+ * Direct login credentials notification email for practice & partner accounts.
  *
- * Delivers a single-use activation/password-setup link without exposing
- * plaintext passwords in email transit or logs.
+ * Delivers the direct workspace login URL (e.g. https://erp.dhakawala.com),
+ * username (email), and password without requiring a separate activation link.
  */
 class TeamInvitationMail extends Mailable
 {
@@ -28,15 +28,14 @@ class TeamInvitationMail extends Mailable
         public bool $isPasswordReset = false,
         public ?string $invitationToken = null,
     ) {
-        // Never retain or transmit a plaintext password via email.
-        $this->plainPassword = null;
+        // Keep $this->plainPassword intact so the recipient receives their login credentials directly.
     }
 
     public function envelope(): Envelope
     {
         $subject = $this->isPasswordReset
-            ? 'Set Your New Password — ' . $this->firmName . ' (DhakaWala ERP)'
-            : 'Activate Your Account at ' . $this->firmName . ' — DhakaWala ERP';
+            ? 'Your Updated Login Credentials — ' . $this->firmName . ' (DhakaWala ERP)'
+            : 'Your Login Credentials for ' . $this->firmName . ' — DhakaWala ERP';
 
         return new Envelope(
             subject: $subject,
@@ -46,7 +45,6 @@ class TeamInvitationMail extends Mailable
     public function content(): Content
     {
         $loginUrl = $this->loginUrl();
-        $activationUrl = $this->activationUrl();
 
         return new Content(
             view: 'emails.team-invitation',
@@ -54,42 +52,21 @@ class TeamInvitationMail extends Mailable
                 'memberName'      => $this->member->name,
                 'firmName'        => $this->firmName,
                 'firmSlug'        => $this->firmSlug,
-                'roleLabel'       => match ($this->member->role) {
-                    'partner' => 'Partner / Principal',
-                    'manager' => 'Audit Manager',
-                    default   => 'Articled Student',
-                },
+                'roleLabel'       => method_exists($this->member, 'displayDesignation')
+                    ? $this->member->displayDesignation()
+                    : match ($this->member->role) {
+                        'partner' => 'Partner / Principal',
+                        'manager' => 'Audit Manager',
+                        default   => 'Articled Student',
+                    },
                 'partnerUnit'     => $this->member->partner_unit ?? 'Partner Unit 01',
                 'userId'          => $this->member->student_code ?: ('ID-' . $this->member->id),
                 'email'           => $this->member->email,
+                'plainPassword'   => $this->plainPassword,
                 'loginUrl'        => $loginUrl,
-                'activationUrl'   => $activationUrl,
                 'isPasswordReset' => $this->isPasswordReset,
             ],
         );
-    }
-
-    protected function activationUrl(): string
-    {
-        $token = $this->invitationToken ?: $this->member->invitation_token;
-        try {
-            $firm = $this->member->firm;
-            $query = $token ? ('?token=' . urlencode($token)) : '';
-            if ($firm && ! empty($firm->custom_domain)) {
-                return 'https://' . $firm->custom_domain . '/c/' . $this->firmSlug . '/activate' . $query;
-            }
-            if ($firm && ! empty($firm->custom_subdomain)) {
-                return 'https://' . $firm->custom_subdomain . '.dhakawala.com/c/' . $this->firmSlug . '/activate' . $query;
-            }
-
-            return route('firm.activate', array_filter([
-                'firmSlug' => $this->firmSlug,
-                'token'    => $token,
-            ]));
-        } catch (\Throwable $e) {
-            Log::debug('TeamInvitationMail activationUrl fallback: ' . $e->getMessage());
-            return url('/c/' . $this->firmSlug . '/activate' . ($token ? ('?token=' . urlencode($token)) : ''));
-        }
     }
 
     protected function loginUrl(): string
@@ -97,18 +74,21 @@ class TeamInvitationMail extends Mailable
         try {
             $firm = $this->member->firm;
             if ($firm && ! empty($firm->custom_domain)) {
-                return 'https://' . $firm->custom_domain . '/c/' . $this->firmSlug . '/login';
+                return 'https://' . trim($firm->custom_domain, '/');
             }
             if ($firm && ! empty($firm->custom_subdomain)) {
-                return 'https://' . $firm->custom_subdomain . '.dhakawala.com/c/' . $this->firmSlug . '/login';
+                return 'https://' . trim($firm->custom_subdomain, '.') . '.dhakawala.com';
             }
 
-            return route('firm.login', [
-                'firmSlug' => $this->firmSlug,
-            ]);
+            $appUrl = rtrim((string) config('app.url', 'https://erp.dhakawala.com'), '/');
+            if ($appUrl !== '' && ! str_contains($appUrl, 'localhost') && ! str_contains($appUrl, '127.0.0.1')) {
+                return $appUrl;
+            }
+
+            return 'https://erp.dhakawala.com';
         } catch (\Throwable $e) {
             Log::debug('TeamInvitationMail loginUrl fallback: ' . $e->getMessage());
-            return url('/c/' . $this->firmSlug . '/login');
+            return 'https://erp.dhakawala.com';
         }
     }
 }

@@ -394,11 +394,11 @@
                             </span>
                             <input
                                 wire:model="email"
-                                type="email"
+                                type="text"
                                 id="portal-email"
                                 required
                                 autocomplete="username"
-                                placeholder="you@yourfirm.com"
+                                placeholder="you@yourfirm.com or User ID"
                                 class="dw-input"
                             >
                         </div>
@@ -433,6 +433,21 @@
                             </button>
                         </div>
                     </div>
+
+                    @if ($requiresTwoFactor)
+                        <div>
+                            <label for="portal-two-factor" class="dw-label mb-1.5">Authenticator Code</label>
+                            <input
+                                wire:model="twoFactorCode"
+                                type="text"
+                                id="portal-two-factor"
+                                autocomplete="one-time-code"
+                                maxlength="20"
+                                placeholder="6-digit code or recovery code"
+                                class="dw-input font-mono tracking-widest"
+                            >
+                        </div>
+                    @endif
 
                     <label class="flex cursor-pointer select-none items-center gap-2.5 pt-0.5 text-[12.5px]" style="color: var(--dw-ink-soft);">
                         <input wire:model="remember" type="checkbox" class="h-3.5 w-3.5 rounded" style="accent-color: var(--dw-accent);">

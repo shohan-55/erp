@@ -266,6 +266,11 @@ class Firm extends Model
         if (self::$firmSchemaChecked && ! app()->runningUnitTests()) {
             return;
         }
+        $flagFile = storage_path('framework/cache/erp_firm_schema_v8.flag');
+        if (! app()->runningUnitTests() && is_file($flagFile)) {
+            self::$firmSchemaChecked = true;
+            return;
+        }
         self::$firmSchemaChecked = true;
         self::ensureBrandingSchemaColumns();
 
@@ -300,6 +305,9 @@ class Firm extends Model
                         $table->integer('trial_days')->nullable()->default(14);
                     }
                 });
+            }
+            if (! app()->runningUnitTests()) {
+                @file_put_contents($flagFile, (string) time());
             }
         } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
     }

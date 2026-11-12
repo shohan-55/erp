@@ -53,6 +53,11 @@ class ConveyanceClaim extends Model
         if (static::$schemaChecked && ! app()->runningUnitTests()) {
             return;
         }
+        $flagFile = storage_path('framework/cache/erp_cc_schema_v8.flag');
+        if (! app()->runningUnitTests() && is_file($flagFile)) {
+            static::$schemaChecked = true;
+            return;
+        }
 
         try {
             \App\Support\LegacySchemaHealer::heal();
@@ -156,6 +161,9 @@ class ConveyanceClaim extends Model
             }
 
             static::$schemaChecked = true;
+            if (! app()->runningUnitTests()) {
+                @file_put_contents($flagFile, (string) time());
+            }
         } catch (\Throwable $e) {
             // Silently ignore schema check issues
         }

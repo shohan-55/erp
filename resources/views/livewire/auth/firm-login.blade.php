@@ -286,13 +286,10 @@
                     </button>
                 </div>
 
-                <!-- Invitation Link Callout -->
+                <!-- Direct Login Credentials Callout -->
                 <div class="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200 text-center">
                     <p class="text-xs text-slate-600">
-                        First time at {{ $firm['name'] }}?
-                        <a href="{{ url('/c/' . $firmSlug . '/activate') }}" class="font-bold text-amber-700 hover:text-amber-800 hover:underline">
-                            Activate your invited account
-                        </a>
+                        New member at <strong>{{ $firm['name'] }}</strong>? Sign in directly using the username (email) and password sent to your email.
                     </p>
                 </div>
             </div>

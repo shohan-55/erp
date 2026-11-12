@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ !empty($isPasswordReset) ? 'Password Setup Link — ' . $firmName : 'Activate Your Account — ' . $firmName }}</title>
+    <title>{{ !empty($isPasswordReset) ? 'Updated Login Credentials — ' . $firmName : 'Login Credentials — ' . $firmName }}</title>
 </head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 16px;">
@@ -21,49 +21,44 @@
 
                             @if (!empty($isPasswordReset))
                                 <p style="margin:0 0 18px;font-size:14px;line-height:1.6;color:#334155;">
-                                    A password reset was initiated for your account at <strong>{{ $firmName }}</strong>.
-                                    Use the one-time setup link below to choose your new password securely:
+                                    Your account password at <strong>{{ $firmName }}</strong> has been updated.
+                                    You can sign in directly using your login link, username, and password below:
                                 </p>
                             @else
                                 <p style="margin:0 0 18px;font-size:14px;line-height:1.6;color:#334155;">
-                                    Your account has been enrolled at <strong>{{ $firmName }}</strong> as
-                                    <strong>{{ $roleLabel }}</strong> ({{ $partnerUnit ?? 'Partner Unit 01' }}).
-                                    Use the one-time activation link below to set your password and sign in:
+                                    Your account has been created at <strong>{{ $firmName }}</strong> ({{ $roleLabel }} · {{ $partnerUnit ?? 'Partner Unit 01' }}).
+                                    Your account is active and ready to use. Please sign in directly using the login details below:
                                 </p>
                             @endif
 
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:16px;">
                                 <tr>
-                                    <td style="padding:6px 8px;font-size:13px;color:#64748b;width:38%;"><strong>One-Time Setup Link:</strong></td>
-                                    <td style="padding:6px 8px;font-size:13px;color:#0f172a;word-break:break-all;">
-                                        <a href="{{ $activationUrl ?? $loginUrl }}" style="color:#0d9488;font-weight:bold;text-decoration:underline;">{{ $activationUrl ?? $loginUrl }}</a>
+                                    <td style="padding:8px;font-size:13px;color:#64748b;width:38%;"><strong>Login Link:</strong></td>
+                                    <td style="padding:8px;font-size:13px;color:#0f172a;word-break:break-all;">
+                                        <a href="{{ $loginUrl }}" style="color:#0d9488;font-weight:bold;text-decoration:underline;">{{ $loginUrl }}</a>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:6px 8px;font-size:13px;color:#64748b;"><strong>Username (Email):</strong></td>
-                                    <td style="padding:6px 8px;font-size:13px;color:#0f172a;font-weight:bold;">{{ $email }}</td>
+                                    <td style="padding:8px;font-size:13px;color:#64748b;"><strong>Username (Email):</strong></td>
+                                    <td style="padding:8px;font-size:13px;color:#0f172a;font-weight:bold;">{{ $email }}</td>
                                 </tr>
-                                @if (!empty($userId))
-                                    <tr>
-                                        <td style="padding:6px 8px;font-size:13px;color:#64748b;"><strong>User ID / Code:</strong></td>
-                                        <td style="padding:6px 8px;font-size:13px;color:#0f172a;font-family:'Courier New',monospace;font-weight:bold;">{{ $userId }}</td>
-                                    </tr>
-                                @endif
                                 <tr>
-                                    <td style="padding:6px 8px;font-size:13px;color:#64748b;"><strong>Role &amp; Unit:</strong></td>
-                                    <td style="padding:6px 8px;font-size:13px;color:#0f172a;">{{ $roleLabel }} · {{ $partnerUnit ?? 'Partner Unit 01' }}</td>
+                                    <td style="padding:8px;font-size:13px;color:#64748b;"><strong>Password:</strong></td>
+                                    <td style="padding:8px;font-size:14px;color:#0f172a;font-family:'Courier New',monospace;font-weight:bold;">
+                                        <span style="display:inline-block;background:#fef3c7;border:1px solid #fde68a;color:#92400e;padding:3px 10px;border-radius:6px;">{{ $plainPassword ?: 'Use your set password' }}</span>
+                                    </td>
                                 </tr>
                             </table>
 
                             <p style="margin:24px 0;text-align:center;">
-                                <a href="{{ $activationUrl ?? $loginUrl }}"
+                                <a href="{{ $loginUrl }}"
                                    style="display:inline-block;background:#0d9488;color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:13px 28px;border-radius:10px;">
-                                    {{ !empty($isPasswordReset) ? 'Set New Password' : 'Activate Account' }}
+                                    Sign In to Workspace
                                 </a>
                             </p>
 
                             <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:16px;">
-                                For your security, plaintext passwords are never sent by email. This one-time setup link expires after 7 days or immediately upon use.
+                                You can change your password anytime after signing in from your Profile &amp; Security settings.
                             </p>
                         </td>
                     </tr>

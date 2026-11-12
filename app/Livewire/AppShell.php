@@ -137,15 +137,22 @@ class AppShell extends Component
             return;
         }
 
-        $credentials = [
-            'email'    => strtolower(trim($this->email)),
-            'password' => $this->password,
-        ];
+        $rawIdentifier = trim($this->email);
+        $resolvedEmail = strtolower($rawIdentifier);
 
         $authenticated = false;
         try {
             if (Schema::hasTable('users')) {
-                $authenticated = Auth::attempt($credentials, $this->remember);
+                if (! str_contains($rawIdentifier, '@') && Schema::hasColumn('users', 'student_code')) {
+                    $byCode = User::whereRaw('LOWER(student_code) = ?', [$resolvedEmail])->first();
+                    if ($byCode) {
+                        $resolvedEmail = strtolower($byCode->email);
+                    }
+                }
+                $authenticated = Auth::attempt([
+                    'email'    => $resolvedEmail,
+                    'password' => $this->password,
+                ], $this->remember);
             }
         } catch (\Throwable) {
             $authenticated = false;
@@ -183,9 +190,6 @@ class AppShell extends Component
             return;
         }
 
-        RateLimiter::clear('portal-login:' . $throttleKey);
-        session()->regenerate();
-
         /** @var User $user */
         $user = Auth::user();
 
@@ -208,6 +212,9 @@ class AppShell extends Component
             $this->loginError = $this->twoFactorError;
             return;
         }
+
+        RateLimiter::clear('portal-login:' . $throttleKey);
+        session()->regenerate();
 
         if ($user && $user->isPlatformAdmin()) {
             $this->redirect(route(app()->runningUnitTests() ? 'platform.dashboard.preview' : 'platform.dashboard'), navigate: true);

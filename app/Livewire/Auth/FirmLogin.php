@@ -137,10 +137,8 @@ class FirmLogin extends Component
         }
 
         // ─── Attempt Authentication ────────────────────────────────────────
-        $credentials = [
-            'email'    => strtolower(trim($this->email)),
-            'password' => $this->password,
-        ];
+        $rawIdentifier = trim($this->email);
+        $resolvedEmail = strtolower($rawIdentifier);
 
         $authenticated = false;
         $hasUsersTable = false;
@@ -153,7 +151,21 @@ class FirmLogin extends Component
 
         if ($hasUsersTable) {
             try {
-                $authenticated = Auth::attempt($credentials, $this->remember);
+                if (! str_contains($rawIdentifier, '@') && Schema::hasColumn('users', 'student_code')) {
+                    $firmModel = Schema::hasTable('firms') ? \App\Models\Firm::where('slug', $this->firmSlug)->first() : null;
+                    $codeQuery = User::whereRaw('LOWER(student_code) = ?', [$resolvedEmail]);
+                    if ($firmModel) {
+                        $codeQuery->where('firm_id', $firmModel->id);
+                    }
+                    $byCode = $codeQuery->first();
+                    if ($byCode) {
+                        $resolvedEmail = strtolower($byCode->email);
+                    }
+                }
+                $authenticated = Auth::attempt([
+                    'email'    => $resolvedEmail,
+                    'password' => $this->password,
+                ], $this->remember);
             } catch (\Throwable) {
                 $authenticated = false;
             }

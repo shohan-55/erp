@@ -23,5 +23,16 @@
     {{ $slot }}
     <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
     @livewireScripts
+    <script>
+        document.addEventListener('livewire:init', () => {
+            Livewire.on('toast', (event) => {
+                const payload = Array.isArray(event) ? event[0] : event;
+                if (window.showToast && payload) {
+                    const tType = payload.type === 'error' ? 'danger' : (payload.type || 'success');
+                    window.showToast(payload.title || 'Notice', payload.message || '', tType);
+                }
+            });
+        });
+    </script>
 </body>
 </html>

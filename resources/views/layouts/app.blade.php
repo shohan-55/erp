@@ -55,7 +55,7 @@
             Livewire.on('toast', (data) => {
                 const payload = Array.isArray(data) ? data[0] : data;
                 if (window.showToast) {
-                    window.showToast(payload.title, payload.message, payload.type);
+                    const tType = payload.type === 'error' ? 'danger' : (payload.type || 'success'); window.showToast(payload.title || 'Notice', payload.message || '', tType);
                 }
             });
         });

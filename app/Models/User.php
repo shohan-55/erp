@@ -119,6 +119,11 @@ class User extends Authenticatable
         if (self::$userSchemaChecked && ! app()->runningUnitTests()) {
             return;
         }
+        $flagFile = storage_path('framework/cache/erp_user_schema_v8.flag');
+        if (! app()->runningUnitTests() && is_file($flagFile)) {
+            self::$userSchemaChecked = true;
+            return;
+        }
         self::$userSchemaChecked = true;
 
         try {
@@ -141,6 +146,9 @@ class User extends Authenticatable
                         $table->json('leave_allocations')->nullable();
                     }
                 });
+            }
+            if (! app()->runningUnitTests()) {
+                @file_put_contents($flagFile, (string) time());
             }
         } catch (\Throwable $e) {
             Log::debug('User schema check skipped: ' . $e->getMessage());

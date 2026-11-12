@@ -1035,6 +1035,25 @@ trait ManagesAttendanceCalendarAndRadar
     {
         $board = [];
         $firmModel = $this->resolveFirmModel();
+        $monthlyByUser = collect();
+
+        if ($firmModel && ! empty($this->studentRows) && Schema::hasTable('attendances')) {
+            try {
+                [$periodStart, $periodEnd] = method_exists($this, 'payrollPeriodBounds')
+                    ? $this->payrollPeriodBounds()
+                    : [$this->period . '-01', $this->period . '-31'];
+                $userIds = array_values(array_filter(array_column($this->studentRows, 'db_id')));
+                if (! empty($userIds)) {
+                    $monthlyByUser = Attendance::where('firm_id', $firmModel->id)
+                        ->whereIn('user_id', $userIds)
+                        ->whereBetween('date', [$periodStart, $periodEnd])
+                        ->get()
+                        ->groupBy('user_id');
+                }
+            } catch (\Throwable $e) {
+                Log::error('attendance leaderboard query failed: ' . $e->getMessage(), ['user' => Auth::id()]);
+            }
+        }
 
         foreach ($this->studentRows as $r) {
             $rightDays = in_array($r['status'] ?? '', ['Right Time', 'On time'], true) ? 1 : 0;
@@ -1042,21 +1061,14 @@ trait ManagesAttendanceCalendarAndRadar
             $latePresDays = ($r['status'] ?? '') === 'Late Present' ? 1 : 0;
             $excusedDays = ($r['status'] ?? '') === 'Late (Excused)' ? 1 : 0;
 
-            if ($firmModel && ! empty($r['db_id']) && Schema::hasTable('attendances')) {
-                try {
-                    $mAtts = Attendance::where('firm_id', $firmModel->id)
-                        ->where('user_id', $r['db_id'])
-                        ->where('date', 'like', $this->period . '%')
-                        ->get();
-                    if ($mAtts->isNotEmpty()) {
-                        $rightDays = $mAtts->whereIn('status', ['Right Time', 'On time'])->count();
-                        $lateDays = $mAtts->where('status', 'Late')->count();
-                        $latePresDays = $mAtts->where('status', 'Late Present')->count();
-                        $excusedDays = $mAtts->where('status', 'Late (Excused)')->count();
-                    }
-                } catch (\Throwable $e) {
-                Log::error('attendance persistence failed: ' . $e->getMessage(), ['user' => Auth::id()]);
-            }
+            if (! empty($r['db_id']) && $monthlyByUser->has($r['db_id'])) {
+                $mAtts = $monthlyByUser->get($r['db_id']);
+                if ($mAtts && $mAtts->isNotEmpty()) {
+                    $rightDays = $mAtts->whereIn('status', ['Right Time', 'On time'])->count();
+                    $lateDays = $mAtts->where('status', 'Late')->count();
+                    $latePresDays = $mAtts->where('status', 'Late Present')->count();
+                    $excusedDays = $mAtts->where('status', 'Late (Excused)')->count();
+                }
             }
 
             // An excused late arrival scores full marks: the firm itself

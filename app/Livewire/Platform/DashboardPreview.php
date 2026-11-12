@@ -609,7 +609,7 @@ class DashboardPreview extends Component
         $customSubdomain = ! empty(trim($this->newFirmCustomSubdomain)) ? strtolower(trim($this->newFirmCustomSubdomain)) : null;
         $partnerPass = trim((string) $this->newPartnerPassword) !== ''
             ? trim($this->newPartnerPassword)
-            : Str::password(14);
+            : Str::password(10, true, true, false);
 
         try {
             if (Schema::hasTable('firms')) {
@@ -727,6 +727,8 @@ class DashboardPreview extends Component
                             'can_edit_attendance'  => true,
                             'can_approve_leave'    => true,
                             'can_approve_claims'   => true,
+                            'is_active'            => true,
+                            'invitation_token'     => null,
                             'email_verified_at'    => now(),
                         ]);
                         $partner = $existingUser;
@@ -744,6 +746,8 @@ class DashboardPreview extends Component
                             'can_edit_attendance'  => true,
                             'can_approve_leave'    => true,
                             'can_approve_claims'   => true,
+                            'is_active'            => true,
+                            'invitation_token'     => null,
                             'email_verified_at'    => now(),
                         ]);
                     }
@@ -946,7 +950,7 @@ class DashboardPreview extends Component
         $unit = trim($this->newAddPartnerUnit) ?: 'Partner Unit 02';
         $password = trim((string) $this->newAddPartnerPassword) !== ''
             ? trim($this->newAddPartnerPassword)
-            : Str::password(14);
+            : Str::password(10, true, true, false);
 
         if ($name === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->previewNotice = 'Please provide a valid Partner Name and Email address.';
@@ -1132,8 +1136,8 @@ class DashboardPreview extends Component
             return;
         }
 
-        if ($newPass !== '' && strlen($newPass) < 8) {
-            $this->previewNotice = 'New Partner password must be at least 8 characters.';
+        if ($newPass !== '' && strlen($newPass) < 6) {
+            $this->previewNotice = 'New Partner password must be at least 6 characters.';
             return;
         }
 
@@ -1359,10 +1363,10 @@ class DashboardPreview extends Component
 
         $newPass = trim((string) ($this->resetPartnerPasswordInputs[$partnerUserId] ?? ''));
         if ($newPass === '') {
-            $newPass = Str::password(14);
+            $newPass = Str::password(10, true, true, false);
         }
-        if (strlen($newPass) < 8) {
-            $this->previewNotice = 'Partner password must be at least 8 characters.';
+        if (strlen($newPass) < 6) {
+            $this->previewNotice = 'Partner password must be at least 6 characters.';
             return;
         }
 
@@ -1371,7 +1375,17 @@ class DashboardPreview extends Component
                 $partner = User::where('id', $partnerUserId)->where('role', 'partner')->first();
                 if ($partner) {
                     $partner->password = Hash::make($newPass);
+                    $partner->email_verified_at = $partner->email_verified_at ?? now();
+                    if (Schema::hasColumn('users', 'is_active')) {
+                        $partner->is_active = true;
+                    }
+                    if (Schema::hasColumn('users', 'invitation_token')) {
+                        $partner->invitation_token = null;
+                    }
                     $partner->save();
+                    if (Schema::hasTable('sessions') && Schema::hasColumn('sessions', 'user_id')) {
+                        DB::table('sessions')->where('user_id', $partner->id)->delete();
+                    }
 
                     if ($partner->firm_id && Schema::hasTable('firms')) {
                         $fObj = Firm::find($partner->firm_id);
@@ -1395,7 +1409,12 @@ class DashboardPreview extends Component
 
                     $this->resetPartnerPasswordInputs[$partnerUserId] = '';
                     $this->loadPlatformAuditLogs();
-                    $this->previewNotice = "Password reset for Partner {$partner->name} ({$partner->email}) to: {$newPass}";
+                    $this->previewNotice = "Password reset for Partner {$partner->name} ({$partner->email}) to: {$newPass} (Login credentials emailed).";
+                    $this->dispatch('toast', [
+                        'type'    => 'success',
+                        'title'   => 'Partner Password Reset',
+                        'message' => $this->previewNotice,
+                    ]);
                 }
             }
         } catch (\Throwable $e) {

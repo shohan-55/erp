@@ -28,6 +28,7 @@ document.addEventListener('livewire:navigated', () => {
 window.showToast = function(title, message, type = 'success') {
     const container = document.getElementById('toast-container');
     if (!container) return;
+    if (type === 'error') type = 'danger';
 
     const toast = document.createElement('div');
     toast.className = `rac-toast rac-toast-${type}`;

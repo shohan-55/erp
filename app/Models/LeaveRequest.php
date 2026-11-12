@@ -47,6 +47,10 @@ class LeaveRequest extends Model
             return;
         }
         self::$schemaChecked = true;
+        $flagFile = storage_path('framework/cache/erp_lr_schema_v8.flag');
+        if (! app()->runningUnitTests() && is_file($flagFile)) {
+            return;
+        }
 
         try {
             \App\Support\LegacySchemaHealer::heal();
@@ -146,6 +150,9 @@ class LeaveRequest extends Model
                 } catch (\Throwable $e) {
                     Log::debug($e->getMessage());
                 }
+            }
+            if (! app()->runningUnitTests()) {
+                @file_put_contents($flagFile, (string) time());
             }
         } catch (\Throwable $e) {
             Log::debug('LeaveRequest schema check skipped: ' . $e->getMessage());

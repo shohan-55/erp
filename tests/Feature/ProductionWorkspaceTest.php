@@ -843,17 +843,17 @@ class ProductionWorkspaceTest extends TestCase
         $created = User::where("email", "nafis.student@rahmananis.com")->first();
         $this->assertNotNull($created);
         $this->assertNotNull($created->email_verified_at);
-        $this->assertNotEmpty($created->invitation_token);
+        $this->assertNull($created->invitation_token);
         $this->assertTrue(\Illuminate\Support\Facades\Hash::check("InitialPass2026!", $created->password));
 
-        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\TeamInvitationMail::class, function (\App\Mail\TeamInvitationMail $mail) use ($created) {
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\TeamInvitationMail::class, function (\App\Mail\TeamInvitationMail $mail) {
             return $mail->hasTo("nafis.student@rahmananis.com")
-                && $mail->plainPassword === null
-                && $mail->invitationToken === $created->invitation_token
+                && $mail->plainPassword === "InitialPass2026!"
+                && $mail->invitationToken === null
                 && $mail->isPasswordReset === false;
         });
 
-        // Manager resets the student password and a one-time setup link is emailed without plaintext password exposure
+        // Manager resets the student password and the direct login link, username, and new password are emailed
         $this->actingAs($this->manager);
         $resetComponent = Livewire::test(PracticePreview::class, [
             "firmSlug"    => "rac",
@@ -867,16 +867,16 @@ class ProductionWorkspaceTest extends TestCase
             ->assertSet("error", null)
             ->assertSet("showResetPasswordModal", false);
 
-        $this->assertStringNotContainsString("ManagerResetPass99!", (string) $resetComponent->get("notice"));
+        $this->assertStringContainsString("ManagerResetPass99!", (string) $resetComponent->get("notice"));
 
         $created->refresh();
-        $this->assertNotEmpty($created->invitation_token);
+        $this->assertNull($created->invitation_token);
         $this->assertTrue(\Illuminate\Support\Facades\Hash::check("ManagerResetPass99!", $created->password));
 
-        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\TeamInvitationMail::class, function (\App\Mail\TeamInvitationMail $mail) use ($created) {
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\TeamInvitationMail::class, function (\App\Mail\TeamInvitationMail $mail) {
             return $mail->hasTo("nafis.student@rahmananis.com")
-                && $mail->plainPassword === null
-                && $mail->invitationToken === $created->invitation_token
+                && $mail->plainPassword === "ManagerResetPass99!"
+                && $mail->invitationToken === null
                 && $mail->isPasswordReset === true;
         });
     }

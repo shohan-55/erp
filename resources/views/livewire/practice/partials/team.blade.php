@@ -817,14 +817,14 @@
 
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">
-                            New Password (Enter custom password or leave blank to send one-time reset link)
+                            New Password (Enter custom password or leave blank to auto-generate)
                         </label>
                         <input type="text"
                                wire:model="resetPasswordInput"
                                placeholder="Type new password (min 6 chars) or leave blank"
                                class="w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-mono text-xs outline-none focus:border-amber-400 focus:bg-white">
                         <p class="mt-1.5 text-[11px] text-slate-500 leading-relaxed">
-                            A one-time password reset and account activation link will be sent immediately to <strong>{{ $resetPasswordMemberEmail }}</strong>.
+                            The direct workspace login link, username, and new password will be sent immediately to <strong>{{ $resetPasswordMemberEmail }}</strong>.
                         </p>
                     </div>
 

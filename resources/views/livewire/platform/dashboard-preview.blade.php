@@ -1169,7 +1169,7 @@
                             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                                 Initial Partner Password
                             </label>
-                            <input type="text" wire:model="newPartnerPassword" placeholder="Default: Partner@2026"
+                            <input type="text" wire:model="newPartnerPassword" placeholder="Leave blank to auto-generate & email"
                                    class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-200">
                         </div>
 

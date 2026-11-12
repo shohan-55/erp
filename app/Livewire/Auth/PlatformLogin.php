@@ -122,6 +122,13 @@ class PlatformLogin extends Component
         /** @var User $user */
         $user = Auth::user();
 
+        if ($user && Schema::hasTable('users') && Schema::hasColumn('users', 'is_active') && ! $user->isActive()) {
+            Auth::logout();
+            $this->validationError = 'This account has been deactivated. Please contact platform administration.';
+            $this->password = '';
+            return;
+        }
+
         // ─── Optional second factor (P1-3.2) ──────────────────────────────
         // Inert for every account that has not enrolled a TOTP secret.
         if (! $this->twoFactorGate($user)) {

@@ -16,6 +16,12 @@ class LegacySchemaHealer
             return;
         }
 
+        $flagFile = storage_path('framework/cache/erp_schema_healed_v8.flag');
+        if (! app()->runningUnitTests() && is_file($flagFile)) {
+            static::$healed = true;
+            return;
+        }
+
         try {
             if (DB::getDriverName() !== 'mysql') {
                 static::$healed = true;
@@ -126,6 +132,9 @@ class LegacySchemaHealer
             }
 
             static::$healed = true;
+            if (! app()->runningUnitTests()) {
+                @file_put_contents($flagFile, (string) time());
+            }
         } catch (\Throwable $e) {
             // Never block request execution
         }
