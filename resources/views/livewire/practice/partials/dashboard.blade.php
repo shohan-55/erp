@@ -193,93 +193,51 @@
     <div class="pointer-events-none absolute -bottom-20 left-1/3 h-56 w-56 rounded-full bg-black/20 blur-3xl"></div>
 
     <div class="relative z-10 grid gap-6 lg:grid-cols-12 lg:items-center">
-        {{-- Left Column: Executive Analog + Digital Live Watch & No-Code Card Customizer --}}
+        {{-- Left Column: Executive Analog + Digital Live Watch (Customized from Workspace Settings) --}}
         <div class="lg:col-span-6 min-w-0 space-y-3.5">
-            {{-- Top Row: Optional Status/GPS Badges + No-Code Customize Checkboxes Button --}}
-            <div class="flex flex-wrap items-center justify-between gap-2">
+            @if(($studentGrids['att_card_status_badge'] ?? true) || ($studentGrids['att_card_gps_badge'] ?? false))
                 <div class="flex flex-wrap items-center gap-2">
-                    <span x-show="showStatusBadge" class="inline-flex items-center gap-2 rounded-full bg-black/30 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white backdrop-blur-md border border-white/15">
-                        <span class="h-2 w-2 rounded-full bg-white animate-ping"></span>
-                        <span x-text="statusLabel()"></span>
-                    </span>
-                    <span x-show="showGpsBadge" x-cloak class="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white backdrop-blur-md border border-white/15">
-                        <i data-lucide="map-pin" class="h-3 w-3"></i>
-                        <span>GPS Auto-Capture Active</span>
-                    </span>
+                    @if($studentGrids['att_card_status_badge'] ?? true)
+                        <span class="inline-flex items-center gap-2 rounded-full bg-black/30 px-3.5 py-1 text-[11px] font-black uppercase tracking-wider text-white backdrop-blur-md border border-white/15">
+                            <span class="h-2 w-2 rounded-full bg-white animate-ping"></span>
+                            <span x-text="statusLabel()"></span>
+                        </span>
+                    @endif
+                    @if($studentGrids['att_card_gps_badge'] ?? false)
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white backdrop-blur-md border border-white/15">
+                            <i data-lucide="map-pin" class="h-3 w-3"></i>
+                            <span>GPS Auto-Capture Active</span>
+                        </span>
+                    @endif
                 </div>
-
-                {{-- No-Code Attendance Card Customizer Toggle --}}
-                <div class="relative">
-                    <button type="button" @click="customizerOpen = !customizerOpen"
-                            class="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-black/25 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-white/90 hover:bg-black/40 transition cursor-pointer backdrop-blur-md"
-                            title="Show or hide watch and text items without code">
-                        <i data-lucide="sliders-horizontal" class="h-3 w-3 text-[#FCDF02]"></i>
-                        <span>Customize Card</span>
-                    </button>
-
-                    {{-- Checkboxes Popover --}}
-                    <div x-show="customizerOpen" x-cloak @click.outside="customizerOpen = false"
-                         class="absolute left-0 sm:left-auto sm:right-0 mt-2 w-72 rounded-2xl border border-white/25 bg-[#17191F]/95 p-4 text-xs text-white shadow-2xl backdrop-blur-xl z-30 space-y-2.5">
-                        <div class="flex items-center justify-between border-b border-white/10 pb-2">
-                            <span class="text-[10px] font-black uppercase tracking-wider text-[#FCDF02]">Customize Attendance Card</span>
-                            <button type="button" @click="customizerOpen = false" class="text-slate-400 hover:text-white">✕</button>
-                        </div>
-                        <p class="text-[10px] text-slate-300 leading-snug">Check or uncheck which items to display on this attendance card:</p>
-                        <label class="flex items-center gap-2.5 cursor-pointer py-0.5">
-                            <input type="checkbox" x-model="showWatch" wire:click="toggleStudentGrid('att_card_watch')" class="rounded border-white/30 text-[#FCDF02] focus:ring-0">
-                            <span class="font-bold text-white">Show Analog Watch Face</span>
-                        </label>
-                        <label class="flex items-center gap-2.5 cursor-pointer py-0.5">
-                            <input type="checkbox" x-model="showStatusBadge" wire:click="toggleStudentGrid('att_card_status_badge')" class="rounded border-white/30 text-[#FCDF02] focus:ring-0">
-                            <span class="font-bold text-white">Show Arrival Status Badge</span>
-                        </label>
-                        <label class="flex items-center gap-2.5 cursor-pointer py-0.5">
-                            <input type="checkbox" x-model="showGpsBadge" wire:click="toggleStudentGrid('att_card_gps_badge')" class="rounded border-white/30 text-[#FCDF02] focus:ring-0">
-                            <span class="font-bold text-white">Show GPS Auto-Capture Badge</span>
-                        </label>
-                        <label class="flex items-center gap-2.5 cursor-pointer py-0.5">
-                            <input type="checkbox" x-model="showCutoffText" wire:click="toggleStudentGrid('att_card_cutoff_text')" class="rounded border-white/30 text-[#FCDF02] focus:ring-0">
-                            <span class="font-bold text-white">Show Grace &amp; Penalty Text</span>
-                        </label>
-                        <label class="flex items-center gap-2.5 cursor-pointer py-0.5">
-                            <input type="checkbox" x-model="showTierChips" wire:click="toggleStudentGrid('att_card_tier_chips')" class="rounded border-white/30 text-[#FCDF02] focus:ring-0">
-                            <span class="font-bold text-white">Show 3-Tier Time Window Chips</span>
-                        </label>
-                    </div>
-                </div>
-            </div>
+            @endif
 
             {{-- Executive Analog Watch + Digital Clock Showcase --}}
             <div class="flex items-center gap-4 sm:gap-5 rounded-2xl border border-white/15 bg-black/20 p-3.5 sm:p-4 backdrop-blur-md shadow-inner">
-                {{-- Live SVG Analog Watch --}}
-                <div x-show="showWatch" class="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-full border-2 border-white/35 bg-gradient-to-br from-slate-950/80 via-slate-900/70 to-black/85 shadow-xl flex items-center justify-center">
-                    <svg viewBox="0 0 100 100" class="h-full w-full p-1">
-                        {{-- Outer Minute Ring --}}
-                        <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="1.2" />
-                        {{-- 12 Hour Markers --}}
-                        @for($hTick = 0; $hTick < 12; $hTick++)
-                            <line x1="50" y1="{{ $hTick % 3 === 0 ? '7' : '9' }}" x2="50" y2="{{ $hTick % 3 === 0 ? '14' : '13' }}"
-                                  stroke="{{ $hTick % 3 === 0 ? '#FCDF02' : 'rgba(255,255,255,0.65)' }}"
-                                  stroke-width="{{ $hTick % 3 === 0 ? '2.4' : '1.4' }}"
-                                  stroke-linecap="round"
-                                  transform="rotate({{ $hTick * 30 }} 50 50)" />
-                        @endfor
-                        {{-- Brand Sub-dial Text --}}
-                        <text x="50" y="34" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="5.5" font-weight="800" letter-spacing="0.8">DHAKA</text>
-                        {{-- Hour Hand --}}
-                        <line x1="50" y1="53" x2="50" y2="25" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round"
-                              :transform="'rotate(' + hourDeg + ' 50 50)'" />
-                        {{-- Minute Hand --}}
-                        <line x1="50" y1="54" x2="50" y2="16" stroke="#E2E8F0" stroke-width="2.2" stroke-linecap="round"
-                              :transform="'rotate(' + minDeg + ' 50 50)'" />
-                        {{-- Sweeping Second Hand --}}
-                        <line x1="50" y1="58" x2="50" y2="13" stroke="#FCDF02" stroke-width="1.4" stroke-linecap="round"
-                              :transform="'rotate(' + secDeg + ' 50 50)'" />
-                        {{-- Center Pivot Jewel --}}
-                        <circle cx="50" cy="50" r="3.2" fill="#FCDF02" />
-                        <circle cx="50" cy="50" r="1.4" fill="#17191F" />
-                    </svg>
-                </div>
+                @if($studentGrids['att_card_watch'] ?? true)
+                    {{-- Live SVG Analog Watch --}}
+                    <div class="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-full border-2 border-white/35 bg-gradient-to-br from-slate-950/80 via-slate-900/70 to-black/85 shadow-xl flex items-center justify-center">
+                        <svg viewBox="0 0 100 100" class="h-full w-full p-1">
+                            <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="1.2" />
+                            @for($hTick = 0; $hTick < 12; $hTick++)
+                                <line x1="50" y1="{{ $hTick % 3 === 0 ? '7' : '9' }}" x2="50" y2="{{ $hTick % 3 === 0 ? '14' : '13' }}"
+                                      stroke="{{ $hTick % 3 === 0 ? '#FCDF02' : 'rgba(255,255,255,0.65)' }}"
+                                      stroke-width="{{ $hTick % 3 === 0 ? '2.4' : '1.4' }}"
+                                      stroke-linecap="round"
+                                      transform="rotate({{ $hTick * 30 }} 50 50)" />
+                            @endfor
+                            <text x="50" y="34" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="5.5" font-weight="800" letter-spacing="0.8">DHAKA</text>
+                            <line x1="50" y1="53" x2="50" y2="25" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round"
+                                  :transform="'rotate(' + hourDeg + ' 50 50)'" />
+                            <line x1="50" y1="54" x2="50" y2="16" stroke="#E2E8F0" stroke-width="2.2" stroke-linecap="round"
+                                  :transform="'rotate(' + minDeg + ' 50 50)'" />
+                            <line x1="50" y1="58" x2="50" y2="13" stroke="#FCDF02" stroke-width="1.4" stroke-linecap="round"
+                                  :transform="'rotate(' + secDeg + ' 50 50)'" />
+                            <circle cx="50" cy="50" r="3.2" fill="#FCDF02" />
+                            <circle cx="50" cy="50" r="1.4" fill="#17191F" />
+                        </svg>
+                    </div>
+                @endif
 
                 {{-- Crisp Digital Time, Date & Office Window Summary --}}
                 <div class="min-w-0 flex-1">
@@ -300,21 +258,23 @@
                 </div>
             </div>
 
-            {{-- Optional Grace Cutoff & Penalty Paragraph (Unchecked by default; toggled via Customize Card) --}}
-            <p x-show="showCutoffText" x-cloak class="text-xs sm:text-sm text-white/90 leading-relaxed font-medium max-w-xl" x-text="statusSubtext()"></p>
+            @if($studentGrids['att_card_cutoff_text'] ?? false)
+                <p class="text-xs sm:text-sm text-white/90 leading-relaxed font-medium max-w-xl" x-text="statusSubtext()"></p>
+            @endif
 
-            {{-- Optional Policy Timeline Legend Strip (Unchecked by default; toggled via Customize Card) --}}
-            <div x-show="showTierChips" x-cloak class="pt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold text-white/90">
-                <span class="inline-flex items-center gap-1.5 rounded-xl bg-black/25 px-2.5 py-1 backdrop-blur-sm border border-white/10">
-                    <span class="h-2 w-2 rounded-full bg-emerald-400"></span> Right Time: &le; {{ $officeStart }}
-                </span>
-                <span class="inline-flex items-center gap-1.5 rounded-xl bg-black/25 px-2.5 py-1 backdrop-blur-sm border border-white/10">
-                    <span class="h-2 w-2 rounded-full bg-amber-300"></span> Late: {{ $officeStart }}–{{ $graceEndFormatted ?? '09:40' }}
-                </span>
-                <span class="inline-flex items-center gap-1.5 rounded-xl bg-black/25 px-2.5 py-1 backdrop-blur-sm border border-white/10">
-                    <span class="h-2 w-2 rounded-full bg-rose-400"></span> Late Present: &gt; {{ $graceEndFormatted ?? '09:40' }}
-                </span>
-            </div>
+            @if($studentGrids['att_card_tier_chips'] ?? false)
+                <div class="pt-1 flex flex-wrap items-center gap-2 text-[11px] font-bold text-white/90">
+                    <span class="inline-flex items-center gap-1.5 rounded-xl bg-black/25 px-2.5 py-1 backdrop-blur-sm border border-white/10">
+                        <span class="h-2 w-2 rounded-full bg-emerald-400"></span> Right Time: &le; {{ $officeStart }}
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 rounded-xl bg-black/25 px-2.5 py-1 backdrop-blur-sm border border-white/10">
+                        <span class="h-2 w-2 rounded-full bg-amber-300"></span> Late: {{ $officeStart }}–{{ $graceEndFormatted ?? '09:40' }}
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 rounded-xl bg-black/25 px-2.5 py-1 backdrop-blur-sm border border-white/10">
+                        <span class="h-2 w-2 rounded-full bg-rose-400"></span> Late Present: &gt; {{ $graceEndFormatted ?? '09:40' }}
+                    </span>
+                </div>
+            @endif
         </div>
 
         {{-- Right Column: Interactive Office / Client Selector + Client Name Input + Check-In / Out Action --}}

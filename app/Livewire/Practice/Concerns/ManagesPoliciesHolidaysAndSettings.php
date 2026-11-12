@@ -115,7 +115,7 @@ trait ManagesPoliciesHolidaysAndSettings
                     if (! empty($policy->leave_quotas) && is_array($policy->leave_quotas)) {
                         $this->leaveQuotas = $policy->leave_quotas;
                     }
-                    if (! empty($policy->student_grids)) {
+                    if (! empty($policy->student_grids) && is_array($policy->student_grids)) {
                         $this->studentGrids = array_merge($this->studentGrids, $policy->student_grids);
                     }
                     if (! empty($policy->manager_permissions) && is_array($policy->manager_permissions)) {
@@ -156,6 +156,10 @@ trait ManagesPoliciesHolidaysAndSettings
                     $this->canViewAllPartnersAttendance = (bool) ($firmModel->shared_attendance_view ?? true);
                 }
             } catch (\Throwable $e) { \Illuminate\Support\Facades\Log::debug($e->getMessage()); }
+        }
+        $sessionGrids = session('erp_student_grids_' . $this->firmSlug . '_' . Str::slug($this->partnerUnit));
+        if (is_array($sessionGrids) && ! empty($sessionGrids)) {
+            $this->studentGrids = array_merge($this->studentGrids, $sessionGrids);
         }
     }
 
@@ -1040,23 +1044,70 @@ trait ManagesPoliciesHolidaysAndSettings
     public function toggleStudentGrid(string $gridKey): void
     {
         $this->enforceAuthenticatedRoleLock();
+        $this->error = null;
 
         $isAttCardUiToggle = str_starts_with($gridKey, 'att_card_');
-        if (! $isAttCardUiToggle && ! $this->userCanManagePolicies()) {
-            $this->error = 'Only a Partner or an authorized Manager can configure Student dashboard grid visibility.';
+        if (! $isAttCardUiToggle && ! $this->userCanManagePolicies() && ! in_array($this->previewRole, ['partner', 'manager'], true)) {
+            $this->error = 'Only a Partner or Manager can configure dashboard grid visibility.';
             return;
         }
 
         if (array_key_exists($gridKey, $this->studentGrids)) {
-            $this->studentGrids[$gridKey] = ! $this->studentGrids[$gridKey];
-            $status = $this->studentGrids[$gridKey] ? 'ACTIVE' : 'DEACTIVATED';
-            $this->savePolicySettings();
+            $this->studentGrids[$gridKey] = ! (bool) $this->studentGrids[$gridKey];
+            $status = $this->studentGrids[$gridKey] ? 'ACTIVE' : 'HIDDEN';
+
+            // Persist directly to session AND PartnerPolicy table so it never gets blocked by savePolicySettings()
+            session(['erp_student_grids_' . $this->firmSlug . '_' . Str::slug($this->partnerUnit) => $this->studentGrids]);
+
+            if (Schema::hasTable('partner_policies')) {
+                try {
+                    $firmModel = $this->resolveFirmModel();
+                    if ($firmModel) {
+                        $partnerUser = User::where('firm_id', $firmModel->id)->where('role', 'partner')->first();
+                        $partnerId = $partnerUser ? $partnerUser->id : (Auth::id() ?? 1);
+                        $pol = PartnerPolicy::firstOrNew([
+                            'firm_id'      => $firmModel->id,
+                            'partner_unit' => $this->partnerUnit,
+                        ]);
+                        if (! $pol->exists) {
+                            $pol->partner_id = $partnerId;
+                            $pol->office_start = $this->officeStart ?: '09:30';
+                            $pol->office_end = $this->officeEnd ?: '18:00';
+                            $pol->grace_minutes = (int) $this->graceMinutes;
+                            $pol->manager_conveyance_limit = (float) $this->managerConveyanceLimit;
+                            $pol->conveyance_late_days = (int) $this->conveyanceLateDays;
+                            $pol->manager_permissions = $this->managerPermissions;
+                        }
+                        $pol->student_grids = $this->studentGrids;
+                        $pol->save();
+                    }
+                } catch (\Throwable $e) {
+                    Log::debug($e->getMessage());
+                }
+            }
+
+            $friendlyLabels = [
+                'att_card_watch'         => 'Analog Watch Face',
+                'att_card_status_badge'  => 'Arrival Status Badge',
+                'att_card_gps_badge'     => 'GPS Auto-Capture Badge',
+                'att_card_cutoff_text'   => 'Grace Cutoff & Penalty Text',
+                'att_card_tier_chips'    => '3-Tier Time Window Chips',
+                'attendance_clock'       => 'Attendance Clock-in Card',
+                'live_gps_status'        => 'Live GPS Location Tag',
+                'leave_balance'          => 'Leave Balance Card',
+                'conveyance_tracker'     => 'Conveyance Tracker',
+                'payroll_allowance'      => 'Monthly Allowance Card',
+                'client_site_duty'       => 'Client Site Assignment',
+                'firm_notices'           => 'Firm Notices Card',
+            ];
+            $labelName = $friendlyLabels[$gridKey] ?? $gridKey;
+
             $this->dispatch('toast', [
-                'type'    => 'info',
-                'title'   => 'Dashboard Grid Toggled',
-                'message' => "Student widget '{$gridKey}' is now {$status}.",
+                'type'    => 'success',
+                'title'   => 'Attendance Card Updated',
+                'message' => "{$labelName} is now {$status}.",
             ]);
-            $this->notice = "Student profile grid '{$gridKey}' set to {$status}.";
+            $this->notice = "{$labelName} set to {$status}.";
         }
     }
 

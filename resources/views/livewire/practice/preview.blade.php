@@ -9,17 +9,23 @@
                class="fixed inset-y-0 left-0 z-50 flex w-[270px] flex-col bg-[#17191F] text-white shadow-xl transition-transform duration-200 lg:translate-x-0"
                aria-label="Practice navigation">
             <div class="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white p-1 overflow-hidden shadow-sm">
-                    @if(!empty($firm['logo_url']) && \App\Support\PwaAssets::imageExists($firm['logo_url']))
-                        <img src="{{ asset($firm['logo_url']) }}?v={{ \App\Support\PwaAssets::imageVersion($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="h-full w-full object-contain">
-                    @else
-                        <span class="flex h-full w-full items-center justify-center rounded-lg font-black text-xs text-white" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}">{{ strtoupper($firm['initials'] ?? 'CA') }}</span>
-                    @endif
-                </div>
-                <div class="min-w-0 flex-1">
-                    <div class="truncate text-sm font-extrabold tracking-tight">{{ $firm['short_code'] ?? 'CA Practice' }} <span class="text-[#FCDF02]">Workspace</span></div>
-                    <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Powered by DhakaWala ERP</div>
-                </div>
+                <button type="button"
+                        wire:click="setSection('dashboard')"
+                        @click="menuOpen = false"
+                        title="Go to Dashboard Overview"
+                        class="group flex min-w-0 flex-1 items-center gap-3 text-left rounded-xl transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 cursor-pointer">
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white p-1 overflow-hidden shadow-sm transition group-hover:scale-105 group-hover:border-[#FCDF02]">
+                        @if(!empty($firm['logo_url']) && \App\Support\PwaAssets::imageExists($firm['logo_url']))
+                            <img src="{{ asset($firm['logo_url']) }}?v={{ \App\Support\PwaAssets::imageVersion($firm['logo_url']) }}" alt="{{ $firm['name'] }}" class="h-full w-full object-contain">
+                        @else
+                            <span class="flex h-full w-full items-center justify-center rounded-lg font-black text-xs text-white" style="background-color: {{ $firm['primary_color'] ?? '#0D9488' }}">{{ strtoupper($firm['initials'] ?? 'CA') }}</span>
+                        @endif
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="truncate text-sm font-extrabold tracking-tight text-white group-hover:text-[#FCDF02] transition">{{ $firm['short_code'] ?? 'CA Practice' }} <span class="text-[#FCDF02]">Workspace</span></div>
+                        <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Powered by DhakaWala ERP</div>
+                    </div>
+                </button>
                 <button type="button" @click="menuOpen = false" class="rounded-lg p-2 text-slate-300 hover:bg-white/10 lg:hidden" aria-label="Close navigation"><i data-lucide="x" class="h-4 w-4"></i></button>
             </div>
 
@@ -146,7 +152,10 @@
             <header class="sticky top-0 z-30 flex min-h-[68px] sm:min-h-[76px] items-center gap-2 sm:gap-3 border-b border-slate-200 bg-white/95 px-3 backdrop-blur sm:px-7 lg:px-9">
                 <button type="button" @click="menuOpen = true" class="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden" aria-label="Open navigation"><i data-lucide="menu" class="h-5 w-5"></i></button>
                 <div class="min-w-0 flex-1">
-                    <div class="truncate text-[11px] font-medium text-slate-400">{{ $firm ? $firm['name'] : 'Practice' }} <span class="mx-1">/</span> {{ $partnerUnit }} <span class="mx-1">/</span> <span class="text-amber-800">{{ $sectionLabel }}</span></div>
+                    <div class="truncate text-[11px] font-medium text-slate-400">
+                        <button type="button" wire:click="setSection('dashboard')" class="hover:text-slate-700 hover:underline cursor-pointer transition" title="Go to Dashboard">{{ $firm ? $firm['name'] : 'Practice' }}</button>
+                        <span class="mx-1">/</span> {{ $partnerUnit }} <span class="mx-1">/</span> <span class="text-amber-800">{{ $sectionLabel }}</span>
+                    </div>
                     <h1 class="truncate text-lg font-extrabold tracking-tight sm:text-xl">{{ $sectionLabel }}</h1>
                 </div>
                 @if($previewRole !== 'student' && (($pendingLeaveCount ?? 0) > 0 || ($pendingClaimCount ?? 0) > 0))

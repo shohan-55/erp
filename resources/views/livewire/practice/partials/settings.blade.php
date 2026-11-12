@@ -466,9 +466,106 @@
         @endif
     </section>
 
+    <!-- Customize Attendance Card (No-Code Checkboxes) directly visible in Settings Tab 1 -->
+    <section class="lg:col-span-2 rounded-2xl border-2 border-teal-200 bg-white p-5 shadow-sm sm:p-6">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+            <div class="flex items-start gap-3">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#17191F] text-[#FCDF02]">
+                    <i data-lucide="clock" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <p class="text-[10px] font-extrabold uppercase tracking-widest text-teal-800">CUSTOMIZE ATTENDANCE CARD</p>
+                    <h3 class="mt-0.5 text-base font-extrabold text-slate-900">Attendance Grid Watch &amp; Text Display Checkboxes</h3>
+                    <p class="mt-0.5 text-xs text-slate-500">Check or uncheck any item below to show or hide it on the Dashboard Attendance Check-in Card without editing code.</p>
+                </div>
+            </div>
+            <button type="button" wire:click="setSection('dashboard')" class="inline-flex items-center gap-1.5 rounded-xl border border-teal-300 bg-teal-50 px-3 py-1.5 text-xs font-extrabold text-teal-900 hover:bg-teal-100 transition cursor-pointer">
+                <i data-lucide="eye" class="h-3.5 w-3.5"></i> View on Dashboard →
+            </button>
+        </div>
+
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            @foreach([
+                'att_card_watch'        => ['Show Analog Watch Face', 'Live analog clock dial', true],
+                'att_card_status_badge' => ['Show Status Badge', 'Right Time / Late pill', true],
+                'att_card_gps_badge'    => ['Show GPS Auto-Capture Badge', 'GPS Auto-Capture Active pill', false],
+                'att_card_cutoff_text'  => ['Show Grace & Penalty Text', 'Cutoff & deduction text', false],
+                'att_card_tier_chips'   => ['Show 3-Tier Time Chips', 'Right Time / Late chips', false],
+            ] as $optKey => $optMeta)
+                @php $isChecked = (bool) ($studentGrids[$optKey] ?? $optMeta[2]); @endphp
+                <label wire:key="tab1-att-opt-{{ $optKey }}"
+                       class="flex cursor-pointer items-start gap-2.5 rounded-2xl border-2 p-3 transition {{ $isChecked ? 'border-emerald-400 bg-emerald-50/50 shadow-2xs' : 'border-slate-200 bg-slate-50/70 hover:border-slate-300' }}">
+                    <input type="checkbox"
+                           wire:click="toggleStudentGrid('{{ $optKey }}')"
+                           @checked($isChecked)
+                           class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                    <div class="min-w-0 flex-1">
+                        <span class="block text-xs font-extrabold text-slate-900">{{ $optMeta[0] }}</span>
+                        <span class="mt-0.5 block text-[10px] text-slate-500">{{ $optMeta[1] }}</span>
+                        <span class="mt-1.5 inline-block rounded px-1.5 py-0.5 text-[9px] font-black uppercase {{ $isChecked ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600' }}">
+                            {{ $isChecked ? 'ACTIVE' : 'OFF' }}
+                        </span>
+                    </div>
+                </label>
+            @endforeach
+        </div>
+    </section>
+
 </div>
 
-<div x-show="activeSettingsTab === 'permissions'" x-cloak class="grid gap-5 lg:grid-cols-2">
+<div x-show="activeSettingsTab === 'permissions'" x-cloak class="space-y-5">
+    <!-- Dedicated Customize Attendance Card Section inside Settings (#Issue01 & #Issue02) -->
+    <section class="rounded-2xl border-2 border-teal-200 bg-white p-5 shadow-sm sm:p-6">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
+            <div class="flex items-start gap-3">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#17191F] text-[#FCDF02]">
+                    <i data-lucide="clock" class="h-5 w-5"></i>
+                </div>
+                <div>
+                    <p class="text-[10px] font-extrabold uppercase tracking-widest text-teal-800">NO-CODE ATTENDANCE GRID CUSTOMIZER</p>
+                    <h3 class="mt-0.5 text-base font-extrabold text-slate-900">Customize Attendance Card (Watch &amp; Text Elements)</h3>
+                    <p class="mt-0.5 text-xs text-slate-500">Check or uncheck which items appear on the Dashboard Attendance Check-in Card without modifying code. Changes save and activate immediately.</p>
+                </div>
+            </div>
+            <button type="button" wire:click="setSection('dashboard')" class="inline-flex items-center gap-1.5 rounded-xl border border-teal-300 bg-teal-50 px-3 py-1.5 text-xs font-extrabold text-teal-900 hover:bg-teal-100 transition cursor-pointer">
+                <i data-lucide="eye" class="h-3.5 w-3.5"></i> Preview on Dashboard →
+            </button>
+        </div>
+
+        @php
+            $attCardOptions = [
+                'att_card_watch'        => ['Show Analog Watch Face', 'Displays the live SVG analog watch dial beside the digital Dhaka time', true],
+                'att_card_status_badge' => ['Show Arrival Status Badge', 'Displays the Right Time / Late / Late Present status badge at the top of the card', true],
+                'att_card_gps_badge'    => ['Show GPS Auto-Capture Badge', 'Displays the "GPS Auto-Capture Active" pill beside the status badge', false],
+                'att_card_cutoff_text'  => ['Show Grace & Penalty Text', 'Displays the detailed grace period cutoff and salary deduction paragraph', false],
+                'att_card_tier_chips'   => ['Show 3-Tier Time Window Chips', 'Displays the Right Time / Late / Late Present cutoff chips at the bottom of the card', false],
+            ];
+        @endphp
+
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            @foreach($attCardOptions as $optKey => $optMeta)
+                @php $isChecked = (bool) ($studentGrids[$optKey] ?? $optMeta[2]); @endphp
+                <label wire:key="att-custom-opt-{{ $optKey }}"
+                       class="flex cursor-pointer items-start gap-3 rounded-2xl border-2 p-3.5 transition {{ $isChecked ? 'border-emerald-400 bg-emerald-50/50 shadow-2xs' : 'border-slate-200 bg-slate-50/70 hover:border-slate-300' }}">
+                    <input type="checkbox"
+                           wire:click="toggleStudentGrid('{{ $optKey }}')"
+                           @checked($isChecked)
+                           class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs font-extrabold text-slate-900">{{ $optMeta[0] }}</span>
+                            <span class="rounded px-1.5 py-0.5 text-[9px] font-black uppercase {{ $isChecked ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600' }}">
+                                {{ $isChecked ? 'ON' : 'OFF' }}
+                            </span>
+                        </div>
+                        <p class="mt-1 text-[11px] leading-snug text-slate-500">{{ $optMeta[1] }}</p>
+                    </div>
+                </label>
+            @endforeach
+        </div>
+    </section>
+
+    <div class="grid gap-5 lg:grid-cols-2">
     <!-- Student Dashboard Grids: Active/Deactive Controls -->
     <section class="rounded-2xl border border-[#E8EAF0] bg-white p-5 shadow-sm sm:p-6">
         <div class="flex items-start gap-3">
@@ -484,18 +581,13 @@
         <div class="mt-5 space-y-2.5">
             @php
                 $gridLabels = [
-                    'attendance_clock'       => ['Attendance Clock-in Card', 'Allows GPS check-in/out and On-Duty button'],
-                    'att_card_watch'         => ['⌚ Attendance Card: Analog Watch Face', 'Displays the live luxury analog watch dial on the check-in card'],
-                    'att_card_status_badge'  => ['🏷️ Attendance Card: Arrival Status Badge', 'Shows the Right Time / Late / Late Present status pill above the clock'],
-                    'att_card_gps_badge'     => ['📍 Attendance Card: GPS Auto-Capture Badge', 'Shows the "GPS Auto-Capture Active" pill on the check-in card'],
-                    'att_card_cutoff_text'   => ['📝 Attendance Card: Grace Cutoff & Penalty Text', 'Shows the detailed grace period and salary deduction explanation line'],
-                    'att_card_tier_chips'    => ['📊 Attendance Card: 3-Tier Time Window Chips', 'Shows the Right Time / Late / Late Present cutoff chips below the clock'],
-                    'live_gps_status'        => ['Live GPS Location Tag', 'Shows current GPS address & coordinates'],
-                    'leave_balance'          => ['Leave Balance & Quota Card', 'Displays annual, sick, and ICAB study days'],
-                    'conveyance_tracker'     => ['Conveyance Expense Tracker', 'Displays monthly conveyance claim ledger'],
-                    'payroll_allowance'      => ['Monthly Allowance & Payroll Card', 'Shows automatic stipend & approved conveyance on student dashboard'],
-                    'client_site_duty'       => ['Client Site Assignment Tag', 'Displays assigned client audit site'],
-                    'firm_notices'           => ['Firm Notices & Policy Alert', 'Displays partner policy announcements'],
+                    'attendance_clock'   => ['Attendance Clock-in Card', 'Allows GPS check-in/out and On-Duty button'],
+                    'live_gps_status'    => ['Live GPS Location Tag', 'Shows current GPS address & coordinates'],
+                    'leave_balance'      => ['Leave Balance & Quota Card', 'Displays annual, sick, and ICAB study days'],
+                    'conveyance_tracker' => ['Conveyance Expense Tracker', 'Displays monthly conveyance claim ledger'],
+                    'payroll_allowance'  => ['Monthly Allowance & Payroll Card', 'Shows automatic stipend & approved conveyance on student dashboard'],
+                    'client_site_duty'   => ['Client Site Assignment Tag', 'Displays assigned client audit site'],
+                    'firm_notices'       => ['Firm Notices & Policy Alert', 'Displays partner policy announcements'],
                 ];
             @endphp
 
@@ -505,9 +597,9 @@
                         <p class="font-bold text-slate-800">{{ $meta[0] }}</p>
                         <p class="text-[10px] text-slate-500">{{ $meta[1] }}</p>
                     </div>
-                    @if($previewRole === 'partner' || ($canManagePolicies ?? false))
+                    @if($previewRole === 'partner' || ($canManagePolicies ?? false) || $previewRole === 'manager')
                         <button type="button" wire:click="toggleStudentGrid('{{ $key }}')"
-                                class="rounded-lg px-2.5 py-1 text-[11px] font-extrabold transition {{ ($studentGrids[$key] ?? true) ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600' }}">
+                                class="rounded-lg px-2.5 py-1 text-[11px] font-extrabold transition cursor-pointer {{ ($studentGrids[$key] ?? true) ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600' }}">
                             {{ ($studentGrids[$key] ?? true) ? 'ACTIVE' : 'DEACTIVE' }}
                         </button>
                     @else
@@ -568,6 +660,7 @@
             @endforeach
         </div>
     </section>
+    </div>
 </div>
 
 <div x-show="activeSettingsTab === 'holidays'" x-cloak class="space-y-5">
